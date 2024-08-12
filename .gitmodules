@@ -1,0 +1,6 @@
+[submodule "repos/ustring"]
+	path = repos/ustring
+	url = git@github.com:BjoernBoss/ustring.git
+[submodule "repos/wasgen"]
+	path = repos/wasgen
+	url = git@github.com:BjoernBoss/wasgen.git
