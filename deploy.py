@@ -5,7 +5,14 @@ import os
 
 # compile the script and export the '_test' function
 print('compiling...')
-if os.system('em++ -std=c++20 --js-library ./interface.js main.cpp -o server/main.html -s EXPORTED_FUNCTIONS=_test -O1 -DEMSCRIPTEN_COMPILATION') != 0:
+if os.system('em++ -std=c++20'
+			 ' --js-library ./interface/emscripten-interface.js'
+			 ' --pre-js ./interface/emscripten-pre-js.js'
+			 ' -Irepos'
+			 ' main.cpp'
+			 ' interface/native-interface.cpp'
+			 ' interface/wasm-interface.cpp'
+			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION') != 0:
 	exit(1)
 print('compiled')
 

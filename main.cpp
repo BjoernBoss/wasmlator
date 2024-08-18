@@ -1,39 +1,40 @@
-#include <wasgen/module.h>
 #include <wasgen/wasm.h>
 #include <wasgen/text-writer.h>
 
+#include "interface/interface.h"
+
 #include <iostream>
 
-#ifndef EMSCRIPTEN_COMPILATION
-int testCall() {
+extern "C" int test() {
 	return 50;
 }
-#else
-extern "C" int testCall();
-#endif
 
-struct TStruct {
-	int i = 0;
-	float f = 0.0f;
-};
-
-extern "C" int test(TStruct& t) {
-	int x = t.i + int(t.f + 0.5f);
-
-	wasm::Module module;
-	module.importFunction({ u8"env", u8"name" }, u8"test", wasm::fn::i32Function);
-
-	int res = testCall();
-	return res + x + sizeof(TStruct);
-}
-
-#ifndef EMSCRIPTEN_COMPILATION
 int main() {
-	std::cout << "Hello, World!" << std::endl;
+	{
+		using I = wasm::Inst<TextWriter>;
 
-	TextWriter state;
-	str::OutLn(wasm::Memory(state, u8"test-memory", wasm::Limit(state, 586)).written.out);
+		wasm::Module<TextWriter> _module{ TextWriter{} };
 
+		wasm::Prototype i32_i32 = _module.prototype(u8"i32_32", { { u8"v", wasm::Type::i32 } }, { wasm::Type::i32 });
+
+		wasm::Function _fn = _module.function(u8"abc_def", i32_i32, wasm::Export{ u8"test" });
+		wasm::Sink<TextWriter> _sink = _module.sink(_fn);
+		wasm::Memory<TextWriter> _mem = _module.memory(u8"def-memory", wasm::Limit{ 1024 }, wasm::Import{ u8"env", u8"primary-memory" });
+
+		_sink[I::I32::Const(50)];
+		//_sink[wasm::Inst<TextWriter>::Add()];
+		{
+			wasm::IfThen _if{ _sink };
+
+			_if.otherwise();
+
+			_if.close();
+		}
+		_sink[I::I32::Load8(_mem, 0)];
+		//str::PrintLn(_fn);
+	}
+
+	env::log(u8"Hello, from this log!");
+	env::fail(u8"failure!");
 	return 0;
 }
-#endif
