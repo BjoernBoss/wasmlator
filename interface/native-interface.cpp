@@ -1,13 +1,13 @@
 #include "interface.h"
 
-#include <ustring/str.h>
+#include <ustring/ustring.h>
 
 #ifndef EMSCRIPTEN_COMPILATION
 
-void env::log(const std::u8string_view& str) {
+void _env::u8log(const std::u8string_view& str) {
 	str::PrintLn(str);
 }
-void env::fail(const std::u8string_view& str) {
+void _env::u8fail(const std::u8string_view& str) {
 	str::FmtLn(u8"Exception: {}", str);
 	exit(1);
 }

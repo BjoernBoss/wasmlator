@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace env {
-	void log(const std::u8string_view& str);
-	void fail [[noreturn]] (const std::u8string_view& str);
+namespace _env {
+	void u8log(const std::u8string_view& str);
+	void u8fail [[noreturn]] (const std::u8string_view& str);
 }
