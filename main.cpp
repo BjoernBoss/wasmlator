@@ -1,6 +1,7 @@
 #include <wasgen/wasm/wasm.h>
 #include <wasgen/writer/text-writer.h>
 #include "util/logging.h"
+#include "env/env-process.h"
 
 extern "C" int test() {
 	return 50;
@@ -8,6 +9,12 @@ extern "C" int test() {
 
 int main() {
 	writer::TextWriter _writer;
+
+	{
+		env::Process _proc = env::Process::Create(u8"test-proc");
+
+
+	}
 
 	{
 		namespace I = wasm::inst;
@@ -49,6 +56,11 @@ int main() {
 
 			_sink[I::I32::Load8(_mem, 0)];
 
+			_sink[I::F32::Min()];
+			_sink[I::U32::Expand()];
+
+			_sink[I::U64::Const(12315)];
+			_sink[I::U64::Equal()];
 
 			_if.close();
 		}
