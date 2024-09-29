@@ -1,7 +1,7 @@
 #include <wasgen/wasm/wasm.h>
 #include <wasgen/writer/text-writer.h>
 #include "util/logging.h"
-#include "env/env-process.h"
+#include "env/memory/env-memory.h"
 
 extern "C" int test() {
 	return 50;
