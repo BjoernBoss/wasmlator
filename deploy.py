@@ -3,22 +3,39 @@
 import http.server
 import os
 
-# compile the script and export the '_test' function
+# compile the script and export the 'main' and 'MemoryPerformLookup' function
 print('compiling...')
 if os.system('em++ -std=c++20'
-			 ' --js-library ./interface/emscripten-interface.js'
-			 ' --pre-js ./interface/emscripten-pre-js.js'
 			 ' -Irepos'
 			 ' main.cpp'
 			 ' repos/wasgen/wasm/wasm-module.cpp'
-			 ' repos/wasgen/wasm/wasm/wasm-target.cpp'
-			 ' repos/wasgen/wasm/wasm/wasm-sink.cpp'
-			 ' repos/wasgen/wasm/writer/text-base.cpp'
-			 ' repos/wasgen/wasm/writer/text-module.cpp'
-			 ' repos/wasgen/wasm/writer/text-sink.cpp'
+			 ' repos/wasgen/wasm/wasm-target.cpp'
+			 ' repos/wasgen/wasm/wasm-sink.cpp'
+			 ' --js-library ./interface/emscripten-interface.js'
+			 ' --pre-js ./interface/emscripten-pre-js.js'
 			 ' interface/native-interface.cpp'
 			 ' interface/wasm-interface.cpp'
-			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION') != 0:
+
+			 ' repos/wasgen/writer/text/text-base.cpp'
+			 ' repos/wasgen/writer/text/text-module.cpp'
+			 ' repos/wasgen/writer/text/text-sink.cpp'
+
+			 ' repos/wasgen/writer/binary/binary-base.cpp'
+			 ' repos/wasgen/writer/binary/binary-module.cpp'
+			 ' repos/wasgen/writer/binary/binary-sink.cpp'
+
+			 ' --js-library env/context/bridge-context-js-imports.js'
+			 ' --pre-js env/context/bridge-context-js-predefined.js'
+			 ' env/context/bridge-context.cpp'
+			 ' env/context/env-context.cpp'
+
+			 ' --js-library env/memory/bridge-memory-js-imports.js'
+			 ' --pre-js env/memory/bridge-memory-js-predefined.js'
+			 ' env/memory/bridge-memory.cpp'
+			 ' env/memory/env-memory.cpp'
+
+			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION'
+			 ' -sEXPORTED_FUNCTIONS=_main,_MemoryPerformLookup') != 0:
 	exit(1)
 print('compiled')
 

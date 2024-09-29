@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../env-common.h"
+#include "../context/env-context.h"
 
 namespace env {
 	namespace bridge {
@@ -21,6 +22,7 @@ namespace env {
 		wasm::Function readFunction;
 		wasm::Function writeFunction;
 		wasm::Function executeFunction;
+		wasm::Prototype ifElsePrototype;
 	};
 	enum class MemoryType : uint8_t {
 		u8To32,
@@ -68,22 +70,24 @@ namespace env {
 		};
 
 	private:
-		env::Environment* pEnvironment{ 0 };
+		env::Context* pContext{ 0 };
 		uint32_t pCacheCount{ 0 };
 		uint32_t pReadCache{ 0 };
 		uint32_t pWriteCache{ 0 };
 		uint32_t pExecuteCache{ 0 };
 		uint32_t pCachePages{ 0 };
-		std::u8string pRootModuleName;
+
+	public:
+		Memory(env::Context& context, uint32_t cacheSize);
+		Memory(env::Memory&&) = delete;
+		Memory(const env::Memory&) = delete;
 
 	private:
-		Memory(env::Environment& environment, std::u8string moduleName, uint32_t cacheSize);
-
-	private:
+		void fCheckCache(uint32_t cache) const;
 		void fMakeAddress(wasm::Sink& sink, const env::MemoryState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const;
 		void fMakeLookup(const wasm::Memory& caches, const wasm::Function& function, const wasm::Function& lookup, uint32_t uasge) const;
 		void fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
-		void fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
+		void fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeAccess(wasm::Module& mod, const env::MemoryState& state, const wasm::Prototype& readPrototype, const wasm::Prototype& writePrototype, std::u8string_view name, env::MemoryType type) const;
 
@@ -118,7 +122,7 @@ namespace env {
 		env::MemoryState setupCoreModule(wasm::Module& mod) const;
 		env::MemoryState setupImports(wasm::Module& mod) const;
 		void makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
-		void makeWrite(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
+		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void makeExecute(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 
 	public:
