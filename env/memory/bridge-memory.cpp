@@ -1,11 +1,20 @@
 #include "bridge-memory.h"
 
-extern "C" env::bridge::Memory::LookupOutput MemoryPerformLookup(env::bridge::Memory::LookupInput input) {
-	return env::bridge::Memory::Lookup(input);
+static env::bridge::Memory::LookupOutput LastResult = { 0 };
+
+extern "C" uint64_t MemoryPerformLookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	LastResult = env::bridge::Memory::Lookup(self, address, size, usage);
+	return LastResult.address;
+}
+extern "C" uint32_t MemoryLastLookupOffset() {
+	return LastResult.offset;
+}
+extern "C" uint32_t MemoryLastLookupSize() {
+	return LastResult.size;
 }
 
-env::bridge::Memory::LookupOutput env::bridge::Memory::Lookup(Memory::LookupInput input) {
-	env::MemoryRegion reg = reinterpret_cast<env::Memory*>(input.memory)->fLookup(input.address, input.size, uint32_t(input.usage));
+env::bridge::Memory::LookupOutput env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	env::MemoryRegion reg = reinterpret_cast<env::Memory*>(self)->fLookup(address, size, usage);
 	return { reg.address, reg.physical, reg.size };
 }
 

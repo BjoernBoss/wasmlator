@@ -4,19 +4,13 @@
 
 namespace env::bridge {
 	struct Memory {
-		struct LookupInput {
-			uint64_t memory;
-			uint64_t address;
-			uint32_t size;
-			uint32_t usage;
-		};
 		struct LookupOutput {
 			uint64_t address;
 			uint32_t offset;
 			uint32_t size;
 		};
 
-		static Memory::LookupOutput Lookup(Memory::LookupInput input);
+		static LookupOutput Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
 
 		static uint32_t Readi32Fromu8(env::id_t id, env::addr_t address);
 		static uint32_t Readi32Fromi8(env::id_t id, env::addr_t address);

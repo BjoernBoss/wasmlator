@@ -35,7 +35,10 @@ if os.system('em++ -std=c++20'
 			 ' env/memory/env-memory.cpp'
 
 			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION'
-			 ' -sEXPORTED_FUNCTIONS=_main,_MemoryPerformLookup') != 0:
+			 ' -sEXPORTED_FUNCTIONS=_main,_MemoryPerformLookup,_MemoryLastLookupOffset,_MemoryLastLookupSize'
+
+			# ensure exported functions can use i64, instead of it being split into two i32's
+			 ' -sWASM_BIGINT') != 0:
 	exit(1)
 print('compiled')
 
