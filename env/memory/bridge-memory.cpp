@@ -1,26 +1,41 @@
 #include "bridge-memory.h"
 
-static env::bridge::Memory::LookupOutput LastResult = { 0 };
-
+extern "C" uint32_t MemoryPerformMMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	return (env::bridge::Memory::MMap(self, address, size, usage) ? 1 : 0);
+}
 extern "C" uint64_t MemoryPerformLookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	LastResult = env::bridge::Memory::Lookup(self, address, size, usage);
-	return LastResult.address;
+	env::bridge::Memory::Lookup(self, address, size, usage);
+	return env::bridge::Memory::LookupAddress(self);
 }
-extern "C" uint32_t MemoryLastLookupOffset() {
-	return LastResult.offset;
+extern "C" uint32_t MemoryLastLookupOffset(uint64_t self) {
+	return env::bridge::Memory::LookupPhysical(self);
 }
-extern "C" uint32_t MemoryLastLookupSize() {
-	return LastResult.size;
+extern "C" uint32_t MemoryLastLookupSize(uint64_t self) {
+	return env::bridge::Memory::LookupSize(self);
 }
 
-env::bridge::Memory::LookupOutput env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	env::MemoryRegion reg = reinterpret_cast<env::Memory*>(self)->fLookup(address, size, usage);
-	return { reg.address, reg.physical, reg.size };
+bool env::bridge::Memory::MMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	return reinterpret_cast<env::Memory*>(self)->fMemMap(address, size, usage);
+}
+void env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	reinterpret_cast<env::Memory*>(self)->fLookup(address, size, usage);
+}
+uint64_t env::bridge::Memory::LookupAddress(uint64_t self) {
+	return reinterpret_cast<env::Memory*>(self)->fLastLookup().address;
+}
+uint32_t env::bridge::Memory::LookupSize(uint64_t self) {
+	return reinterpret_cast<env::Memory*>(self)->fLastLookup().size;
+}
+uint32_t env::bridge::Memory::LookupPhysical(uint64_t self) {
+	return reinterpret_cast<env::Memory*>(self)->fLastLookup().physical;
 }
 
 #ifdef EMSCRIPTEN_COMPILATION
 
 extern "C" {
+	uint32_t jsMemoryExpandPhysical(uint32_t id, uint32_t size);
+	void jsMemoryMovePhysical(uint32_t id, uint32_t dest, uint32_t source, uint32_t size);
+	void jsFlushCaches(uint32_t id);
 	uint32_t jsMemoryReadi32Fromu8(uint32_t id, uint64_t address);
 	uint32_t jsMemoryReadi32Fromi8(uint32_t id, uint64_t address);
 	uint32_t jsMemoryReadi32Fromu16(uint32_t id, uint64_t address);
@@ -45,6 +60,16 @@ extern "C" {
 	uint64_t jsMemoryExecutei64(uint32_t id, uint64_t address);
 	float jsMemoryExecutef32(uint32_t id, uint64_t address);
 	double jsMemoryExecutef64(uint32_t id, uint64_t address);
+}
+
+bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t size) {
+	return (jsMemoryExpandPhysical(id, size) == 0);
+}
+void env::bridge::Memory::MovePhysical(env::id_t id, env::physical_t dest, env::physical_t source, uint32_t size) {
+	jsMemoryMovePhysical(id, dest, source, size);
+}
+void env::bridge::Memory::FlushCaches(env::id_t id) {
+	jsFlushCaches(id);
 }
 
 uint32_t env::bridge::Memory::Readi32Fromu8(env::id_t id, env::addr_t address) {
@@ -125,6 +150,12 @@ double env::bridge::Memory::Executef64(env::id_t id, env::addr_t address) {
 #else
 
 // #error Currently not supported
+
+bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t size) {
+	return false;
+}
+void env::bridge::Memory::MovePhysical(env::id_t id, env::physical_t dest, env::physical_t source, uint32_t size) {}
+void env::bridge::Memory::FlushCaches(env::id_t id) {}
 
 uint32_t env::bridge::Memory::Readi32Fromu8(env::id_t id, env::addr_t address) {
 	return {};

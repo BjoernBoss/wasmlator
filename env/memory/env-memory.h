@@ -11,17 +11,13 @@ namespace env {
 	using addr_t = uint64_t;
 	using physical_t = uint32_t;
 
-	struct MemoryRegion {
-		env::addr_t address{ 0 };
-		env::physical_t physical{ 0 };
-		uint32_t size{ 0 };
-	};
 	struct MemoryState {
 		wasm::Memory memory;
 		wasm::Memory caches;
 		wasm::Function readFunction;
 		wasm::Function writeFunction;
 		wasm::Function executeFunction;
+		wasm::Function mmapFunction;
 		wasm::Prototype ifElsePrototype;
 	};
 	enum class MemoryType : uint8_t {
@@ -40,25 +36,19 @@ namespace env {
 		f32,
 		f64
 	};
+	struct MemoryUsage {
+		static constexpr uint32_t Read = 0x01;
+		static constexpr uint32_t Write = 0x02;
+		static constexpr uint32_t Execute = 0x04;
+	};
 
 	class Memory {
 		friend struct bridge::Memory;
 	private:
-		struct Usage {
-			static constexpr uint32_t Read = 0x01;
-			static constexpr uint32_t Write = 0x02;
-			static constexpr uint32_t Execute = 0x04;
-		};
-		struct Region : public env::MemoryRegion {
-			uint32_t usage{ 0 };
-			struct {
-				env::physical_t prev = 0;
-				env::physical_t next = 0;
-			} physList;
-			struct {
-				env::physical_t prev = 0;
-				env::physical_t next = 0;
-			} addrList;
+		struct MemLookup {
+			env::addr_t address{ 0 };
+			env::physical_t physical{ 0 };
+			uint32_t size{ 0 };
 		};
 		struct MemCache {
 			env::addr_t address{ 0 };
@@ -68,6 +58,17 @@ namespace env {
 			uint32_t size4{ 0 };
 			uint32_t size8{ 0 };
 		};
+		struct MemPhysical {
+			env::physical_t physical = 0;
+			uint32_t size = 0;
+			bool used = false;
+		};
+		struct MemVirtual {
+			env::addr_t address = 0;
+			env::physical_t physical = 0;
+			uint32_t size = 0;
+			uint32_t usage = 0;
+		};
 
 	private:
 		env::Context* pContext{ 0 };
@@ -76,6 +77,9 @@ namespace env {
 		uint32_t pWriteCache{ 0 };
 		uint32_t pExecuteCache{ 0 };
 		uint32_t pCachePages{ 0 };
+		std::vector<MemPhysical> pPhysical;
+		std::vector<MemVirtual> pVirtual;
+		mutable MemLookup pLastLookup;
 
 	public:
 		Memory(env::Context& context, uint32_t cacheSize);
@@ -85,14 +89,23 @@ namespace env {
 	private:
 		void fCheckCache(uint32_t cache) const;
 		void fMakeAddress(wasm::Sink& sink, const env::MemoryState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const;
-		void fMakeLookup(const wasm::Memory& caches, const wasm::Function& function, const wasm::Function& lookup, const wasm::Function& lookupOffset, const wasm::Function& lookupSize, uint32_t uasge) const;
+		void fMakeLookup(const wasm::Memory& caches, const wasm::Function& function, const wasm::Function& lookup, const wasm::Function& lookupPhysical, const wasm::Function& lookupSize, uint32_t uasge) const;
 		void fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeAccess(wasm::Module& mod, const env::MemoryState& state, const wasm::Prototype& readPrototype, const wasm::Prototype& writePrototype, std::u8string_view name, env::MemoryType type) const;
 
 	private:
-		env::MemoryRegion fLookup(env::addr_t address, uint32_t size, uint32_t usage);
+		size_t fLookupVirtual(env::addr_t address) const;
+		size_t fLookupPhysical(env::physical_t physical) const;
+		void fLookup(env::addr_t address, uint32_t size, uint32_t usage) const;
+		bool fMemMap(env::addr_t address, uint32_t size, uint32_t usage);
+
+	private:
+		const MemLookup& fLastLookup() const;
+		bool fExpandPhysical(uint32_t size) const;
+		void fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const;
+		void fFlushCaches() const;
 		uint32_t fReadi32Fromi8(env::addr_t address) const;
 		uint32_t fReadi32Fromu8(env::addr_t address) const;
 		uint32_t fReadi32Fromi16(env::addr_t address) const;
@@ -124,6 +137,9 @@ namespace env {
 		void makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void makeExecute(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
+
+	public:
+		bool mmap(env::addr_t address, uint32_t size, uint32_t usage);
 
 	public:
 		template <class Type>

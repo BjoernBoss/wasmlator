@@ -1,4 +1,13 @@
-
+function jsMemoryExpandPhysical(id, size) {
+	return _env.core[id].mem_expand_physical(size);
+}
+function jsMemoryMovePhysical(id, dest, source, size) {
+	return _env.core[id].mem_move_physical(dest, source, size);
+}
+function jsFlushCaches(id) {
+	return _env.core[id].mem_flush_caches();
+}
+	
 function jsMemoryReadi32Fromu8(id, address) {
 	return _env.core[id].mem_read_u8_i32(address);
 }
@@ -76,6 +85,9 @@ function jsMemoryExecutef64(id, address) {
 
 
 mergeInto(LibraryManager.library, {
+	jsMemoryExpandPhysical,
+	jsMemoryMovePhysical,
+	jsFlushCaches,
 	jsMemoryReadi32Fromu8,
 	jsMemoryReadi32Fromi8,
 	jsMemoryReadi32Fromu16,

@@ -3,9 +3,10 @@
 import http.server
 import os
 
-# compile the script and export the 'main' and 'MemoryPerformLookup' function
+# compile the script and export the relevant functions and main function
 print('compiling...')
 if os.system('em++ -std=c++20'
+			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION'
 			 ' -Irepos'
 			 ' main.cpp'
 			 ' repos/wasgen/wasm/wasm-module.cpp'
@@ -34,8 +35,12 @@ if os.system('em++ -std=c++20'
 			 ' env/memory/bridge-memory.cpp'
 			 ' env/memory/env-memory.cpp'
 
-			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION'
-			 ' -sEXPORTED_FUNCTIONS=_main,_MemoryPerformLookup,_MemoryLastLookupOffset,_MemoryLastLookupSize'
+			 ' -sEXPORTED_FUNCTIONS='
+			 '_main,'
+			 '_MemoryPerformLookup,'
+			 '_MemoryLastLookupOffset,'
+			 '_MemoryLastLookupSize,'
+			 '_MemoryPerformMMap'
 
 			# ensure exported functions can use i64, instead of it being split into two i32's
 			 ' -sWASM_BIGINT') != 0:
