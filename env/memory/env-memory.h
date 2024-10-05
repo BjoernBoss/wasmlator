@@ -1,55 +1,12 @@
 #pragma once
 
-#include "../env-common.h"
-#include "../context/env-context.h"
+#include "env-memory-common.h"
+#include "env-memory-mapper.h"
 
 namespace env {
-	namespace bridge {
-		struct Memory;
-	}
-
-	using addr_t = uint64_t;
-	using physical_t = uint32_t;
-
-	struct MemoryState {
-		wasm::Memory memory;
-		wasm::Memory caches;
-		wasm::Function readFunction;
-		wasm::Function writeFunction;
-		wasm::Function executeFunction;
-		wasm::Function mmapFunction;
-		wasm::Prototype ifElsePrototype;
-	};
-	enum class MemoryType : uint8_t {
-		u8To32,
-		u16To32,
-		u8To64,
-		u16To64,
-		u32To64,
-		i8To32,
-		i16To32,
-		i8To64,
-		i16To64,
-		i32To64,
-		i32,
-		i64,
-		f32,
-		f64
-	};
-	struct MemoryUsage {
-		static constexpr uint32_t Read = 0x01;
-		static constexpr uint32_t Write = 0x02;
-		static constexpr uint32_t Execute = 0x04;
-	};
-
 	class Memory {
 		friend struct bridge::Memory;
 	private:
-		struct MemLookup {
-			env::addr_t address{ 0 };
-			env::physical_t physical{ 0 };
-			uint32_t size{ 0 };
-		};
 		struct MemCache {
 			env::addr_t address{ 0 };
 			env::physical_t physical{ 0 };
@@ -58,28 +15,15 @@ namespace env {
 			uint32_t size4{ 0 };
 			uint32_t size8{ 0 };
 		};
-		struct MemPhysical {
-			env::physical_t physical = 0;
-			uint32_t size = 0;
-			bool used = false;
-		};
-		struct MemVirtual {
-			env::addr_t address = 0;
-			env::physical_t physical = 0;
-			uint32_t size = 0;
-			uint32_t usage = 0;
-		};
 
 	private:
+		detail::MemoryMapper pMapper;
 		env::Context* pContext{ 0 };
 		uint32_t pCacheCount{ 0 };
 		uint32_t pReadCache{ 0 };
 		uint32_t pWriteCache{ 0 };
 		uint32_t pExecuteCache{ 0 };
 		uint32_t pCachePages{ 0 };
-		std::vector<MemPhysical> pPhysical;
-		std::vector<MemVirtual> pVirtual;
-		mutable MemLookup pLastLookup;
 
 	public:
 		Memory(env::Context& context, uint32_t cacheSize);
@@ -96,16 +40,6 @@ namespace env {
 		void fMakeAccess(wasm::Module& mod, const env::MemoryState& state, const wasm::Prototype& readPrototype, const wasm::Prototype& writePrototype, std::u8string_view name, env::MemoryType type) const;
 
 	private:
-		size_t fLookupVirtual(env::addr_t address) const;
-		size_t fLookupPhysical(env::physical_t physical) const;
-		void fLookup(env::addr_t address, uint32_t size, uint32_t usage) const;
-		bool fMemMap(env::addr_t address, uint32_t size, uint32_t usage);
-
-	private:
-		const MemLookup& fLastLookup() const;
-		bool fExpandPhysical(uint32_t size) const;
-		void fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const;
-		void fFlushCaches() const;
 		uint32_t fReadi32Fromi8(env::addr_t address) const;
 		uint32_t fReadi32Fromu8(env::addr_t address) const;
 		uint32_t fReadi32Fromi16(env::addr_t address) const;
@@ -140,6 +74,7 @@ namespace env {
 
 	public:
 		bool mmap(env::addr_t address, uint32_t size, uint32_t usage);
+		void munmap(env::addr_t address, uint32_t size);
 
 	public:
 		template <class Type>

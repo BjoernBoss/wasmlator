@@ -15,19 +15,19 @@ extern "C" uint32_t MemoryLastLookupSize(uint64_t self) {
 }
 
 bool env::bridge::Memory::MMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	return reinterpret_cast<env::Memory*>(self)->fMemMap(address, size, usage);
+	return reinterpret_cast<env::Memory*>(self)->pMapper.mmap(address, size, usage);
 }
 void env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	reinterpret_cast<env::Memory*>(self)->fLookup(address, size, usage);
+	reinterpret_cast<env::Memory*>(self)->pMapper.lookup(address, size, usage);
 }
 uint64_t env::bridge::Memory::LookupAddress(uint64_t self) {
-	return reinterpret_cast<env::Memory*>(self)->fLastLookup().address;
+	return reinterpret_cast<env::Memory*>(self)->pMapper.lastLookup().address;
 }
 uint32_t env::bridge::Memory::LookupSize(uint64_t self) {
-	return reinterpret_cast<env::Memory*>(self)->fLastLookup().size;
+	return reinterpret_cast<env::Memory*>(self)->pMapper.lastLookup().size;
 }
 uint32_t env::bridge::Memory::LookupPhysical(uint64_t self) {
-	return reinterpret_cast<env::Memory*>(self)->fLastLookup().physical;
+	return reinterpret_cast<env::Memory*>(self)->pMapper.lastLookup().physical;
 }
 
 #ifdef EMSCRIPTEN_COMPILATION
