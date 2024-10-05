@@ -44,6 +44,10 @@ int main() {
 		util::log(u8"---------------------------------------------------------------------------------------------");
 	}
 
+	memory.mmap(env::VirtPageSize * 4, env::VirtPageSize * 4, env::MemoryUsage::Read);
+	memory.mmap(env::VirtPageSize * 8, env::VirtPageSize * 4, env::MemoryUsage::Write);
+	memory.mprotect(env::VirtPageSize * 6, env::VirtPageSize * 4, env::MemoryUsage::Execute);
+
 	util::fail(u8"failure!");
 	return 0;
 }

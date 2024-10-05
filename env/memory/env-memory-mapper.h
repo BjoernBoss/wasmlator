@@ -49,6 +49,10 @@ namespace env::detail {
 		size_t fMemAllocatePhysical(uint32_t size, uint32_t growth);
 		env::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, bool hasPrev, bool hasNext);
 
+	private:
+		void fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
+		void fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage);
+
 	public:
 		void lookup(env::addr_t address, uint32_t size, uint32_t usage) const;
 		const MemLookup& lastLookup() const;

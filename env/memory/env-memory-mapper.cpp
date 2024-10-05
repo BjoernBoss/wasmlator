@@ -59,7 +59,7 @@ int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t ad
 		pPhysical[phys].size += size;
 
 		/* either reduce the next physical slot or remove it entirely if consumed */
-		if (size > pPhysical[phys + 1].size)
+		if (size < pPhysical[phys + 1].size)
 			pPhysical[phys + 1].size -= size;
 		else
 			pPhysical.erase(pPhysical.begin() + phys + 1);
@@ -103,7 +103,7 @@ int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t ad
 
 	/* flush the caches to ensure the new mapping is applied */
 	fFlushCaches();
-	return true;
+	return 1;
 }
 size_t env::detail::MemoryMapper::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
 	size_t phys = 0;
@@ -185,19 +185,167 @@ env::physical_t env::detail::MemoryMapper::fMemMergePhysical(size_t virt, size_t
 	return actual;
 }
 
+void env::detail::MemoryMapper::fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage) {
+	const MemoryMapper::MemVirtual entry = pVirtual[virt];
+
+	/* check if nothing needs to be done */
+	if (entry.usage == usage)
+		return;
+
+	/* check if a previous or next block exists */
+	bool hasPrev = (virt > 0 && pVirtual[virt - 1].address + pVirtual[virt - 1].size == entry.address);
+	bool hasNext = (virt + 1 < pVirtual.size() && pVirtual[virt + 1].address == entry.address + entry.size);
+
+	/* check if the regions align perfectly */
+	if (entry.address == address && entry.size == size) {
+		pVirtual[virt].usage = usage;
+
+		/* check if it can be merged with the next or previous slot */
+		size_t remove = 0;
+		if (hasNext && pVirtual[virt + 1].usage == usage) {
+			pVirtual[virt].size += pVirtual[virt + 1].size;
+			++remove;
+		}
+		if (hasPrev && pVirtual[virt - 1].usage == usage) {
+			--virt;
+			pVirtual[virt].size += pVirtual[virt + 1].size;
+			++remove;
+		}
+		if (remove > 0)
+			pVirtual.erase(pVirtual.begin() + virt + 1, pVirtual.begin() + virt + 1 + remove);
+	}
+
+	/* check if they align at the lower bound, in which case only one new entry needs to be added */
+	else if (entry.address == address) {
+		/* check if it can be merged with the previous block */
+		if (hasPrev && pVirtual[virt - 1].usage == usage) {
+			pVirtual[virt - 1].size += size;
+			pVirtual[virt].address += size;
+			pVirtual[virt].physical += size;
+			pVirtual[virt].size -= size;
+		}
+		else {
+			pVirtual.insert(pVirtual.begin() + virt + 1, MemoryMapper::MemVirtual{ entry.address + size, entry.physical + size, entry.size - size, entry.usage });
+			pVirtual[virt].size = size;
+			pVirtual[virt].usage = usage;
+		}
+	}
+
+	/* check if they align at the upper bound, in which case only one new entry needs to be inserted */
+	else if (entry.address + entry.size == address + size) {
+		/* check if it can be merged with the next block */
+		if (hasNext && pVirtual[virt + 1].usage == usage) {
+			pVirtual[virt + 1].address -= size;
+			pVirtual[virt + 1].physical -= size;
+			pVirtual[virt + 1].size += size;
+			pVirtual[virt].size -= size;
+		}
+		else {
+			pVirtual.insert(pVirtual.begin() + virt + 1, MemoryMapper::MemVirtual{ entry.address + size, entry.physical + size, entry.size - size, usage });
+			pVirtual[virt].size = size;
+		}
+	}
+
+	/* a new slot needs to be inserted below and above (no possibility to merge with neighboring blocks) */
+	else {
+		pVirtual.insert(pVirtual.begin() + virt + 1, 2, MemoryMapper::MemVirtual{});
+		uint32_t offset = uint32_t(address - entry.address);
+		pVirtual[virt].size = offset;
+		pVirtual[virt + 1] = MemoryMapper::MemVirtual{ address, entry.physical + offset, size, usage };
+		pVirtual[virt + 2] = MemoryMapper::MemVirtual{ address + size, entry.physical + offset + size, entry.size - offset - size, entry.usage };
+	}
+
+	/* flush the caches to ensure the new mapping is accepted */
+	fFlushCaches();
+}
+void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage) {
+	bool hasValue = false;
+	uint32_t shift = 0;
+
+	/* check if the first slot needs to be split up */
+	env::physical_t start = pVirtual[virt].physical;
+	if (pVirtual[virt].address < address) {
+		shift = uint32_t(pVirtual[virt].address + pVirtual[virt].size - address);
+		pVirtual[virt].size = uint32_t(address - pVirtual[virt].address);
+		start += pVirtual[virt].size;
+		++virt;
+	}
+
+	/* check if the previous block already matches the type */
+	else if (virt > 0 && pVirtual[virt - 1].address + pVirtual[virt - 1].size == address && pVirtual[virt - 1].usage == usage)
+		hasValue = true;
+
+	/* convert all remaining blocks until the end has been reached */
+	size_t dropped = 0;
+	while (true) {
+		/* check if the next virtual slot is valid */
+		size_t next = virt + dropped;
+		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
+			pContext->fail(u8"MProtect range is not fully mapped");
+
+		/* check if the slot is fully mapped across */
+		if (pVirtual[next].address + pVirtual[next].size <= end) {
+			/* check if the slot can just be added to the previous slot */
+			if (hasValue) {
+				pVirtual[virt - 1].size += pVirtual[next].size;
+				++dropped;
+			}
+
+			/* make this the initial slot */
+			else {
+				pVirtual[next] = MemoryMapper::MemVirtual{ address, start, pVirtual[next].size + shift, usage };
+				hasValue = true;
+				shift = 0;
+			}
+
+			/* check if this was the last block */
+			if (pVirtual[next].address + pVirtual[next].size == end)
+				break;
+			address += pVirtual[next].size;
+			shift = 0;
+			continue;
+		}
+		size = uint32_t(end - address);
+		uint32_t remainderUsage = pVirtual[next].usage;
+		uint32_t remainderSize = shift + pVirtual[next].size - size;
+
+		/* add the remaining capacity to the previous slot and clip it from the next slot */
+		if (hasValue) {
+			pVirtual[virt - 1].size += size;
+			pVirtual[next].address += size;
+			pVirtual[next].physical += size;
+			pVirtual[next].size -= size;
+		}
+
+		/* use the new block as initial block and insert the remainder as a new block */
+		else {
+			pVirtual[next] = MemoryMapper::MemVirtual{ address, start, size, usage };
+			pVirtual.insert(pVirtual.begin() + next + 1, MemoryMapper::MemVirtual{ address + size, start + size, remainderSize , remainderUsage });
+		}
+		break;
+	}
+
+	/* drop all cleared blocks */
+	if (dropped > 0)
+		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
+
+	/* flush the caches to ensure the new mapping is accepted */
+	fFlushCaches();
+}
+
 void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint32_t usage) const {
-	util::log(str::Format<std::u8string>(u8"Lookup [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
+	pContext->log(str::Format<std::u8string>(u8"Lookup [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
 
 	/* lookup the virtual mapping containing the corresponding address */
 	size_t index = fLookupVirtual(address);
 
 	/* check if an entry has been found */
 	if (index >= pVirtual.size() || address < pVirtual[index].address || address >= pVirtual[index].address + pVirtual[index].size)
-		util::fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#16x}] encountered", address));
+		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#16x}] encountered", address));
 
 	/* check if the usage attributes are valid */
 	if ((pVirtual[index].usage & usage) != usage)
-		util::fail(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#16x}] encountered", address));
+		pContext->fail(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#16x}] encountered", address));
 
 	/* collect all previous and upcoming regions of the same usage */
 	pLastLookup = MemoryMapper::MemLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
@@ -218,29 +366,31 @@ void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint3
 
 	/* check if the access-size is valid */
 	if (pLastLookup.address + pLastLookup.size < address + size)
-		util::fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#16x}] encountered", address));
+		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#16x}] encountered", address));
 }
 const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLookup() const {
 	return pLastLookup;
 }
 bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
+	pContext->log(str::Format<std::u8string>(u8"MMap     [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
+
 	/* check if the address and size are aligned properly and validate the usage */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
-		util::fail(u8"Memory-mapping requires address and size to be page-aligned");
+		pContext->fail(u8"MMap requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
-		util::fail(u8"Memory-usage must only consist of read/write/execute usage");
+		pContext->fail(u8"Memory-usage must only consist of read/write/execute usage");
 
 	/* check if the given range is valid and does not overlap any existing ranges */
 	size_t virt = fLookupVirtual(address);
 	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size)
-		util::fail(u8"Memory-mapping range is already partially mapped");
+		pContext->fail(u8"MMap range is already partially mapped");
 	if (virt + 1 < pVirtual.size() && address + size >= pVirtual[virt + 1].address)
-		util::fail(u8"Memory-mapping range is already partially mapped");
+		pContext->fail(u8"MMap range is already partially mapped");
 	if (size == 0)
 		return true;
 
 	/* check if the previous or neighboring virtual page is already allocated */
-	bool hasPrev = (pVirtual[virt].address + pVirtual[virt].size == address);
+	bool hasPrev = (!pVirtual.empty() && pVirtual[virt].address + pVirtual[virt].size == address);
 	bool hasNext = (virt + 1 < pVirtual.size() && pVirtual[virt + 1].address + pVirtual[virt + 1].size == address);
 
 	/* check if an existing neighboring region can just be expanded */
@@ -274,7 +424,7 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 
 	/* check if a new slot needs to be allocate or even a slot needs to be removed */
 	if (applied == 0)
-		pVirtual.insert(pVirtual.begin() + virt + 1, { address, actual, size, usage });
+		pVirtual.insert(pVirtual.begin() + virt + (hasPrev ? 1 : 0), { address, actual, size, usage });
 	else if (applied == 2)
 		pVirtual.erase(pVirtual.begin() + virt + 1);
 
@@ -283,8 +433,32 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	return true;
 }
 void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
+	pContext->log(str::Format<std::u8string>(u8"MUnmap   [{:#16x}] with size [{}]", address, size));
 
+	pContext->fail(u8"[munmap] is not implemented");
 }
 void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uint32_t usage) {
+	pContext->log(str::Format<std::u8string>(u8"MProtect [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
 
+	/* check if the address and size are aligned properly and validate the usage */
+	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
+		pContext->fail(u8"MProtect requires address and size to be page-aligned");
+	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
+		pContext->fail(u8"Memory-usage must only consist of read/write/execute usage");
+
+	/* check if the given start is valid and lies within a mapped region */
+	size_t virt = fLookupVirtual(address);
+	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
+		pContext->fail(u8"MProtect range is not fully mapped");
+	if (size == 0)
+		return;
+
+	/* check if the entire range lies within a single block */
+	env::addr_t end = address + size;
+	if (pVirtual[virt].address + pVirtual[virt].size >= end)
+		fMemProtectSingleBlock(virt, address, size, usage);
+
+	/* apply the new usage across a range of slots */
+	else
+		fMemProtectMultipleBlocks(virt, address, end, size, usage);
 }

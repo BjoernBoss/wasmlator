@@ -37,6 +37,6 @@ namespace env {
 		return env::PhysPageSize * ((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
 	}
 
-	static constexpr uint32_t InitAllocBytes = 4096 * env::VirtPageSize;
-	static constexpr uint32_t MinGrothBytes = 512 * env::VirtPageSize;
+	static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
+	static constexpr uint32_t MinGrothBytes = 32 * env::VirtPageSize;
 }
