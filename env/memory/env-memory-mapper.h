@@ -47,10 +47,16 @@ namespace env::detail {
 	private:
 		int8_t fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
 		size_t fMemAllocatePhysical(uint32_t size, uint32_t growth);
+		bool fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t usage);
 		env::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, bool hasPrev, bool hasNext);
 
 	private:
-		void fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
+		void fMemUnmapSingleBlock(size_t virt, env::addr_t address, uint32_t size);
+		void fMemUnmapMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size);
+		void fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size);
+
+	private:
+		bool fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
 		void fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage);
 
 	public:
