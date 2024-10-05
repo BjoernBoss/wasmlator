@@ -75,6 +75,7 @@ namespace env {
 	public:
 		bool mmap(env::addr_t address, uint32_t size, uint32_t usage);
 		void munmap(env::addr_t address, uint32_t size);
+		void mprotect(env::addr_t address, uint32_t size, uint32_t usage);
 
 	public:
 		template <class Type>

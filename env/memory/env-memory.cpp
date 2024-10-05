@@ -3,11 +3,11 @@
 
 namespace I = wasm::inst;
 
-env::Memory::Memory(env::Context& context, uint32_t cacheSize) : pMapper{ context }, pContext{ &context }, pCacheCount{ cacheSize } {
+env::Memory::Memory(env::Context& context, uint32_t cacheSize) : pMapper{ context, uint32_t(env::PhysPageAligned(env::InitAllocBytes)) }, pContext{ &context }, pCacheCount{ cacheSize } {
 	pReadCache = pCacheCount + 0;
 	pWriteCache = pCacheCount + 1;
 	pExecuteCache = pCacheCount + 2;
-	pCachePages = env::PageCount(uint64_t(pCacheCount + 3) * sizeof(Memory::MemCache));
+	pCachePages = env::PhysPageCount(uint64_t(pCacheCount + 3) * sizeof(Memory::MemCache));
 }
 
 void env::Memory::fCheckCache(uint32_t cache) const {
@@ -399,15 +399,23 @@ env::MemoryState env::Memory::setupCoreModule(wasm::Module& mod) const {
 	wasm::Function lookupPhysical = mod.function(u8"mem_import_lookup_physical", resultPrototype, u8"memory");
 	wasm::Function lookupSize = mod.function(u8"mem_import_lookup_size", resultPrototype, u8"memory");
 
-	/* add the import to mmap */
+	/* add the transport to the memory management functions */
 	wasm::Prototype mmapType = mod.prototype(u8"mem_mmap_type",
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i32 }
 	);
 	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, u8"memory", true);
+	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
+		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
+	);
+	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, u8"memory", true);
+	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
+		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
+	);
+	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, u8"memory", true);
 
 	/* add the core linear memory and page-lookup */
-	state.memory = mod.memory(u8"mem_core", wasm::Limit{ env::MinPages }, {}, true);
+	state.memory = mod.memory(u8"mem_core", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, {}, true);
 	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, {}, true);
 
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
@@ -443,14 +451,12 @@ env::MemoryState env::Memory::setupCoreModule(wasm::Module& mod) const {
 	fMakeAccess(mod, state, readf64, writef64, u8"f64", env::MemoryType::f64);
 
 	/* add the memory-expansion function */
-	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"size", wasm::Type::i32 } }, { wasm::Type::i32 });
+	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
 	{
 		wasm::Sink sink{ mod.function(u8"mem_expand_physical", expandPhysicalType, {}, true) };
 
 		/* number of pages to grow by */
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Const(env::PageSize)];
-		sink[I::U32::Div()];
 
 		sink[I::Memory::Grow(state.memory)];
 
@@ -503,15 +509,23 @@ env::MemoryState env::Memory::setupImports(wasm::Module& mod) const {
 	env::MemoryState state;
 
 	/* add the core linear memory and cache-lookup imports */
-	state.memory = mod.memory(u8"mem_core", wasm::Limit{ env::MinPages }, pContext->selfName());
+	state.memory = mod.memory(u8"mem_core", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, pContext->selfName());
 	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, pContext->selfName());
 
-	/* add the import to mmap */
-	wasm::Prototype mmapType = mod.prototype(u8"mem_lookup_type",
+	/* add the transport to the memory management functions */
+	wasm::Prototype mmapType = mod.prototype(u8"mem_mmap_type",
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i32 }
 	);
 	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, pContext->selfName());
+	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
+		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
+	);
+	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, pContext->selfName());
+	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
+		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
+	);
+	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, pContext->selfName());
 
 	/* add the function-imports for the page-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
@@ -544,4 +558,7 @@ bool env::Memory::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
 }
 void env::Memory::munmap(env::addr_t address, uint32_t size) {
 	return pMapper.munmap(address, size);
+}
+void env::Memory::mprotect(env::addr_t address, uint32_t size, uint32_t usage) {
+	return pMapper.mprotect(address, size, usage);
 }

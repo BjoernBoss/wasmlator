@@ -3,7 +3,9 @@
 
 namespace I = wasm::inst;
 
-env::detail::MemoryMapper::MemoryMapper(env::Context& context) : pContext{ &context } {}
+env::detail::MemoryMapper::MemoryMapper(env::Context& context, uint32_t initialAllocated) : pContext{ &context } {
+	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, initialAllocated, false });
+}
 
 size_t env::detail::MemoryMapper::fLookupVirtual(env::addr_t address) const {
 	size_t begin = 0, end = pVirtual.size();
@@ -28,8 +30,15 @@ size_t env::detail::MemoryMapper::fLookupPhysical(env::physical_t physical) cons
 	return begin;
 }
 
-bool env::detail::MemoryMapper::fExpandPhysical(uint32_t size) const {
-	return bridge::Memory::ExpandPhysical(pContext->id(), size);
+uint32_t env::detail::MemoryMapper::fExpandPhysical(uint32_t size, uint32_t growth) const {
+	/* allocate a little bit more to reduce the number of growings */
+	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(env::MinGrothBytes, size + growth));
+	if (bridge::Memory::ExpandPhysical(pContext->id(), pages))
+		return uint32_t(pages * env::PhysPageSize);
+	size = env::PhysPageCount(size);
+	if (size < pages && bridge::Memory::ExpandPhysical(pContext->id(), size))
+		return uint32_t(size * env::PhysPageSize);
+	return 0;
 }
 void env::detail::MemoryMapper::fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const {
 	bridge::Memory::MovePhysical(pContext->id(), dest, source, size);
@@ -58,14 +67,11 @@ int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t ad
 
 	/* expand the physical memory at the end */
 	else {
-		/* compute the number of physical pages to allocate (allocate an overhead to add a potential buffer) */
+		/* try to expand the physical memory (may allocate more than the needed amount) */
 		uint32_t needed = size - (phys + 1 < pPhysical.size() ? pPhysical[phys + 1].size : 0);
-		uint32_t allocate = std::min<uint32_t>(env::MinUpscalePages, needed + size);
-		if (!fExpandPhysical(allocate)) {
-			allocate = needed;
-			if (!fExpandPhysical(allocate))
-				return 0;
-		}
+		uint32_t allocate = fExpandPhysical(needed, size);
+		if (allocate == 0)
+			return 0;
 
 		/* check if the entire memory has been consumed */
 		if (allocate == needed) {
@@ -110,19 +116,12 @@ size_t env::detail::MemoryMapper::fMemAllocatePhysical(uint32_t size, uint32_t g
 
 	/* check if the physical memory needs to be allocated */
 	if (phys == pPhysical.size()) {
-		/* allocate the necessary memory (more than necessary to allow upscaling) */
-		uint32_t allocate = std::min<uint32_t>(env::MinUpscalePages, size + growth);
-		if (!fExpandPhysical(allocate)) {
-			allocate = size;
-			if (!fExpandPhysical(allocate))
-				return phys;
-		}
+		uint32_t allocate = fExpandPhysical(size, growth);
+		if (allocate == 0)
+			return phys;
 
 		/* add the physical slot */
-		if (pPhysical.empty())
-			pPhysical.push_back({ 0, allocate, false });
-		else
-			pPhysical.push_back(MemoryMapper::MemPhysical{ pPhysical.back().physical + pPhysical.back().size, allocate, false });
+		pPhysical.push_back(MemoryMapper::MemPhysical{ pPhysical.back().physical + pPhysical.back().size, allocate, false });
 	}
 	return phys;
 }
@@ -226,7 +225,7 @@ const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLooku
 }
 bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
 	/* check if the address and size are aligned properly and validate the usage */
-	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
+	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
 		util::fail(u8"Memory-mapping requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
 		util::fail(u8"Memory-usage must only consist of read/write/execute usage");

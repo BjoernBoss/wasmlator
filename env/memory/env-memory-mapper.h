@@ -4,6 +4,7 @@
 
 namespace env::detail {
 	class MemoryMapper {
+		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 		friend struct bridge::Memory;
 	private:
 		struct MemLookup {
@@ -30,7 +31,7 @@ namespace env::detail {
 		mutable MemLookup pLastLookup;
 
 	public:
-		MemoryMapper(env::Context& context);
+		MemoryMapper(env::Context& context, uint32_t initialAllocated);
 		MemoryMapper(detail::MemoryMapper&&) = delete;
 		MemoryMapper(const detail::MemoryMapper&) = delete;
 
@@ -39,7 +40,7 @@ namespace env::detail {
 		size_t fLookupPhysical(env::physical_t physical) const;
 
 	private:
-		bool fExpandPhysical(uint32_t size) const;
+		uint32_t fExpandPhysical(uint32_t size, uint32_t growth) const;
 		void fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const;
 		void fFlushCaches() const;
 

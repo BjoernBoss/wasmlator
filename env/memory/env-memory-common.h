@@ -36,6 +36,8 @@ namespace env {
 		wasm::Function writeFunction;
 		wasm::Function executeFunction;
 		wasm::Function mmapFunction;
+		wasm::Function munmapFunction;
+		wasm::Function mprotectFunction;
 		wasm::Prototype ifElsePrototype;
 	};
 

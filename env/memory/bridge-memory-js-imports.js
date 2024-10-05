@@ -1,5 +1,5 @@
-function jsMemoryExpandPhysical(id, size) {
-	return _env.core[id].mem_expand_physical(size);
+function jsMemoryExpandPhysical(id, pages) {
+	return _env.core[id].mem_expand_physical(pages);
 }
 function jsMemoryMovePhysical(id, dest, source, size) {
 	return _env.core[id].mem_move_physical(dest, source, size);

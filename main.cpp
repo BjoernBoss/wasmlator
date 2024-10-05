@@ -27,10 +27,10 @@ int main() {
 		memory.setupCoreModule(_module);
 
 		_module.close();
+		const std::u8string& data = _writer.output();
 
-		//const std::u8string& data = _writer.output();
-		//std::fstream _out{ "./temp-output.wat", std::ios::out };
-		//_out.write(reinterpret_cast<const char*>(data.data()), data.size());
+		std::fstream _out{ "./temp-output.wat", std::ios::out };
+		_out.write(reinterpret_cast<const char*>(data.data()), data.size());
 	}
 
 	{

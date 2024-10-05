@@ -3,6 +3,12 @@
 extern "C" uint32_t MemoryPerformMMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	return (env::bridge::Memory::MMap(self, address, size, usage) ? 1 : 0);
 }
+extern "C" void MemoryPerformMUnmap(uint64_t self, uint64_t address, uint32_t size) {
+	env::bridge::Memory::MUnmap(self, address, size);
+}
+extern "C" void MemoryPerformMProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	env::bridge::Memory::MProtect(self, address, size, usage);
+}
 extern "C" uint64_t MemoryPerformLookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	env::bridge::Memory::Lookup(self, address, size, usage);
 	return env::bridge::Memory::LookupAddress(self);
@@ -16,6 +22,12 @@ extern "C" uint32_t MemoryLastLookupSize(uint64_t self) {
 
 bool env::bridge::Memory::MMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	return reinterpret_cast<env::Memory*>(self)->pMapper.mmap(address, size, usage);
+}
+void env::bridge::Memory::MUnmap(uint64_t self, uint64_t address, uint32_t size) {
+	reinterpret_cast<env::Memory*>(self)->pMapper.munmap(address, size);
+}
+void env::bridge::Memory::MProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+	reinterpret_cast<env::Memory*>(self)->pMapper.mprotect(address, size, usage);
 }
 void env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	reinterpret_cast<env::Memory*>(self)->pMapper.lookup(address, size, usage);
@@ -33,7 +45,7 @@ uint32_t env::bridge::Memory::LookupPhysical(uint64_t self) {
 #ifdef EMSCRIPTEN_COMPILATION
 
 extern "C" {
-	uint32_t jsMemoryExpandPhysical(uint32_t id, uint32_t size);
+	uint32_t jsMemoryExpandPhysical(uint32_t id, uint32_t pages);
 	void jsMemoryMovePhysical(uint32_t id, uint32_t dest, uint32_t source, uint32_t size);
 	void jsFlushCaches(uint32_t id);
 	uint32_t jsMemoryReadi32Fromu8(uint32_t id, uint64_t address);
@@ -62,8 +74,8 @@ extern "C" {
 	double jsMemoryExecutef64(uint32_t id, uint64_t address);
 }
 
-bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t size) {
-	return (jsMemoryExpandPhysical(id, size) == 0);
+bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t pages) {
+	return (jsMemoryExpandPhysical(id, pages) == 0);
 }
 void env::bridge::Memory::MovePhysical(env::id_t id, env::physical_t dest, env::physical_t source, uint32_t size) {
 	jsMemoryMovePhysical(id, dest, source, size);
@@ -151,7 +163,7 @@ double env::bridge::Memory::Executef64(env::id_t id, env::addr_t address) {
 
 // #error Currently not supported
 
-bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t size) {
+bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t pages) {
 	return false;
 }
 void env::bridge::Memory::MovePhysical(env::id_t id, env::physical_t dest, env::physical_t source, uint32_t size) {}
