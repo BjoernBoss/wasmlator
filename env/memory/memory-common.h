@@ -41,7 +41,6 @@ namespace env {
 		wasm::Function lookup;
 		wasm::Function lookupPhysical;
 		wasm::Function lookupSize;
-		wasm::Prototype ifElsePrototype;
 	};
 
 	struct MemoryUsage {

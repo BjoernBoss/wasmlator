@@ -41,7 +41,7 @@ namespace env::detail {
 		void fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
 		void fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
-		void fMakeAccess(wasm::Module& mod, const env::MemoryState& state, const wasm::Prototype& readPrototype, const wasm::Prototype& writePrototype, std::u8string_view name, env::MemoryType type) const;
+		void fMakeAccess(wasm::Module& mod, const env::MemoryState& state, wasm::Type type, std::u8string_view name, env::MemoryType memoryType) const;
 
 	private:
 		uint32_t fReadi32Fromi8(env::addr_t address) const;

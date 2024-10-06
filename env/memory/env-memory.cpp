@@ -8,9 +8,6 @@ env::Memory::Memory(env::Context& context, uint32_t cacheSize) : pMapper{ contex
 env::MemoryState env::Memory::setupCoreModule(wasm::Module& mod) const {
 	env::MemoryState state;
 
-	/* add the if-else prototype */
-	state.ifElsePrototype = mod.prototype(u8"mem_if_else", {}, { wasm::Type::i32 });
-
 	/* setup the imports of the components */
 	pInteraction.addCoreImports(state, mod);
 	pMapper.addCoreImports(state, mod);
@@ -27,9 +24,6 @@ env::MemoryState env::Memory::setupBlockModule(wasm::Module& mod) const {
 	/* setup the imports of the components */
 	pInteraction.addBlockImports(state, mod);
 	pMapper.addBlockImports(state, mod);
-
-	/* add the if-else prototype */
-	state.ifElsePrototype = mod.prototype(u8"mem_if_else", {}, { wasm::Type::i32 });
 	return state;
 }
 

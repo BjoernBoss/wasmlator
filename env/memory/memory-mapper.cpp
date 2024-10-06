@@ -585,21 +585,21 @@ void env::detail::MemoryMapper::addCoreImports(env::MemoryState& state, wasm::Mo
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i32 }
 	);
-	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, u8"memory", true);
+	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Transport{ u8"memory" });
 	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
 	);
-	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, u8"memory", true);
+	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Transport{ u8"memory" });
 	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
 	);
-	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, u8"memory", true);
+	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Transport{ u8"memory" });
 }
 void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the memory-expansion function */
 	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
 	{
-		wasm::Sink sink{ mod.function(u8"mem_expand_physical", expandPhysicalType, {}, true) };
+		wasm::Sink sink{ mod.function(u8"mem_expand_physical", expandPhysicalType, wasm::Export{}) };
 
 		/* number of pages to grow by */
 		sink[I::Local::Get(sink.parameter(0))];
@@ -610,7 +610,7 @@ void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Modul
 		sink[I::I32::Const(0)];
 		sink[I::I32::Less()];
 		{
-			wasm::IfThen _if{ sink, {}, state.ifElsePrototype };
+			wasm::IfThen _if{ sink, {}, {}, {wasm::Type::i32 } };
 			sink[I::U32::Const(0)];
 			_if.otherwise();
 			sink[I::U32::Const(1)];
@@ -620,7 +620,7 @@ void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Modul
 	/* add the memory-move function */
 	wasm::Prototype movePhysicalType = mod.prototype(u8"mem_move_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	{
-		wasm::Sink sink{ mod.function(u8"mem_move_physical", movePhysicalType, {}, true) };
+		wasm::Sink sink{ mod.function(u8"mem_move_physical", movePhysicalType, wasm::Export{}) };
 
 		/* destination-address */
 		sink[I::Local::Get(sink.parameter(0))];
@@ -640,15 +640,15 @@ void env::detail::MemoryMapper::addBlockImports(env::MemoryState& state, wasm::M
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i32 }
 	);
-	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, pContext->selfName());
+	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Import{ pContext->selfName() });
 	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
 	);
-	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, pContext->selfName());
+	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Import{ pContext->selfName() });
 	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
 		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
 	);
-	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, pContext->selfName());
+	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Import{ pContext->selfName() });
 }
 
 void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint32_t usage) const {
