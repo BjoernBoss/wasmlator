@@ -36,7 +36,7 @@ int main() {
 	{
 		writer::TextWriter _writer;
 		wasm::Module _module{ &_writer };
-		memory.setupImports(_module);
+		memory.setupBlockModule(_module);
 
 		_module.close();
 		util::log(u8"----------------------------------------   imports   ----------------------------------------");

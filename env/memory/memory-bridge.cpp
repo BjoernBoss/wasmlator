@@ -1,4 +1,4 @@
-#include "bridge-memory.h"
+#include "memory-bridge.h"
 
 extern "C" uint32_t MemoryPerformMMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	return (env::bridge::Memory::MMap(self, address, size, usage) ? 1 : 0);

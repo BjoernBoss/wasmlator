@@ -38,6 +38,9 @@ namespace env {
 		wasm::Function mmapFunction;
 		wasm::Function munmapFunction;
 		wasm::Function mprotectFunction;
+		wasm::Function lookup;
+		wasm::Function lookupPhysical;
+		wasm::Function lookupSize;
 		wasm::Prototype ifElsePrototype;
 	};
 

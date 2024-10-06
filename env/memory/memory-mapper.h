@@ -1,11 +1,11 @@
 #pragma once
 
-#include "env-memory-common.h"
+#include "memory-common.h"
 
 namespace env::detail {
 	class MemoryMapper {
-		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 		friend struct bridge::Memory;
+		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:
 		struct MemLookup {
 			env::addr_t address{ 0 };
@@ -59,6 +59,11 @@ namespace env::detail {
 	private:
 		bool fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
 		void fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage);
+
+	public:
+		void addCoreImports(env::MemoryState& state, wasm::Module& mod) const;
+		void addCoreBody(env::MemoryState& state, wasm::Module& mod) const;
+		void addBlockImports(env::MemoryState& state, wasm::Module& mod) const;
 
 	public:
 		void lookup(env::addr_t address, uint32_t size, uint32_t usage) const;
