@@ -4,6 +4,21 @@
 #include "util/logging.h"
 #include "env/memory/env-memory.h"
 
+extern "C" void startup() {
+	env::Context ctx{ u8"text_module" };
+	env::Memory memory{ ctx, 4 };
+
+	writer::BinaryWriter _writer;
+	wasm::Module _module{ &_writer };
+	memory.setupCoreModule(_module);
+
+	_module.close();
+	const std::vector<uint8_t>& data = _writer.output();
+	ctx.setCore(data.data(), data.size());
+
+	util::fail(u8"failure!");
+}
+
 int main() {
 	env::Context ctx{ u8"text_module" };
 	env::Memory memory{ ctx, 4 };
@@ -17,8 +32,8 @@ int main() {
 		const std::vector<uint8_t>& data = _writer.output();
 		ctx.setCore(data.data(), data.size());
 
-		//std::fstream _out{ "./temp-output.wasm", std::ios::out | std::ios::binary };
-		//_out.write(reinterpret_cast<const char*>(data.data()), data.size());
+		std::fstream _out{ "./temp-output.wasm", std::ios::out | std::ios::binary };
+		_out.write(reinterpret_cast<const char*>(data.data()), data.size());
 	}
 
 	{
@@ -67,7 +82,5 @@ int main() {
 	memory.mmap(env::VirtPageSize * 26, env::VirtPageSize * 2, env::MemoryUsage::Read);
 	memory.mmap(env::VirtPageSize * 28, env::VirtPageSize * 2, env::MemoryUsage::Write);
 	memory.mprotect(env::VirtPageSize * 27, env::VirtPageSize * 2, env::MemoryUsage::Write);
-
-	util::fail(u8"failure!");
 	return 0;
 }

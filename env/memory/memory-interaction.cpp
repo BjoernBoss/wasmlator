@@ -394,9 +394,9 @@ void env::detail::MemoryInteraction::addCoreImports(env::MemoryState& state, was
 		{ wasm::Type::i64 }
 	);
 	wasm::Prototype resultPrototype = mod.prototype(u8"mem_lookup_result_type", { { u8"self", wasm::Type::i64 } }, { wasm::Type::i32 });
-	state.lookup = mod.function(u8"mem_import_lookup", lookupPrototype, wasm::Import{ u8"memory" });
-	state.lookupPhysical = mod.function(u8"mem_import_lookup_physical", resultPrototype, wasm::Import{ u8"memory" });
-	state.lookupSize = mod.function(u8"mem_import_lookup_size", resultPrototype, wasm::Import{ u8"memory" });
+	state.lookup = mod.function(u8"mem_perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
+	state.lookupPhysical = mod.function(u8"mem_result_physical", resultPrototype, wasm::Import{ u8"memory" });
+	state.lookupSize = mod.function(u8"mem_result_size", resultPrototype, wasm::Import{ u8"memory" });
 }
 void env::detail::MemoryInteraction::addCoreBody(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the core linear memory and page-lookup */

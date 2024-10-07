@@ -32,15 +32,19 @@ if os.system('em++ -std=c++20'
 
 			 ' --js-library env/memory/bridge-memory-js-imports.js'
 			 ' --pre-js env/memory/bridge-memory-js-predefined.js'
-			 ' env/memory/bridge-memory.cpp'
 			 ' env/memory/env-memory.cpp'
+			 ' env/memory/memory-bridge.cpp'
+			 ' env/memory/memory-mapper.cpp'
+			 ' env/memory/memory-interaction.cpp'
 
 			 ' -sEXPORTED_FUNCTIONS='
-			 '_main,'
-			 '_MemoryPerformLookup,'
-			 '_MemoryLastLookupOffset,'
-			 '_MemoryLastLookupSize,'
-			 '_MemoryPerformMMap'
+			 '_startup,'
+			 '_mem_mmap,'
+			 '_mem_munmap,'
+			 '_mem_mprotect,'
+			 '_mem_perform_lookup,'
+			 '_mem_result_physical,'
+			 '_mem_result_size'
 
 			# ensure exported functions can use i64, instead of it being split into two i32's
 			 ' -sWASM_BIGINT') != 0:

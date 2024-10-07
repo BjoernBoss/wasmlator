@@ -83,7 +83,6 @@ function jsMemoryExecutef64(id, address) {
 	return _env.core[id].mem_execute_f64(address);
 }
 
-
 mergeInto(LibraryManager.library, {
 	jsMemoryExpandPhysical,
 	jsMemoryMovePhysical,

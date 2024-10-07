@@ -4,9 +4,7 @@
 
 namespace env::bridge {
 	struct Memory {
-		static bool ExpandPhysical(env::id_t id, uint32_t pages);
-		static void MovePhysical(env::id_t id, env::physical_t dest, env::physical_t source, uint32_t size);
-		static void FlushCaches(env::id_t id);
+		/* exports */
 		static bool MMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
 		static void MUnmap(uint64_t self, uint64_t address, uint32_t size);
 		static void MProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
@@ -15,6 +13,11 @@ namespace env::bridge {
 		static uint64_t LookupAddress(uint64_t self);
 		static uint32_t LookupSize(uint64_t self);
 		static uint32_t LookupPhysical(uint64_t self);
+
+		/* imports */
+		static bool ExpandPhysical(env::id_t id, uint32_t pages);
+		static void MovePhysical(env::id_t id, env::physical_t dest, env::physical_t source, uint32_t size);
+		static void FlushCaches(env::id_t id);
 
 		static uint32_t Readi32Fromu8(env::id_t id, env::addr_t address);
 		static uint32_t Readi32Fromi8(env::id_t id, env::addr_t address);

@@ -1,22 +1,23 @@
 #include "memory-bridge.h"
 
-extern "C" uint32_t MemoryPerformMMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+/* exports */
+extern "C" uint32_t mem_mmap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	return (env::bridge::Memory::MMap(self, address, size, usage) ? 1 : 0);
 }
-extern "C" void MemoryPerformMUnmap(uint64_t self, uint64_t address, uint32_t size) {
+extern "C" void mem_munmap(uint64_t self, uint64_t address, uint32_t size) {
 	env::bridge::Memory::MUnmap(self, address, size);
 }
-extern "C" void MemoryPerformMProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+extern "C" void mem_mprotect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	env::bridge::Memory::MProtect(self, address, size, usage);
 }
-extern "C" uint64_t MemoryPerformLookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
+extern "C" uint64_t mem_perform_lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	env::bridge::Memory::Lookup(self, address, size, usage);
 	return env::bridge::Memory::LookupAddress(self);
 }
-extern "C" uint32_t MemoryLastLookupOffset(uint64_t self) {
+extern "C" uint32_t mem_result_physical(uint64_t self) {
 	return env::bridge::Memory::LookupPhysical(self);
 }
-extern "C" uint32_t MemoryLastLookupSize(uint64_t self) {
+extern "C" uint32_t mem_result_size(uint64_t self) {
 	return env::bridge::Memory::LookupSize(self);
 }
 
@@ -29,6 +30,7 @@ void env::bridge::Memory::MUnmap(uint64_t self, uint64_t address, uint32_t size)
 void env::bridge::Memory::MProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	reinterpret_cast<env::Memory*>(self)->pMapper.mprotect(address, size, usage);
 }
+
 void env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	reinterpret_cast<env::Memory*>(self)->pMapper.lookup(address, size, usage);
 }
@@ -44,6 +46,7 @@ uint32_t env::bridge::Memory::LookupPhysical(uint64_t self) {
 
 #ifdef EMSCRIPTEN_COMPILATION
 
+/* imports */
 extern "C" {
 	uint32_t jsMemoryExpandPhysical(uint32_t id, uint32_t pages);
 	void jsMemoryMovePhysical(uint32_t id, uint32_t dest, uint32_t source, uint32_t size);
