@@ -3,15 +3,15 @@
 import http.server
 import os
 
-# compile the script and export the relevant functions and main function
+# compile the main application and export the relevant functions and main function
 print('compiling...')
 if os.system('em++ -std=c++20'
 			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION'
 			 ' -Irepos'
 			 ' main.cpp'
-			 ' repos/wasgen/wasm/wasm-module.cpp'
-			 ' repos/wasgen/wasm/wasm-target.cpp'
-			 ' repos/wasgen/wasm/wasm-sink.cpp'
+			 ' repos/wasgen/objects/wasm-module.cpp'
+			 ' repos/wasgen/sink/wasm-target.cpp'
+			 ' repos/wasgen/sink/wasm-sink.cpp'
 			 ' --js-library ./interface/emscripten-interface.js'
 			 ' --pre-js ./interface/emscripten-pre-js.js'
 			 ' interface/native-interface.cpp'
@@ -46,8 +46,9 @@ if os.system('em++ -std=c++20'
 			 '_mem_result_physical,'
 			 '_mem_result_size'
 
-			# ensure exported functions can use i64, instead of it being split into two i32's
-			 ' -sWASM_BIGINT') != 0:
+			 # ensure exported functions can use i64, instead of it being split into two i32's
+			 ' -sWASM_BIGINT'
+			) != 0:
 	exit(1)
 print('compiled')
 

@@ -1,12 +1,12 @@
 #pragma once
 
 #include <ustring/ustring.h>
+#include <wasgen/wasm.h>
 #include <cinttypes>
 #include <string>
 #include <type_traits>
 
 #include "../util/logging.h"
-#include "../wasm/wasm.h"
 
 namespace env {
 	static constexpr uint64_t VirtPageSize = 0x1000;

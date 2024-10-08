@@ -1,4 +1,4 @@
-#include <wasgen/wasm/wasm.h>
+#include <wasgen/wasm.h>
 #include <wasgen/writer/binary-writer.h>
 #include <wasgen/writer/text-writer.h>
 #include "util/logging.h"
