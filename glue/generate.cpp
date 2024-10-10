@@ -21,36 +21,32 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 	return true;
 }
 
-int main(int argc, char** argv) {
-	std::string wasmPath{ (argc < 2 ? "" : argv[1]) };
-	std::string watPath{ (argc < 3 ? "" : argv[2]) };
-	if (argc != 3 || !wasmPath.ends_with(".wasm") || !watPath.ends_with(".wat")) {
-		str::PrintLn(u8"Invalid usage. Expected path to wasm-output and path to wat-output.");
-		return 1;
-	}
-
+bool glue::Generate(const std::string& wasmPath, const std::string& watPath) {
 	{
+		/* produce the module as WASM */
 		writer::BinaryWriter _writer;
-
-		/* produce the module as WASM and write it out */
 		if (!SetupModule(&_writer))
-			return 1;
+			return false;
 		const std::vector<uint8_t>& data = _writer.output();
 
+		/* write the file out */
 		std::fstream _out{ wasmPath, std::ios::out | std::ios::binary };
 		_out.write(reinterpret_cast<const char*>(data.data()), data.size());
+		str::PrintLn(u8"Generated WASM at: [", wasmPath, u8']');
 	}
 
 	{
+		/* produce the module as WAT */
 		writer::TextWriter _writer;
-
-		/* produce the module as WAT and write it out */
 		if (!SetupModule(&_writer))
-			return 1;
+			return false;
 		const std::u8string& data = _writer.output();
 
+		/* write the file out */
 		std::fstream _out{ watPath, std::ios::out | std::ios::binary };
 		_out.write(reinterpret_cast<const char*>(data.data()), data.size());
+		str::PrintLn(u8"Generated WAT at: [", wasmPath, u8']');
 	}
-	return 0;
+
+	return true;
 }

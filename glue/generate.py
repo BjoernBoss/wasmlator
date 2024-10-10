@@ -3,12 +3,12 @@
 import os
 
 # ensure the generated directory exists
-dirGenerated = os.path.join(os.path.split(__file__)[0], '../server/.generated')
+dirGenerated = os.path.join(os.path.split(__file__)[0], '../server/generated')
 if not os.path.isdir(dirGenerated):
 	os.mkdir(dirGenerated)
 
 # setup the paths
-programPath = os.path.abspath(os.path.join(dirGenerated, './generate-glue.exe'))
+programPath = os.path.abspath(os.path.join(dirGenerated, './make-glue.exe'))
 wasmPath = os.path.abspath(os.path.join(dirGenerated, './glue-module.wasm'))
 watPath = os.path.abspath(os.path.join(dirGenerated, './glue-module.wat'))
 
@@ -19,6 +19,7 @@ if os.system(f'cd {os.path.split(__file__)[0]} &&'
 			 ' -O1'
 			 f' -o {programPath}'
 			 ' -I../repos'
+			 ' make-glue.cpp'
 			 ' generate.cpp'
 			 ' context-functions.cpp'
 			 ' host-functions.cpp'
@@ -41,8 +42,7 @@ print(f'compiled at: [{programPath}]')
 
 # execute the generator to produce its output
 print('generating...')
-if os.system(f'cd {dirGenerated} && generate-glue.exe {wasmPath} {watPath}') != 0:
+if os.system(f'cd {dirGenerated} && make-glue.exe {wasmPath} {watPath}') != 0:
 	print('generation failed')
 	exit(1)
-print(f'generated WASM at: [{wasmPath}]')
-print(f'generated WAT at: [{watPath}]')
+print('generation completed')

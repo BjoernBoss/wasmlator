@@ -1,5 +1,5 @@
 #include "env-context.h"
-#include "bridge-context.h"
+#include "context-bridge.h"
 
 env::Context::Context(std::u8string_view name) : pName{ name }, pSelfName{ u8"core" } {
 	str::FormatTo(pLogHeader, u8"Context [{:>12}]: ", pName);
@@ -13,9 +13,9 @@ env::Context::~Context() {
 	bridge::Context::Destroy(pId);
 }
 
-void env::Context::setCore(const uint8_t* data, size_t size) {
+bool env::Context::setCore(const uint8_t* data, size_t size) {
 	fLog(u8"Loading new core");
-	bridge::Context::SetCore(pId, data, size);
+	return bridge::Context::SetCore(pId, data, size);
 }
 const std::u8string& env::Context::name() const {
 	return pName;

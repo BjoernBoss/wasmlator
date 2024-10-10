@@ -44,6 +44,8 @@ extern "C" void startup() {
 }
 
 int main() {
+	startup();
+
 	//env::Context ctx{ u8"text_module" };
 	//env::Memory memory{ ctx, 4 };
 	//

@@ -24,12 +24,16 @@ namespace env {
 			util::log(pLogHeader, args...);
 		}
 		template <class... Args>
+		void fDebug(const Args&... args) const {
+			util::debug(pLogHeader, args...);
+		}
+		template <class... Args>
 		void fFail(const Args&... args) const {
 			util::fail(pLogHeader, args...);
 		}
 
 	public:
-		void setCore(const uint8_t* data, size_t size);
+		bool setCore(const uint8_t* data, size_t size);
 		const std::u8string& name() const;
 		const std::u8string& selfName() const;
 		env::id_t id() const;
@@ -38,6 +42,10 @@ namespace env {
 		template <class... Args>
 		void log(const Args&... args) const {
 			fLog(args...);
+		}
+		template <class... Args>
+		void debug(const Args&... args) const {
+			fDebug(args...);
 		}
 		template <class... Args>
 		void fail(const Args&... args) const {

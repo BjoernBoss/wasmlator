@@ -88,7 +88,7 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 
 	/* export the flush_caches function and call the function from the corresponding core module */
 	{
-		wasm::Sink sink{ state.module.function(u8"flush_caches", { wasm::Type::i32 }, {}, wasm::Export{}) };
+		wasm::Sink sink{ state.module.function(u8"mem_flush_caches", { wasm::Type::i32 }, {}, wasm::Export{}) };
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::Mapping::_count)];
 		sink[I::U32::Mul()];

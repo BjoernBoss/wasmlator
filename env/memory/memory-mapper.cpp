@@ -652,7 +652,7 @@ void env::detail::MemoryMapper::addBlockImports(env::MemoryState& state, wasm::M
 }
 
 void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint32_t usage) const {
-	pContext->log(str::Format<std::u8string>(u8"Lookup [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
+	pContext->debug(str::Format<std::u8string>(u8"Lookup [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
 
 	/* lookup the virtual mapping containing the corresponding address */
 	size_t index = fLookupVirtual(address);
@@ -690,7 +690,7 @@ const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLooku
 	return pLastLookup;
 }
 bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
-	pContext->log(str::Format<std::u8string>(u8"Mapping [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
+	pContext->debug(str::Format<std::u8string>(u8"Mapping [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
@@ -770,7 +770,7 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	return true;
 }
 void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
-	pContext->log(str::Format<std::u8string>(u8"Unmapping [{:#16x}] with size [{}]", address, size));
+	pContext->debug(str::Format<std::u8string>(u8"Unmapping [{:#16x}] with size [{}]", address, size));
 
 	/* check if the address and size are aligned properly */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
@@ -801,7 +801,7 @@ void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
 	fFlushCaches();
 }
 void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uint32_t usage) {
-	pContext->log(str::Format<std::u8string>(u8"Changing [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
+	pContext->debug(str::Format<std::u8string>(u8"Changing [{:#16x}] with size [{}] and usage [{:04b}]", address, size, usage));
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)

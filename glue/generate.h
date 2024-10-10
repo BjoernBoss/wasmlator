@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wasgen/wasm.h>
-#include <inttypes.h>
+#include <cinttypes>
 
 namespace glue {
 	static constexpr uint32_t PageSize = 0x10000;
@@ -70,6 +70,11 @@ namespace glue {
 	public:
 		State(wasm::ModuleInterface* writer) : module{ writer } {}
 	};
+
+	/*
+	*	Perform the actual generation
+	*/
+	bool Generate(const std::string& wasmPath, const std::string& watPath);
 
 	/*
 	*	Initialize the state and write the strings to memory (after the imports have been added)

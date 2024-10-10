@@ -4,7 +4,7 @@ import http.server
 import os
 
 # ensure the generated directory exists
-dirGenerated = os.path.join(os.path.split(__file__)[0], './server/.generated')
+dirGenerated = os.path.join(os.path.split(__file__)[0], './server/generated')
 if not os.path.isdir(dirGenerated):
 	os.mkdir(dirGenerated)
 
@@ -12,15 +12,18 @@ if not os.path.isdir(dirGenerated):
 print('compiling...')
 if os.system('em++ -std=c++20'
 			 # ensure that only wasm is generated without _start or other main wrapper
-			 # 	functionality, which otherwise imports additional functionality
+			 # 	boilerplate code, which otherwise imports additional functionality
 			 ' -o server/main.wasm'
 			 ' -O1'
 			 ' -sSTANDALONE_WASM'
 			 ' --no-entry'
-			 ' -DEMSCRIPTEN_COMPILATION'
 
 			 # enable memory-heap growing possibility
 			 ' -sALLOW_MEMORY_GROWTH'
+
+			 # ensure any undefined symbols are just silently translated to imports
+			 ' -sERROR_ON_UNDEFINED_SYMBOLS=0'
+			 ' -sWARN_ON_UNDEFINED_SYMBOLS=0'
 
 			 # ensure exported functions can use i64, instead of it being split into two i32's
 			 ' -sWASM_BIGINT'
@@ -35,6 +38,9 @@ if os.system('em++ -std=c++20'
 			 '_mem_result_physical,'
 			 '_mem_result_size'
 
+			 # mark this to be the emscripten-build
+			 ' -DEMSCRIPTEN_COMPILATION'
+
 			 # add the relevant include directories
 			 ' -Irepos'
 
@@ -43,26 +49,19 @@ if os.system('em++ -std=c++20'
 			 ' repos/wasgen/objects/wasm-module.cpp'
 			 ' repos/wasgen/sink/wasm-target.cpp'
 			 ' repos/wasgen/sink/wasm-sink.cpp'
-			 ' --js-library ./interface/emscripten-interface.js'
-			 ' --pre-js ./interface/emscripten-pre-js.js'
-			 ' interface/native-interface.cpp'
-			 ' interface/wasm-interface.cpp'
-
 			 ' repos/wasgen/writer/text/text-base.cpp'
 			 ' repos/wasgen/writer/text/text-module.cpp'
 			 ' repos/wasgen/writer/text/text-sink.cpp'
-
 			 ' repos/wasgen/writer/binary/binary-base.cpp'
 			 ' repos/wasgen/writer/binary/binary-module.cpp'
 			 ' repos/wasgen/writer/binary/binary-sink.cpp'
 
-			 ' --js-library env/context/bridge-context-js-imports.js'
-			 ' --pre-js env/context/bridge-context-js-predefined.js'
-			 ' env/context/bridge-context.cpp'
+			 ' interface/interface.cpp'
+			 ' util/logging.cpp'
+
+			 ' env/context/context-bridge.cpp'
 			 ' env/context/env-context.cpp'
 
-			 ' --js-library env/memory/bridge-memory-js-imports.js'
-			 ' --pre-js env/memory/bridge-memory-js-predefined.js'
 			 ' env/memory/env-memory.cpp'
 			 ' env/memory/memory-bridge.cpp'
 			 ' env/memory/memory-mapper.cpp'
