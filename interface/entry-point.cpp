@@ -17,6 +17,8 @@ void main_startup() {
 	util::log(u8"Main: Application startup entered");
 	State* state = new State();
 
+	state->ctx.create();
+
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
 	state->memory.setupCoreModule(_module);
@@ -30,7 +32,7 @@ void main_startup() {
 
 		state->memory.mprotect(0x0, env::VirtPageSize, env::MemoryUsage::Execute);
 		for (size_t i = 0; i < 256; ++i)
-			state->ctx.log(str::Format<std::u8string>(u8"{:#04x}: {:#02x}", i, state->memory.read<uint8_t>(i)));
+			state->ctx.log(str::Format<std::u8string>(u8"{:#06x}: {:02x}", i, state->memory.execute<uint8_t>(i)));
 
 		state->memory.munmap(0x0, env::VirtPageSize);
 

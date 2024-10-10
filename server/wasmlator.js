@@ -18,15 +18,12 @@ let _state = {
 *	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
 class _ControlledAbort { }
 _state.controlled = function (fn) {
-	setTimeout(() => {
-		try {
-			fn();
-
-		} catch (e) {
-			if (!(e instanceof _ControlledAbort))
-				console.error(`Uncaught controlled exception: ${e}`);
-		}
-	});
+	try {
+		fn();
+	} catch (e) {
+		if (!(e instanceof _ControlledAbort))
+			console.error(`Uncaught controlled exception: ${e}`);
+	}
 }
 _state.abort = function () {
 	throw new _ControlledAbort();

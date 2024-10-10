@@ -342,7 +342,7 @@ void env::detail::MemoryInteraction::fWritei32Fromi8(env::addr_t address, uint32
 	bridge::Memory::Writei32Fromi8(pContext->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromu8(env::addr_t address, uint32_t value) const {
-	bridge::Memory::Writei32(pContext->id(), address, value);
+	bridge::Memory::Writei32Fromu8(pContext->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromi16(env::addr_t address, uint32_t value) const {
 	bridge::Memory::Writei32Fromi16(pContext->id(), address, value);

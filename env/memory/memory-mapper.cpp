@@ -57,7 +57,7 @@ void env::detail::MemoryMapper::fCheckConsistency() const {
 
 		if (fLookupPhysical(pPhysical[i].physical) != i)
 			pContext->fail(u8"Physical slot [", i, u8"] lookup failed");
-		if (pPhysical[i].size == 0)
+		if (pPhysical[i].size == 0 || env::VirtPageOffset(pPhysical[i].size) != 0)
 			pContext->fail(u8"Physical slot [", i, u8"] size is invalid");
 
 		if ((i > 0 ? (pPhysical[i - 1].physical + pPhysical[i - 1].size) : 0) != pPhysical[i].physical)
@@ -77,7 +77,7 @@ void env::detail::MemoryMapper::fCheckConsistency() const {
 			pVirtual[i].physical + pVirtual[i].size > pPhysical[phys].physical + pPhysical[phys].size)
 			pContext->fail(u8"Virtual slot [", i, u8"] physical is invalid");
 
-		if (pVirtual[i].size == 0)
+		if (pVirtual[i].size == 0 || env::VirtPageOffset(pVirtual[i].size) != 0)
 			pContext->fail(u8"Virtual slot [", i, u8"] size is invalid");
 		if (i == 0)
 			continue;
@@ -357,7 +357,7 @@ void env::detail::MemoryMapper::fMemUnmapMultipleBlocks(size_t virt, env::addr_t
 void env::detail::MemoryMapper::fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size) {
 	/* check if the entire physical range is being removed */
 	if (offset == 0 && pPhysical[phys].size == size) {
-		pPhysical[phys].used = true;
+		pPhysical[phys].used = false;
 
 		/* check if it can be merged with the next range */
 		size_t dropped = 0;
@@ -664,11 +664,11 @@ void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint3
 
 	/* check if an entry has been found */
 	if (index >= pVirtual.size() || address < pVirtual[index].address || address >= pVirtual[index].address + pVirtual[index].size)
-		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#16x}] encountered", address));
+		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
 
 	/* check if the usage attributes are valid */
 	if ((pVirtual[index].usage & usage) != usage)
-		pContext->fail(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#16x}] encountered", address));
+		pContext->fail(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#018x}] encountered", address));
 
 	/* collect all previous and upcoming regions of the same usage */
 	pLastLookup = MemoryMapper::MemLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
@@ -689,13 +689,13 @@ void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint3
 
 	/* check if the access-size is valid */
 	if (pLastLookup.address + pLastLookup.size < address + size)
-		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#16x}] encountered", address));
+		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
 }
 const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLookup() const {
 	return pLastLookup;
 }
 bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
-	pContext->debug(str::Format<std::u8string>(u8"Mapping [{:#16x}] with size [{}] and usage [{}{}{}]", address, size,
+	pContext->debug(str::Format<std::u8string>(u8"Mapping [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
@@ -723,8 +723,10 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	/* check if an existing neighboring region can just be expanded */
 	if (hasPrev && !hasNext) {
 		int8_t res = fMemExpandPrevious(virt, address, size, usage);
-		if (res == 0)
+		if (res == 0) {
+			pContext->debug(u8"Allocation failed");
 			return false;
+		}
 
 		/* flush the caches to ensure the new mapping is applied */
 		else if (res == 1) {
@@ -746,8 +748,10 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 
 	/* lookup a physical slot large enough to house the contiguous memory region */
 	size_t phys = fMemAllocatePhysical((hasPrev ? pPhysical[physPrev].size : 0) + size + (hasNext ? pPhysical[physNext].size : 0), size);
-	if (phys >= pPhysical.size())
+	if (phys >= pPhysical.size()) {
+		pContext->debug(u8"Allocation failed");
 		return false;
+	}
 
 	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
 	env::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
@@ -779,7 +783,7 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	return true;
 }
 void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
-	pContext->debug(str::Format<std::u8string>(u8"Unmapping [{:#16x}] with size [{}]", address, size));
+	pContext->debug(str::Format<std::u8string>(u8"Unmapping [{:#018x}] with size [{}]", address, size));
 
 	/* check if the address and size are aligned properly */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
@@ -810,7 +814,7 @@ void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
 	fFlushCaches();
 }
 void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uint32_t usage) {
-	pContext->debug(str::Format<std::u8string>(u8"Changing [{:#16x}] with size [{}] and usage [{}{}{}]", address, size,
+	pContext->debug(str::Format<std::u8string>(u8"Changing [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')

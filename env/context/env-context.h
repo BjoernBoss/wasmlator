@@ -42,6 +42,7 @@ namespace env {
 		}
 
 	public:
+		bool create();
 		bool setCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 		const std::u8string& name() const;
 		const std::u8string& selfName() const;

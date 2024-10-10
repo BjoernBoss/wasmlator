@@ -149,23 +149,21 @@ namespace env::detail {
 
 			static constexpr bool sign = std::is_signed_v<Type>;
 			switch (sizeof(Type)) {
-				switch (sizeof(Type)) {
-				case 1:
-					if constexpr (sign)
-						return Type(fExecutei32Fromi8(address));
-					else
-						return Type(fExecutei32Fromu8(address));
-				case 2:
-					if constexpr (sign)
-						return Type(fExecutei32Fromi16(address));
-					else
-						return Type(fExecutei32Fromu16(address));
-				case 4:
-					return Type(fExecutei32(address));
-				case 8:
-				default:
-					return Type(fExecutei64(address));
-				}
+			case 1:
+				if constexpr (sign)
+					return Type(fExecutei32Fromi8(address));
+				else
+					return Type(fExecutei32Fromu8(address));
+			case 2:
+				if constexpr (sign)
+					return Type(fExecutei32Fromi16(address));
+				else
+					return Type(fExecutei32Fromu16(address));
+			case 4:
+				return Type(fExecutei32(address));
+			case 8:
+			default:
+				return Type(fExecutei64(address));
 			}
 		};
 	};
