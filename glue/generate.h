@@ -6,7 +6,7 @@
 namespace glue {
 	static constexpr uint32_t PageSize = 0x10000;
 
-	enum class Mapping : uint8_t {
+	enum class CoreMapping : uint8_t {
 		expandPhysical,
 		movePhysical,
 		flushCaches,
@@ -41,13 +41,32 @@ namespace glue {
 		_count
 	};
 
+	enum class MainMapping : uint8_t {
+		_initialize,
+		mainStartup,
+		contextCoreLoaded,
+
+		_count
+	};
+
+	enum class MainState :uint8_t {
+		notLoaded,
+		loaded,
+		failed
+	};
+
 	/* any state greater than 'coreLoaded' assumes the core to be loaded */
 	enum class SlotState : uint8_t {
 		reserved = 0,
 		available = 1,
 		awaitingCore = 2,
 		loadingCore = 3,
-		coreLoaded = 4
+		coreFailed = 4,
+		coreLoaded = 5
+	};
+	struct Slot {
+		uint64_t self = 0;
+		glue::SlotState state = SlotState::reserved;
 	};
 
 	struct String {
@@ -59,12 +78,16 @@ namespace glue {
 	public:
 		wasm::Module module;
 		wasm::Function hostLoadCore;
-		wasm::Function hostGetFunction;
+		wasm::Function hostGetMainFunction;
+		wasm::Function hostGetCoreFunction;
 		wasm::Memory memory;
-		wasm::Table functions;
+		wasm::Table mainFunctions;
+		wasm::Table coreFunctions;
 		wasm::Table cores;
+		wasm::Global mainLoaded;
 		wasm::Global slotCount;
-		glue::String strings[size_t(glue::Mapping::_count)];
+		glue::String mainStrings[size_t(glue::MainMapping::_count)];
+		glue::String coreStrings[size_t(glue::CoreMapping::_count)];
 		uint32_t addressOfList = 0;
 
 	public:
@@ -87,16 +110,22 @@ namespace glue {
 	*	Called by glue-code to trigger instantiation of the core wasm-module
 	*		void host.host_load_core(uint32_t id, uint32_t ptr, uint32_t size);
 	*
-	*	Called by glue-code to get an exported function reference with the given name from the object
-	*		func_ref host.host_get_function(extern_ref object, uint32_t ptr, uint32_t size);
+	*	Called by glue-code to get an exported function reference from the main instance
+	*		func_ref host.host_get_main_export(uint32_t ptr, uint32_t size);
+	*
+	*	Called by glue-code to get an exported function reference with the given name from the instance
+	*		func_ref host.host_get_core_export(extern_ref instance, uint32_t ptr, uint32_t size);
 	*/
 	void SetupHostImports(glue::State& state);
 
 	/*
 	*	Define the functions the host environment interacts with
 	*
+	*	Called by host-environment when then main application has been loaded
+	*		void host_main_loaded();
+	*
 	*	Called by host-environment with core-reference object (the loaded wasm-module) and the id it belongs to
-	*		void host_core_callback(uint32_t id, extern_ref core);
+	*		void host_core_loaded(uint32_t id, extern_ref instance);
 	*/
 	void SetupHostBody(glue::State& state);
 
@@ -104,16 +133,13 @@ namespace glue {
 	*	Define the functions the main application context interacts with
 	*
 	*	Allocate a new context id (returns 0 on failure, else 1)
-	*		uint32_t ctx_create();
+	*		uint32_t ctx_create(uint64_t self);
 	*
 	*	Setup the core-module of the newly created context (returns 0 if core is already set and otherwise 1)
 	*		uint32_t ctx_set_core(uint32_t id, uint32_t ptr, uint32_t size);
 	*
 	*	Destroy the created context and release any belonging resources
 	*		void ctx_destroy(uint32_t id);
-	*
-	*	Check if the core has been loaded (return 0 if not yet completed loading, else 1)
-	*		uint32_t ctx_core_loaded(uint32_t id);
 	*/
 	void SetupContextFunctions(glue::State& state);
 

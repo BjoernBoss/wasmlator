@@ -1,24 +1,27 @@
 #include "interface.h"
+#include "../glue/generate.h"
 
 #include <ustring/ustring.h>
 
 /* null-implementation for execution without glue-module */
 #ifndef EMSCRIPTEN_COMPILATION
 
-// #error Currently not supported
+// #error currently not supported
 
-void host_log_u8(const char8_t* data, uint32_t size) {
-	str::PrintLn(u8"Log  : ", std::u8string_view{ data, size });
+int main() {
+	main_startup();
+	return 0;
 }
-void host_debug_u8(const char8_t* data, uint32_t size) {
-	str::PrintLn(u8"Debug: ", std::u8string_view{ data, size });
+
+void host_print_u8(const char8_t* data, uint32_t size) {
+	str::PrintLn(std::u8string_view{ data, size });
 }
-void host_fail_u8(const char8_t* data, uint32_t size) {
+void host_fail_u8 [[noreturn]] (const char8_t* data, uint32_t size) {
 	str::PrintLn(u8"Exception: ", std::u8string_view{ data, size });
 	exit(1);
 }
 
-uint32_t ctx_create() { return 1; }
+uint32_t ctx_create(uint64_t self) { return 1; }
 uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size) { return 1; }
 void ctx_destroy(uint32_t id) {}
 

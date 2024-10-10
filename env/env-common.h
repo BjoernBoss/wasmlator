@@ -5,6 +5,7 @@
 #include <cinttypes>
 #include <string>
 #include <type_traits>
+#include <functional>
 
 #include "../util/logging.h"
 

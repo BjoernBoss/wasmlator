@@ -30,14 +30,15 @@ if os.system('em++ -std=c++20'
 
 			 # list of all exported functions
 			 ' -sEXPORTED_FUNCTIONS='
-			 '_startup,'
+			 '_main_startup,'
+			 '_ctx_core_loaded,'
 			 '_mem_mmap,'
 			 '_mem_munmap,'
 			 '_mem_mprotect,'
 			 '_mem_perform_lookup,'
 			 '_mem_result_physical,'
 			 '_mem_result_size'
-
+			 
 			 # mark this to be the emscripten-build
 			 ' -DEMSCRIPTEN_COMPILATION'
 
@@ -57,6 +58,7 @@ if os.system('em++ -std=c++20'
 			 ' repos/wasgen/writer/binary/binary-sink.cpp'
 
 			 ' interface/interface.cpp'
+			 ' interface/entry-point.cpp'
 			 ' util/logging.cpp'
 
 			 ' env/context/context-bridge.cpp'

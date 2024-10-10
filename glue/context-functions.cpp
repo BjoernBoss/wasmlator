@@ -4,11 +4,26 @@ namespace I = wasm::inst;
 
 void glue::SetupContextFunctions(glue::State& state) {
 	/* add the context-create function */
-	{
-		wasm::Sink sink = { state.module.function(u8"ctx_create", {}, { wasm::Type::i32 }, wasm::Export{}) };
+	if (true) {
+		wasm::Prototype prototype = state.module.prototype(u8"ctx_create_type",
+			{ { u8"self", wasm::Type::i64 } },
+			{ wasm::Type::i32 }
+		);
+		wasm::Sink sink = { state.module.function(u8"ctx_create", prototype, wasm::Export{}) };
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"index");
 
-		/* iterate over the slots and look for the first '0' entry */
+		/* check if the main application has been loaded */
+		sink[I::Global::Get(state.mainLoaded)];
+		sink[I::U32::Const(glue::MainState::loaded)];
+		sink[I::U32::NotEqual()];
+		{
+			/* main has not yet been loaded, fail creation */
+			wasm::IfThen _if{ sink };
+			sink[I::U32::Const(0)];
+			sink[I::Return()];
+		}
+
+		/* iterate over the slots and look for the first available entry */
 		{
 			wasm::Block _exit{ sink, u8"exit_empty_slot_loop" };
 			wasm::Loop _loop{ sink, u8"empty_slot_loop" };
@@ -21,7 +36,9 @@ void glue::SetupContextFunctions(glue::State& state) {
 
 			/* compute the offset into memory and load the value */
 			sink[I::Local::Get(index)];
-			sink[I::U32::Load8(state.memory, state.addressOfList)];
+			sink[I::U32::Const(sizeof(glue::Slot))];
+			sink[I::U32::Mul()];
+			sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 
 			/* check if an index has been found */
 			sink[I::U32::Const(glue::SlotState::available)];
@@ -41,8 +58,17 @@ void glue::SetupContextFunctions(glue::State& state) {
 
 			/* mark the index as allocated */
 			sink[I::Local::Get(index)];
+			sink[I::U32::Const(sizeof(glue::Slot))];
+			sink[I::U32::Mul()];
 			sink[I::U32::Const(glue::SlotState::awaitingCore)];
-			sink[I::U32::Store8(state.memory, state.addressOfList)];
+			sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+
+			/* write the self-value out */
+			sink[I::Local::Get(index)];
+			sink[I::U32::Const(sizeof(glue::Slot))];
+			sink[I::U32::Mul()];
+			sink[I::Local::Get(sink.parameter(0))];
+			sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, self))];
 
 			/* return the index (no need to alloate core/function slots as this is a
 			*	reused context-index, hence the allocations have already occurred) */
@@ -50,18 +76,20 @@ void glue::SetupContextFunctions(glue::State& state) {
 			sink[I::Return()];
 		}
 
-		/* no entry has been found, try to expand the usage-list by one byte */
+		/* no entry has been found, try to expand the usage-list byte the size of one slot */
 		sink[I::Global::Get(state.slotCount)];
-		sink[I::U32::Const(state.addressOfList)];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
+		sink[I::U32::Const(state.addressOfList + sizeof(glue::Slot))];
 		sink[I::U32::Add()];
 		sink[I::Memory::Size(state.memory)];
 		sink[I::U32::Const(glue::PageSize)];
 		sink[I::U32::Mul()];
-		sink[I::U32::GreaterEqual()];
+		sink[I::U32::Greater()];
 		{
 			/* memory needs to be expanded */
 			wasm::IfThen _if0{ sink };
-			sink[I::U32::Const(1)];
+			sink[I::U32::Const((sizeof(glue::Slot) + glue::PageSize - 1) / glue::PageSize)];
 			sink[I::Memory::Grow(state.memory)];
 
 			/* check if the allocation failed and return 0 */
@@ -75,16 +103,16 @@ void glue::SetupContextFunctions(glue::State& state) {
 		/* try to grow the function-list (check its size as only the last allocation might
 		*	have failed and hence the first list might already have enough space) */
 		sink[I::Global::Get(state.slotCount)];
-		sink[I::U32::Const(glue::Mapping::_count)];
+		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];
-		sink[I::Table::Size(state.functions)];
+		sink[I::Table::Size(state.coreFunctions)];
 		sink[I::U32::GreaterEqual()];
 		{
 			/* table needs to be expanded */
 			wasm::IfThen _if0{ sink };
 			sink[I::Ref::NullFunction()];
-			sink[I::U32::Const(glue::Mapping::_count)];
-			sink[I::Table::Grow(state.functions)];
+			sink[I::U32::Const(glue::CoreMapping::_count)];
+			sink[I::Table::Grow(state.coreFunctions)];
 
 			/* check if the allocation failed and return 0 */
 			sink[I::I32::Const(-1)];
@@ -111,8 +139,17 @@ void glue::SetupContextFunctions(glue::State& state) {
 
 		/* update the slot-state */
 		sink[I::Global::Get(state.slotCount)];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
 		sink[I::U32::Const(glue::SlotState::awaitingCore)];
-		sink[I::U32::Store8(state.memory, state.addressOfList)];
+		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+
+		/* write the self-value out */
+		sink[I::Global::Get(state.slotCount)];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
+		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, self))];
 
 		/* advance the overall slot-count by one */
 		sink[I::Global::Get(state.slotCount)];
@@ -125,12 +162,18 @@ void glue::SetupContextFunctions(glue::State& state) {
 	}
 
 	/* add the context-set-core function */
-	{
-		wasm::Sink sink{ state.module.function(u8"ctx_set_core", { wasm::Type::i32, wasm::Type::i32, wasm::Type::i32 }, { wasm::Type::i32 }, wasm::Export{}) };
+	if (true) {
+		wasm::Prototype prototype = state.module.prototype(u8"ctx_set_core_type",
+			{ { u8"id", wasm::Type::i32 }, { u8"data", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
+			{ wasm::Type::i32 }
+		);
+		wasm::Sink sink{ state.module.function(u8"ctx_set_core", prototype, wasm::Export{}) };
 
 		/* check if the slot-state is valid */
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Load8(state.memory, state.addressOfList)];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
+		sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 		sink[I::U32::Const(glue::SlotState::awaitingCore)];
 		sink[I::U32::NotEqual()];
 		{
@@ -142,8 +185,10 @@ void glue::SetupContextFunctions(glue::State& state) {
 
 		/* update the state */
 		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
 		sink[I::U32::Const(glue::SlotState::loadingCore)];
-		sink[I::U32::Store8(state.memory, state.addressOfList)];
+		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 
 		/* call the host function to create the core */
 		sink[I::Local::Get(sink.parameter(0))];
@@ -156,12 +201,18 @@ void glue::SetupContextFunctions(glue::State& state) {
 	}
 
 	/* add the context-destroy function */
-	{
-		wasm::Sink sink{ state.module.function(u8"ctx_destroy", { wasm::Type::i32 }, {}, wasm::Export{}) };
+	if (true) {
+		wasm::Prototype prototype = state.module.prototype(u8"ctx_destroy_type",
+			{ { u8"id", wasm::Type::i32 } },
+			{}
+		);
+		wasm::Sink sink{ state.module.function(u8"ctx_destroy", prototype, wasm::Export{}) };
 
 		/* check if the slot-state is valid */
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Load8(state.memory, state.addressOfList)];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
+		sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 		sink[I::U32::Const(glue::SlotState::reserved)];
 		sink[I::U32::Equal()];
 		{
@@ -177,33 +228,17 @@ void glue::SetupContextFunctions(glue::State& state) {
 
 		/* clear the function-list */
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Const(glue::Mapping::_count)];
+		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];
 		sink[I::Ref::NullFunction()];
-		sink[I::U32::Const(glue::Mapping::_count)];
-		sink[I::Table::Fill(state.functions)];
+		sink[I::U32::Const(glue::CoreMapping::_count)];
+		sink[I::Table::Fill(state.coreFunctions)];
 
 		/* update the slot-state */
 		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
 		sink[I::U32::Const(glue::SlotState::available)];
-		sink[I::U32::Store8(state.memory, state.addressOfList)];
-	}
-
-	/* add the context-core-loaded function */
-	{
-		wasm::Sink sink{ state.module.function(u8"ctx_core_loaded", { wasm::Type::i32 }, { wasm::Type::i32 }, wasm::Export{}) };
-
-		/* write the two select-options to the stack */
-		sink[I::U32::Const(1)];
-		sink[I::U32::Const(0)];
-
-		/* check if the slot-state is valid */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Load8(state.memory, state.addressOfList)];
-		sink[I::U32::Const(glue::SlotState::coreLoaded)];
-		sink[I::U32::GreaterEqual()];
-
-		/* select the corresponding result */
-		sink[I::Select()];
+		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 	}
 }

@@ -1,6 +1,11 @@
 #include "interface.h"
 
+#include "../env/context/context-bridge.h"
 #include "../env/memory/memory-bridge.h"
+
+void ctx_core_loaded(uint64_t self, uint32_t succeeded) {
+	env::bridge::Context::CoreLoaded(self, succeeded > 0);
+}
 
 uint32_t mem_mmap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
 	return (env::bridge::Memory::MMap(self, address, size, usage) ? 1 : 0);

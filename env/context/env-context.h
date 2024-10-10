@@ -3,10 +3,16 @@
 #include "../env-common.h"
 
 namespace env {
+	namespace bridge {
+		struct Context;
+	}
+
 	using id_t = uint32_t;
 
 	class Context {
+		friend struct bridge::Context;
 	private:
+		std::function<void(bool)> pCoreLoaded;
 		std::u8string pName;
 		std::u8string pLogHeader;
 		std::u8string pSelfName;
@@ -19,21 +25,24 @@ namespace env {
 		~Context();
 
 	private:
+		void fCoreLoaded(bool succeeded);
+
+	private:
 		template <class... Args>
 		void fLog(const Args&... args) const {
-			util::log(pLogHeader, args...);
+			util::log(u8"Context ", pLogHeader, args...);
 		}
 		template <class... Args>
 		void fDebug(const Args&... args) const {
-			util::debug(pLogHeader, args...);
+			util::log(u8"Debug ", pLogHeader, args...);
 		}
 		template <class... Args>
 		void fFail(const Args&... args) const {
-			util::fail(pLogHeader, args...);
+			util::fail(u8"Failure ", pLogHeader, args...);
 		}
 
 	public:
-		bool setCore(const uint8_t* data, size_t size);
+		bool setCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 		const std::u8string& name() const;
 		const std::u8string& selfName() const;
 		env::id_t id() const;

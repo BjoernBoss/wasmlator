@@ -2,18 +2,26 @@
 
 #include <cinttypes>
 
+/* env/entry-point interactions */
+extern "C" {
+	/* exports */
+	void main_startup();
+}
+
 /* util/logging interactions */
 extern "C" {
 	/* imports */
-	void host_log_u8(const char8_t* data, uint32_t size);
-	void host_debug_u8(const char8_t* data, uint32_t size);
+	void host_print_u8(const char8_t* data, uint32_t size);
 	void host_fail_u8 [[noreturn]] (const char8_t* data, uint32_t size);
 }
 
 /* env/context/context-bridge interactions */
 extern "C" {
+	/* exports */
+	void ctx_core_loaded(uint64_t self, uint32_t succeeded);
+
 	/* imports */
-	uint32_t ctx_create();
+	uint32_t ctx_create(uint64_t self);
 	uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size);
 	void ctx_destroy(uint32_t id);
 }
