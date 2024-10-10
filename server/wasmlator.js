@@ -13,6 +13,25 @@ let _state = {
 	}
 };
 
+
+/* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
+*	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
+class _ControlledAbort { }
+_state.controlled = function (fn) {
+	setTimeout(() => {
+		try {
+			fn();
+
+		} catch (e) {
+			if (!(e instanceof _ControlledAbort))
+				console.error(`Uncaught controlled exception: ${e}`);
+		}
+	});
+}
+_state.abort = function () {
+	throw new _ControlledAbort();
+}
+
 /* create a string from the utf-8 encoded data at ptr in the glue application */
 _state.load_glue_string = function (ptr, size) {
 	let view = new DataView(_state.glue.memory.buffer, ptr, size);
@@ -65,7 +84,7 @@ _state.load_glue = function () {
 			_state.glue.memory = _state.glue.exports.memory;
 
 			/* load the main module, which will then startup the wasmlator */
-			_state.load_main();
+			_state.controlled(() => _state.load_main());
 		})
 		.catch((err) => {
 			console.error(`Failed to load glue module: ${err}`);
@@ -84,15 +103,14 @@ _state.load_main = function () {
 	imports.env.emscripten_notify_memory_growth = function () { };
 	imports.wasi_snapshot_preview1.proc_exit = function (code) {
 		console.error(`WasmLator.js: Main application unexpectedly terminated itself with [${code}]`);
-		throw new Error(`Unexpected termination: [${code}]`);
+		_state.abort();
 	};
 	imports.env.host_print_u8 = function (ptr, size) {
 		console.log(_state.load_main_string(ptr, size));
 	}
 	imports.env.host_fail_u8 = function (ptr, size) {
-		let msg = _state.load_main_string(ptr, size);
-		console.error(msg);
-		throw new Error(`Application failed`);
+		console.error(_state.load_main_string(ptr, size));
+		_state.abort();
 	}
 	imports.env.ctx_create = _state.glue.exports.ctx_create;
 	imports.env.ctx_set_core = _state.glue.exports.ctx_set_core;
@@ -140,14 +158,16 @@ _state.load_main = function () {
 
 			/* notify the glue module about the loaded main application, which will also startup the wasmlator itself (will also call the
 			*	required _initialize function; do this in a separate call to prevent exceptions from propagating into the catch-handler) */
-			setTimeout(() => {
+			_state.controlled(() => {
 				console.log(`WasmLator.js: Starting up main module...`);
 				_state.glue.exports.host_main_loaded(1);
 			});
 		})
 		.catch((err) => {
-			console.error(`WasmLator.js: Failed to load main module: ${err}`);
-			_state.glue.exports.host_main_loaded(0);
+			_state.controlled(() => {
+				console.error(`WasmLator.js: Failed to load main module: ${err}`);
+				_state.glue.exports.host_main_loaded(0);
+			});
 		});
 }
 
@@ -171,14 +191,16 @@ _state.load_core = function (id, buffer) {
 		.then((instance) => {
 			/* notify the glue module about the loaded core (do this in a separate
 			*	call to prevent exceptions from propagating into the catch-handler) */
-			setTimeout(() => {
+			_state.controlled(() => {
 				console.log(`WasmLator.js: Core for [${id}] loaded`);
 				_state.glue.exports.host_core_loaded(id, instance.instance);
 			});
 		})
 		.catch((err) => {
-			console.error(`WasmLator.js: Failed to load core for [${id}]: ${err}`);
-			_state.glue.exports.host_core_loaded(id, null);
+			_state.controlled(() => {
+				console.error(`WasmLator.js: Failed to load core for [${id}]: ${err}`);
+				_state.glue.exports.host_core_loaded(id, null);
+			});
 		});
 }
 
