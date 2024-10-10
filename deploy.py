@@ -3,11 +3,42 @@
 import http.server
 import os
 
-# compile the main application and export the relevant functions and main function
+# ensure the generated directory exists
+dirGenerated = os.path.join(os.path.split(__file__)[0], './server/.generated')
+if not os.path.isdir(dirGenerated):
+	os.mkdir(dirGenerated)
+
+# compile the main application and export the relevant functions
 print('compiling...')
 if os.system('em++ -std=c++20'
-			 ' -o server/main.html -O1 -DEMSCRIPTEN_COMPILATION'
+			 # ensure that only wasm is generated without _start or other main wrapper
+			 # 	functionality, which otherwise imports additional functionality
+			 ' -o server/main.wasm'
+			 ' -O1'
+			 ' -sSTANDALONE_WASM'
+			 ' --no-entry'
+			 ' -DEMSCRIPTEN_COMPILATION'
+
+			 # enable memory-heap growing possibility
+			 ' -sALLOW_MEMORY_GROWTH'
+
+			 # ensure exported functions can use i64, instead of it being split into two i32's
+			 ' -sWASM_BIGINT'
+
+			 # list of all exported functions
+			 ' -sEXPORTED_FUNCTIONS='
+			 '_startup,'
+			 '_mem_mmap,'
+			 '_mem_munmap,'
+			 '_mem_mprotect,'
+			 '_mem_perform_lookup,'
+			 '_mem_result_physical,'
+			 '_mem_result_size'
+
+			 # add the relevant include directories
 			 ' -Irepos'
+
+			 # include the source files
 			 ' main.cpp'
 			 ' repos/wasgen/objects/wasm-module.cpp'
 			 ' repos/wasgen/sink/wasm-target.cpp'
@@ -36,18 +67,6 @@ if os.system('em++ -std=c++20'
 			 ' env/memory/memory-bridge.cpp'
 			 ' env/memory/memory-mapper.cpp'
 			 ' env/memory/memory-interaction.cpp'
-
-			 ' -sEXPORTED_FUNCTIONS='
-			 '_startup,'
-			 '_mem_mmap,'
-			 '_mem_munmap,'
-			 '_mem_mprotect,'
-			 '_mem_perform_lookup,'
-			 '_mem_result_physical,'
-			 '_mem_result_size'
-
-			 # ensure exported functions can use i64, instead of it being split into two i32's
-			 ' -sWASM_BIGINT'
 			) != 0:
 	exit(1)
 print('compiled')

@@ -1,3 +1,5 @@
-server/**
-generated/**
+server/.generated/**
+server/main.js
+server/main.html
+server/main.wasm
 .vscode/**
