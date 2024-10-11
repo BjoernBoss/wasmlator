@@ -11,6 +11,7 @@ void glue::SetupContextFunctions(glue::State& state) {
 		);
 		wasm::Sink sink = { state.module.function(u8"ctx_create", prototype, wasm::Export{}) };
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"index");
+		wasm::Variable slotAddress = sink.local(wasm::Type::i32, u8"slot_address");
 
 		/* check if the main application has been loaded */
 		sink[I::Global::Get(state.mainLoaded)];
@@ -23,6 +24,10 @@ void glue::SetupContextFunctions(glue::State& state) {
 			sink[I::Return()];
 		}
 
+		/* initialize the slot address */
+		sink[I::U32::Const(state.addressOfList)];
+		sink[I::Local::Set(slotAddress)];
+
 		/* iterate over the slots and look for the first available entry */
 		{
 			wasm::Block _exit{ sink, u8"exit_empty_slot_loop" };
@@ -34,11 +39,9 @@ void glue::SetupContextFunctions(glue::State& state) {
 			sink[I::U32::GreaterEqual()];
 			sink[I::Branch::If(_exit)];
 
-			/* compute the offset into memory and load the value */
-			sink[I::Local::Get(index)];
-			sink[I::U32::Const(sizeof(glue::Slot))];
-			sink[I::U32::Mul()];
-			sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+			/* load the current state  */
+			sink[I::Local::Get(slotAddress)];
+			sink[I::U32::Load8(state.memory, offsetof(glue::Slot, state))];
 
 			/* check if an index has been found */
 			sink[I::U32::Const(glue::SlotState::available)];
@@ -46,29 +49,29 @@ void glue::SetupContextFunctions(glue::State& state) {
 			{
 				wasm::IfThen _if{ sink };
 
-				/* advance the index */
+				/* advance the index and slot-address */
 				sink[I::Local::Get(index)];
 				sink[I::U32::Const(1)];
 				sink[I::U32::Add()];
 				sink[I::Local::Set(index)];
+				sink[I::Local::Get(slotAddress)];
+				sink[I::U32::Const(sizeof(glue::Slot))];
+				sink[I::U32::Add()];
+				sink[I::Local::Set(slotAddress)];
 
 				/* go back to the loop header */
 				sink[I::Branch::Direct(_loop)];
 			}
 
 			/* mark the index as allocated */
-			sink[I::Local::Get(index)];
-			sink[I::U32::Const(sizeof(glue::Slot))];
-			sink[I::U32::Mul()];
+			sink[I::Local::Get(slotAddress)];
 			sink[I::U32::Const(glue::SlotState::awaitingCore)];
-			sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+			sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
 
 			/* write the process-value out */
-			sink[I::Local::Get(index)];
-			sink[I::U32::Const(sizeof(glue::Slot))];
-			sink[I::U32::Mul()];
+			sink[I::Local::Get(slotAddress)];
 			sink[I::Local::Get(sink.parameter(0))];
-			sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
+			sink[I::U64::Store(state.memory, offsetof(glue::Slot, process))];
 
 			/* return the index (no need to alloate core/function slots as this is a
 			*	reused context-index, hence the allocations have already occurred) */
@@ -77,10 +80,8 @@ void glue::SetupContextFunctions(glue::State& state) {
 		}
 
 		/* no entry has been found, try to expand the usage-list byte the size of one slot */
-		sink[I::Global::Get(state.slotCount)];
+		sink[I::Local::Get(slotAddress)];
 		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
-		sink[I::U32::Const(state.addressOfList + sizeof(glue::Slot))];
 		sink[I::U32::Add()];
 		sink[I::Memory::Size(state.memory)];
 		sink[I::U32::Const(glue::PageSize)];
@@ -138,18 +139,14 @@ void glue::SetupContextFunctions(glue::State& state) {
 		}
 
 		/* update the slot-state */
-		sink[I::Global::Get(state.slotCount)];
-		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
+		sink[I::Local::Get(slotAddress)];
 		sink[I::U32::Const(glue::SlotState::awaitingCore)];
-		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
 
 		/* write the process-value out */
-		sink[I::Global::Get(state.slotCount)];
-		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
+		sink[I::Local::Get(slotAddress)];
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
+		sink[I::U64::Store(state.memory, offsetof(glue::Slot, process))];
 
 		/* advance the overall slot-count by one */
 		sink[I::Global::Get(state.slotCount)];
@@ -168,12 +165,18 @@ void glue::SetupContextFunctions(glue::State& state) {
 			{ wasm::Type::i32 }
 		);
 		wasm::Sink sink{ state.module.function(u8"ctx_set_core", prototype, wasm::Export{}) };
+		wasm::Variable slotAddress = sink.local(wasm::Type::i32, u8"slot_address");
 
-		/* check if the slot-state is valid */
+		/* compute the slot address */
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(sizeof(glue::Slot))];
 		sink[I::U32::Mul()];
-		sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Const(state.addressOfList)];
+		sink[I::U32::Add()];
+		sink[I::Local::Tee(slotAddress)];
+
+		/* check if the slot-state is valid */
+		sink[I::U32::Load8(state.memory, offsetof(glue::Slot, state))];
 		sink[I::U32::Const(glue::SlotState::awaitingCore)];
 		sink[I::U32::NotEqual()];
 		{
@@ -184,11 +187,9 @@ void glue::SetupContextFunctions(glue::State& state) {
 		}
 
 		/* update the state */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
+		sink[I::Local::Get(slotAddress)];
 		sink[I::U32::Const(glue::SlotState::loadingCore)];
-		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
 
 		/* call the host function to create the core */
 		sink[I::Local::Get(sink.parameter(0))];
@@ -207,12 +208,18 @@ void glue::SetupContextFunctions(glue::State& state) {
 			{}
 		);
 		wasm::Sink sink{ state.module.function(u8"ctx_destroy", prototype, wasm::Export{}) };
+		wasm::Variable slotAddress = sink.local(wasm::Type::i32, u8"slot_address");
 
-		/* check if the slot-state is valid */
+		/* compute the slot address */
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(sizeof(glue::Slot))];
 		sink[I::U32::Mul()];
-		sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Const(state.addressOfList)];
+		sink[I::U32::Add()];
+		sink[I::Local::Tee(slotAddress)];
+
+		/* check if the slot-state is valid */
+		sink[I::U32::Load8(state.memory, offsetof(glue::Slot, state))];
 		sink[I::U32::Const(glue::SlotState::reserved)];
 		sink[I::U32::Equal()];
 		{
@@ -235,10 +242,8 @@ void glue::SetupContextFunctions(glue::State& state) {
 		sink[I::Table::Fill(state.coreFunctions)];
 
 		/* update the slot-state */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
+		sink[I::Local::Get(slotAddress)];
 		sink[I::U32::Const(glue::SlotState::available)];
-		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
 	}
 }

@@ -580,22 +580,6 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::addr
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 }
 
-void env::detail::MemoryMapper::addCoreImports(env::MemoryState& state, wasm::Module& mod) const {
-	/* add the transport to the memory management functions */
-	wasm::Prototype mmapType = mod.prototype(u8"mem_mmap_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
-		{ wasm::Type::i32 }
-	);
-	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Transport{ u8"memory" });
-	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
-	);
-	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Transport{ u8"memory" });
-	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
-	);
-	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Transport{ u8"memory" });
-}
 void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the memory-expansion function */
 	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
@@ -634,22 +618,6 @@ void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Modul
 
 		sink[I::Memory::Copy(state.memory)];
 	}
-}
-void env::detail::MemoryMapper::addBlockImports(env::MemoryState& state, wasm::Module& mod) const {
-	/* add the import to the memory management functions */
-	wasm::Prototype mmapType = mod.prototype(u8"mem_mmap_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
-		{ wasm::Type::i32 }
-	);
-	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Import{ pProcess->context().selfName() });
-	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
-	);
-	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Import{ pProcess->context().selfName() });
-	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
-	);
-	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Import{ pProcess->context().selfName() });
 }
 
 void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint32_t usage) const {
@@ -775,9 +743,11 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	if (!pPhysical[0].used && pPhysical[0].size >= (end / env::ShiftMemoryFactor)) {
 		uint32_t shift = pPhysical[1].physical;
 		fMovePhysical(0, shift, end - shift);
-		pPhysical.erase(pPhysical.begin());
-		for (size_t i = 0; i < pPhysical.size(); ++i)
-			pPhysical[i].physical -= shift;
+
+		/* move the physical and virtual memory down */
+		for (size_t i = 1; i < pPhysical.size(); ++i)
+			pPhysical[i - 1] = MemoryMapper::MemPhysical{ pPhysical[i].physical - shift, pPhysical[i].size, pPhysical[i].used };
+		pPhysical.pop_back();
 		for (size_t i = 0; i < pVirtual.size(); ++i)
 			pVirtual[i].physical -= shift;
 	}

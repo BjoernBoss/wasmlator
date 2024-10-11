@@ -94,12 +94,18 @@ void glue::SetupHostBody(glue::State& state) {
 		);
 		wasm::Sink sink{ state.module.function(u8"host_core_loaded", prototype, wasm::Export{}) };
 		wasm::Variable listBase = sink.local(wasm::Type::i32, u8"list_base");
+		wasm::Variable slotAddress = sink.local(wasm::Type::i32, u8"slot_address");
 
-		/* check if the slot-state is valid */
+		/* compute the slot address */
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(sizeof(glue::Slot))];
 		sink[I::U32::Mul()];
-		sink[I::U32::Load8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Const(state.addressOfList)];
+		sink[I::U32::Add()];
+		sink[I::Local::Tee(slotAddress)];
+
+		/* check if the slot-state is valid */
+		sink[I::U32::Load8(state.memory, offsetof(glue::Slot, state))];
 		sink[I::U32::Const(glue::SlotState::loadingCore)];
 		sink[I::U32::NotEqual()];
 		{
@@ -115,17 +121,13 @@ void glue::SetupHostBody(glue::State& state) {
 			wasm::IfThen _if{ sink };
 
 			/* update the state as failed */
-			sink[I::Local::Get(sink.parameter(0))];
-			sink[I::U32::Const(sizeof(glue::Slot))];
-			sink[I::U32::Mul()];
+			sink[I::Local::Get(slotAddress)];
 			sink[I::U32::Const(glue::SlotState::coreFailed)];
-			sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+			sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
 
 			/* notify the main application about the failure */
-			sink[I::Local::Get(sink.parameter(0))];
-			sink[I::U32::Const(sizeof(glue::Slot))];
-			sink[I::U32::Mul()];
-			sink[I::U64::Load(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
+			sink[I::Local::Get(slotAddress)];
+			sink[I::U64::Load(state.memory, offsetof(glue::Slot, process))];
 			sink[I::U32::Const(0)];
 			sink[I::U32::Const(glue::MainMapping::contextCoreLoaded)];
 			sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];
@@ -166,17 +168,13 @@ void glue::SetupHostBody(glue::State& state) {
 		}
 
 		/* update the slot-state to mark the core as loaded */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
+		sink[I::Local::Get(slotAddress)];
 		sink[I::U32::Const(glue::SlotState::coreLoaded)];
-		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
+		sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
 
 		/* notify the main application about the successful load */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U32::Const(sizeof(glue::Slot))];
-		sink[I::U32::Mul()];
-		sink[I::U64::Load(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
+		sink[I::Local::Get(slotAddress)];
+		sink[I::U64::Load(state.memory, offsetof(glue::Slot, process))];
 		sink[I::U32::Const(1)];
 		sink[I::U32::Const(glue::MainMapping::contextCoreLoaded)];
 		sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];

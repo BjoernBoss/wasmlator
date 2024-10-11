@@ -1,16 +1,6 @@
 #include "memory-bridge.h"
 #include "../../interface/interface.h"
 
-bool env::bridge::Memory::MMap(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
-	return reinterpret_cast<env::Process*>(process)->memory().pMapper.mmap(address, size, usage);
-}
-void env::bridge::Memory::MUnmap(uint64_t process, uint64_t address, uint32_t size) {
-	reinterpret_cast<env::Process*>(process)->memory().pMapper.munmap(address, size);
-}
-void env::bridge::Memory::MProtect(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
-	reinterpret_cast<env::Process*>(process)->memory().pMapper.mprotect(address, size, usage);
-}
-
 void env::bridge::Memory::Lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
 	reinterpret_cast<env::Process*>(process)->memory().pMapper.lookup(address, size, usage);
 }

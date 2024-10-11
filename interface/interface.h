@@ -29,9 +29,6 @@ extern "C" {
 /* env/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
-	uint32_t mem_mmap(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
-	void mem_munmap(uint64_t process, uint64_t address, uint32_t size);
-	void mem_mprotect(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
 	uint64_t mem_perform_lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
 	uint32_t mem_result_physical(uint64_t process);
 	uint32_t mem_result_size(uint64_t process);

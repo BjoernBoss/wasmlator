@@ -5,10 +5,6 @@
 namespace env::bridge {
 	struct Memory {
 		/* exports */
-		static bool MMap(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
-		static void MUnmap(uint64_t process, uint64_t address, uint32_t size);
-		static void MProtect(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
-
 		static void Lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
 		static uint64_t LookupAddress(uint64_t process);
 		static uint32_t LookupSize(uint64_t process);

@@ -179,9 +179,6 @@ _state.load_core = function (id, buffer) {
 	imports.memory.mem_perform_lookup = _state.main.exports.mem_perform_lookup;
 	imports.memory.mem_result_physical = _state.main.exports.mem_result_physical;
 	imports.memory.mem_result_size = _state.main.exports.mem_result_size;
-	imports.memory.mem_mmap = _state.main.exports.mem_mmap;
-	imports.memory.mem_munmap = _state.main.exports.mem_munmap;
-	imports.memory.mem_mprotect = _state.main.exports.mem_mprotect;
 
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)

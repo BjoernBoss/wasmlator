@@ -102,7 +102,7 @@ void env::detail::MemoryInteraction::fMakeAddress(wasm::Sink& sink, const env::M
 }
 void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, const wasm::Function& function, const wasm::Function& lookup, const wasm::Function& lookupPhysical, const wasm::Function& lookupSize, uint32_t uasge) const {
 	wasm::Sink sink{ function };
-	wasm::Variable address = sink.parameter(0), size = sink.parameter(1), cache = sink.parameter(2);
+	wasm::Variable address = sink.parameter(0), size = sink.parameter(1), cacheAddress = sink.parameter(2);
 
 	/* allocate the local variables necessary to write the temporary result back */
 	wasm::Variable outAddr = sink.local(wasm::Type::i64, u8"out_address");
@@ -126,16 +126,16 @@ void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, con
 	sink[I::Local::Set(outSize)];
 
 	/* write the address and physical offset back */
-	sink[I::Local::Get(cache)];
+	sink[I::Local::Get(cacheAddress)];
 	sink[I::Local::Get(outAddr)];
 	sink[I::U64::Store(caches, offsetof(MemoryInteraction::MemCache, address))];
-	sink[I::Local::Get(cache)];
+	sink[I::Local::Get(cacheAddress)];
 	sink[I::Local::Get(outPhys)];
 	sink[I::U32::Store(caches, offsetof(MemoryInteraction::MemCache, physical))];
 
 	/* write the different sizes back */
 	for (uint32_t i = 1; i <= 8; i *= 2) {
-		sink[I::Local::Get(cache)];
+		sink[I::Local::Get(cacheAddress)];
 		sink[I::Local::Get(outSize)];
 		sink[I::U32::Const(i)];
 		sink[I::U32::Sub()];
@@ -404,7 +404,7 @@ void env::detail::MemoryInteraction::addCoreBody(env::MemoryState& state, wasm::
 	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, wasm::Export{});
 
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
-	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
+	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache_address", wasm::Type::i32 } }, { wasm::Type::i32 });
 	state.readFunction = mod.function(u8"mem_lookup_read", prototype, wasm::Export{});
 	state.writeFunction = mod.function(u8"mem_lookup_write", prototype, wasm::Export{});
 	state.executeFunction = mod.function(u8"mem_lookup_execute", prototype, wasm::Export{});

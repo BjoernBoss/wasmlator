@@ -10,7 +10,6 @@ env::MemoryState env::Memory::setupCoreModule(wasm::Module& mod) const {
 
 	/* setup the imports of the components */
 	pInteraction.addCoreImports(state, mod);
-	pMapper.addCoreImports(state, mod);
 
 	/* add the body of the components */
 	pInteraction.addCoreBody(state, mod);
@@ -23,7 +22,6 @@ env::MemoryState env::Memory::setupBlockModule(wasm::Module& mod) const {
 
 	/* setup the imports of the components */
 	pInteraction.addBlockImports(state, mod);
-	pMapper.addBlockImports(state, mod);
 	return state;
 }
 
