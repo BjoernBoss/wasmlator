@@ -1,7 +1,6 @@
 #pragma once
 
 #include "memory-common.h"
-#include "memory-mapper.h"
 
 namespace env::detail {
 	class MemoryInteraction {
@@ -20,17 +19,16 @@ namespace env::detail {
 		};
 
 	private:
-		env::Context* pContext{ 0 };
-		detail::MemoryMapper* pMapper{ 0 };
-		uint32_t pCacheCount{ 0 };
-		uint32_t pReadCache{ 0 };
-		uint32_t pWriteCache{ 0 };
-		uint32_t pExecuteCache{ 0 };
-		uint32_t pCachePages{ 0 };
-		uint32_t pMemoryPages{ 0 };
+		env::Process* pProcess = 0;
+		uint32_t pCacheCount = 0;
+		uint32_t pReadCache = 0;
+		uint32_t pWriteCache = 0;
+		uint32_t pExecuteCache = 0;
+		uint32_t pCachePages = 0;
+		uint32_t pMemoryPages = 0;
 
 	public:
-		MemoryInteraction(env::Context& context, detail::MemoryMapper& mapper, uint32_t cacheSize);
+		MemoryInteraction(env::Process* process, uint32_t cacheSize);
 		MemoryInteraction(detail::MemoryInteraction&&) = delete;
 		MemoryInteraction(const detail::MemoryInteraction&) = delete;
 

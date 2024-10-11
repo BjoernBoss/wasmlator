@@ -9,21 +9,20 @@ namespace env {
 		friend struct bridge::Memory;
 	private:
 		struct MemCache {
-			env::addr_t address{ 0 };
-			env::physical_t physical{ 0 };
-			uint32_t size1{ 0 };
-			uint32_t size2{ 0 };
-			uint32_t size4{ 0 };
-			uint32_t size8{ 0 };
+			env::addr_t address = 0;
+			env::physical_t physical = 0;
+			uint32_t size1 = 0;
+			uint32_t size2 = 0;
+			uint32_t size4 = 0;
+			uint32_t size8 = 0;
 		};
 
 	private:
 		detail::MemoryMapper pMapper;
 		detail::MemoryInteraction pInteraction;
-		env::Context* pContext{ 0 };
 
 	public:
-		Memory(env::Context& context, uint32_t cacheSize);
+		Memory(env::Process* process, uint32_t cacheSize);
 		Memory(env::Memory&&) = delete;
 		Memory(const env::Memory&) = delete;
 

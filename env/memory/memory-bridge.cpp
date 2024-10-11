@@ -1,27 +1,27 @@
 #include "memory-bridge.h"
 #include "../../interface/interface.h"
 
-bool env::bridge::Memory::MMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	return reinterpret_cast<env::Memory*>(self)->pMapper.mmap(address, size, usage);
+bool env::bridge::Memory::MMap(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
+	return reinterpret_cast<env::Process*>(process)->memory().pMapper.mmap(address, size, usage);
 }
-void env::bridge::Memory::MUnmap(uint64_t self, uint64_t address, uint32_t size) {
-	reinterpret_cast<env::Memory*>(self)->pMapper.munmap(address, size);
+void env::bridge::Memory::MUnmap(uint64_t process, uint64_t address, uint32_t size) {
+	reinterpret_cast<env::Process*>(process)->memory().pMapper.munmap(address, size);
 }
-void env::bridge::Memory::MProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	reinterpret_cast<env::Memory*>(self)->pMapper.mprotect(address, size, usage);
+void env::bridge::Memory::MProtect(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
+	reinterpret_cast<env::Process*>(process)->memory().pMapper.mprotect(address, size, usage);
 }
 
-void env::bridge::Memory::Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage) {
-	reinterpret_cast<env::Memory*>(self)->pMapper.lookup(address, size, usage);
+void env::bridge::Memory::Lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
+	reinterpret_cast<env::Process*>(process)->memory().pMapper.lookup(address, size, usage);
 }
-uint64_t env::bridge::Memory::LookupAddress(uint64_t self) {
-	return reinterpret_cast<env::Memory*>(self)->pMapper.lastLookup().address;
+uint64_t env::bridge::Memory::LookupAddress(uint64_t process) {
+	return reinterpret_cast<env::Process*>(process)->memory().pMapper.lastLookup().address;
 }
-uint32_t env::bridge::Memory::LookupSize(uint64_t self) {
-	return reinterpret_cast<env::Memory*>(self)->pMapper.lastLookup().size;
+uint32_t env::bridge::Memory::LookupSize(uint64_t process) {
+	return reinterpret_cast<env::Process*>(process)->memory().pMapper.lastLookup().size;
 }
-uint32_t env::bridge::Memory::LookupPhysical(uint64_t self) {
-	return reinterpret_cast<env::Memory*>(self)->pMapper.lastLookup().physical;
+uint32_t env::bridge::Memory::LookupPhysical(uint64_t process) {
+	return reinterpret_cast<env::Process*>(process)->memory().pMapper.lastLookup().physical;
 }
 
 bool env::bridge::Memory::ExpandPhysical(env::id_t id, uint32_t pages) {

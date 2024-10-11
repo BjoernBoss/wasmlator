@@ -1,18 +1,18 @@
 #pragma once
 
-#include "env-memory.h"
+#include "../env-process.h"
 
 namespace env::bridge {
 	struct Memory {
 		/* exports */
-		static bool MMap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
-		static void MUnmap(uint64_t self, uint64_t address, uint32_t size);
-		static void MProtect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
+		static bool MMap(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+		static void MUnmap(uint64_t process, uint64_t address, uint32_t size);
+		static void MProtect(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
 
-		static void Lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
-		static uint64_t LookupAddress(uint64_t self);
-		static uint32_t LookupSize(uint64_t self);
-		static uint32_t LookupPhysical(uint64_t self);
+		static void Lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+		static uint64_t LookupAddress(uint64_t process);
+		static uint32_t LookupSize(uint64_t process);
+		static uint32_t LookupPhysical(uint64_t process);
 
 		/* imports */
 		static bool ExpandPhysical(env::id_t id, uint32_t pages);

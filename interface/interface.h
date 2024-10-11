@@ -18,10 +18,10 @@ extern "C" {
 /* env/context/context-bridge interactions */
 extern "C" {
 	/* exports */
-	void ctx_core_loaded(uint64_t self, uint32_t succeeded);
+	void ctx_core_loaded(uint64_t process, uint32_t succeeded);
 
 	/* imports */
-	uint32_t ctx_create(uint64_t self);
+	uint32_t ctx_create(uint64_t process);
 	uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size);
 	void ctx_destroy(uint32_t id);
 }
@@ -29,12 +29,12 @@ extern "C" {
 /* env/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
-	uint32_t mem_mmap(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
-	void mem_munmap(uint64_t self, uint64_t address, uint32_t size);
-	void mem_mprotect(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
-	uint64_t mem_perform_lookup(uint64_t self, uint64_t address, uint32_t size, uint32_t usage);
-	uint32_t mem_result_physical(uint64_t self);
-	uint32_t mem_result_size(uint64_t self);
+	uint32_t mem_mmap(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+	void mem_munmap(uint64_t process, uint64_t address, uint32_t size);
+	void mem_mprotect(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+	uint64_t mem_perform_lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+	uint32_t mem_result_physical(uint64_t process);
+	uint32_t mem_result_size(uint64_t process);
 
 	/* imports */
 	uint32_t mem_expand_physical(uint32_t id, uint32_t pages);

@@ -125,7 +125,7 @@ void glue::SetupHostBody(glue::State& state) {
 			sink[I::Local::Get(sink.parameter(0))];
 			sink[I::U32::Const(sizeof(glue::Slot))];
 			sink[I::U32::Mul()];
-			sink[I::U64::Load(state.memory, state.addressOfList + offsetof(glue::Slot, self))];
+			sink[I::U64::Load(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
 			sink[I::U32::Const(0)];
 			sink[I::U32::Const(glue::MainMapping::contextCoreLoaded)];
 			sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];
@@ -176,7 +176,7 @@ void glue::SetupHostBody(glue::State& state) {
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(sizeof(glue::Slot))];
 		sink[I::U32::Mul()];
-		sink[I::U64::Load(state.memory, state.addressOfList + offsetof(glue::Slot, self))];
+		sink[I::U64::Load(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
 		sink[I::U32::Const(1)];
 		sink[I::U32::Const(glue::MainMapping::contextCoreLoaded)];
 		sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];

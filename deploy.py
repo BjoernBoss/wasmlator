@@ -61,6 +61,8 @@ if os.system('em++ -std=c++20'
 			 ' interface/entry-point.cpp'
 			 ' util/logging.cpp'
 
+			 ' env/env-process.cpp'
+
 			 ' env/context/context-bridge.cpp'
 			 ' env/context/env-context.cpp'
 

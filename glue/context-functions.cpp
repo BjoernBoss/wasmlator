@@ -6,7 +6,7 @@ void glue::SetupContextFunctions(glue::State& state) {
 	/* add the context-create function */
 	if (true) {
 		wasm::Prototype prototype = state.module.prototype(u8"ctx_create_type",
-			{ { u8"self", wasm::Type::i64 } },
+			{ { u8"process", wasm::Type::i64 } },
 			{ wasm::Type::i32 }
 		);
 		wasm::Sink sink = { state.module.function(u8"ctx_create", prototype, wasm::Export{}) };
@@ -63,12 +63,12 @@ void glue::SetupContextFunctions(glue::State& state) {
 			sink[I::U32::Const(glue::SlotState::awaitingCore)];
 			sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 
-			/* write the self-value out */
+			/* write the process-value out */
 			sink[I::Local::Get(index)];
 			sink[I::U32::Const(sizeof(glue::Slot))];
 			sink[I::U32::Mul()];
 			sink[I::Local::Get(sink.parameter(0))];
-			sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, self))];
+			sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
 
 			/* return the index (no need to alloate core/function slots as this is a
 			*	reused context-index, hence the allocations have already occurred) */
@@ -144,12 +144,12 @@ void glue::SetupContextFunctions(glue::State& state) {
 		sink[I::U32::Const(glue::SlotState::awaitingCore)];
 		sink[I::U32::Store8(state.memory, state.addressOfList + offsetof(glue::Slot, state))];
 
-		/* write the self-value out */
+		/* write the process-value out */
 		sink[I::Global::Get(state.slotCount)];
 		sink[I::U32::Const(sizeof(glue::Slot))];
 		sink[I::U32::Mul()];
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, self))];
+		sink[I::U64::Store(state.memory, state.addressOfList + offsetof(glue::Slot, process))];
 
 		/* advance the overall slot-count by one */
 		sink[I::Global::Get(state.slotCount)];

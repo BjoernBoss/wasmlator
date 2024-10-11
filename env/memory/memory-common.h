@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../env-common.h"
-#include "../context/env-context.h"
 
 namespace env {
 	namespace bridge {
@@ -9,7 +8,6 @@ namespace env {
 	}
 
 	using addr_t = uint64_t;
-
 	using physical_t = uint32_t;
 
 	enum class MemoryType : uint8_t {

@@ -3,7 +3,7 @@
 
 namespace I = wasm::inst;
 
-env::detail::MemoryInteraction::MemoryInteraction(env::Context& context, detail::MemoryMapper& mapper, uint32_t cacheSize) : pContext{ &context }, pMapper{ &mapper }, pCacheCount{ cacheSize } {
+env::detail::MemoryInteraction::MemoryInteraction(env::Process* process, uint32_t cacheSize) : pProcess{ process }, pCacheCount{ cacheSize } {
 	pReadCache = pCacheCount + 0;
 	pWriteCache = pCacheCount + 1;
 	pExecuteCache = pCacheCount + 2;
@@ -13,7 +13,7 @@ env::detail::MemoryInteraction::MemoryInteraction(env::Context& context, detail:
 
 void env::detail::MemoryInteraction::fCheckCache(uint32_t cache) const {
 	if (cache >= pCacheCount)
-		pContext->fail(u8"Cache [", cache, u8"] out of bounds as only [", pCacheCount, u8"] caches have been defined");
+		pProcess->fail(u8"Cache [", cache, u8"] out of bounds as only [", pCacheCount, u8"] caches have been defined");
 }
 void env::detail::MemoryInteraction::fMakeAddress(wasm::Sink& sink, const env::MemoryState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const {
 	/* compute the offset into the current cached region */
@@ -110,7 +110,7 @@ void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, con
 	wasm::Variable outSize = sink.local(wasm::Type::i32, u8"out_size");
 
 	/* perform the call (only returns the address) */
-	sink[I::U64::Const(this)];
+	sink[I::U64::Const(pProcess)];
 	sink[I::Local::Get(address)];
 	sink[I::Local::Get(size)];
 	sink[I::U32::Const(uasge)];
@@ -118,10 +118,10 @@ void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, con
 	sink[I::Local::Set(outAddr)];
 
 	/* fetch the remainder of the results */
-	sink[I::U64::Const(this)];
+	sink[I::U64::Const(pProcess)];
 	sink[I::Call::Direct(lookupPhysical)];
 	sink[I::Local::Set(outPhys)];
-	sink[I::U64::Const(this)];
+	sink[I::U64::Const(pProcess)];
 	sink[I::Call::Direct(lookupSize)];
 	sink[I::Local::Set(outSize)];
 
@@ -315,85 +315,85 @@ void env::detail::MemoryInteraction::fMakeAccess(wasm::Module& mod, const env::M
 }
 
 uint32_t env::detail::MemoryInteraction::fReadi32Fromi8(env::addr_t address) const {
-	return bridge::Memory::Readi32Fromi8(pContext->id(), address);
+	return bridge::Memory::Readi32Fromi8(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32Fromu8(env::addr_t address) const {
-	return bridge::Memory::Readi32Fromu8(pContext->id(), address);
+	return bridge::Memory::Readi32Fromu8(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32Fromi16(env::addr_t address) const {
-	return bridge::Memory::Readi32Fromi16(pContext->id(), address);
+	return bridge::Memory::Readi32Fromi16(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32Fromu16(env::addr_t address) const {
-	return bridge::Memory::Readi32Fromu16(pContext->id(), address);
+	return bridge::Memory::Readi32Fromu16(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32(env::addr_t address) const {
-	return bridge::Memory::Readi32(pContext->id(), address);
+	return bridge::Memory::Readi32(pProcess->context().id(), address);
 }
 uint64_t env::detail::MemoryInteraction::fReadi64(env::addr_t address) const {
-	return bridge::Memory::Readi64(pContext->id(), address);
+	return bridge::Memory::Readi64(pProcess->context().id(), address);
 }
 float env::detail::MemoryInteraction::fReadf32(env::addr_t address) const {
-	return bridge::Memory::Readf32(pContext->id(), address);
+	return bridge::Memory::Readf32(pProcess->context().id(), address);
 }
 double env::detail::MemoryInteraction::fReadf64(env::addr_t address) const {
-	return bridge::Memory::Readf64(pContext->id(), address);
+	return bridge::Memory::Readf64(pProcess->context().id(), address);
 }
 void env::detail::MemoryInteraction::fWritei32Fromi8(env::addr_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromi8(pContext->id(), address, value);
+	bridge::Memory::Writei32Fromi8(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromu8(env::addr_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromu8(pContext->id(), address, value);
+	bridge::Memory::Writei32Fromu8(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromi16(env::addr_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromi16(pContext->id(), address, value);
+	bridge::Memory::Writei32Fromi16(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromu16(env::addr_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromu16(pContext->id(), address, value);
+	bridge::Memory::Writei32Fromu16(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32(env::addr_t address, uint32_t value) const {
-	bridge::Memory::Writei32(pContext->id(), address, value);
+	bridge::Memory::Writei32(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei64(env::addr_t address, uint64_t value) const {
-	bridge::Memory::Writei64(pContext->id(), address, value);
+	bridge::Memory::Writei64(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritef32(env::addr_t address, float value) const {
-	bridge::Memory::Writef32(pContext->id(), address, value);
+	bridge::Memory::Writef32(pProcess->context().id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritef64(env::addr_t address, double value) const {
-	bridge::Memory::Writef64(pContext->id(), address, value);
+	bridge::Memory::Writef64(pProcess->context().id(), address, value);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromi8(env::addr_t address) const {
-	return bridge::Memory::Executei32Fromi8(pContext->id(), address);
+	return bridge::Memory::Executei32Fromi8(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromu8(env::addr_t address) const {
-	return bridge::Memory::Executei32Fromu8(pContext->id(), address);
+	return bridge::Memory::Executei32Fromu8(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromi16(env::addr_t address) const {
-	return bridge::Memory::Executei32Fromi16(pContext->id(), address);
+	return bridge::Memory::Executei32Fromi16(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromu16(env::addr_t address) const {
-	return bridge::Memory::Executei32Fromu16(pContext->id(), address);
+	return bridge::Memory::Executei32Fromu16(pProcess->context().id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32(env::addr_t address) const {
-	return bridge::Memory::Executei32(pContext->id(), address);
+	return bridge::Memory::Executei32(pProcess->context().id(), address);
 }
 uint64_t env::detail::MemoryInteraction::fExecutei64(env::addr_t address) const {
-	return bridge::Memory::Executei64(pContext->id(), address);
+	return bridge::Memory::Executei64(pProcess->context().id(), address);
 }
 float env::detail::MemoryInteraction::fExecutef32(env::addr_t address) const {
-	return bridge::Memory::Executef32(pContext->id(), address);
+	return bridge::Memory::Executef32(pProcess->context().id(), address);
 }
 double env::detail::MemoryInteraction::fExecutef64(env::addr_t address) const {
-	return bridge::Memory::Executef64(pContext->id(), address);
+	return bridge::Memory::Executef64(pProcess->context().id(), address);
 }
 
 void env::detail::MemoryInteraction::addCoreImports(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the import to the lookup-function */
 	wasm::Prototype lookupPrototype = mod.prototype(u8"mem_lookup_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i64 }
 	);
-	wasm::Prototype resultPrototype = mod.prototype(u8"mem_lookup_result_type", { { u8"self", wasm::Type::i64 } }, { wasm::Type::i32 });
+	wasm::Prototype resultPrototype = mod.prototype(u8"mem_lookup_result_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i32 });
 	state.lookup = mod.function(u8"mem_perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
 	state.lookupPhysical = mod.function(u8"mem_result_physical", resultPrototype, wasm::Import{ u8"memory" });
 	state.lookupSize = mod.function(u8"mem_result_size", resultPrototype, wasm::Import{ u8"memory" });
@@ -442,14 +442,14 @@ void env::detail::MemoryInteraction::addCoreBody(env::MemoryState& state, wasm::
 }
 void env::detail::MemoryInteraction::addBlockImports(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the core linear memory and cache-lookup imports */
-	state.memory = mod.memory(u8"mem_core", wasm::Limit{ pMemoryPages }, wasm::Import{ pContext->selfName() });
-	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, wasm::Import{ pContext->selfName() });
+	state.memory = mod.memory(u8"mem_core", wasm::Limit{ pMemoryPages }, wasm::Import{ pProcess->context().selfName() });
+	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, wasm::Import{ pProcess->context().selfName() });
 
 	/* add the function-imports for the page-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
-	state.readFunction = mod.function(u8"mem_lookup_read", prototype, wasm::Import{ pContext->selfName() });
-	state.writeFunction = mod.function(u8"mem_lookup_write", prototype, wasm::Import{ pContext->selfName() });
-	state.executeFunction = mod.function(u8"mem_lookup_execute", prototype, wasm::Import{ pContext->selfName() });
+	state.readFunction = mod.function(u8"mem_lookup_read", prototype, wasm::Import{ pProcess->context().selfName() });
+	state.writeFunction = mod.function(u8"mem_lookup_write", prototype, wasm::Import{ pProcess->context().selfName() });
+	state.executeFunction = mod.function(u8"mem_lookup_execute", prototype, wasm::Import{ pProcess->context().selfName() });
 }
 
 void env::detail::MemoryInteraction::makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {

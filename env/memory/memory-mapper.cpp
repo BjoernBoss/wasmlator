@@ -3,7 +3,7 @@
 
 namespace I = wasm::inst;
 
-env::detail::MemoryMapper::MemoryMapper(env::Context& context, uint32_t initialAllocated) : pContext{ &context } {
+env::detail::MemoryMapper::MemoryMapper(env::Process* process, uint32_t initialAllocated) : pProcess{ process } {
 	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, initialAllocated, false });
 }
 
@@ -32,70 +32,70 @@ size_t env::detail::MemoryMapper::fLookupPhysical(env::physical_t physical) cons
 
 uint32_t env::detail::MemoryMapper::fExpandPhysical(uint32_t size, uint32_t growth) const {
 	/* allocate a little bit more to reduce the number of growings */
-	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(env::MinGrothBytes, size + growth));
-	if (bridge::Memory::ExpandPhysical(pContext->id(), pages))
+	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(env::MinGrowthBytes, size + growth));
+	if (bridge::Memory::ExpandPhysical(pProcess->context().id(), pages))
 		return uint32_t(pages * env::PhysPageSize);
 	size = env::PhysPageCount(size);
-	if (size < pages && bridge::Memory::ExpandPhysical(pContext->id(), size))
+	if (size < pages && bridge::Memory::ExpandPhysical(pProcess->context().id(), size))
 		return uint32_t(size * env::PhysPageSize);
 	return 0;
 }
 void env::detail::MemoryMapper::fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const {
-	bridge::Memory::MovePhysical(pContext->id(), dest, source, size);
+	bridge::Memory::MovePhysical(pProcess->context().id(), dest, source, size);
 }
 void env::detail::MemoryMapper::fFlushCaches() const {
 	fCheckConsistency();
-	bridge::Memory::FlushCaches(pContext->id());
+	bridge::Memory::FlushCaches(pProcess->context().id());
 }
 void env::detail::MemoryMapper::fCheckConsistency() const {
 	if (pPhysical.empty())
-		pContext->fail(u8"Physical slots invalid");
+		pProcess->fail(u8"Physical slots invalid");
 
 	uint32_t totalPhys = 0, totalVirt = 0;
 	for (size_t i = 0; i < pPhysical.size(); ++i) {
 		totalPhys += (pPhysical[i].used ? pPhysical[i].size : 0);
 
 		if (fLookupPhysical(pPhysical[i].physical) != i)
-			pContext->fail(u8"Physical slot [", i, u8"] lookup failed");
+			pProcess->fail(u8"Physical slot [", i, u8"] lookup failed");
 		if (pPhysical[i].size == 0 || env::VirtPageOffset(pPhysical[i].size) != 0)
-			pContext->fail(u8"Physical slot [", i, u8"] size is invalid");
+			pProcess->fail(u8"Physical slot [", i, u8"] size is invalid");
 
 		if ((i > 0 ? (pPhysical[i - 1].physical + pPhysical[i - 1].size) : 0) != pPhysical[i].physical)
-			pContext->fail(u8"Physical slot [", i, u8"] address is invalid");
+			pProcess->fail(u8"Physical slot [", i, u8"] address is invalid");
 		if (i > 0 && !pPhysical[i - 1].used && !pPhysical[i].used)
-			pContext->fail(u8"Physical slot [", i, u8"] usage is invalid");
+			pProcess->fail(u8"Physical slot [", i, u8"] usage is invalid");
 	}
 
 	for (size_t i = 0; i < pVirtual.size(); ++i) {
 		totalVirt += pVirtual[i].size;
 
 		if (fLookupVirtual(pVirtual[i].address) != i)
-			pContext->fail(u8"Virtual slot [", i, u8"] lookup failed");
+			pProcess->fail(u8"Virtual slot [", i, u8"] lookup failed");
 
 		size_t phys = fLookupPhysical(pVirtual[i].physical);
 		if (phys >= pPhysical.size() || !pPhysical[phys].used || pVirtual[i].physical < pPhysical[phys].physical ||
 			pVirtual[i].physical + pVirtual[i].size > pPhysical[phys].physical + pPhysical[phys].size)
-			pContext->fail(u8"Virtual slot [", i, u8"] physical is invalid");
+			pProcess->fail(u8"Virtual slot [", i, u8"] physical is invalid");
 
 		if (pVirtual[i].size == 0 || env::VirtPageOffset(pVirtual[i].size) != 0)
-			pContext->fail(u8"Virtual slot [", i, u8"] size is invalid");
+			pProcess->fail(u8"Virtual slot [", i, u8"] size is invalid");
 		if (i == 0)
 			continue;
 
 		if (pVirtual[i - 1].address + pVirtual[i - 1].size > pVirtual[i].address)
-			pContext->fail(u8"Virtual slot [", i, u8"] address is invalid");
+			pProcess->fail(u8"Virtual slot [", i, u8"] address is invalid");
 		if (pVirtual[i - 1].address + pVirtual[i - 1].size < pVirtual[i].address)
 			continue;
 
 		if (pVirtual[i - 1].physical + pVirtual[i - 1].size != pVirtual[i].physical)
-			pContext->fail(u8"Virtual slot [", i, u8"] physical is invalid");
+			pProcess->fail(u8"Virtual slot [", i, u8"] physical is invalid");
 		if (pVirtual[i - 1].usage == pVirtual[i].usage)
-			pContext->fail(u8"Virtual slot [", i, u8"] usage is invalid");
+			pProcess->fail(u8"Virtual slot [", i, u8"] usage is invalid");
 	}
 
 	if (totalPhys != totalVirt)
-		pContext->fail(u8"Phyiscal used memory does not match virtual used memory");
-	pContext->debug(u8"Memory consistency-check performed");
+		pProcess->fail(u8"Phyiscal used memory does not match virtual used memory");
+	pProcess->debug(u8"Memory consistency-check performed");
 }
 
 int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage) {
@@ -328,7 +328,7 @@ void env::detail::MemoryMapper::fMemUnmapMultipleBlocks(size_t virt, env::addr_t
 		/* check if the next virtual slot is valid */
 		size_t next = virt + dropped;
 		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
-			pContext->fail(u8"Unmapping range is not fully mapped");
+			pProcess->fail(u8"Unmapping range is not fully mapped");
 
 		/* check if the slot is fully unmapped */
 		if (pVirtual[next].address + pVirtual[next].size <= end) {
@@ -521,7 +521,7 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::addr
 		/* check if the next virtual slot is valid */
 		size_t next = virt + dropped;
 		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
-			pContext->fail(u8"Change range is not fully mapped");
+			pProcess->fail(u8"Change range is not fully mapped");
 
 		/* check if the slot is fully mapped across */
 		if (pVirtual[next].address + pVirtual[next].size <= end) {
@@ -583,16 +583,16 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::addr
 void env::detail::MemoryMapper::addCoreImports(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the transport to the memory management functions */
 	wasm::Prototype mmapType = mod.prototype(u8"mem_mmap_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i32 }
 	);
 	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Transport{ u8"memory" });
 	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
 	);
 	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Transport{ u8"memory" });
 	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
 	);
 	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Transport{ u8"memory" });
 }
@@ -638,22 +638,22 @@ void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Modul
 void env::detail::MemoryMapper::addBlockImports(env::MemoryState& state, wasm::Module& mod) const {
 	/* add the import to the memory management functions */
 	wasm::Prototype mmapType = mod.prototype(u8"mem_mmap_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i32 }
 	);
-	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Import{ pContext->selfName() });
+	state.mmapFunction = mod.function(u8"mem_mmap", mmapType, wasm::Import{ pProcess->context().selfName() });
 	wasm::Prototype munmapType = mod.prototype(u8"mem_munmap_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, {}
 	);
-	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Import{ pContext->selfName() });
+	state.munmapFunction = mod.function(u8"mem_munmap", munmapType, wasm::Import{ pProcess->context().selfName() });
 	wasm::Prototype mprotectType = mod.prototype(u8"mem_mprotect_type",
-		{ { u8"self", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {}
 	);
-	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Import{ pContext->selfName() });
+	state.mprotectFunction = mod.function(u8"mem_mprotect", mprotectType, wasm::Import{ pProcess->context().selfName() });
 }
 
 void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint32_t usage) const {
-	pContext->debug(str::Format<std::u8string>(u8"Lookup [{:#16x}] with size [{}] and usage [{}{}{}]", address, size,
+	pProcess->debug(str::Format<std::u8string>(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
@@ -664,11 +664,11 @@ void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint3
 
 	/* check if an entry has been found */
 	if (index >= pVirtual.size() || address < pVirtual[index].address || address >= pVirtual[index].address + pVirtual[index].size)
-		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
+		pProcess->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
 
 	/* check if the usage attributes are valid */
 	if ((pVirtual[index].usage & usage) != usage)
-		pContext->fail(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#018x}] encountered", address));
+		pProcess->fail(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#018x}] encountered", address));
 
 	/* collect all previous and upcoming regions of the same usage */
 	pLastLookup = MemoryMapper::MemLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
@@ -689,13 +689,13 @@ void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint3
 
 	/* check if the access-size is valid */
 	if (pLastLookup.address + pLastLookup.size < address + size)
-		pContext->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
+		pProcess->fail(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
 }
 const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLookup() const {
 	return pLastLookup;
 }
 bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
-	pContext->debug(str::Format<std::u8string>(u8"Mapping [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
+	pProcess->debug(str::Format<std::u8string>(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
@@ -703,16 +703,16 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
-		pContext->fail(u8"Mapping requires address and size to be page-aligned");
+		pProcess->fail(u8"Mapping requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
-		pContext->fail(u8"Memory-usage must only consist of read/write/execute usage");
+		pProcess->fail(u8"Memory-usage must only consist of read/write/execute usage");
 
 	/* check if the given range is valid and does not overlap any existing ranges */
 	size_t virt = fLookupVirtual(address);
 	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size)
-		pContext->fail(u8"Mapping range is already partially mapped");
+		pProcess->fail(u8"Mapping range is already partially mapped");
 	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address)
-		pContext->fail(u8"Mapping range is already partially mapped");
+		pProcess->fail(u8"Mapping range is already partially mapped");
 	if (size == 0)
 		return true;
 
@@ -724,7 +724,7 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	if (hasPrev && !hasNext) {
 		int8_t res = fMemExpandPrevious(virt, address, size, usage);
 		if (res == 0) {
-			pContext->debug(u8"Allocation failed");
+			pProcess->debug(u8"Allocation failed");
 			return false;
 		}
 
@@ -749,7 +749,7 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	/* lookup a physical slot large enough to house the contiguous memory region */
 	size_t phys = fMemAllocatePhysical((hasPrev ? pPhysical[physPrev].size : 0) + size + (hasNext ? pPhysical[physNext].size : 0), size);
 	if (phys >= pPhysical.size()) {
-		pContext->debug(u8"Allocation failed");
+		pProcess->debug(u8"Allocation failed");
 		return false;
 	}
 
@@ -783,16 +783,16 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	return true;
 }
 void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
-	pContext->debug(str::Format<std::u8string>(u8"Unmapping [{:#018x}] with size [{}]", address, size));
+	pProcess->debug(str::Format<std::u8string>(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
 
 	/* check if the address and size are aligned properly */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
-		pContext->fail(u8"Unmapping requires address and size to be page-aligned");
+		pProcess->fail(u8"Unmapping requires address and size to be page-aligned");
 
 	/* check if the given start is valid and lies within a mapped region */
 	size_t virt = fLookupVirtual(address);
 	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
-		pContext->fail(u8"Unmapping range is not fully mapped");
+		pProcess->fail(u8"Unmapping range is not fully mapped");
 	if (size == 0)
 		return;
 
@@ -814,7 +814,7 @@ void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
 	fFlushCaches();
 }
 void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uint32_t usage) {
-	pContext->debug(str::Format<std::u8string>(u8"Changing [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
+	pProcess->debug(str::Format<std::u8string>(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
@@ -822,14 +822,14 @@ void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uin
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
-		pContext->fail(u8"Changing requires address and size to be page-aligned");
+		pProcess->fail(u8"Changing requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
-		pContext->fail(u8"Memory-usage must only consist of read/write/execute usage");
+		pProcess->fail(u8"Memory-usage must only consist of read/write/execute usage");
 
 	/* check if the given start is valid and lies within a mapped region */
 	size_t virt = fLookupVirtual(address);
 	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
-		pContext->fail(u8"Change range is not fully mapped");
+		pProcess->fail(u8"Change range is not fully mapped");
 	if (size == 0)
 		return;
 

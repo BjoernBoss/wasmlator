@@ -3,7 +3,7 @@
 
 namespace I = wasm::inst;
 
-env::Memory::Memory(env::Context& context, uint32_t cacheSize) : pMapper{ context, uint32_t(env::PhysPageAligned(env::InitAllocBytes)) }, pInteraction{ context, pMapper, cacheSize }, pContext{ &context } {}
+env::Memory::Memory(env::Process* process, uint32_t cacheSize) : pMapper{ process, uint32_t(env::PhysPageAligned(env::InitAllocBytes)) }, pInteraction{ process, cacheSize } {}
 
 env::MemoryState env::Memory::setupCoreModule(wasm::Module& mod) const {
 	env::MemoryState state;

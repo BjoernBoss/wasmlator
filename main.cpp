@@ -2,31 +2,17 @@
 #include <wasgen/writer/binary-writer.h>
 #include <wasgen/writer/text-writer.h>
 #include "util/logging.h"
-#include "env/memory/env-memory.h"
+#include "env/env-process.h"
 
 int _main() {
 	//startup();
 
-	env::Context ctx{ u8"text_module" };
-	env::Memory memory{ ctx, 4 };
-	//
-	//{
-	//	writer::BinaryWriter _writer;
-	//	wasm::Module _module{ &_writer };
-	//	memory.setupCoreModule(_module);
-	//
-	//	_module.close();
-	//	const std::vector<uint8_t>& data = _writer.output();
-	//	ctx.setCore(data.data(), data.size());
-	//
-	//	// std::fstream _out{ "./temp-output.wasm", std::ios::out | std::ios::binary };
-	//	// _out.write(reinterpret_cast<const char*>(data.data()), data.size());
-	//}
-	//
+	env::Process process{ u8"test_module", 4 };
+
 	{
 		writer::TextWriter _writer;
 		wasm::Module _module{ &_writer };
-		memory.setupCoreModule(_module);
+		process.memory().setupCoreModule(_module);
 
 		_module.close();
 		const std::u8string& data = _writer.output();

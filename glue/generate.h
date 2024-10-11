@@ -65,7 +65,7 @@ namespace glue {
 		coreLoaded = 5
 	};
 	struct Slot {
-		uint64_t self = 0;
+		uint64_t process = 0;
 		glue::SlotState state = SlotState::reserved;
 	};
 
@@ -133,7 +133,7 @@ namespace glue {
 	*	Define the functions the main application context interacts with
 	*
 	*	Allocate a new context id (returns 0 on failure, else 1)
-	*		uint32_t ctx_create(uint64_t self);
+	*		uint32_t ctx_create(uint64_t process);
 	*
 	*	Setup the core-module of the newly created context (returns 0 if core is already set and otherwise 1)
 	*		uint32_t ctx_set_core(uint32_t id, uint32_t ptr, uint32_t size);

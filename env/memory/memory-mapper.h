@@ -8,9 +8,9 @@ namespace env::detail {
 		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:
 		struct MemLookup {
-			env::addr_t address{ 0 };
-			env::physical_t physical{ 0 };
-			uint32_t size{ 0 };
+			env::addr_t address = 0;
+			env::physical_t physical = 0;
+			uint32_t size = 0;
 		};
 		struct MemPhysical {
 			env::physical_t physical = 0;
@@ -25,13 +25,13 @@ namespace env::detail {
 		};
 
 	private:
-		env::Context* pContext{ 0 };
+		env::Process* pProcess = 0;
 		std::vector<MemPhysical> pPhysical;
 		std::vector<MemVirtual> pVirtual;
 		mutable MemLookup pLastLookup;
 
 	public:
-		MemoryMapper(env::Context& context, uint32_t initialAllocated);
+		MemoryMapper(env::Process* process, uint32_t initialAllocated);
 		MemoryMapper(detail::MemoryMapper&&) = delete;
 		MemoryMapper(const detail::MemoryMapper&) = delete;
 
