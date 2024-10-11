@@ -98,12 +98,12 @@ void env::detail::MemoryMapper::fCheckConsistency() const {
 	pProcess->debug(u8"Memory consistency-check performed");
 }
 
-int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage) {
+bool env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage) {
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
 
 	/* check if the next page is already used, in which case no expansion is possible */
 	if (phys + 1 < pPhysical.size() && pPhysical[phys + 1].used)
-		return -1;
+		return false;
 
 	/* check if the next physical page can be consumed */
 	if (phys + 1 < pPhysical.size() && pPhysical[phys + 1].size >= size) {
@@ -124,7 +124,7 @@ int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t ad
 		uint32_t needed = size - (phys + 1 < pPhysical.size() ? pPhysical[phys + 1].size : 0);
 		uint32_t allocate = fExpandPhysical(needed, size);
 		if (allocate == 0)
-			return 0;
+			return false;
 
 		/* check if the entire memory has been consumed */
 		if (allocate == needed) {
@@ -153,7 +153,7 @@ int8_t env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t ad
 		env::physical_t actual = pVirtual[virt].physical + pVirtual[virt].size;
 		pVirtual.insert(pVirtual.begin() + virt + 1, MemoryMapper::MemVirtual{ address, actual, size, usage });
 	}
-	return 1;
+	return true;
 }
 size_t env::detail::MemoryMapper::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
 	size_t phys = 0;
@@ -721,18 +721,9 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	bool hasNext = (virt + 1 < pVirtual.size() && address + size == pVirtual[virt + 1].address);
 
 	/* check if an existing neighboring region can just be expanded */
-	if (hasPrev && !hasNext) {
-		int8_t res = fMemExpandPrevious(virt, address, size, usage);
-		if (res == 0) {
-			pProcess->debug(u8"Allocation failed");
-			return false;
-		}
-
-		/* flush the caches to ensure the new mapping is applied */
-		else if (res == 1) {
-			fFlushCaches();
-			return true;
-		}
+	if (hasPrev && !hasNext && fMemExpandPrevious(virt, address, size, usage)) {
+		fFlushCaches();
+		return true;
 	}
 
 	/* edge-case of previous and next already being properly mapped */
@@ -777,6 +768,19 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 		pVirtual.insert(pVirtual.begin() + virt + (address >= pVirtual[virt].address ? 1 : 0), { address, actual, size, usage });
 	else if (applied == 2)
 		pVirtual.erase(pVirtual.begin() + virt + 1);
+
+	/* check if the lowest physical memory should be reduced and moved down
+	*	(there must at least be two slots, as an allocation has occurred in this call) */
+	uint32_t end = pPhysical.back().physical + pPhysical.back().size;
+	if (!pPhysical[0].used && pPhysical[0].size >= (end / env::ShiftMemoryFactor)) {
+		uint32_t shift = pPhysical[1].physical;
+		fMovePhysical(0, shift, end - shift);
+		pPhysical.erase(pPhysical.begin());
+		for (size_t i = 0; i < pPhysical.size(); ++i)
+			pPhysical[i].physical -= shift;
+		for (size_t i = 0; i < pVirtual.size(); ++i)
+			pVirtual[i].physical -= shift;
+	}
 
 	/* flush the caches to ensure the new mapping is accepted */
 	fFlushCaches();

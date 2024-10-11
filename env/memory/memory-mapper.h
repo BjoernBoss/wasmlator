@@ -46,7 +46,7 @@ namespace env::detail {
 		void fCheckConsistency() const;
 
 	private:
-		int8_t fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
+		bool fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
 		size_t fMemAllocatePhysical(uint32_t size, uint32_t growth);
 		bool fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t usage);
 		env::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext);

@@ -40,6 +40,7 @@ namespace env {
 
 	static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
 	static constexpr uint32_t MinGrowthBytes = 32 * env::VirtPageSize;
+	static constexpr uint32_t ShiftMemoryFactor = 3;
 
 	class Process;
 }
