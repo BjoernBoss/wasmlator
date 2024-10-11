@@ -16,7 +16,7 @@ void main_startup() {
 
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
-	process->memory().setupCoreModule(_module);
+	process->setupCoreModule(_module);
 
 	_module.close();
 	const std::vector<uint8_t>& data = _writer.output();

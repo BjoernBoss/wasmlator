@@ -1,4 +1,4 @@
-#include "memory-mapper.h"
+#include "../env-process.h"
 #include "memory-bridge.h"
 
 namespace I = wasm::inst;
@@ -580,7 +580,7 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::addr
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 }
 
-void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Module& mod) const {
+void env::detail::MemoryMapper::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
 	/* add the memory-expansion function */
 	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
 	{
@@ -589,7 +589,7 @@ void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Modul
 		/* number of pages to grow by */
 		sink[I::Local::Get(sink.parameter(0))];
 
-		sink[I::Memory::Grow(state.memory)];
+		sink[I::Memory::Grow(state.physical)];
 
 		/* convert result to 1 or 0 */
 		sink[I::I32::Const(0)];
@@ -616,7 +616,7 @@ void env::detail::MemoryMapper::addCoreBody(env::MemoryState& state, wasm::Modul
 		/* size */
 		sink[I::Local::Get(sink.parameter(2))];
 
-		sink[I::Memory::Copy(state.memory)];
+		sink[I::Memory::Copy(state.physical)];
 	}
 }
 

@@ -24,8 +24,7 @@ namespace env::detail {
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
 		uint32_t pExecuteCache = 0;
-		uint32_t pCachePages = 0;
-		uint32_t pMemoryPages = 0;
+		uint32_t pCacheAddress = 0;
 
 	public:
 		MemoryInteraction(env::Process* process, uint32_t cacheSize);
@@ -34,12 +33,12 @@ namespace env::detail {
 
 	private:
 		void fCheckCache(uint32_t cache) const;
-		void fMakeAddress(wasm::Sink& sink, const env::MemoryState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const;
-		void fMakeLookup(const wasm::Memory& caches, const wasm::Function& function, const wasm::Function& lookup, const wasm::Function& lookupPhysical, const wasm::Function& lookupSize, uint32_t uasge) const;
-		void fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
-		void fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
-		void fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const;
-		void fMakeAccess(wasm::Module& mod, const env::MemoryState& state, wasm::Type type, std::u8string_view name, env::MemoryType memoryType) const;
+		void fMakeAddress(wasm::Sink& sink, const env::ModuleState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const;
+		void fMakeLookup(const env::CoreState& state, const wasm::Function& function, uint32_t usage) const;
+		void fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cache, env::MemoryType type) const;
+		void fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cache, env::MemoryType type) const;
+		void fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cache, env::MemoryType type) const;
+		void fMakeAccess(wasm::Module& mod, const env::CoreState& state, wasm::Type type, std::u8string_view name, env::MemoryType memoryType) const;
 
 	private:
 		uint32_t fReadi32Fromi8(env::addr_t address) const;
@@ -68,14 +67,14 @@ namespace env::detail {
 		double fExecutef64(env::addr_t address) const;
 
 	public:
-		void addCoreImports(env::MemoryState& state, wasm::Module& mod) const;
-		void addCoreBody(env::MemoryState& state, wasm::Module& mod) const;
-		void addBlockImports(env::MemoryState& state, wasm::Module& mod) const;
+		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
+		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
+		void setupBlockImports(wasm::Module& mod, env::BlockState& state) const;
 
 	public:
-		void makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const;
-		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const;
-		void makeExecute(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const;
+		void makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
+		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
+		void makeExecute(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
 
 	public:
 		template <class Type>

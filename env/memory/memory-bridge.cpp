@@ -1,4 +1,5 @@
 #include "memory-bridge.h"
+#include "../env-process.h"
 #include "../../interface/interface.h"
 
 void env::bridge::Memory::Lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {

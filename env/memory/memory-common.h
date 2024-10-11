@@ -7,9 +7,6 @@ namespace env {
 		struct Memory;
 	}
 
-	using addr_t = uint64_t;
-	using physical_t = uint32_t;
-
 	enum class MemoryType : uint8_t {
 		u8To32,
 		u16To32,
@@ -25,20 +22,6 @@ namespace env {
 		i64,
 		f32,
 		f64
-	};
-
-	struct MemoryState {
-		wasm::Memory memory;
-		wasm::Memory caches;
-		wasm::Function readFunction;
-		wasm::Function writeFunction;
-		wasm::Function executeFunction;
-		wasm::Function mmapFunction;
-		wasm::Function munmapFunction;
-		wasm::Function mprotectFunction;
-		wasm::Function lookup;
-		wasm::Function lookupPhysical;
-		wasm::Function lookupSize;
 	};
 
 	struct MemoryUsage {

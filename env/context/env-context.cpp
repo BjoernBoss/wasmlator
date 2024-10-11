@@ -1,4 +1,4 @@
-#include "env-context.h"
+#include "../env-process.h"
 #include "context-bridge.h"
 
 env::Context::Context(std::u8string_view name, env::Process* process) : pProcess{ process }, pName{ name }, pSelfName{ u8"core" } {
@@ -41,11 +41,14 @@ bool env::Context::setCore(const uint8_t* data, size_t size, std::function<void(
 const std::u8string& env::Context::name() const {
 	return pName;
 }
+const std::u8string& env::Context::logHeader() const {
+	return pLogHeader;
+}
 const std::u8string& env::Context::selfName() const {
 	return pSelfName;
 }
-const std::u8string& env::Context::logHeader() const {
-	return pLogHeader;
+wasm::Import env::Context::imported() const {
+	return wasm::Import{ pSelfName };
 }
 env::id_t env::Context::id() const {
 	return pId;

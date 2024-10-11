@@ -43,4 +43,30 @@ namespace env {
 	static constexpr uint32_t ShiftMemoryFactor = 3;
 
 	class Process;
+
+	using addr_t = uint64_t;
+	using physical_t = uint32_t;
+	using id_t = uint32_t;
+
+	struct ModuleState {
+		wasm::Memory physical;
+		wasm::Memory management;
+		struct {
+			wasm::Function read;
+			wasm::Function write;
+			wasm::Function execute;
+		} mem;
+	};
+
+	struct CoreState : public env::ModuleState {
+		struct {
+			wasm::Function lookup;
+			wasm::Function getPhysical;
+			wasm::Function getSize;
+		} lookup;
+		uint32_t endOfManagement = 0;
+	};
+
+	struct BlockState : public env::ModuleState {
+	};
 }

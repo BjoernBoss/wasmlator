@@ -1,4 +1,4 @@
-#include "memory-interaction.h"
+#include "../env-process.h"
 #include "memory-bridge.h"
 
 namespace I = wasm::inst;
@@ -7,46 +7,44 @@ env::detail::MemoryInteraction::MemoryInteraction(env::Process* process, uint32_
 	pReadCache = pCacheCount + 0;
 	pWriteCache = pCacheCount + 1;
 	pExecuteCache = pCacheCount + 2;
-	pCachePages = env::PhysPageCount(uint64_t(pCacheCount + MemoryInteraction::InternalCaches) * sizeof(MemoryInteraction::MemCache));
-	pMemoryPages = env::PhysPageCount(env::InitAllocBytes);
 }
 
 void env::detail::MemoryInteraction::fCheckCache(uint32_t cache) const {
 	if (cache >= pCacheCount)
 		pProcess->fail(u8"Cache [", cache, u8"] out of bounds as only [", pCacheCount, u8"] caches have been defined");
 }
-void env::detail::MemoryInteraction::fMakeAddress(wasm::Sink& sink, const env::MemoryState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const {
+void env::detail::MemoryInteraction::fMakeAddress(wasm::Sink& sink, const env::ModuleState& state, uint32_t cache, const wasm::Variable& i64Address, const wasm::Function& lookup, env::MemoryType type) const {
 	/* compute the offset into the current cached region */
 	sink[I::Local::Get(i64Address)];
-	sink[I::U32::Const(cache * sizeof(MemoryInteraction::MemCache))];
-	sink[I::U64::Load(state.caches, offsetof(MemoryInteraction::MemCache, address))];
+	sink[I::U32::Const(pCacheAddress + cache * sizeof(MemoryInteraction::MemCache))];
+	sink[I::U64::Load(state.management, offsetof(MemoryInteraction::MemCache, address))];
 	sink[I::U64::Sub()];
 	sink[I::Local::Tee(i64Address)];
 
 	/* check if the address lies in the range */
-	sink[I::U32::Const(cache * sizeof(MemoryInteraction::MemCache))];
+	sink[I::U32::Const(pCacheAddress + cache * sizeof(MemoryInteraction::MemCache))];
 	switch (type) {
 	case env::MemoryType::u8To32:
 	case env::MemoryType::u8To64:
 	case env::MemoryType::i8To32:
 	case env::MemoryType::i8To64:
-		sink[I::U64::Load32(state.caches, offsetof(MemoryInteraction::MemCache, size1))];
+		sink[I::U64::Load32(state.management, offsetof(MemoryInteraction::MemCache, size1))];
 		break;
 	case env::MemoryType::u16To32:
 	case env::MemoryType::u16To64:
 	case env::MemoryType::i16To32:
 	case env::MemoryType::i16To64:
-		sink[I::U64::Load32(state.caches, offsetof(MemoryInteraction::MemCache, size2))];
+		sink[I::U64::Load32(state.management, offsetof(MemoryInteraction::MemCache, size2))];
 		break;
 	case env::MemoryType::i32:
 	case env::MemoryType::f32:
 	case env::MemoryType::u32To64:
 	case env::MemoryType::i32To64:
-		sink[I::U64::Load32(state.caches, offsetof(MemoryInteraction::MemCache, size4))];
+		sink[I::U64::Load32(state.management, offsetof(MemoryInteraction::MemCache, size4))];
 		break;
 	case env::MemoryType::i64:
 	case env::MemoryType::f64:
-		sink[I::U64::Load32(state.caches, offsetof(MemoryInteraction::MemCache, size8))];
+		sink[I::U64::Load32(state.management, offsetof(MemoryInteraction::MemCache, size8))];
 		break;
 	}
 	sink[I::U64::GreaterEqual()];
@@ -57,8 +55,8 @@ void env::detail::MemoryInteraction::fMakeAddress(wasm::Sink& sink, const env::M
 
 		/* recover the original address */
 		sink[I::Local::Get(i64Address)];
-		sink[I::U32::Const(cache * sizeof(MemoryInteraction::MemCache))];
-		sink[I::U64::Load(state.caches, offsetof(MemoryInteraction::MemCache, address))];
+		sink[I::U32::Const(pCacheAddress + cache * sizeof(MemoryInteraction::MemCache))];
+		sink[I::U64::Load(state.management, offsetof(MemoryInteraction::MemCache, address))];
 		sink[I::U64::Add()];
 
 		/* write the current size to the stack */
@@ -88,19 +86,19 @@ void env::detail::MemoryInteraction::fMakeAddress(wasm::Sink& sink, const env::M
 		}
 
 		/* perform the call to patch the cache (leaves the new absolute address as i32 on the stack) */
-		sink[I::U32::Const(cache * sizeof(MemoryInteraction::MemCache))];
+		sink[I::U32::Const(pCacheAddress + cache * sizeof(MemoryInteraction::MemCache))];
 		sink[I::Call::Direct(lookup)];
 
 		/* less-equal, compute the final absolute address */
 		_if.otherwise();
 		sink[I::Local::Get(i64Address)];
 		sink[I::U64::Shrink()];
-		sink[I::U32::Const(cache * sizeof(MemoryInteraction::MemCache))];
-		sink[I::U32::Load(state.caches, offsetof(MemoryInteraction::MemCache, physical))];
+		sink[I::U32::Const(pCacheAddress + cache * sizeof(MemoryInteraction::MemCache))];
+		sink[I::U32::Load(state.management, offsetof(MemoryInteraction::MemCache, physical))];
 		sink[I::U32::Add()];
 	}
 }
-void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, const wasm::Function& function, const wasm::Function& lookup, const wasm::Function& lookupPhysical, const wasm::Function& lookupSize, uint32_t uasge) const {
+void env::detail::MemoryInteraction::fMakeLookup(const env::CoreState& state, const wasm::Function& function, uint32_t usage) const {
 	wasm::Sink sink{ function };
 	wasm::Variable address = sink.parameter(0), size = sink.parameter(1), cacheAddress = sink.parameter(2);
 
@@ -113,25 +111,25 @@ void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, con
 	sink[I::U64::Const(pProcess)];
 	sink[I::Local::Get(address)];
 	sink[I::Local::Get(size)];
-	sink[I::U32::Const(uasge)];
-	sink[I::Call::Direct(lookup)];
+	sink[I::U32::Const(usage)];
+	sink[I::Call::Direct(state.lookup.lookup)];
 	sink[I::Local::Set(outAddr)];
 
 	/* fetch the remainder of the results */
 	sink[I::U64::Const(pProcess)];
-	sink[I::Call::Direct(lookupPhysical)];
+	sink[I::Call::Direct(state.lookup.getPhysical)];
 	sink[I::Local::Set(outPhys)];
 	sink[I::U64::Const(pProcess)];
-	sink[I::Call::Direct(lookupSize)];
+	sink[I::Call::Direct(state.lookup.getSize)];
 	sink[I::Local::Set(outSize)];
 
 	/* write the address and physical offset back */
 	sink[I::Local::Get(cacheAddress)];
 	sink[I::Local::Get(outAddr)];
-	sink[I::U64::Store(caches, offsetof(MemoryInteraction::MemCache, address))];
+	sink[I::U64::Store(state.management, offsetof(MemoryInteraction::MemCache, address))];
 	sink[I::Local::Get(cacheAddress)];
 	sink[I::Local::Get(outPhys)];
-	sink[I::U32::Store(caches, offsetof(MemoryInteraction::MemCache, physical))];
+	sink[I::U32::Store(state.management, offsetof(MemoryInteraction::MemCache, physical))];
 
 	/* write the different sizes back */
 	for (uint32_t i = 1; i <= 8; i *= 2) {
@@ -141,16 +139,16 @@ void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, con
 		sink[I::U32::Sub()];
 		switch (i) {
 		case 1:
-			sink[I::U32::Store(caches, offsetof(MemoryInteraction::MemCache, size1))];
+			sink[I::U32::Store(state.management, offsetof(MemoryInteraction::MemCache, size1))];
 			break;
 		case 2:
-			sink[I::U32::Store(caches, offsetof(MemoryInteraction::MemCache, size2))];
+			sink[I::U32::Store(state.management, offsetof(MemoryInteraction::MemCache, size2))];
 			break;
 		case 4:
-			sink[I::U32::Store(caches, offsetof(MemoryInteraction::MemCache, size4))];
+			sink[I::U32::Store(state.management, offsetof(MemoryInteraction::MemCache, size4))];
 			break;
 		case 8:
-			sink[I::U32::Store(caches, offsetof(MemoryInteraction::MemCache, size8))];
+			sink[I::U32::Store(state.management, offsetof(MemoryInteraction::MemCache, size8))];
 			break;
 		}
 	}
@@ -163,57 +161,57 @@ void env::detail::MemoryInteraction::fMakeLookup(const wasm::Memory& caches, con
 	sink[I::Local::Get(outPhys)];
 	sink[I::U32::Add()];
 }
-void env::detail::MemoryInteraction::fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const {
-	fMakeAddress(sink, state, cache, i64Address, state.readFunction, type);
+void env::detail::MemoryInteraction::fMakeRead(wasm::Sink& sink, const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cache, env::MemoryType type) const {
+	fMakeAddress(sink, state, cache, i64Address, state.mem.read, type);
 
 	/* add the final read-instruction */
 	switch (type) {
 	case env::MemoryType::u8To32:
-		sink[I::U32::Load8(state.memory)];
+		sink[I::U32::Load8(state.physical)];
 		break;
 	case env::MemoryType::u16To32:
-		sink[I::U32::Load16(state.memory)];
+		sink[I::U32::Load16(state.physical)];
 		break;
 	case env::MemoryType::u8To64:
-		sink[I::U64::Load8(state.memory)];
+		sink[I::U64::Load8(state.physical)];
 		break;
 	case env::MemoryType::u16To64:
-		sink[I::U64::Load16(state.memory)];
+		sink[I::U64::Load16(state.physical)];
 		break;
 	case env::MemoryType::u32To64:
-		sink[I::U64::Load32(state.memory)];
+		sink[I::U64::Load32(state.physical)];
 		break;
 	case env::MemoryType::i8To32:
-		sink[I::I32::Load8(state.memory)];
+		sink[I::I32::Load8(state.physical)];
 		break;
 	case env::MemoryType::i16To32:
-		sink[I::I32::Load16(state.memory)];
+		sink[I::I32::Load16(state.physical)];
 		break;
 	case env::MemoryType::i8To64:
-		sink[I::I64::Load8(state.memory)];
+		sink[I::I64::Load8(state.physical)];
 		break;
 	case env::MemoryType::i16To64:
-		sink[I::I64::Load16(state.memory)];
+		sink[I::I64::Load16(state.physical)];
 		break;
 	case env::MemoryType::i32To64:
-		sink[I::I64::Load32(state.memory)];
+		sink[I::I64::Load32(state.physical)];
 		break;
 	case env::MemoryType::i32:
-		sink[I::U32::Load(state.memory)];
+		sink[I::U32::Load(state.physical)];
 		break;
 	case env::MemoryType::i64:
-		sink[I::U64::Load(state.memory)];
+		sink[I::U64::Load(state.physical)];
 		break;
 	case env::MemoryType::f32:
-		sink[I::F32::Load(state.memory)];
+		sink[I::F32::Load(state.physical)];
 		break;
 	case env::MemoryType::f64:
-		sink[I::F64::Load(state.memory)];
+		sink[I::F64::Load(state.physical)];
 		break;
 	}
 }
-void env::detail::MemoryInteraction::fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const {
-	fMakeAddress(sink, state, cache, i64Address, state.writeFunction, type);
+void env::detail::MemoryInteraction::fMakeWrite(wasm::Sink& sink, const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cache, env::MemoryType type) const {
+	fMakeAddress(sink, state, cache, i64Address, state.mem.write, type);
 
 	/* write the value to the stack */
 	sink[I::Local::Get(value)];
@@ -222,88 +220,88 @@ void env::detail::MemoryInteraction::fMakeWrite(wasm::Sink& sink, const wasm::Va
 	switch (type) {
 	case env::MemoryType::u8To32:
 	case env::MemoryType::i8To32:
-		sink[I::U32::Store8(state.memory)];
+		sink[I::U32::Store8(state.physical)];
 		break;
 	case env::MemoryType::u16To32:
 	case env::MemoryType::i16To32:
-		sink[I::U32::Store16(state.memory)];
+		sink[I::U32::Store16(state.physical)];
 		break;
 	case env::MemoryType::u8To64:
 	case env::MemoryType::i8To64:
-		sink[I::U64::Store8(state.memory)];
+		sink[I::U64::Store8(state.physical)];
 		break;
 	case env::MemoryType::u16To64:
 	case env::MemoryType::i16To64:
-		sink[I::U64::Store16(state.memory)];
+		sink[I::U64::Store16(state.physical)];
 		break;
 	case env::MemoryType::u32To64:
 	case env::MemoryType::i32To64:
-		sink[I::U64::Store32(state.memory)];
+		sink[I::U64::Store32(state.physical)];
 		break;
 	case env::MemoryType::i32:
-		sink[I::U32::Store(state.memory)];
+		sink[I::U32::Store(state.physical)];
 		break;
 	case env::MemoryType::i64:
-		sink[I::U64::Store(state.memory)];
+		sink[I::U64::Store(state.physical)];
 		break;
 	case env::MemoryType::f32:
-		sink[I::F32::Store(state.memory)];
+		sink[I::F32::Store(state.physical)];
 		break;
 	case env::MemoryType::f64:
-		sink[I::F64::Store(state.memory)];
+		sink[I::F64::Store(state.physical)];
 		break;
 	}
 }
-void env::detail::MemoryInteraction::fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cache, env::MemoryType type) const {
-	fMakeAddress(sink, state, cache, i64Address, state.executeFunction, type);
+void env::detail::MemoryInteraction::fMakeExecute(wasm::Sink& sink, const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cache, env::MemoryType type) const {
+	fMakeAddress(sink, state, cache, i64Address, state.mem.execute, type);
 
 	/* add the final read-instruction */
 	switch (type) {
 	case env::MemoryType::u8To32:
-		sink[I::U32::Load8(state.memory)];
+		sink[I::U32::Load8(state.physical)];
 		break;
 	case env::MemoryType::u16To32:
-		sink[I::U32::Load16(state.memory)];
+		sink[I::U32::Load16(state.physical)];
 		break;
 	case env::MemoryType::u8To64:
-		sink[I::U64::Load8(state.memory)];
+		sink[I::U64::Load8(state.physical)];
 		break;
 	case env::MemoryType::u16To64:
-		sink[I::U64::Load16(state.memory)];
+		sink[I::U64::Load16(state.physical)];
 		break;
 	case env::MemoryType::u32To64:
-		sink[I::U64::Load32(state.memory)];
+		sink[I::U64::Load32(state.physical)];
 		break;
 	case env::MemoryType::i8To32:
-		sink[I::I32::Load8(state.memory)];
+		sink[I::I32::Load8(state.physical)];
 		break;
 	case env::MemoryType::i16To32:
-		sink[I::I32::Load16(state.memory)];
+		sink[I::I32::Load16(state.physical)];
 		break;
 	case env::MemoryType::i8To64:
-		sink[I::I64::Load8(state.memory)];
+		sink[I::I64::Load8(state.physical)];
 		break;
 	case env::MemoryType::i16To64:
-		sink[I::I64::Load16(state.memory)];
+		sink[I::I64::Load16(state.physical)];
 		break;
 	case env::MemoryType::i32To64:
-		sink[I::I64::Load32(state.memory)];
+		sink[I::I64::Load32(state.physical)];
 		break;
 	case env::MemoryType::i32:
-		sink[I::U32::Load(state.memory)];
+		sink[I::U32::Load(state.physical)];
 		break;
 	case env::MemoryType::i64:
-		sink[I::U64::Load(state.memory)];
+		sink[I::U64::Load(state.physical)];
 		break;
 	case env::MemoryType::f32:
-		sink[I::F32::Load(state.memory)];
+		sink[I::F32::Load(state.physical)];
 		break;
 	case env::MemoryType::f64:
-		sink[I::F64::Load(state.memory)];
+		sink[I::F64::Load(state.physical)];
 		break;
 	}
 }
-void env::detail::MemoryInteraction::fMakeAccess(wasm::Module& mod, const env::MemoryState& state, wasm::Type type, std::u8string_view name, env::MemoryType memoryType) const {
+void env::detail::MemoryInteraction::fMakeAccess(wasm::Module& mod, const env::CoreState& state, wasm::Type type, std::u8string_view name, env::MemoryType memoryType) const {
 	wasm::Sink read{ mod.function(str::Build<std::u8string>(u8"mem_read_", name), { wasm::Type::i64 }, { type }, wasm::Export{}) };
 	wasm::Sink write{ mod.function(str::Build<std::u8string>(u8"mem_write_", name), { wasm::Type::i64, type }, {}, wasm::Export{}) };
 	wasm::Sink execute{ mod.function(str::Build<std::u8string>(u8"mem_execute_", name), { wasm::Type::i64 }, { type }, wasm::Export{}) };
@@ -387,32 +385,32 @@ double env::detail::MemoryInteraction::fExecutef64(env::addr_t address) const {
 	return bridge::Memory::Executef64(pProcess->context().id(), address);
 }
 
-void env::detail::MemoryInteraction::addCoreImports(env::MemoryState& state, wasm::Module& mod) const {
+void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
 	/* add the import to the lookup-function */
 	wasm::Prototype lookupPrototype = mod.prototype(u8"mem_lookup_type",
 		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{ wasm::Type::i64 }
 	);
 	wasm::Prototype resultPrototype = mod.prototype(u8"mem_lookup_result_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i32 });
-	state.lookup = mod.function(u8"mem_perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
-	state.lookupPhysical = mod.function(u8"mem_result_physical", resultPrototype, wasm::Import{ u8"memory" });
-	state.lookupSize = mod.function(u8"mem_result_size", resultPrototype, wasm::Import{ u8"memory" });
-}
-void env::detail::MemoryInteraction::addCoreBody(env::MemoryState& state, wasm::Module& mod) const {
-	/* add the core linear memory and page-lookup */
-	state.memory = mod.memory(u8"mem_core", wasm::Limit{ pMemoryPages }, wasm::Export{});
-	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, wasm::Export{});
+	state.lookup.lookup = mod.function(u8"mem_perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
+	state.lookup.getPhysical = mod.function(u8"mem_result_physical", resultPrototype, wasm::Import{ u8"memory" });
+	state.lookup.getSize = mod.function(u8"mem_result_size", resultPrototype, wasm::Import{ u8"memory" });
 
+	/* allocate the cache-entries from the management memory */
+	pCacheAddress = state.endOfManagement;
+	state.endOfManagement += (pCacheCount + MemoryInteraction::InternalCaches) * uint32_t(sizeof(MemoryInteraction::MemCache));
+}
+void env::detail::MemoryInteraction::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
 	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache_address", wasm::Type::i32 } }, { wasm::Type::i32 });
-	state.readFunction = mod.function(u8"mem_lookup_read", prototype, wasm::Export{});
-	state.writeFunction = mod.function(u8"mem_lookup_write", prototype, wasm::Export{});
-	state.executeFunction = mod.function(u8"mem_lookup_execute", prototype, wasm::Export{});
+	state.mem.read = mod.function(u8"mem_lookup_read", prototype, wasm::Export{});
+	state.mem.write = mod.function(u8"mem_lookup_write", prototype, wasm::Export{});
+	state.mem.execute = mod.function(u8"mem_lookup_execute", prototype, wasm::Export{});
 
 	/* add the actual implementations */
-	fMakeLookup(state.caches, state.readFunction, state.lookup, state.lookupPhysical, state.lookupSize, env::MemoryUsage::Read);
-	fMakeLookup(state.caches, state.writeFunction, state.lookup, state.lookupPhysical, state.lookupSize, env::MemoryUsage::Write);
-	fMakeLookup(state.caches, state.executeFunction, state.lookup, state.lookupPhysical, state.lookupSize, env::MemoryUsage::Execute);
+	fMakeLookup(state, state.mem.read, env::MemoryUsage::Read);
+	fMakeLookup(state, state.mem.write, env::MemoryUsage::Write);
+	fMakeLookup(state, state.mem.execute, env::MemoryUsage::Execute);
 
 	/* add the separate access functions */
 	fMakeAccess(mod, state, wasm::Type::i32, u8"u8_i32", env::MemoryType::u8To32);
@@ -429,7 +427,7 @@ void env::detail::MemoryInteraction::addCoreBody(env::MemoryState& state, wasm::
 		wasm::Sink sink{ mod.function(u8"mem_flush_caches", {}, {}, wasm::Export{}) };
 
 		/* destination-address */
-		sink[I::U32::Const(0)];
+		sink[I::U32::Const(pCacheAddress)];
 
 		/* value */
 		sink[I::U32::Const(0)];
@@ -437,30 +435,26 @@ void env::detail::MemoryInteraction::addCoreBody(env::MemoryState& state, wasm::
 		/* size */
 		sink[I::U32::Const(uint64_t(pCacheCount + MemoryInteraction::InternalCaches) * sizeof(MemoryInteraction::MemCache))];
 
-		sink[I::Memory::Fill(state.caches)];
+		sink[I::Memory::Fill(state.management)];
 	}
 }
-void env::detail::MemoryInteraction::addBlockImports(env::MemoryState& state, wasm::Module& mod) const {
-	/* add the core linear memory and cache-lookup imports */
-	state.memory = mod.memory(u8"mem_core", wasm::Limit{ pMemoryPages }, wasm::Import{ pProcess->context().selfName() });
-	state.caches = mod.memory(u8"mem_cache", wasm::Limit{ pCachePages, pCachePages }, wasm::Import{ pProcess->context().selfName() });
-
+void env::detail::MemoryInteraction::setupBlockImports(wasm::Module& mod, env::BlockState& state) const {
 	/* add the function-imports for the page-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
-	state.readFunction = mod.function(u8"mem_lookup_read", prototype, wasm::Import{ pProcess->context().selfName() });
-	state.writeFunction = mod.function(u8"mem_lookup_write", prototype, wasm::Import{ pProcess->context().selfName() });
-	state.executeFunction = mod.function(u8"mem_lookup_execute", prototype, wasm::Import{ pProcess->context().selfName() });
+	state.mem.read = mod.function(u8"mem_lookup_read", prototype, pProcess->context().imported());
+	state.mem.write = mod.function(u8"mem_lookup_write", prototype, pProcess->context().imported());
+	state.mem.execute = mod.function(u8"mem_lookup_execute", prototype, pProcess->context().imported());
 }
 
-void env::detail::MemoryInteraction::makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {
+void env::detail::MemoryInteraction::makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	fCheckCache(cacheIndex);
 	return fMakeRead(i64Address.sink(), i64Address, state, cacheIndex, type);
 }
-void env::detail::MemoryInteraction::makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {
+void env::detail::MemoryInteraction::makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	fCheckCache(cacheIndex);
 	return fMakeWrite(i64Address.sink(), i64Address, value, state, cacheIndex, type);
 }
-void env::detail::MemoryInteraction::makeExecute(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {
+void env::detail::MemoryInteraction::makeExecute(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	fCheckCache(cacheIndex);
 	return fMakeExecute(i64Address.sink(), i64Address, state, cacheIndex, type);
 }

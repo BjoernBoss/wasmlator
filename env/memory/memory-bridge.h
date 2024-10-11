@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../env-process.h"
+#include "memory-common.h"
 
 namespace env::bridge {
 	struct Memory {

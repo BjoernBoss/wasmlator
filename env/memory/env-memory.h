@@ -27,13 +27,14 @@ namespace env {
 		Memory(const env::Memory&) = delete;
 
 	public:
-		env::MemoryState setupCoreModule(wasm::Module& mod) const;
-		env::MemoryState setupBlockModule(wasm::Module& mod) const;
+		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
+		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
+		void setupBlockImports(wasm::Module& mod, env::BlockState& state) const;
 
 	public:
-		void makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const;
-		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const;
-		void makeExecute(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const;
+		void makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
+		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
+		void makeExecute(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
 
 	public:
 		bool mmap(env::addr_t address, uint32_t size, uint32_t usage);

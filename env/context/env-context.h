@@ -7,16 +7,14 @@ namespace env {
 		struct Context;
 	}
 
-	using id_t = uint32_t;
-
 	class Context {
 		friend struct bridge::Context;
 	private:
 		std::function<void(bool)> pCoreLoaded;
-		env::Process* pProcess = 0;
 		std::u8string pName;
 		std::u8string pLogHeader;
 		std::u8string pSelfName;
+		env::Process* pProcess = 0;
 		env::id_t pId = 0;
 
 	public:
@@ -32,8 +30,9 @@ namespace env {
 		bool create();
 		bool setCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 		const std::u8string& name() const;
-		const std::u8string& selfName() const;
 		const std::u8string& logHeader() const;
+		const std::u8string& selfName() const;
+		wasm::Import imported() const;
 		env::id_t id() const;
 	};
 }

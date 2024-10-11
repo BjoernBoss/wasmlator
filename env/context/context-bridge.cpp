@@ -1,4 +1,5 @@
 #include "context-bridge.h"
+#include "../env-process.h"
 #include "../../interface/interface.h"
 
 void env::bridge::Context::CoreLoaded(uint64_t process, bool succeeded) {

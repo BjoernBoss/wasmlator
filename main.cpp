@@ -12,7 +12,7 @@ int _main() {
 	{
 		writer::TextWriter _writer;
 		wasm::Module _module{ &_writer };
-		process.memory().setupCoreModule(_module);
+		process.setupCoreModule(_module);
 
 		_module.close();
 		const std::u8string& data = _writer.output();

@@ -61,7 +61,7 @@ namespace env::detail {
 		void fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage);
 
 	public:
-		void addCoreBody(env::MemoryState& state, wasm::Module& mod) const;
+		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
 
 	public:
 		void lookup(env::addr_t address, uint32_t size, uint32_t usage) const;

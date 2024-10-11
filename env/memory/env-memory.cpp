@@ -1,37 +1,28 @@
-#include "env-memory.h"
+#include "../env-process.h"
 #include "memory-bridge.h"
 
 namespace I = wasm::inst;
 
 env::Memory::Memory(env::Process* process, uint32_t cacheSize) : pMapper{ process, uint32_t(env::PhysPageAligned(env::InitAllocBytes)) }, pInteraction{ process, cacheSize } {}
 
-env::MemoryState env::Memory::setupCoreModule(wasm::Module& mod) const {
-	env::MemoryState state;
-
-	/* setup the imports of the components */
-	pInteraction.addCoreImports(state, mod);
-
-	/* add the body of the components */
-	pInteraction.addCoreBody(state, mod);
-	pMapper.addCoreBody(state, mod);
-
-	return state;
+void env::Memory::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
+	pInteraction.setupCoreImports(mod, state);
 }
-env::MemoryState env::Memory::setupBlockModule(wasm::Module& mod) const {
-	env::MemoryState state;
-
-	/* setup the imports of the components */
-	pInteraction.addBlockImports(state, mod);
-	return state;
+void env::Memory::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
+	pInteraction.setupCoreBody(mod, state);
+	pMapper.setupCoreBody(mod, state);
+}
+void env::Memory::setupBlockImports(wasm::Module& mod, env::BlockState& state) const {
+	pInteraction.setupBlockImports(mod, state);
 }
 
-void env::Memory::makeRead(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {
+void env::Memory::makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	pInteraction.makeRead(i64Address, state, cacheIndex, type);
 }
-void env::Memory::makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {
+void env::Memory::makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	pInteraction.makeWrite(i64Address, value, state, cacheIndex, type);
 }
-void env::Memory::makeExecute(const wasm::Variable& i64Address, const env::MemoryState& state, uint32_t cacheIndex, env::MemoryType type) const {
+void env::Memory::makeExecute(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	pInteraction.makeExecute(i64Address, state, cacheIndex, type);
 }
 
