@@ -7,7 +7,7 @@ env::detail::MemoryMapper::MemoryMapper(env::Process* process, uint32_t initialA
 	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, initialAllocated, false });
 }
 
-size_t env::detail::MemoryMapper::fLookupVirtual(env::addr_t address) const {
+size_t env::detail::MemoryMapper::fLookupVirtual(env::guest_t address) const {
 	size_t begin = 0, end = pVirtual.size();
 	while ((end - begin) > 1) {
 		size_t index = (begin + end + 1) / 2;
@@ -98,7 +98,7 @@ void env::detail::MemoryMapper::fCheckConsistency() const {
 	pProcess->debug(u8"Memory consistency-check performed");
 }
 
-bool env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage) {
+bool env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
 
 	/* check if the next page is already used, in which case no expansion is possible */
@@ -283,7 +283,7 @@ env::physical_t env::detail::MemoryMapper::fMemMergePhysical(size_t virt, size_t
 	return actual;
 }
 
-void env::detail::MemoryMapper::fMemUnmapSingleBlock(size_t virt, env::addr_t address, uint32_t size) {
+void env::detail::MemoryMapper::fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size) {
 	const MemoryMapper::MemVirtual entry = pVirtual[virt];
 
 	/* check if the regions align perfectly */
@@ -312,7 +312,7 @@ void env::detail::MemoryMapper::fMemUnmapSingleBlock(size_t virt, env::addr_t ad
 	offset += size;
 	pVirtual.insert(pVirtual.begin() + virt + 1, MemoryMapper::MemVirtual{ address + size, entry.physical + offset, entry.size - offset, entry.usage });
 }
-void env::detail::MemoryMapper::fMemUnmapMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end) {
+void env::detail::MemoryMapper::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end) {
 	uint32_t shift = 0;
 
 	/* check if the first slot needs to be split up */
@@ -419,7 +419,7 @@ void env::detail::MemoryMapper::fMemUnmapPhysical(size_t phys, uint32_t offset, 
 	pPhysical[phys].size = offset;
 }
 
-bool env::detail::MemoryMapper::fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage) {
+bool env::detail::MemoryMapper::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
 	const MemoryMapper::MemVirtual entry = pVirtual[virt];
 
 	/* check if nothing needs to be done */
@@ -491,7 +491,7 @@ bool env::detail::MemoryMapper::fMemProtectSingleBlock(size_t virt, env::addr_t 
 	pVirtual[virt + 2] = MemoryMapper::MemVirtual{ address + size, entry.physical + offset + size, entry.size - offset - size, entry.usage };
 	return true;
 }
-void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage) {
+void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage) {
 	bool hasValue = false;
 	uint32_t shift = 0;
 
@@ -620,7 +620,7 @@ void env::detail::MemoryMapper::setupCoreBody(wasm::Module& mod, env::CoreState&
 	}
 }
 
-void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint32_t usage) const {
+void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint32_t usage) const {
 	pProcess->debug(str::Format<std::u8string>(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
@@ -662,7 +662,7 @@ void env::detail::MemoryMapper::lookup(env::addr_t address, uint32_t size, uint3
 const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLookup() const {
 	return pLastLookup;
 }
-bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_t usage) {
+bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	pProcess->debug(str::Format<std::u8string>(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
@@ -756,7 +756,7 @@ bool env::detail::MemoryMapper::mmap(env::addr_t address, uint32_t size, uint32_
 	fFlushCaches();
 	return true;
 }
-void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
+void env::detail::MemoryMapper::munmap(env::guest_t address, uint32_t size) {
 	pProcess->debug(str::Format<std::u8string>(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
 
 	/* check if the address and size are aligned properly */
@@ -775,7 +775,7 @@ void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
 	uint32_t offset = (pVirtual[virt].physical - pPhysical[phys].physical) + uint32_t(address - pVirtual[virt].address);
 
 	/* check if the new usage lies across multiple slots */
-	env::addr_t end = address + size;
+	env::guest_t end = address + size;
 	if (pVirtual[virt].address + pVirtual[virt].size < end)
 		fMemUnmapMultipleBlocks(virt, address, end);
 
@@ -787,7 +787,7 @@ void env::detail::MemoryMapper::munmap(env::addr_t address, uint32_t size) {
 	fMemUnmapPhysical(phys, offset, size);
 	fFlushCaches();
 }
-void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uint32_t usage) {
+void env::detail::MemoryMapper::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
 	pProcess->debug(str::Format<std::u8string>(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
@@ -808,7 +808,7 @@ void env::detail::MemoryMapper::mprotect(env::addr_t address, uint32_t size, uin
 		return;
 
 	/* check if the new usage lies across multiple slots */
-	env::addr_t end = address + size;
+	env::guest_t end = address + size;
 	if (pVirtual[virt].address + pVirtual[virt].size < end)
 		fMemProtectMultipleBlocks(virt, address, end, size, usage);
 

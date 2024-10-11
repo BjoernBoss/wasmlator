@@ -24,6 +24,7 @@ if os.system(f'cd {os.path.split(__file__)[0]} &&'
 			 ' context-functions.cpp'
 			 ' host-functions.cpp'
 			 ' initialize-state.cpp'
+			 ' blocks-functions.cpp'
 			 ' memory-functions.cpp'
 
 			 ' ../repos/wasgen/objects/wasm-module.cpp'

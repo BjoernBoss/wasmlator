@@ -139,6 +139,7 @@ _state.load_main = function () {
 	imports.env.mem_execute_i64 = _state.glue.exports.mem_execute_i64;
 	imports.env.mem_execute_f32 = _state.glue.exports.mem_execute_f32;
 	imports.env.mem_execute_f64 = _state.glue.exports.mem_execute_f64;
+	imports.env.blocks_flush_blocks = _state.glue.exports.blocks_flush_blocks;
 
 	/* fetch the main application javascript-wrapper */
 	fetch(_state.main.path, { credentials: 'same-origin' })
@@ -174,11 +175,14 @@ _state.load_core = function (id, buffer) {
 
 	/* setup the core imports */
 	let imports = {
-		memory: {}
+		memory: {},
+		blocks: {}
 	};
-	imports.memory.mem_perform_lookup = _state.main.exports.mem_perform_lookup;
-	imports.memory.mem_result_physical = _state.main.exports.mem_result_physical;
-	imports.memory.mem_result_size = _state.main.exports.mem_result_size;
+	imports.memory.perform_lookup = _state.main.exports.mem_perform_lookup;
+	imports.memory.result_physical = _state.main.exports.mem_result_physical;
+	imports.memory.result_size = _state.main.exports.mem_result_size;
+	imports.blocks.lookup_complex = _state.main.exports.blocks_lookup_complex;
+	imports.context.translate = _state.main.exports.ctx_translate;
 
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)

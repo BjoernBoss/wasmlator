@@ -36,6 +36,8 @@ uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size) {
 }
 void ctx_destroy(uint32_t id) {}
 
+void blocks_flush_blocks(uint32_t id) {}
+
 uint32_t mem_expand_physical(uint32_t id, uint32_t pages) { return {}; }
 void mem_move_physical(uint32_t id, uint32_t dest, uint32_t source, uint32_t size) {}
 void mem_flush_caches(uint32_t id) {}

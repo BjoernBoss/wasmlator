@@ -14,8 +14,12 @@ void env::Context::fCoreLoaded(bool succeeded) {
 	pProcess->debug(u8"Core loaded: [", (succeeded ? u8"succeeded]" : u8"failed]"));
 	pCoreLoaded(succeeded);
 }
+void env::Context::fTranslate(env::guest_t address) {
+	pProcess->debug(str::Format<std::u8string>(u8"Translate: [{:#018x}]", address));
+	pTranslate(address);
+}
 
-bool env::Context::create() {
+bool env::Context::create(std::function<void(env::guest_t)> translate) {
 	if (pId != 0)
 		return false;
 	pProcess->log(u8"Creating new context...");
@@ -26,6 +30,7 @@ bool env::Context::create() {
 		pProcess->log(u8"Context creation failed");
 		return false;
 	}
+	pTranslate = translate;
 	pProcess->log(u8"Context created with id [", pId, u8']');
 	return true;
 }
@@ -52,4 +57,13 @@ wasm::Import env::Context::imported() const {
 }
 env::id_t env::Context::id() const {
 	return pId;
+}
+
+void env::Context::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
+	/* add the import to the translate-function */
+	wasm::Prototype prototype = mod.prototype(u8"ctx_translate_type",
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 } },
+		{}
+	);
+	state.ctx_core.translate = mod.function(u8"translate", prototype, wasm::Import{ u8"context" });
 }

@@ -26,10 +26,11 @@ void glue::InitializeState(glue::State& state) {
 	state.module.value(state.mainLoaded, wasm::Value::MakeU32(glue::MainState::notLoaded));
 
 	/* add the function table and the core-table */
-	state.coreFunctions = state.module.table(u8"function_list", true, wasm::Limit{ 2 * uint32_t(glue::CoreMapping::_count) });
-	state.cores = state.module.table(u8"core_list", false, wasm::Limit{ 2 });
+	state.coreFunctions = state.module.table(u8"function_list", true, wasm::Limit{ glue::MinCoreCount * uint32_t(glue::CoreMapping::_count) });
+	state.cores = state.module.table(u8"core_list", false, wasm::Limit{ glue::MinCoreCount });
 
-	/* add the memory and global slot-count (initialize it with 1 to reserve the null-entry) */
+	/* add the memory and global slot-count (initialize it with 1 to reserve the null-entry; assumption
+	*	that 1 physical page is large enough to hold all strings and the first glue::Slot) */
 	state.memory = state.module.memory(u8"memory", wasm::Limit{ 1 }, wasm::Export{});
 	state.slotCount = state.module.global(u8"slot_count", wasm::Type::i32, true);
 	state.module.value(state.slotCount, wasm::Value::MakeU32(1));
@@ -40,6 +41,8 @@ void glue::InitializeState(glue::State& state) {
 	WriteMainString(state, glue::MainMapping::contextCoreLoaded, u8"ctx_core_loaded");
 
 	/* write the strings out, which identify all coremapping-functions */
+	WriteCoreString(state, glue::CoreMapping::flushBlocks, u8"blocks_flush_blocks");
+
 	WriteCoreString(state, glue::CoreMapping::expandPhysical, u8"mem_expand_physical");
 	WriteCoreString(state, glue::CoreMapping::movePhysical, u8"mem_move_physical");
 	WriteCoreString(state, glue::CoreMapping::flushCaches, u8"mem_flush_caches");

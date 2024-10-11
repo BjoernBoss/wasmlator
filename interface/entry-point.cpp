@@ -12,7 +12,10 @@ void main_startup() {
 	util::log(u8"Main: Application startup entered");
 	env::Process* process = new env::Process{ u8"test_module", 4 };
 
-	process->context().create();
+	if (!process->context().create([](env::guest_t addr) {
+
+		}))
+		return;
 
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
@@ -21,6 +24,12 @@ void main_startup() {
 	_module.close();
 	const std::vector<uint8_t>& data = _writer.output();
 	process->context().setCore(data.data(), data.size(), [=](bool succeeded) {
+		if (!succeeded) {
+			process->log(u8"failed!");
+			delete process;
+			return;
+		}
+
 		process->memory().mmap(0x0, env::VirtPageSize, env::MemoryUsage::Write);
 		for (size_t i = 0; i < 256; ++i)
 			process->memory().write<uint8_t>(i, uint8_t(i));

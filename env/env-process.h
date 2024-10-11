@@ -1,6 +1,7 @@
 #pragma once
 
 #include "env-common.h"
+#include "blocks/env-blocks.h"
 #include "memory/env-memory.h"
 #include "context/env-context.h"
 
@@ -9,6 +10,7 @@ namespace env {
 	private:
 		env::Context pContext;
 		env::Memory pMemory;
+		env::Blocks pBlocks;
 		uint32_t pManagementPages = 0;
 
 	public:
@@ -26,6 +28,8 @@ namespace env {
 		env::Context& context();
 		const env::Memory& memory() const;
 		env::Memory& memory();
+		const env::Blocks& blocks() const;
+		env::Blocks& blocks();
 
 	public:
 		template <class... Args>

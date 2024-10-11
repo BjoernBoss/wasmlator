@@ -6,6 +6,7 @@ namespace env::bridge {
 	struct Context {
 		/* exports */
 		static void CoreLoaded(uint64_t process, bool succeeded);
+		static void Translate(uint64_t process, uint64_t address);
 
 		/* imports */
 		static env::id_t Create(env::Process* process);

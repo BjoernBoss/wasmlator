@@ -32,6 +32,8 @@ if os.system('em++ -std=c++20'
 			 ' -sEXPORTED_FUNCTIONS='
 			 '_main_startup,'
 			 '_ctx_core_loaded,'
+			 '_ctx_translate,'
+			 '_blocks_lookup_complex,'
 			 '_mem_perform_lookup,'
 			 '_mem_result_physical,'
 			 '_mem_result_size'
@@ -62,6 +64,9 @@ if os.system('em++ -std=c++20'
 
 			 ' env/context/context-bridge.cpp'
 			 ' env/context/env-context.cpp'
+
+			 ' env/blocks/blocks-bridge.cpp'
+			 ' env/blocks/env-blocks.cpp'
 
 			 ' env/memory/env-memory.cpp'
 			 ' env/memory/memory-bridge.cpp'

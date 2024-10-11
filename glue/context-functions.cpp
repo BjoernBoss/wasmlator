@@ -233,7 +233,7 @@ void glue::SetupContextFunctions(glue::State& state) {
 		sink[I::Ref::NullExtern()];
 		sink[I::Table::Set(state.cores)];
 
-		/* clear the function-list */
+		/* clear the function-list (to ensure all references can be dropped) */
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];

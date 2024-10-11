@@ -10,7 +10,7 @@ namespace env::detail {
 
 	private:
 		struct MemCache {
-			env::addr_t address{ 0 };
+			env::guest_t address{ 0 };
 			env::physical_t physical{ 0 };
 			uint32_t size1{ 0 };
 			uint32_t size2{ 0 };
@@ -41,30 +41,30 @@ namespace env::detail {
 		void fMakeAccess(wasm::Module& mod, const env::CoreState& state, wasm::Type type, std::u8string_view name, env::MemoryType memoryType) const;
 
 	private:
-		uint32_t fReadi32Fromi8(env::addr_t address) const;
-		uint32_t fReadi32Fromu8(env::addr_t address) const;
-		uint32_t fReadi32Fromi16(env::addr_t address) const;
-		uint32_t fReadi32Fromu16(env::addr_t address) const;
-		uint32_t fReadi32(env::addr_t address) const;
-		uint64_t fReadi64(env::addr_t address) const;
-		float fReadf32(env::addr_t address) const;
-		double fReadf64(env::addr_t address) const;
-		void fWritei32Fromi8(env::addr_t address, uint32_t value) const;
-		void fWritei32Fromu8(env::addr_t address, uint32_t value) const;
-		void fWritei32Fromi16(env::addr_t address, uint32_t value) const;
-		void fWritei32Fromu16(env::addr_t address, uint32_t value) const;
-		void fWritei32(env::addr_t address, uint32_t value) const;
-		void fWritei64(env::addr_t address, uint64_t value) const;
-		void fWritef32(env::addr_t address, float value) const;
-		void fWritef64(env::addr_t address, double value) const;
-		uint32_t fExecutei32Fromi8(env::addr_t address) const;
-		uint32_t fExecutei32Fromu8(env::addr_t address) const;
-		uint32_t fExecutei32Fromi16(env::addr_t address) const;
-		uint32_t fExecutei32Fromu16(env::addr_t address) const;
-		uint32_t fExecutei32(env::addr_t address) const;
-		uint64_t fExecutei64(env::addr_t address) const;
-		float fExecutef32(env::addr_t address) const;
-		double fExecutef64(env::addr_t address) const;
+		uint32_t fReadi32Fromi8(env::guest_t address) const;
+		uint32_t fReadi32Fromu8(env::guest_t address) const;
+		uint32_t fReadi32Fromi16(env::guest_t address) const;
+		uint32_t fReadi32Fromu16(env::guest_t address) const;
+		uint32_t fReadi32(env::guest_t address) const;
+		uint64_t fReadi64(env::guest_t address) const;
+		float fReadf32(env::guest_t address) const;
+		double fReadf64(env::guest_t address) const;
+		void fWritei32Fromi8(env::guest_t address, uint32_t value) const;
+		void fWritei32Fromu8(env::guest_t address, uint32_t value) const;
+		void fWritei32Fromi16(env::guest_t address, uint32_t value) const;
+		void fWritei32Fromu16(env::guest_t address, uint32_t value) const;
+		void fWritei32(env::guest_t address, uint32_t value) const;
+		void fWritei64(env::guest_t address, uint64_t value) const;
+		void fWritef32(env::guest_t address, float value) const;
+		void fWritef64(env::guest_t address, double value) const;
+		uint32_t fExecutei32Fromi8(env::guest_t address) const;
+		uint32_t fExecutei32Fromu8(env::guest_t address) const;
+		uint32_t fExecutei32Fromi16(env::guest_t address) const;
+		uint32_t fExecutei32Fromu16(env::guest_t address) const;
+		uint32_t fExecutei32(env::guest_t address) const;
+		uint64_t fExecutei64(env::guest_t address) const;
+		float fExecutef32(env::guest_t address) const;
+		double fExecutef64(env::guest_t address) const;
 
 	public:
 		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
@@ -78,7 +78,7 @@ namespace env::detail {
 
 	public:
 		template <class Type>
-		Type read(env::addr_t address) const {
+		Type read(env::guest_t address) const {
 			static_assert(std::is_arithmetic_v<Type>, "Can only read arithmetic types");
 			if constexpr (std::is_same_v<Type, float>)
 				return fReadf32(address);
@@ -105,7 +105,7 @@ namespace env::detail {
 			}
 		}
 		template <class Type>
-		void write(env::addr_t address, Type value) {
+		void write(env::guest_t address, Type value) {
 			static_assert(std::is_arithmetic_v<Type>, "Can only write arithmetic types");
 			if constexpr (std::is_same_v<Type, float>)
 				fWritef32(address, value);
@@ -137,7 +137,7 @@ namespace env::detail {
 			}
 		}
 		template <class Type>
-		Type execute(env::addr_t address) const {
+		Type execute(env::guest_t address) const {
 			static_assert(std::is_arithmetic_v<Type>, "Can only execute arithmetic types");
 			if constexpr (std::is_same_v<Type, float>)
 				return fExecutef32(address);

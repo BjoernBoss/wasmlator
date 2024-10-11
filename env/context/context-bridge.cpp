@@ -5,6 +5,9 @@
 void env::bridge::Context::CoreLoaded(uint64_t process, bool succeeded) {
 	reinterpret_cast<env::Process*>(process)->context().fCoreLoaded(succeeded);
 }
+void env::bridge::Context::Translate(uint64_t process, uint64_t address) {
+	reinterpret_cast<env::Process*>(process)->context().fTranslate(address);
+}
 
 env::id_t env::bridge::Context::Create(env::Process* process) {
 	return ctx_create(reinterpret_cast<uint64_t>(process));

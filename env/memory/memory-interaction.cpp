@@ -112,15 +112,15 @@ void env::detail::MemoryInteraction::fMakeLookup(const env::CoreState& state, co
 	sink[I::Local::Get(address)];
 	sink[I::Local::Get(size)];
 	sink[I::U32::Const(usage)];
-	sink[I::Call::Direct(state.lookup.lookup)];
+	sink[I::Call::Direct(state.mem_core.lookup)];
 	sink[I::Local::Set(outAddr)];
 
 	/* fetch the remainder of the results */
 	sink[I::U64::Const(pProcess)];
-	sink[I::Call::Direct(state.lookup.getPhysical)];
+	sink[I::Call::Direct(state.mem_core.getPhysical)];
 	sink[I::Local::Set(outPhys)];
 	sink[I::U64::Const(pProcess)];
-	sink[I::Call::Direct(state.lookup.getSize)];
+	sink[I::Call::Direct(state.mem_core.getSize)];
 	sink[I::Local::Set(outSize)];
 
 	/* write the address and physical offset back */
@@ -312,76 +312,76 @@ void env::detail::MemoryInteraction::fMakeAccess(wasm::Module& mod, const env::C
 	fMakeWrite(write, write.parameter(0), write.parameter(1), state, pExecuteCache, memoryType);
 }
 
-uint32_t env::detail::MemoryInteraction::fReadi32Fromi8(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fReadi32Fromi8(env::guest_t address) const {
 	return bridge::Memory::Readi32Fromi8(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fReadi32Fromu8(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fReadi32Fromu8(env::guest_t address) const {
 	return bridge::Memory::Readi32Fromu8(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fReadi32Fromi16(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fReadi32Fromi16(env::guest_t address) const {
 	return bridge::Memory::Readi32Fromi16(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fReadi32Fromu16(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fReadi32Fromu16(env::guest_t address) const {
 	return bridge::Memory::Readi32Fromu16(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fReadi32(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fReadi32(env::guest_t address) const {
 	return bridge::Memory::Readi32(pProcess->context().id(), address);
 }
-uint64_t env::detail::MemoryInteraction::fReadi64(env::addr_t address) const {
+uint64_t env::detail::MemoryInteraction::fReadi64(env::guest_t address) const {
 	return bridge::Memory::Readi64(pProcess->context().id(), address);
 }
-float env::detail::MemoryInteraction::fReadf32(env::addr_t address) const {
+float env::detail::MemoryInteraction::fReadf32(env::guest_t address) const {
 	return bridge::Memory::Readf32(pProcess->context().id(), address);
 }
-double env::detail::MemoryInteraction::fReadf64(env::addr_t address) const {
+double env::detail::MemoryInteraction::fReadf64(env::guest_t address) const {
 	return bridge::Memory::Readf64(pProcess->context().id(), address);
 }
-void env::detail::MemoryInteraction::fWritei32Fromi8(env::addr_t address, uint32_t value) const {
+void env::detail::MemoryInteraction::fWritei32Fromi8(env::guest_t address, uint32_t value) const {
 	bridge::Memory::Writei32Fromi8(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritei32Fromu8(env::addr_t address, uint32_t value) const {
+void env::detail::MemoryInteraction::fWritei32Fromu8(env::guest_t address, uint32_t value) const {
 	bridge::Memory::Writei32Fromu8(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritei32Fromi16(env::addr_t address, uint32_t value) const {
+void env::detail::MemoryInteraction::fWritei32Fromi16(env::guest_t address, uint32_t value) const {
 	bridge::Memory::Writei32Fromi16(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritei32Fromu16(env::addr_t address, uint32_t value) const {
+void env::detail::MemoryInteraction::fWritei32Fromu16(env::guest_t address, uint32_t value) const {
 	bridge::Memory::Writei32Fromu16(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritei32(env::addr_t address, uint32_t value) const {
+void env::detail::MemoryInteraction::fWritei32(env::guest_t address, uint32_t value) const {
 	bridge::Memory::Writei32(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritei64(env::addr_t address, uint64_t value) const {
+void env::detail::MemoryInteraction::fWritei64(env::guest_t address, uint64_t value) const {
 	bridge::Memory::Writei64(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritef32(env::addr_t address, float value) const {
+void env::detail::MemoryInteraction::fWritef32(env::guest_t address, float value) const {
 	bridge::Memory::Writef32(pProcess->context().id(), address, value);
 }
-void env::detail::MemoryInteraction::fWritef64(env::addr_t address, double value) const {
+void env::detail::MemoryInteraction::fWritef64(env::guest_t address, double value) const {
 	bridge::Memory::Writef64(pProcess->context().id(), address, value);
 }
-uint32_t env::detail::MemoryInteraction::fExecutei32Fromi8(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fExecutei32Fromi8(env::guest_t address) const {
 	return bridge::Memory::Executei32Fromi8(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fExecutei32Fromu8(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fExecutei32Fromu8(env::guest_t address) const {
 	return bridge::Memory::Executei32Fromu8(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fExecutei32Fromi16(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fExecutei32Fromi16(env::guest_t address) const {
 	return bridge::Memory::Executei32Fromi16(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fExecutei32Fromu16(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fExecutei32Fromu16(env::guest_t address) const {
 	return bridge::Memory::Executei32Fromu16(pProcess->context().id(), address);
 }
-uint32_t env::detail::MemoryInteraction::fExecutei32(env::addr_t address) const {
+uint32_t env::detail::MemoryInteraction::fExecutei32(env::guest_t address) const {
 	return bridge::Memory::Executei32(pProcess->context().id(), address);
 }
-uint64_t env::detail::MemoryInteraction::fExecutei64(env::addr_t address) const {
+uint64_t env::detail::MemoryInteraction::fExecutei64(env::guest_t address) const {
 	return bridge::Memory::Executei64(pProcess->context().id(), address);
 }
-float env::detail::MemoryInteraction::fExecutef32(env::addr_t address) const {
+float env::detail::MemoryInteraction::fExecutef32(env::guest_t address) const {
 	return bridge::Memory::Executef32(pProcess->context().id(), address);
 }
-double env::detail::MemoryInteraction::fExecutef64(env::addr_t address) const {
+double env::detail::MemoryInteraction::fExecutef64(env::guest_t address) const {
 	return bridge::Memory::Executef64(pProcess->context().id(), address);
 }
 
@@ -392,9 +392,9 @@ void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::Co
 		{ wasm::Type::i64 }
 	);
 	wasm::Prototype resultPrototype = mod.prototype(u8"mem_lookup_result_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i32 });
-	state.lookup.lookup = mod.function(u8"mem_perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
-	state.lookup.getPhysical = mod.function(u8"mem_result_physical", resultPrototype, wasm::Import{ u8"memory" });
-	state.lookup.getSize = mod.function(u8"mem_result_size", resultPrototype, wasm::Import{ u8"memory" });
+	state.mem_core.lookup = mod.function(u8"perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
+	state.mem_core.getPhysical = mod.function(u8"result_physical", resultPrototype, wasm::Import{ u8"memory" });
+	state.mem_core.getSize = mod.function(u8"result_size", resultPrototype, wasm::Import{ u8"memory" });
 
 	/* allocate the cache-entries from the management memory */
 	pCacheAddress = state.endOfManagement;
@@ -402,7 +402,7 @@ void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::Co
 }
 void env::detail::MemoryInteraction::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
-	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache_address", wasm::Type::i32 } }, { wasm::Type::i32 });
+	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache_address", wasm::Type::i32 } }, { wasm::Type::i32 });
 	state.mem.read = mod.function(u8"mem_lookup_read", prototype, wasm::Export{});
 	state.mem.write = mod.function(u8"mem_lookup_write", prototype, wasm::Export{});
 	state.mem.execute = mod.function(u8"mem_lookup_execute", prototype, wasm::Export{});

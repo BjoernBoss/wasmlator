@@ -8,7 +8,7 @@ namespace env::detail {
 		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:
 		struct MemLookup {
-			env::addr_t address = 0;
+			env::guest_t address = 0;
 			env::physical_t physical = 0;
 			uint32_t size = 0;
 		};
@@ -18,7 +18,7 @@ namespace env::detail {
 			bool used = false;
 		};
 		struct MemVirtual {
-			env::addr_t address = 0;
+			env::guest_t address = 0;
 			env::physical_t physical = 0;
 			uint32_t size = 0;
 			uint32_t usage = 0;
@@ -36,7 +36,7 @@ namespace env::detail {
 		MemoryMapper(const detail::MemoryMapper&) = delete;
 
 	private:
-		size_t fLookupVirtual(env::addr_t address) const;
+		size_t fLookupVirtual(env::guest_t address) const;
 		size_t fLookupPhysical(env::physical_t physical) const;
 
 	private:
@@ -46,28 +46,28 @@ namespace env::detail {
 		void fCheckConsistency() const;
 
 	private:
-		bool fMemExpandPrevious(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
+		bool fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage);
 		size_t fMemAllocatePhysical(uint32_t size, uint32_t growth);
 		bool fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t usage);
 		env::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext);
 
 	private:
-		void fMemUnmapSingleBlock(size_t virt, env::addr_t address, uint32_t size);
-		void fMemUnmapMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end);
+		void fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size);
+		void fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end);
 		void fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size);
 
 	private:
-		bool fMemProtectSingleBlock(size_t virt, env::addr_t address, uint32_t size, uint32_t usage);
-		void fMemProtectMultipleBlocks(size_t virt, env::addr_t address, env::addr_t end, uint32_t size, uint32_t usage);
+		bool fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage);
+		void fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage);
 
 	public:
 		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
 
 	public:
-		void lookup(env::addr_t address, uint32_t size, uint32_t usage) const;
+		void lookup(env::guest_t address, uint32_t size, uint32_t usage) const;
 		const MemLookup& lastLookup() const;
-		bool mmap(env::addr_t address, uint32_t size, uint32_t usage);
-		void munmap(env::addr_t address, uint32_t size);
-		void mprotect(env::addr_t address, uint32_t size, uint32_t usage);
+		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);
+		void munmap(env::guest_t address, uint32_t size);
+		void mprotect(env::guest_t address, uint32_t size, uint32_t usage);
 	};
 }

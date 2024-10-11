@@ -38,13 +38,16 @@ namespace env {
 		return env::PhysPageSize * ((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
 	}
 
+	static constexpr uint32_t MinFunctionList = 32;
+	static constexpr uint32_t FunctionListGrowth = 16;
 	static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
 	static constexpr uint32_t MinGrowthBytes = 32 * env::VirtPageSize;
 	static constexpr uint32_t ShiftMemoryFactor = 3;
+	static constexpr uint32_t BlockLookupCacheBits = 10;
 
 	class Process;
 
-	using addr_t = uint64_t;
+	using guest_t = uint64_t;
 	using physical_t = uint32_t;
 	using id_t = uint32_t;
 
@@ -56,14 +59,23 @@ namespace env {
 			wasm::Function write;
 			wasm::Function execute;
 		} mem;
+		struct {
+			wasm::Function lookup;
+		} blocks;
 	};
 
 	struct CoreState : public env::ModuleState {
 		struct {
+			wasm::Function translate;
+		} ctx_core;
+		struct {
 			wasm::Function lookup;
 			wasm::Function getPhysical;
 			wasm::Function getSize;
-		} lookup;
+		} mem_core;
+		struct {
+			wasm::Function lookup;
+		} blocks_core;
 		uint32_t endOfManagement = 0;
 	};
 

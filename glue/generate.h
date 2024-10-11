@@ -5,8 +5,11 @@
 
 namespace glue {
 	static constexpr uint32_t PageSize = 0x10000;
+	static constexpr uint32_t MinCoreCount = 2;
 
 	enum class CoreMapping : uint8_t {
+		flushBlocks,
+
 		expandPhysical,
 		movePhysical,
 		flushCaches,
@@ -142,6 +145,12 @@ namespace glue {
 	*		void ctx_destroy(uint32_t id);
 	*/
 	void SetupContextFunctions(glue::State& state);
+
+	/*
+	*	Implement the separate blocks interaction functions, which are
+	*	directly forwarded to the functions exported from the core module
+	*/
+	void SetupBlocksFunctions(glue::State& state);
 
 	/*
 	*	Implement the separate memory interaction functions, which are
