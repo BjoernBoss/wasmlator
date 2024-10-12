@@ -26,7 +26,7 @@ namespace env::detail {
 		uint32_t pCacheAddress = 0;
 
 	public:
-		MemoryInteraction(env::Process* process, uint32_t cacheSize);
+		MemoryInteraction(env::Process* process);
 		MemoryInteraction(detail::MemoryInteraction&&) = delete;
 		MemoryInteraction(const detail::MemoryInteraction&) = delete;
 
@@ -66,7 +66,7 @@ namespace env::detail {
 		double fExecutef64(env::guest_t address) const;
 
 	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
+		void setupCoreImports(wasm::Module& mod, env::CoreState& state, uint32_t caches);
 		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
 		void setupBlockImports(wasm::Module& mod, env::ModuleState& state) const;
 
@@ -136,8 +136,8 @@ namespace env::detail {
 			}
 		}
 		template <class Type>
-		Type execute(env::guest_t address) const {
-			static_assert(std::is_arithmetic_v<Type>, "Can only execute arithmetic types");
+		Type code(env::guest_t address) const {
+			static_assert(std::is_arithmetic_v<Type>, "Can only code-read arithmetic types");
 			if constexpr (std::is_same_v<Type, float>)
 				return fExecutef32(address);
 			else if constexpr (std::is_same_v<Type, double>)

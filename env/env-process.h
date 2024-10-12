@@ -14,13 +14,13 @@ namespace env {
 		uint32_t pManagementPages = 0;
 
 	public:
-		Process(std::u8string_view name, uint32_t cacheSize);
+		Process(std::u8string_view name);
 		Process(env::Process&&) = delete;
 		Process(const env::Process&) = delete;
 		~Process() = default;
 
 	public:
-		env::ModuleState setupCoreModule(wasm::Module& mod);
+		env::ModuleState setupCoreModule(wasm::Module& mod, uint32_t caches);
 		env::ModuleState setupBlockModule(wasm::Module& mod);
 
 	public:

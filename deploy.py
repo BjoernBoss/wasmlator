@@ -47,7 +47,6 @@ if os.system('em++ -std=c++20'
 			 ' -Irepos'
 
 			 # include the source files
-			 ' main.cpp'
 			 ' repos/wasgen/objects/wasm-module.cpp'
 			 ' repos/wasgen/sink/wasm-target.cpp'
 			 ' repos/wasgen/sink/wasm-sink.cpp'
@@ -65,12 +64,15 @@ if os.system('em++ -std=c++20'
 			 ' env/env-process.cpp'
 
 			 ' env/context/context-bridge.cpp'
+			 ' env/context/context-builder.cpp'
 			 ' env/context/env-context.cpp'
 
 			 ' env/blocks/blocks-bridge.cpp'
+			 ' env/blocks/blocks-builder.cpp'
 			 ' env/blocks/env-blocks.cpp'
 
 			 ' env/memory/env-memory.cpp'
+			 ' env/memory/memory-builder.cpp'
 			 ' env/memory/memory-bridge.cpp'
 			 ' env/memory/memory-mapper.cpp'
 			 ' env/memory/memory-interaction.cpp'

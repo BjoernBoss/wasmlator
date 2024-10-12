@@ -24,7 +24,7 @@ _state.controlled = function (fn) {
 			console.error(`Uncaught controlled exception: ${e.stack}`);
 	}
 }
-_state.abort = function () {
+_state.abortControlled = function () {
 	throw new _ControlledAbort();
 }
 
@@ -59,11 +59,21 @@ _state.load_glue = function () {
 	};
 	imports.host.host_get_main_export = function (ptr, size) {
 		let name = _state.load_glue_string(ptr, size);
-		return _state.main.exports[name];
+		let fn = _state.main.exports[name];
+		if (fn === undefined) {
+			console.error(`Failed to load [${name}] from main-exports`);
+			_state.abortControlled();
+		}
+		return fn;
 	};
 	imports.host.host_get_core_export = function (instance, ptr, size) {
 		let name = _state.load_glue_string(ptr, size);
-		return instance.exports[name];
+		let fn = instance.exports[name];
+		if (fn === undefined) {
+			console.error(`Failed to load [${name}] from core-exports`);
+			_state.abortControlled();
+		}
+		return fn;
 	};
 
 	/* fetch the initial glue module and try to instantiate it */
@@ -99,14 +109,14 @@ _state.load_main = function () {
 	imports.env.emscripten_notify_memory_growth = function () { };
 	imports.wasi_snapshot_preview1.proc_exit = function (code) {
 		console.error(`WasmLator.js: Main application unexpectedly terminated itself with [${code}]`);
-		_state.abort();
+		_state.abortControlled();
 	};
 	imports.env.host_print_u8 = function (ptr, size) {
 		console.log(_state.load_main_string(ptr, size));
 	}
 	imports.env.host_fail_u8 = function (ptr, size) {
 		console.error(_state.load_main_string(ptr, size));
-		_state.abort();
+		_state.abortControlled();
 	}
 	imports.env.ctx_create = _state.glue.exports.ctx_create;
 	imports.env.ctx_set_core = _state.glue.exports.ctx_set_core;

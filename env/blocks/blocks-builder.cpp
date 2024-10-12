@@ -130,8 +130,8 @@ void env::detail::BlocksBuilder::setupCoreBody(wasm::Module& mod, env::CoreState
 	/* add the lookup function */
 	{
 		wasm::Prototype prototype = mod.prototype(u8"blocks_lookup_type", { { u8"addr", wasm::Type::i64 } }, { wasm::Type::refFunction });
-		state.module.blocks.execute = mod.function(u8"blocks_lookup", prototype, wasm::Export{});
-		wasm::Sink sink{ state.module.blocks.execute };
+		state.module.blocks.lookup = mod.function(u8"blocks_lookup", prototype, wasm::Export{});
+		wasm::Sink sink{ state.module.blocks.lookup };
 		fMakeLookup(sink, state, functions, false);
 	}
 

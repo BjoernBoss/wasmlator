@@ -2,8 +2,7 @@
 
 namespace I = wasm::inst;
 
-env::detail::MemoryMapper::MemoryMapper(env::Process* process, uint32_t initialAllocated) : pProcess{ process } {
-	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, initialAllocated, false });
+env::detail::MemoryMapper::MemoryMapper(env::Process* process) : pProcess{ process } {
 }
 
 size_t env::detail::MemoryMapper::fLookupVirtual(env::guest_t address) const {
@@ -579,6 +578,10 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::gues
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 }
 
+void env::detail::MemoryMapper::setupCoreImports(uint32_t initialPageCount) {
+	/* setup the physical mapping */
+	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, uint32_t(env::PhysPageSize * initialPageCount), false });
+}
 void env::detail::MemoryMapper::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
 	/* add the memory-expansion function */
 	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });

@@ -4,6 +4,7 @@
 
 #include <ustring/ustring.h>
 #include <vector>
+#include <fstream>
 
 /* null-implementation for execution without glue-module */
 #ifndef EMSCRIPTEN_COMPILATION
@@ -11,7 +12,17 @@
 // #error currently not supported
 
 int main() {
-	main_startup();
+	//main_startup();
+	//return 0;
+
+	writer::TextWriter _writer;
+	{
+		wasm::Module _module{ &_writer };
+		env::Process{ u8"test_module" }.setupCoreModule(_module, 4);
+	}
+	const std::u8string& data = _writer.output();
+
+	std::fstream{ "./temp-output.wat", std::ios::out }.write(reinterpret_cast<const char*>(data.data()), data.size());
 	return 0;
 }
 

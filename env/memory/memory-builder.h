@@ -11,7 +11,7 @@ namespace env::detail {
 		MemoryBuilder(env::Process* process);
 
 	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
+		void setupCoreImports(wasm::Module& mod, env::CoreState& state, uint32_t caches, uint32_t initialPageCount);
 		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
 		void setupBlockImports(wasm::Module& mod, env::ModuleState& state) const;
 	};

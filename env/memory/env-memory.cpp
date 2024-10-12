@@ -2,7 +2,7 @@
 
 namespace I = wasm::inst;
 
-env::Memory::Memory(env::Process* process, uint32_t cacheSize) : pMapper{ process, uint32_t(env::PhysPageAligned(env::InitAllocBytes)) }, pInteraction{ process, cacheSize } {}
+env::Memory::Memory(env::Process* process) : pMapper{ process }, pInteraction{ process } {}
 
 void env::Memory::makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {
 	pInteraction.makeRead(i64Address, state, cacheIndex, type);

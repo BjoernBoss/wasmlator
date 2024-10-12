@@ -25,7 +25,7 @@ namespace env {
 		detail::MemoryInteraction pInteraction;
 
 	public:
-		Memory(env::Process* process, uint32_t cacheSize);
+		Memory(env::Process* process);
 		Memory(env::Memory&&) = delete;
 		Memory(const env::Memory&) = delete;
 
@@ -47,8 +47,8 @@ namespace env {
 			return pInteraction.write<Type>(address, value);
 		}
 		template <class Type>
-		Type execute(env::guest_t address) const {
-			return pInteraction.execute<Type>(address);
+		Type code(env::guest_t address) const {
+			return pInteraction.code<Type>(address);
 		};
 	};
 }

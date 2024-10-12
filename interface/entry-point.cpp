@@ -10,7 +10,7 @@
 
 void main_startup() {
 	util::log(u8"Main: Application startup entered");
-	env::Process* process = new env::Process{ u8"test_module", 4 };
+	env::Process* process = new env::Process{ u8"test_module" };
 
 	if (!process->context().create([](env::guest_t addr) {
 
@@ -19,7 +19,7 @@ void main_startup() {
 
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
-	process->setupCoreModule(_module);
+	process->setupCoreModule(_module, 4);
 
 	_module.close();
 	const std::vector<uint8_t>& data = _writer.output();
@@ -36,7 +36,7 @@ void main_startup() {
 
 		process->memory().mprotect(0x0, env::VirtPageSize, env::MemoryUsage::Execute);
 		for (size_t i = 0; i < 256; ++i)
-			process->log(str::Format<std::u8string>(u8"{:#06x}: {:02x}", i, process->memory().execute<uint8_t>(i)));
+			process->log(str::Format<std::u8string>(u8"{:#06x}: {:02x}", i, process->memory().code<uint8_t>(i)));
 
 		process->memory().munmap(0x0, env::VirtPageSize);
 

@@ -2,11 +2,7 @@
 
 namespace I = wasm::inst;
 
-env::detail::MemoryInteraction::MemoryInteraction(env::Process* process, uint32_t cacheSize) : pProcess{ process }, pCacheCount{ cacheSize } {
-	pReadCache = pCacheCount + 0;
-	pWriteCache = pCacheCount + 1;
-	pExecuteCache = pCacheCount + 2;
-}
+env::detail::MemoryInteraction::MemoryInteraction(env::Process* process) : pProcess{ process } {}
 
 void env::detail::MemoryInteraction::fCheckCache(uint32_t cache) const {
 	if (cache >= pCacheCount)
@@ -384,7 +380,13 @@ double env::detail::MemoryInteraction::fExecutef64(env::guest_t address) const {
 	return bridge::Memory::Executef64(pProcess->context().id(), address);
 }
 
-void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
+void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::CoreState& state, uint32_t caches) {
+	/* setup the cache-indices for both the guest-application and the internal read/write/execute caches */
+	pCacheCount = caches;
+	pReadCache = pCacheCount + 0;
+	pWriteCache = pCacheCount + 1;
+	pExecuteCache = pCacheCount + 2;
+
 	/* add the import to the lookup-function */
 	wasm::Prototype lookupPrototype = mod.prototype(u8"mem_lookup_type",
 		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },

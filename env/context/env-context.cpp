@@ -5,8 +5,10 @@ env::Context::Context(std::u8string_view name, env::Process* process) : pProcess
 	pId = 0;
 }
 env::Context::~Context() {
-	pProcess->log(u8"Destroying context [", pId, u8']');
-	bridge::Context::Destroy(pId);
+	if (pId != 0) {
+		pProcess->log(u8"Destroying context [", pId, u8']');
+		bridge::Context::Destroy(pId);
+	}
 }
 
 void env::Context::fCoreLoaded(bool succeeded) {

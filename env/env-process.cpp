@@ -1,18 +1,19 @@
 #include "env-process.h"
 
-env::Process::Process(std::u8string_view name, uint32_t cacheSize) : pContext{ name, this }, pMemory{ this, cacheSize }, pBlocks{ this } {}
+env::Process::Process(std::u8string_view name) : pContext{ name, this }, pMemory{ this }, pBlocks{ this } {}
 
-env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) {
+env::ModuleState env::Process::setupCoreModule(wasm::Module& mod, uint32_t caches) {
+	constexpr uint32_t initialPageCount = env::PhysPageCount(env::InitAllocBytes);
 	env::CoreState state;
 
 	/* setup the imports (will also reserve memory in the management-block) */
-	detail::MemoryBuilder{ this }.setupCoreImports(mod, state);
+	detail::MemoryBuilder{ this }.setupCoreImports(mod, state, caches, initialPageCount);
 	detail::BlocksBuilder{ this }.setupCoreImports(mod, state);
 	detail::ContextBuilder{ this }.setupCoreImports(mod, state);
 	pManagementPages = env::PhysPageCount(state.endOfManagement);
 
 	/* setup the shared components */
-	state.module.physical = mod.memory(u8"memory_physical", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, wasm::Export{});
+	state.module.physical = mod.memory(u8"memory_physical", wasm::Limit{ initialPageCount }, wasm::Export{});
 	state.module.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Export{});
 
 	/* setup the body */
