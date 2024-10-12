@@ -18,7 +18,11 @@ int main() {
 	writer::TextWriter _writer;
 	{
 		wasm::Module _module{ &_writer };
-		env::Process{ u8"test_module" }.setupCoreModule(_module, 4);
+		env::Process* proc = env::Process::Create(u8"test_module", [](env::guest_t addr) {});
+		if (proc) {
+			proc->setupCoreModule(_module, 4);
+			proc->release();
+		}
 	}
 	const std::u8string& data = _writer.output();
 

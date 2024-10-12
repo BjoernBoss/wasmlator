@@ -11,6 +11,26 @@ env::Context::~Context() {
 	}
 }
 
+bool env::Context::fCreate(std::function<void(env::guest_t)> translate) {
+	pProcess->log(u8"Creating new context...");
+	pTranslate = translate;
+
+	/* try to create the new context */
+	pId = bridge::Context::Create(pProcess);
+	if (pId == 0) {
+		pProcess->log(u8"Context creation failed");
+		return false;
+	}
+	pProcess->log(u8"Context created with id [", pId, u8']');
+	return true;
+}
+bool env::Context::fSetCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
+	pProcess->debug(u8"Loading core...");
+
+	/* setup the callback and try to create the core */
+	pCoreLoaded = callback;
+	return bridge::Context::SetCore(pId, data, size);
+}
 void env::Context::fCoreLoaded(bool succeeded) {
 	pProcess->debug(u8"Core loaded: [", (succeeded ? u8"succeeded]" : u8"failed]"));
 	pCoreLoaded(succeeded);
@@ -20,30 +40,6 @@ void env::Context::fTranslate(env::guest_t address) {
 	pTranslate(address);
 }
 
-bool env::Context::create(std::function<void(env::guest_t)> translate) {
-	if (pId != 0)
-		return false;
-	pProcess->log(u8"Creating new context...");
-
-	/* try to create the new context */
-	pId = bridge::Context::Create(pProcess);
-	if (pId == 0) {
-		pProcess->log(u8"Context creation failed");
-		return false;
-	}
-	pTranslate = translate;
-	pProcess->log(u8"Context created with id [", pId, u8']');
-	return true;
-}
-bool env::Context::setCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
-	if (pId == 0)
-		return false;
-	pProcess->debug(u8"Loading core...");
-
-	/* setup the callback and try to create the core */
-	pCoreLoaded = callback;
-	return bridge::Context::SetCore(pId, data, size);
-}
 const std::u8string& env::Context::name() const {
 	return pName;
 }

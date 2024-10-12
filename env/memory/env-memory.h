@@ -3,7 +3,7 @@
 #include "memory-common.h"
 #include "memory-mapper.h"
 #include "memory-interaction.h"
-#include "memory-builder.h"
+#include "memory-access.h"
 #include "memory-bridge.h"
 
 namespace env {

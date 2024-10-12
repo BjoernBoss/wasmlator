@@ -10,11 +10,10 @@
 
 void main_startup() {
 	util::log(u8"Main: Application startup entered");
-	env::Process* process = new env::Process{ u8"test_module" };
+	env::Process* process = env::Process::Create(u8"test_module", [](env::guest_t addr) {
+		});
 
-	if (!process->context().create([](env::guest_t addr) {
-
-		}))
+	if (process == 0)
 		return;
 
 	writer::BinaryWriter _writer;
@@ -23,10 +22,10 @@ void main_startup() {
 
 	_module.close();
 	const std::vector<uint8_t>& data = _writer.output();
-	process->context().setCore(data.data(), data.size(), [=](bool succeeded) {
+	process->initialize(data.data(), data.size(), [=](bool succeeded) {
 		if (!succeeded) {
 			process->log(u8"failed!");
-			delete process;
+			process->release();
 			return;
 		}
 
@@ -43,7 +42,7 @@ void main_startup() {
 		process->blocks().execute(0x0123);
 
 		process->log(u8"closing down!");
-		delete process;
+		process->release();
 		});
 	util::log(u8"Main: Application startup exited");
 }

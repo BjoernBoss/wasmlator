@@ -13,15 +13,24 @@ namespace env {
 		env::Blocks pBlocks;
 		uint32_t pManagementPages = 0;
 
-	public:
+	private:
 		Process(std::u8string_view name);
 		Process(env::Process&&) = delete;
 		Process(const env::Process&) = delete;
 		~Process() = default;
 
 	public:
+		static env::Process* Create(std::u8string_view name, std::function<void(env::guest_t)> translate);
+
+	public:
+		void release();
+
+	public:
 		env::ModuleState setupCoreModule(wasm::Module& mod, uint32_t caches);
 		env::ModuleState setupBlockModule(wasm::Module& mod);
+
+	public:
+		bool initialize(const uint8_t* data, size_t size, std::function<void(bool)> loaded);
 
 	public:
 		const env::Context& context() const;

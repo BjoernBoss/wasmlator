@@ -2,6 +2,20 @@
 
 env::Process::Process(std::u8string_view name) : pContext{ name, this }, pMemory{ this }, pBlocks{ this } {}
 
+env::Process* env::Process::Create(std::u8string_view name, std::function<void(env::guest_t)> translate) {
+	env::Process* out = new env::Process{ name };
+
+	/* try to setup the context */
+	if (detail::ContextInteract{ out }.create(translate))
+		return out;
+	delete out;
+	return 0;
+}
+
+void env::Process::release() {
+	delete this;
+}
+
 env::ModuleState env::Process::setupCoreModule(wasm::Module& mod, uint32_t caches) {
 	constexpr uint32_t initialPageCount = env::PhysPageCount(env::InitAllocBytes);
 	env::CoreState state;
@@ -32,6 +46,10 @@ env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) {
 	detail::MemoryBuilder{ this }.setupBlockImports(mod, state);
 	detail::BlocksBuilder{ this }.setupBlockImports(mod, state);
 	return state;
+}
+
+bool env::Process::initialize(const uint8_t* data, size_t size, std::function<void(bool)> loaded) {
+	return detail::ContextInteract{ this }.setCore(data, size, loaded);
 }
 
 const env::Context& env::Process::context() const {

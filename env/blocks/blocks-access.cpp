@@ -3,7 +3,6 @@
 namespace I = wasm::inst;
 
 env::detail::BlocksBuilder::BlocksBuilder(env::Process* process) : pProcess{ process } {}
-
 void env::detail::BlocksBuilder::fMakeLookup(wasm::Sink& sink, env::CoreState& state, wasm::Table& functions, bool execute) const {
 	wasm::Variable address = sink.parameter(0);
 	wasm::Variable hashAddress = sink.local(wasm::Type::i32, u8"hash_address");
@@ -86,7 +85,6 @@ void env::detail::BlocksBuilder::fMakeLookup(wasm::Sink& sink, env::CoreState& s
 	else
 		sink[I::Table::Get(functions)];
 }
-
 void env::detail::BlocksBuilder::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
 	/* add the import to the lookup-function */
 	wasm::Prototype prototype = mod.prototype(u8"blocks_lookup_complex_type",
