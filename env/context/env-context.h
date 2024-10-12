@@ -1,12 +1,10 @@
 #pragma once
 
 #include "../env-common.h"
+#include "context-builder.h"
+#include "context-bridge.h"
 
 namespace env {
-	namespace bridge {
-		struct Context;
-	}
-
 	class Context {
 		friend struct bridge::Context;
 	private:
@@ -36,8 +34,5 @@ namespace env {
 		const std::u8string& selfName() const;
 		wasm::Import imported() const;
 		env::id_t id() const;
-
-	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
 	};
 }

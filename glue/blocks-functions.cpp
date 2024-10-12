@@ -10,7 +10,7 @@ void glue::SetupBlocksFunctions(glue::State& state) {
 			{}
 		);
 		wasm::Sink sink{ state.module.function(u8"blocks_execute", prototype, wasm::Export{}) };
-		
+
 		sink[I::Local::Get(sink.parameter(1))];
 
 		sink[I::Local::Get(sink.parameter(0))];

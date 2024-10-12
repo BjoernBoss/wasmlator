@@ -3,10 +3,13 @@
 #include "memory-common.h"
 #include "memory-mapper.h"
 #include "memory-interaction.h"
+#include "memory-builder.h"
+#include "memory-bridge.h"
 
 namespace env {
 	class Memory {
 		friend struct bridge::Memory;
+		friend class detail::MemoryBuilder;
 	private:
 		struct MemCache {
 			env::guest_t address = 0;
@@ -25,11 +28,6 @@ namespace env {
 		Memory(env::Process* process, uint32_t cacheSize);
 		Memory(env::Memory&&) = delete;
 		Memory(const env::Memory&) = delete;
-
-	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
-		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
-		void setupBlockImports(wasm::Module& mod, env::BlockState& state) const;
 
 	public:
 		void makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;

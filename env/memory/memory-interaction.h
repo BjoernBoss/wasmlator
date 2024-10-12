@@ -4,7 +4,6 @@
 
 namespace env::detail {
 	class MemoryInteraction {
-		friend struct bridge::Memory;
 	private:
 		static constexpr uint32_t InternalCaches = 3;
 
@@ -69,7 +68,7 @@ namespace env::detail {
 	public:
 		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
 		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
-		void setupBlockImports(wasm::Module& mod, env::BlockState& state) const;
+		void setupBlockImports(wasm::Module& mod, env::ModuleState& state) const;
 
 	public:
 		void makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;

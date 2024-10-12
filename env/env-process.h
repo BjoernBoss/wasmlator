@@ -20,8 +20,8 @@ namespace env {
 		~Process() = default;
 
 	public:
-		void setupCoreModule(wasm::Module& mod);
-		env::BlockState setupBlockModule(wasm::Module& mod) const;
+		env::ModuleState setupCoreModule(wasm::Module& mod);
+		env::ModuleState setupBlockModule(wasm::Module& mod);
 
 	public:
 		const env::Context& context() const;

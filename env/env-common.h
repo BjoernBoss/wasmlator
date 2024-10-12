@@ -6,6 +6,7 @@
 #include <string>
 #include <type_traits>
 #include <functional>
+#include <unordered_map>
 
 #include "../util/logging.h"
 
@@ -45,12 +46,13 @@ namespace env {
 	static constexpr uint32_t ShiftMemoryFactor = 3;
 	static constexpr uint32_t BlockLookupCacheBits = 10;
 
-	class Process;
-
 	using guest_t = uint64_t;
 	using physical_t = uint32_t;
 	using id_t = uint32_t;
 
+	class Process;
+
+	/* state setup and shared for creating a block/core module */
 	struct ModuleState {
 		wasm::Memory physical;
 		wasm::Memory management;
@@ -59,10 +61,15 @@ namespace env {
 			wasm::Function write;
 			wasm::Function execute;
 		} mem;
+		struct {
+			wasm::Function execute;
+			wasm::Function lookup;
+		} blocks;
 	};
 
 	/* state setup and shared for creating a core module */
-	struct CoreState : public env::ModuleState {
+	struct CoreState {
+		env::ModuleState module;
 		struct {
 			wasm::Function translate;
 		} ctx_core;
@@ -77,12 +84,5 @@ namespace env {
 			wasm::Function associate;
 		} blocks_core;
 		uint32_t endOfManagement = 0;
-	};
-
-	/* state setup and shared for creating a block module */
-	struct BlockState : public env::ModuleState {
-		struct {
-			wasm::Function execute;
-		} blocks;
 	};
 }

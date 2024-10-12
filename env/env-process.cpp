@@ -2,33 +2,34 @@
 
 env::Process::Process(std::u8string_view name, uint32_t cacheSize) : pContext{ name, this }, pMemory{ this, cacheSize }, pBlocks{ this } {}
 
-void env::Process::setupCoreModule(wasm::Module& mod) {
+env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) {
 	env::CoreState state;
 
 	/* setup the imports (will also reserve memory in the management-block) */
-	pMemory.setupCoreImports(mod, state);
-	pBlocks.setupCoreImports(mod, state);
-	pContext.setupCoreImports(mod, state);
+	detail::MemoryBuilder{ this }.setupCoreImports(mod, state);
+	detail::BlocksBuilder{ this }.setupCoreImports(mod, state);
+	detail::ContextBuilder{ this }.setupCoreImports(mod, state);
 	pManagementPages = env::PhysPageCount(state.endOfManagement);
 
 	/* setup the shared components */
-	state.physical = mod.memory(u8"memory_physical", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, wasm::Export{});
-	state.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Export{});
+	state.module.physical = mod.memory(u8"memory_physical", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, wasm::Export{});
+	state.module.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Export{});
 
 	/* setup the body */
-	pMemory.setupCoreBody(mod, state);
-	pBlocks.setupCoreBody(mod, state);
+	detail::MemoryBuilder{ this }.setupCoreBody(mod, state);
+	detail::BlocksBuilder{ this }.setupCoreBody(mod, state);
+	return state.module;
 }
-env::BlockState env::Process::setupBlockModule(wasm::Module& mod) const {
-	env::BlockState state;
+env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) {
+	env::ModuleState state;
 
 	/* setup the shared components */
 	state.physical = mod.memory(u8"memory_physical", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, pContext.imported());
 	state.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, pContext.imported());
 
 	/* setup the imports */
-	pMemory.setupBlockImports(mod, state);
-	pBlocks.setupBlockImports(mod, state);
+	detail::MemoryBuilder{ this }.setupBlockImports(mod, state);
+	detail::BlocksBuilder{ this }.setupBlockImports(mod, state);
 	return state;
 }
 

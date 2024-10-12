@@ -3,10 +3,6 @@
 #include "../env-common.h"
 
 namespace env {
-	namespace bridge {
-		struct Memory;
-	}
-
 	enum class MemoryType : uint8_t {
 		u8To32,
 		u16To32,

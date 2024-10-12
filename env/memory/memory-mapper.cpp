@@ -1,5 +1,4 @@
 #include "../env-process.h"
-#include "memory-bridge.h"
 
 namespace I = wasm::inst;
 
@@ -589,7 +588,7 @@ void env::detail::MemoryMapper::setupCoreBody(wasm::Module& mod, env::CoreState&
 		/* number of pages to grow by */
 		sink[I::Local::Get(sink.parameter(0))];
 
-		sink[I::Memory::Grow(state.physical)];
+		sink[I::Memory::Grow(state.module.physical)];
 
 		/* convert result to 1 or 0 */
 		sink[I::I32::Const(0)];
@@ -616,7 +615,7 @@ void env::detail::MemoryMapper::setupCoreBody(wasm::Module& mod, env::CoreState&
 		/* size */
 		sink[I::Local::Get(sink.parameter(2))];
 
-		sink[I::Memory::Copy(state.physical)];
+		sink[I::Memory::Copy(state.module.physical)];
 	}
 }
 

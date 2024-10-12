@@ -1,5 +1,4 @@
 #include "../env-process.h"
-#include "context-bridge.h"
 
 env::Context::Context(std::u8string_view name, env::Process* process) : pProcess{ process }, pName{ name }, pSelfName{ u8"core" } {
 	str::FormatTo(pLogHeader, u8"[{:>12}]: ", pName);
@@ -57,13 +56,4 @@ wasm::Import env::Context::imported() const {
 }
 env::id_t env::Context::id() const {
 	return pId;
-}
-
-void env::Context::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
-	/* add the import to the translate-function */
-	wasm::Prototype prototype = mod.prototype(u8"ctx_translate_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 } },
-		{}
-	);
-	state.ctx_core.translate = mod.function(u8"translate", prototype, wasm::Import{ u8"context" });
 }

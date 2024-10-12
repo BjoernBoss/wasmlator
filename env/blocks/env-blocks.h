@@ -1,14 +1,13 @@
 #pragma once
 
 #include "../env-common.h"
+#include "blocks-builder.h"
+#include "blocks-bridge.h"
 
 namespace env {
-	namespace bridge {
-		struct Blocks;
-	}
-
 	class Blocks {
 		friend struct bridge::Blocks;
+		friend class detail::BlocksBuilder;
 	private:
 		struct BlockCache {
 			env::guest_t address = 0;
@@ -16,6 +15,7 @@ namespace env {
 		};
 
 	private:
+		std::unordered_map<env::guest_t, uint32_t> pMapping;
 		env::Process* pProcess = 0;
 		uint32_t pCacheAddress = 0;
 
@@ -30,9 +30,8 @@ namespace env {
 		void fFlushed();
 
 	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
-		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
-		void setupBlockImports(wasm::Module& mod, env::BlockState& state) const;
+		void makeGoto(const wasm::Variable& i64Address, const env::ModuleState& state) const;
+		void makeLookup(const wasm::Variable& i64Address, const env::ModuleState& state) const;
 
 	public:
 		void execute(env::guest_t address);

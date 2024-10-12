@@ -4,7 +4,6 @@
 
 namespace env::detail {
 	class MemoryMapper {
-		friend struct bridge::Memory;
 		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:
 		struct MemLookup {
