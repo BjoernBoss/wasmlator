@@ -67,12 +67,14 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 			{ wasm::Type::i32 }
 		);
 		wasm::Sink sink{ state.module.function(u8"mem_expand_physical", prototype, wasm::Export{}) };
+
+		sink[I::Local::Get(sink.parameter(1))];
+
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];
 		sink[I::U32::Const(glue::CoreMapping::expandPhysical)];
 		sink[I::U32::Add()];
-		sink[I::Local::Get(sink.parameter(1))];
 		sink[I::Call::IndirectTail(state.coreFunctions, { wasm::Type::i32 }, { wasm::Type::i32 })];
 	}
 
@@ -83,14 +85,16 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 			{}
 		);
 		wasm::Sink sink{ state.module.function(u8"mem_move_physical", prototype, wasm::Export{}) };
+
+		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Local::Get(sink.parameter(2))];
+		sink[I::Local::Get(sink.parameter(3))];
+
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];
 		sink[I::U32::Const(glue::CoreMapping::movePhysical)];
 		sink[I::U32::Add()];
-		sink[I::Local::Get(sink.parameter(1))];
-		sink[I::Local::Get(sink.parameter(2))];
-		sink[I::Local::Get(sink.parameter(3))];
 		sink[I::Call::IndirectTail(state.coreFunctions, { wasm::Type::i32, wasm::Type::i32, wasm::Type::i32 }, {})];
 	}
 
@@ -101,6 +105,7 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 			{}
 		);
 		wasm::Sink sink{ state.module.function(u8"mem_flush_caches", prototype, wasm::Export{}) };
+
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];

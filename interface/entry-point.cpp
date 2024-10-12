@@ -40,6 +40,8 @@ void main_startup() {
 
 		process->memory().munmap(0x0, env::VirtPageSize);
 
+		process->blocks().execute(0x0123);
+
 		process->log(u8"closing down!");
 		delete process;
 		});

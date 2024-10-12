@@ -59,11 +59,9 @@ namespace env {
 			wasm::Function write;
 			wasm::Function execute;
 		} mem;
-		struct {
-			wasm::Function lookup;
-		} blocks;
 	};
 
+	/* state setup and shared for creating a core module */
 	struct CoreState : public env::ModuleState {
 		struct {
 			wasm::Function translate;
@@ -75,10 +73,16 @@ namespace env {
 		} mem_core;
 		struct {
 			wasm::Function lookup;
+			wasm::Function flushed;
+			wasm::Function associate;
 		} blocks_core;
 		uint32_t endOfManagement = 0;
 	};
 
+	/* state setup and shared for creating a block module */
 	struct BlockState : public env::ModuleState {
+		struct {
+			wasm::Function execute;
+		} blocks;
 	};
 }

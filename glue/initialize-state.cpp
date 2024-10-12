@@ -41,6 +41,7 @@ void glue::InitializeState(glue::State& state) {
 	WriteMainString(state, glue::MainMapping::contextCoreLoaded, u8"ctx_core_loaded");
 
 	/* write the strings out, which identify all coremapping-functions */
+	WriteCoreString(state, glue::CoreMapping::execute, u8"blocks_execute");
 	WriteCoreString(state, glue::CoreMapping::flushBlocks, u8"blocks_flush_blocks");
 
 	WriteCoreString(state, glue::CoreMapping::expandPhysical, u8"mem_expand_physical");

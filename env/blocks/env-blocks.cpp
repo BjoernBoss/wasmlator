@@ -6,7 +6,14 @@ namespace I = wasm::inst;
 env::Blocks::Blocks(env::Process* process) : pProcess{ process } {}
 
 uint32_t env::Blocks::fLookup(env::guest_t address) const {
+	pProcess->debug(str::Format<std::u8string>(u8"Lookup block: [{:#018x}]", address));
 	return 0;
+}
+void env::Blocks::fAssociate(env::guest_t address, uint32_t index) {
+	pProcess->debug(str::Format<std::u8string>(u8"Assigning [{:#018x}] to [{}]", address, index));
+}
+void env::Blocks::fFlushed() {
+	pProcess->debug(u8"Flushed blocks");
 }
 
 void env::Blocks::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
@@ -16,6 +23,20 @@ void env::Blocks::setupCoreImports(wasm::Module& mod, env::CoreState& state) {
 		{ wasm::Type::i32 }
 	);
 	state.blocks_core.lookup = mod.function(u8"lookup_complex", prototype, wasm::Import{ u8"blocks" });
+
+	/* add the import to the flush-function */
+	prototype = mod.prototype(u8"blocks_flushed_type",
+		{ { u8"process", wasm::Type::i64 } },
+		{}
+	);
+	state.blocks_core.flushed = mod.function(u8"flushed", prototype, wasm::Import{ u8"blocks" });
+
+	/* add the import to the associate-function */
+	prototype = mod.prototype(u8"blocks_associate_type",
+		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } },
+		{}
+	);
+	state.blocks_core.associate = mod.function(u8"associate", prototype, wasm::Import{ u8"blocks" });
 
 	/* allocate the cache-entries from the management memory */
 	pCacheAddress = state.endOfManagement;
@@ -28,10 +49,11 @@ void env::Blocks::setupCoreBody(wasm::Module& mod, env::CoreState& state) const 
 	mod.value(count, wasm::Value::MakeU32(1));
 
 	/* add the lookup function */
+	wasm::Function execute;
 	{
-		wasm::Prototype prototype = mod.prototype(u8"block_lookup_type", { { u8"addr", wasm::Type::i64 } }, { wasm::Type::refFunction });
-		state.blocks.lookup = mod.function(u8"block_lookup", prototype, wasm::Export{});
-		wasm::Sink sink{ state.blocks.lookup };
+		wasm::Prototype prototype = mod.prototype(u8"blocks_goto_type", { { u8"addr", wasm::Type::i64 } }, {});
+		execute = mod.function(u8"blocks_goto", prototype, wasm::Export{});
+		wasm::Sink sink{ execute };
 		wasm::Variable address = sink.parameter(0);
 		wasm::Variable hashAddress = sink.local(wasm::Type::i32, u8"hash_address");
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"index");
@@ -64,10 +86,9 @@ void env::Blocks::setupCoreBody(wasm::Module& mod, env::CoreState& state) const 
 			sink[I::U32::EqualZero()];
 			sink[I::Branch::If(_if)];
 
-			/* return the function */
+			/* return/execute the function */
 			sink[I::Local::Get(index)];
-			sink[I::Table::Get(functions)];
-			sink[I::Return()];
+			sink[I::Call::IndirectTail(functions)];
 		}
 
 		/* perform a complex lookup */
@@ -79,12 +100,12 @@ void env::Blocks::setupCoreBody(wasm::Module& mod, env::CoreState& state) const 
 		/* check if the lookup failed and translate the function */
 		sink[I::U32::EqualZero()];
 		{
-			/* perform the translation */
+			/* perform the translation (tail-call to theoretically allow
+			*	translate to immediately execute the upcoming block) */
 			wasm::IfThen _if{ sink };
 			sink[I::U64::Const(pProcess)];
 			sink[I::Local::Get(address)];
-			sink[I::Call::Direct(state.ctx_core.translate)];
-			sink[I::Local::Set(index)];
+			sink[I::Call::Tail(state.ctx_core.translate)];
 		}
 
 		/* write the index to the cache */
@@ -95,16 +116,15 @@ void env::Blocks::setupCoreBody(wasm::Module& mod, env::CoreState& state) const 
 		sink[I::Local::Get(index)];
 		sink[I::U32::Store(state.management, offsetof(Blocks::BlockCache, index))];
 
-		/* return the function */
+		/* return/execute the function */
 		sink[I::Local::Get(index)];
-		sink[I::Table::Get(functions)];
-		sink[I::Return()];
+		sink[I::Call::IndirectTail(functions)];
 	}
 
 	/* add the add-function function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"block_add_type", { { u8"function", wasm::Type::refFunction } }, { wasm::Type::i32 });
-		wasm::Sink sink{ mod.function(u8"block_add", prototype, wasm::Export{}) };
+		wasm::Prototype prototype = mod.prototype(u8"blocks_add_type", { { u8"function", wasm::Type::refFunction }, { u8"addr", wasm::Type::i64 } }, { wasm::Type::i32 });
+		wasm::Sink sink{ mod.function(u8"blocks_add", prototype, wasm::Export{}) };
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"index");
 
 		/* write the count to the index */
@@ -140,13 +160,29 @@ void env::Blocks::setupCoreBody(wasm::Module& mod, env::CoreState& state) const 
 		sink[I::U32::Add()];
 		sink[I::Global::Set(count)];
 
-		/* return the index */
+		/* notify the main application about the association */
+		sink[I::U64::Const(pProcess)];
+		sink[I::Local::Get(sink.parameter(1))];
 		sink[I::Local::Get(index)];
+		sink[I::Call::Direct(state.blocks_core.associate)];
+
+		/* return the 1 to indicate success */
+		sink[I::U32::Const(1)];
+	}
+
+	/* add the blocks-execute function */
+	{
+		wasm::Prototype prototype = mod.prototype(u8"blocks_execute_type", { { u8"addr", wasm::Type::i64 } }, {});
+		wasm::Sink sink{ mod.function(u8"blocks_execute", prototype, wasm::Export{}) };
+
+		/* simply perform the goto */
+		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Call::Tail(execute)];
 	}
 
 	/* add the blocks-flushing function */
 	{
-		wasm::Sink sink{ mod.function(u8"block_flush_blocks", {}, {}, wasm::Export{}) };
+		wasm::Sink sink{ mod.function(u8"blocks_flush_blocks", {}, {}, wasm::Export{}) };
 
 		/* clear the caches */
 		sink[I::U32::Const(pCacheAddress)];
@@ -163,14 +199,21 @@ void env::Blocks::setupCoreBody(wasm::Module& mod, env::CoreState& state) const 
 		/* reset the global counter */
 		sink[I::U32::Const(1)];
 		sink[I::Global::Set(count)];
+
+		/* notify the main application about the flushing */
+		sink[I::U64::Const(pProcess)];
+		sink[I::Call::Direct(state.blocks_core.flushed)];
 	}
 }
 void env::Blocks::setupBlockImports(wasm::Module& mod, env::BlockState& state) const {
 	/* add the function-imports for the block-lookup */
-	wasm::Prototype prototype = mod.prototype(u8"block_lookup_type", { { u8"addr", wasm::Type::i64 } }, { wasm::Type::refFunction });
-	state.blocks.lookup = mod.function(u8"block_lookup", prototype, pProcess->context().imported());
+	wasm::Prototype prototype = mod.prototype(u8"blocks_goto_type", { { u8"addr", wasm::Type::i64 } }, {});
+	state.blocks.execute = mod.function(u8"blocks_goto", prototype, pProcess->context().imported());
 }
 
+void env::Blocks::execute(env::guest_t address) {
+	bridge::Blocks::Execute(pProcess->context().id(), address);
+}
 void env::Blocks::flushBlocks() {
 	bridge::Blocks::FlushBlocks(pProcess->context().id());
 }

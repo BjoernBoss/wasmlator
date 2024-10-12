@@ -10,6 +10,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 		glue::SetupHostBody(state);
 		glue::SetupContextFunctions(state);
+		glue::SetupBlocksFunctions(state);
 		glue::SetupMemoryFunctions(state);
 
 		state.module.close();

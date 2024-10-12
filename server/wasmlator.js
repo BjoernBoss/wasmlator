@@ -13,7 +13,6 @@ let _state = {
 	}
 };
 
-
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
 *	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
 class _ControlledAbort { }
@@ -22,7 +21,7 @@ _state.controlled = function (fn) {
 		fn();
 	} catch (e) {
 		if (!(e instanceof _ControlledAbort))
-			console.error(`Uncaught controlled exception: ${e}`);
+			console.error(`Uncaught controlled exception: ${e.stack}`);
 	}
 }
 _state.abort = function () {
@@ -112,6 +111,8 @@ _state.load_main = function () {
 	imports.env.ctx_create = _state.glue.exports.ctx_create;
 	imports.env.ctx_set_core = _state.glue.exports.ctx_set_core;
 	imports.env.ctx_destroy = _state.glue.exports.ctx_destroy;
+	imports.env.blocks_execute = _state.glue.exports.blocks_execute;
+	imports.env.blocks_flush_blocks = _state.glue.exports.blocks_flush_blocks;
 	imports.env.mem_expand_physical = _state.glue.exports.mem_expand_physical;
 	imports.env.mem_move_physical = _state.glue.exports.mem_move_physical;
 	imports.env.mem_flush_caches = _state.glue.exports.mem_flush_caches;
@@ -139,7 +140,6 @@ _state.load_main = function () {
 	imports.env.mem_execute_i64 = _state.glue.exports.mem_execute_i64;
 	imports.env.mem_execute_f32 = _state.glue.exports.mem_execute_f32;
 	imports.env.mem_execute_f64 = _state.glue.exports.mem_execute_f64;
-	imports.env.blocks_flush_blocks = _state.glue.exports.blocks_flush_blocks;
 
 	/* fetch the main application javascript-wrapper */
 	fetch(_state.main.path, { credentials: 'same-origin' })
@@ -176,12 +176,15 @@ _state.load_core = function (id, buffer) {
 	/* setup the core imports */
 	let imports = {
 		memory: {},
-		blocks: {}
+		blocks: {},
+		context: {}
 	};
 	imports.memory.perform_lookup = _state.main.exports.mem_perform_lookup;
 	imports.memory.result_physical = _state.main.exports.mem_result_physical;
 	imports.memory.result_size = _state.main.exports.mem_result_size;
 	imports.blocks.lookup_complex = _state.main.exports.blocks_lookup_complex;
+	imports.blocks.flushed = _state.main.exports.blocks_flushed;
+	imports.blocks.associate = _state.main.exports.blocks_associate;
 	imports.context.translate = _state.main.exports.ctx_translate;
 
 	/* try to instantiate the core module */

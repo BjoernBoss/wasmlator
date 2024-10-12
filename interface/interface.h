@@ -31,8 +31,11 @@ extern "C" {
 extern "C" {
 	/* exports */
 	uint32_t blocks_lookup_complex(uint64_t process, uint64_t address);
+	void blocks_flushed(uint64_t process);
+	void blocks_associate(uint64_t process, uint64_t address, uint32_t index);
 
 	/* imports */
+	void blocks_execute(uint32_t id, uint64_t address);
 	void blocks_flush_blocks(uint32_t id);
 }
 

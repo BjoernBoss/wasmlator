@@ -26,6 +26,8 @@ namespace env {
 
 	private:
 		uint32_t fLookup(env::guest_t address) const;
+		void fAssociate(env::guest_t address, uint32_t index);
+		void fFlushed();
 
 	public:
 		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
@@ -33,6 +35,7 @@ namespace env {
 		void setupBlockImports(wasm::Module& mod, env::BlockState& state) const;
 
 	public:
+		void execute(env::guest_t address);
 		void flushBlocks();
 	};
 }

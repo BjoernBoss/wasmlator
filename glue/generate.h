@@ -8,6 +8,7 @@ namespace glue {
 	static constexpr uint32_t MinCoreCount = 2;
 
 	enum class CoreMapping : uint8_t {
+		execute,
 		flushBlocks,
 
 		expandPhysical,
