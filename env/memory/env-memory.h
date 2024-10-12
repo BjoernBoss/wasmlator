@@ -9,6 +9,7 @@
 namespace env {
 	class Memory {
 		friend struct bridge::Memory;
+		friend class detail::MemoryAccess;
 		friend class detail::MemoryBuilder;
 	private:
 		struct MemCache {

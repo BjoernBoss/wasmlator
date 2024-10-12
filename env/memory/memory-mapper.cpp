@@ -578,7 +578,7 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::gues
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 }
 
-void env::detail::MemoryMapper::setupCoreImports(uint32_t initialPageCount) {
+void env::detail::MemoryMapper::configure(uint32_t initialPageCount) {
 	/* setup the physical mapping */
 	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, uint32_t(env::PhysPageSize * initialPageCount), false });
 }

@@ -380,13 +380,18 @@ double env::detail::MemoryInteraction::fExecutef64(env::guest_t address) const {
 	return bridge::Memory::Executef64(pProcess->context().id(), address);
 }
 
-void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::CoreState& state, uint32_t caches) {
+uint32_t env::detail::MemoryInteraction::configureAndAllocate(uint32_t address, uint32_t caches) {
 	/* setup the cache-indices for both the guest-application and the internal read/write/execute caches */
 	pCacheCount = caches;
 	pReadCache = pCacheCount + 0;
 	pWriteCache = pCacheCount + 1;
 	pExecuteCache = pCacheCount + 2;
 
+	/* allocate the cache-entries from the management memory */
+	pCacheAddress = address;
+	return (pCacheCount + MemoryInteraction::InternalCaches) * uint32_t(sizeof(MemoryInteraction::MemCache));
+}
+void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::CoreState& state) const {
 	/* add the import to the lookup-function */
 	wasm::Prototype lookupPrototype = mod.prototype(u8"mem_lookup_type",
 		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
@@ -396,10 +401,6 @@ void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::Co
 	state.mem_core.lookup = mod.function(u8"perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
 	state.mem_core.getPhysical = mod.function(u8"result_physical", resultPrototype, wasm::Import{ u8"memory" });
 	state.mem_core.getSize = mod.function(u8"result_size", resultPrototype, wasm::Import{ u8"memory" });
-
-	/* allocate the cache-entries from the management memory */
-	pCacheAddress = state.endOfManagement;
-	state.endOfManagement += (pCacheCount + MemoryInteraction::InternalCaches) * uint32_t(sizeof(MemoryInteraction::MemCache));
 }
 void env::detail::MemoryInteraction::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */

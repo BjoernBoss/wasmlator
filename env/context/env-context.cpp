@@ -24,7 +24,8 @@ bool env::Context::fCreate(std::function<void(env::guest_t)> translate) {
 	pProcess->log(u8"Context created with id [", pId, u8']');
 	return true;
 }
-bool env::Context::fSetCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
+bool env::Context::fLoadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
+	/* protected through glue-code to prevent multiple loads of core modules */
 	pProcess->debug(u8"Loading core...");
 
 	/* setup the callback and try to create the core */

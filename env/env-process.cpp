@@ -2,32 +2,38 @@
 
 env::Process::Process(std::u8string_view name) : pContext{ name, this }, pMemory{ this }, pBlocks{ this } {}
 
-env::Process* env::Process::Create(std::u8string_view name, std::function<void(env::guest_t)> translate) {
+env::Process* env::Process::Create(std::u8string_view name, uint32_t caches, std::function<void(env::guest_t)> translate) {
 	env::Process* out = new env::Process{ name };
 
 	/* try to setup the context */
-	if (detail::ContextInteract{ out }.create(translate))
-		return out;
-	delete out;
-	return 0;
+	if (!detail::ContextAccess{ out }.create(translate)) {
+		delete out;
+		return 0;
+	}
+
+	/* initialize the components */
+	out->pPhysicalPages = env::PhysPageCount(env::InitAllocBytes);
+	uint32_t endOfManagement = 0;
+	endOfManagement += detail::BlocksAccess{ out }.allocateFromManagement(endOfManagement);
+	endOfManagement += detail::MemoryAccess{ out }.configureAndAllocate(endOfManagement, caches, out->pPhysicalPages);
+	out->pManagementPages = env::PhysPageCount(endOfManagement);
+	return out;
 }
 
 void env::Process::release() {
 	delete this;
 }
 
-env::ModuleState env::Process::setupCoreModule(wasm::Module& mod, uint32_t caches) {
-	constexpr uint32_t initialPageCount = env::PhysPageCount(env::InitAllocBytes);
+env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) const {
 	env::CoreState state;
 
 	/* setup the imports (will also reserve memory in the management-block) */
-	detail::MemoryBuilder{ this }.setupCoreImports(mod, state, caches, initialPageCount);
+	detail::MemoryBuilder{ this }.setupCoreImports(mod, state);
 	detail::BlocksBuilder{ this }.setupCoreImports(mod, state);
 	detail::ContextBuilder{ this }.setupCoreImports(mod, state);
-	pManagementPages = env::PhysPageCount(state.endOfManagement);
 
 	/* setup the shared components */
-	state.module.physical = mod.memory(u8"memory_physical", wasm::Limit{ initialPageCount }, wasm::Export{});
+	state.module.physical = mod.memory(u8"memory_physical", wasm::Limit{ pPhysicalPages }, wasm::Export{});
 	state.module.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Export{});
 
 	/* setup the body */
@@ -35,7 +41,7 @@ env::ModuleState env::Process::setupCoreModule(wasm::Module& mod, uint32_t cache
 	detail::BlocksBuilder{ this }.setupCoreBody(mod, state);
 	return state.module;
 }
-env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) {
+env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) const {
 	env::ModuleState state;
 
 	/* setup the shared components */
@@ -48,8 +54,8 @@ env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) {
 	return state;
 }
 
-bool env::Process::initialize(const uint8_t* data, size_t size, std::function<void(bool)> loaded) {
-	return detail::ContextInteract{ this }.setCore(data, size, loaded);
+bool env::Process::loadCore(const uint8_t* data, size_t size, std::function<void(bool)> loaded) {
+	return detail::ContextAccess{ this }.loadCore(data, size, loaded);
 }
 
 const env::Context& env::Process::context() const {

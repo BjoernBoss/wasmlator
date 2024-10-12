@@ -12,6 +12,7 @@ namespace env {
 		env::Memory pMemory;
 		env::Blocks pBlocks;
 		uint32_t pManagementPages = 0;
+		uint32_t pPhysicalPages = 0;
 
 	private:
 		Process(std::u8string_view name);
@@ -20,17 +21,17 @@ namespace env {
 		~Process() = default;
 
 	public:
-		static env::Process* Create(std::u8string_view name, std::function<void(env::guest_t)> translate);
+		static env::Process* Create(std::u8string_view name, uint32_t caches, std::function<void(env::guest_t)> translate);
 
 	public:
 		void release();
 
 	public:
-		env::ModuleState setupCoreModule(wasm::Module& mod, uint32_t caches);
-		env::ModuleState setupBlockModule(wasm::Module& mod);
+		env::ModuleState setupCoreModule(wasm::Module& mod) const;
+		env::ModuleState setupBlockModule(wasm::Module& mod) const;
 
 	public:
-		bool initialize(const uint8_t* data, size_t size, std::function<void(bool)> loaded);
+		bool loadCore(const uint8_t* data, size_t size, std::function<void(bool)> loaded);
 
 	public:
 		const env::Context& context() const;

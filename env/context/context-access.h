@@ -3,26 +3,26 @@
 #include "../env-common.h"
 
 namespace env::detail {
-	class ContextInteract {
+	class ContextAccess {
 	private:
 		env::Process* pProcess = 0;
 
 	public:
-		ContextInteract(env::Process* process);
+		ContextAccess(env::Process* process);
 
 	public:
 		bool create(std::function<void(env::guest_t)> translate);
-		bool setCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
+		bool loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 	};
 
 	class ContextBuilder {
 	private:
-		env::Process* pProcess = 0;
+		const env::Process* pProcess = 0;
 
 	public:
-		ContextBuilder(env::Process* process);
+		ContextBuilder(const env::Process* process);
 
 	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state);
+		void setupCoreImports(wasm::Module& mod, env::CoreState& state) const;
 	};
 }

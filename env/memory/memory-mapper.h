@@ -60,7 +60,7 @@ namespace env::detail {
 		void fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage);
 
 	public:
-		void setupCoreImports(uint32_t initialPageCount);
+		void configure(uint32_t initialPageCount);
 		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
 
 	public:

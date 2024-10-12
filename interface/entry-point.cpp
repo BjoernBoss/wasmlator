@@ -10,7 +10,7 @@
 
 void main_startup() {
 	util::log(u8"Main: Application startup entered");
-	env::Process* process = env::Process::Create(u8"test_module", [](env::guest_t addr) {
+	env::Process* process = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {
 		});
 
 	if (process == 0)
@@ -18,11 +18,11 @@ void main_startup() {
 
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
-	process->setupCoreModule(_module, 4);
+	process->setupCoreModule(_module);
 
 	_module.close();
 	const std::vector<uint8_t>& data = _writer.output();
-	process->initialize(data.data(), data.size(), [=](bool succeeded) {
+	process->loadCore(data.data(), data.size(), [=](bool succeeded) {
 		if (!succeeded) {
 			process->log(u8"failed!");
 			process->release();

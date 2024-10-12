@@ -83,6 +83,5 @@ namespace env {
 			wasm::Function flushed;
 			wasm::Function associate;
 		} blocks_core;
-		uint32_t endOfManagement = 0;
 	};
 }

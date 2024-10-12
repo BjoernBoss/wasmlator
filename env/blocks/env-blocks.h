@@ -7,6 +7,7 @@
 namespace env {
 	class Blocks {
 		friend struct bridge::Blocks;
+		friend class detail::BlocksAccess;
 		friend class detail::BlocksBuilder;
 	private:
 		struct BlockCache {

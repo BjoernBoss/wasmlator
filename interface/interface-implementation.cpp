@@ -18,9 +18,9 @@ int main() {
 	writer::TextWriter _writer;
 	{
 		wasm::Module _module{ &_writer };
-		env::Process* proc = env::Process::Create(u8"test_module", [](env::guest_t addr) {});
+		env::Process* proc = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {});
 		if (proc) {
-			proc->setupCoreModule(_module, 4);
+			proc->setupCoreModule(_module);
 			proc->release();
 		}
 	}

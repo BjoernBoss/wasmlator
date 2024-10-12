@@ -7,7 +7,7 @@
 namespace env {
 	class Context {
 		friend struct bridge::Context;
-		friend class detail::ContextInteract;
+		friend class detail::ContextAccess;
 	private:
 		std::function<void(bool)> pCoreLoaded;
 		std::function<void(env::guest_t)> pTranslate;
@@ -25,7 +25,7 @@ namespace env {
 
 	private:
 		bool fCreate(std::function<void(env::guest_t)> translate);
-		bool fSetCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
+		bool fLoadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 		void fCoreLoaded(bool succeeded);
 		void fTranslate(env::guest_t address);
 
