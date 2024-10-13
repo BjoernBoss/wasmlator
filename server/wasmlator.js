@@ -57,6 +57,10 @@ _state.load_glue = function () {
 		let buffer = _state.make_buffer(ptr, size);
 		_state.load_core(id, buffer)
 	};
+	imports.host.host_load_block = function (id, core, ptr, size) {
+		let buffer = _state.make_buffer(ptr, size);
+		_state.load_block(core, id, buffer)
+	};
 	imports.host.host_get_main_export = function (ptr, size) {
 		let name = _state.load_glue_string(ptr, size);
 		let fn = _state.main.exports[name];
@@ -71,6 +75,15 @@ _state.load_glue = function () {
 		let fn = instance.exports[name];
 		if (fn === undefined) {
 			console.error(`Failed to load [${name}] from core-exports`);
+			_state.abortControlled();
+		}
+		return fn;
+	};
+	imports.host.host_get_block_export = function (instance, ptr, size) {
+		let name = _state.load_main_string(ptr, size);
+		let fn = instance.exports[name];
+		if (fn === undefined) {
+			console.error(`Failed to load [${name}] from block-exports`);
 			_state.abortControlled();
 		}
 		return fn;
@@ -119,8 +132,10 @@ _state.load_main = function () {
 		_state.abortControlled();
 	}
 	imports.env.ctx_create = _state.glue.exports.ctx_create;
-	imports.env.ctx_set_core = _state.glue.exports.ctx_set_core;
+	imports.env.ctx_load_core = _state.glue.exports.ctx_load_core;
+	imports.env.ctx_load_block = _state.glue.exports.ctx_load_block;
 	imports.env.ctx_destroy = _state.glue.exports.ctx_destroy;
+	imports.env.ctx_add_export = _state.glue.exports.ctx_add_export;
 	imports.env.blocks_execute = _state.glue.exports.blocks_execute;
 	imports.env.blocks_flush_blocks = _state.glue.exports.blocks_flush_blocks;
 	imports.env.mem_expand_physical = _state.glue.exports.mem_expand_physical;
@@ -211,6 +226,40 @@ _state.load_core = function (id, buffer) {
 			_state.controlled(() => {
 				console.error(`WasmLator.js: Failed to load core for [${id}]: ${err}`);
 				_state.glue.exports.host_core_loaded(id, null);
+			});
+		});
+}
+
+/* load a block module */
+_state.load_block = function (core, id, buffer) {
+	console.log(`WasmLator.js: Instantiating block for [${id}]...`);
+
+	/* setup the block imports */
+	let imports = {
+		core: {}
+	};
+	imports.core.memory_physical = core.exports.memory_physical;
+	imports.core.memory_management = core.exports.memory_management;
+	imports.core.mem_lookup_read = core.exports.mem_lookup_read;
+	imports.core.mem_lookup_write = core.exports.mem_lookup_write;
+	imports.core.mem_lookup_execute = core.exports.mem_lookup_execute;
+	imports.core.blocks_goto = core.exports.blocks_goto;
+	imports.core.blocks_lookup = core.exports.blocks_lookup;
+
+	/* try to instantiate the block module */
+	WebAssembly.instantiate(buffer, imports)
+		.then((instance) => {
+			/* notify the glue module about the loaded block (do this in a separate
+			*	call to prevent exceptions from propagating into the catch-handler) */
+			_state.controlled(() => {
+				console.log(`WasmLator.js: Block for [${id}] loaded`);
+				_state.glue.exports.host_block_loaded(id, instance.instance);
+			});
+		})
+		.catch((err) => {
+			_state.controlled(() => {
+				console.error(`WasmLator.js: Failed to load block for [${id}]: ${err}`);
+				_state.glue.exports.host_block_loaded(id, null);
 			});
 		});
 }

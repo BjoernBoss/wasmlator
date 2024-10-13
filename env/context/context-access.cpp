@@ -4,9 +4,6 @@ env::detail::ContextAccess::ContextAccess(env::Process* process) : pProcess{ pro
 bool env::detail::ContextAccess::create(std::function<void(env::guest_t)> translate) {
 	return pProcess->context().fCreate(translate);
 }
-bool env::detail::ContextAccess::loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
-	return pProcess->context().fLoadCore(data, size, callback);
-}
 
 env::detail::ContextBuilder::ContextBuilder(const env::Process* process) : pProcess{ process } {}
 void env::detail::ContextBuilder::setupCoreImports(wasm::Module& mod, env::CoreState& state) const {

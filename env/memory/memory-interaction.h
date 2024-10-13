@@ -1,6 +1,6 @@
 #pragma once
 
-#include "memory-common.h"
+#include "../env-common.h"
 
 namespace env::detail {
 	class MemoryInteraction {

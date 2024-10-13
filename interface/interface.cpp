@@ -7,6 +7,9 @@
 void ctx_core_loaded(uint64_t process, uint32_t succeeded) {
 	env::bridge::Context::CoreLoaded(process, succeeded > 0);
 }
+void ctx_block_loaded(uint64_t process, uint32_t succeeded) {
+	env::bridge::Context::BlockLoaded(process, succeeded > 0);
+}
 void ctx_translate(uint64_t process, uint64_t address) {
 	env::bridge::Context::Translate(process, address);
 }

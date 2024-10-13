@@ -9,6 +9,10 @@ namespace glue {
 
 	enum class CoreMapping : uint8_t {
 		execute,
+		blocksReserve,
+		blocksLoaded,
+		blocksGetLast,
+		blocksAddExport,
 		flushBlocks,
 
 		expandPhysical,
@@ -47,8 +51,9 @@ namespace glue {
 
 	enum class MainMapping : uint8_t {
 		_initialize,
-		mainStartup,
-		contextCoreLoaded,
+		startup,
+		coreLoaded,
+		blockLoaded,
 
 		_count
 	};
@@ -66,7 +71,8 @@ namespace glue {
 		awaitingCore = 2,
 		loadingCore = 3,
 		coreFailed = 4,
-		coreLoaded = 5
+		coreLoaded = 5,
+		loadingBlock = 6
 	};
 	struct Slot {
 		uint64_t process = 0;
@@ -82,8 +88,10 @@ namespace glue {
 	public:
 		wasm::Module module;
 		wasm::Function hostLoadCore;
+		wasm::Function hostLoadBlock;
 		wasm::Function hostGetMainFunction;
 		wasm::Function hostGetCoreFunction;
+		wasm::Function hostGetBlockFunction;
 		wasm::Memory memory;
 		wasm::Table mainFunctions;
 		wasm::Table coreFunctions;
@@ -105,6 +113,9 @@ namespace glue {
 
 	/*
 	*	Initialize the state and write the strings to memory (after the imports have been added)
+	*
+	*	Internally reserve slots for exports and a new block
+	*		uint32_t reserve_block(uint32_t id, uint32_t exports);
 	*/
 	void InitializeState(glue::State& state);
 
@@ -140,7 +151,10 @@ namespace glue {
 	*		uint32_t ctx_create(uint64_t process);
 	*
 	*	Setup the core-module of the newly created context (returns 0 if core is already set and otherwise 1)
-	*		uint32_t ctx_set_core(uint32_t id, uint32_t ptr, uint32_t size);
+	*		uint32_t ctx_load_core(uint32_t id, uint32_t ptr, uint32_t size);
+	*
+	*	Setup a block-module of a valid context (returns 0 if invalid state or not enough resources and otherwise 1)
+	*		uint32_t ctx_load_block(uint32_t id, uint32_t ptr, uint32_t size, uint32_t exports);
 	*
 	*	Destroy the created context and release any belonging resources
 	*		void ctx_destroy(uint32_t id);

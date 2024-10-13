@@ -1,6 +1,6 @@
 #pragma once
 
-#include "memory-common.h"
+#include "../env-common.h"
 #include "memory-mapper.h"
 #include "memory-interaction.h"
 #include "memory-access.h"

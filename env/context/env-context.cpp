@@ -24,23 +24,53 @@ bool env::Context::fCreate(std::function<void(env::guest_t)> translate) {
 	pProcess->log(u8"Context created with id [", pId, u8']');
 	return true;
 }
-bool env::Context::fLoadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
-	/* protected through glue-code to prevent multiple loads of core modules */
-	pProcess->debug(u8"Loading core...");
-
-	/* setup the callback and try to create the core */
-	pCoreLoaded = callback;
-	return bridge::Context::SetCore(pId, data, size);
-}
 void env::Context::fCoreLoaded(bool succeeded) {
 	pProcess->debug(u8"Core loaded: [", (succeeded ? u8"succeeded]" : u8"failed]"));
-	pCoreLoaded(succeeded);
+	pLoaded(succeeded);
+}
+void env::Context::fBlockLoaded(bool succeeded) {
+	pProcess->debug(u8"Block loaded: [", (succeeded ? u8"succeeded]" : u8"failed]"));
+
+	/* register all exports and mark the block as loaded (must succeed, as the slots have already been reserved) */
+	if (succeeded) {
+		for (size_t i = 0; i < pExports.size(); ++i) {
+			pProcess->debug(str::Format<std::u8string>(u8"Associating [{}] to [{:#018x}]", pExports[i].name, pExports[i].address));
+			bridge::Context::AddExport(pId, pExports[i].name, pExports[i].address);
+		}
+	}
+	pLoaded(succeeded);
 }
 void env::Context::fTranslate(env::guest_t address) {
 	pProcess->debug(str::Format<std::u8string>(u8"Translate: [{:#018x}]", address));
 	pTranslate(address);
 }
 
+void env::Context::loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
+	/* protected through glue-code to prevent multiple loads of core modules or parallel loads */
+	pProcess->debug(u8"Loading core...");
+
+	/* try to perform the loading and check if it failed (dont set the callback yet, as a load might currently be in progress) */
+	if (bridge::Context::LoadCore(pId, data, size))
+		pLoaded = callback;
+	else {
+		pProcess->log(u8"Failed loading core");
+		callback(false);
+	}
+}
+void env::Context::loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void(bool)> callback) {
+	/* protected through glue-code to prevent parallel loads */
+	pProcess->debug(u8"Loading block...");
+
+	/* try to perform the loading and check if it failed (dont set the callback yet, as a load might currently be in progress) */
+	if (bridge::Context::LoadBlock(pId, data, size, exports.size())) {
+		pLoaded = callback;
+		pExports = exports;
+	}
+	else {
+		pProcess->log(u8"Failed loading block");
+		callback(false);
+	}
+}
 const std::u8string& env::Context::name() const {
 	return pName;
 }

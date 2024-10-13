@@ -54,10 +54,6 @@ env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) const {
 	return state;
 }
 
-bool env::Process::loadCore(const uint8_t* data, size_t size, std::function<void(bool)> loaded) {
-	return detail::ContextAccess{ this }.loadCore(data, size, loaded);
-}
-
 const env::Context& env::Process::context() const {
 	return pContext;
 }

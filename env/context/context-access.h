@@ -12,7 +12,6 @@ namespace env::detail {
 
 	public:
 		bool create(std::function<void(env::guest_t)> translate);
-		bool loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 	};
 
 	class ContextBuilder {

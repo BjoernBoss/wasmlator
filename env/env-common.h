@@ -39,6 +39,8 @@ namespace env {
 		return env::PhysPageSize * ((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
 	}
 
+	static constexpr uint32_t MinBlocksList = 4;
+	static constexpr uint32_t BlocksListGrowth = 2;
 	static constexpr uint32_t MinFunctionList = 32;
 	static constexpr uint32_t FunctionListGrowth = 16;
 	static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
@@ -83,5 +85,36 @@ namespace env {
 			wasm::Function flushed;
 			wasm::Function associate;
 		} blocks_core;
+	};
+
+	/* memory reading type */
+	enum class MemoryType : uint8_t {
+		u8To32,
+		u16To32,
+		u8To64,
+		u16To64,
+		u32To64,
+		i8To32,
+		i16To32,
+		i8To64,
+		i16To64,
+		i32To64,
+		i32,
+		i64,
+		f32,
+		f64
+	};
+
+	/* memory page usage flags */
+	struct MemoryUsage {
+		static constexpr uint32_t Read = 0x01;
+		static constexpr uint32_t Write = 0x02;
+		static constexpr uint32_t Execute = 0x04;
+	};
+
+	/* block exported function entry */
+	struct BlockExport {
+		std::u8string name;
+		env::guest_t address = 0;
 	};
 }

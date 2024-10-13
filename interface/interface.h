@@ -19,12 +19,15 @@ extern "C" {
 extern "C" {
 	/* exports */
 	void ctx_core_loaded(uint64_t process, uint32_t succeeded);
+	void ctx_block_loaded(uint64_t process, uint32_t succeeded);
 	void ctx_translate(uint64_t process, uint64_t address);
 
 	/* imports */
 	uint32_t ctx_create(uint64_t process);
-	uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size);
+	uint32_t ctx_load_core(uint32_t id, const uint8_t* data, uint32_t size);
+	uint32_t ctx_load_block(uint32_t id, const uint8_t* data, uint32_t size, uint32_t exports);
 	void ctx_destroy(uint32_t id);
+	void ctx_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address);
 }
 
 /* env/blocks/blocks-bridge interactions */

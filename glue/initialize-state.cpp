@@ -37,11 +37,16 @@ void glue::InitializeState(glue::State& state) {
 
 	/* write the strings out, which identify all main-mapping-functions */
 	WriteMainString(state, glue::MainMapping::_initialize, u8"_initialize");
-	WriteMainString(state, glue::MainMapping::mainStartup, u8"main_startup");
-	WriteMainString(state, glue::MainMapping::contextCoreLoaded, u8"ctx_core_loaded");
+	WriteMainString(state, glue::MainMapping::startup, u8"main_startup");
+	WriteMainString(state, glue::MainMapping::coreLoaded, u8"ctx_core_loaded");
+	WriteMainString(state, glue::MainMapping::blockLoaded, u8"ctx_block_loaded");
 
 	/* write the strings out, which identify all coremapping-functions */
 	WriteCoreString(state, glue::CoreMapping::execute, u8"blocks_execute");
+	WriteCoreString(state, glue::CoreMapping::blocksReserve, u8"blocks_reserve");
+	WriteCoreString(state, glue::CoreMapping::blocksLoaded, u8"blocks_loaded");
+	WriteCoreString(state, glue::CoreMapping::blocksGetLast, u8"blocks_get_last");
+	WriteCoreString(state, glue::CoreMapping::blocksAddExport, u8"blocks_add_export");
 	WriteCoreString(state, glue::CoreMapping::flushBlocks, u8"blocks_flush_blocks");
 
 	WriteCoreString(state, glue::CoreMapping::expandPhysical, u8"mem_expand_physical");

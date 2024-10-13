@@ -10,6 +10,13 @@ void glue::SetupHostImports(glue::State& state) {
 	);
 	state.hostLoadCore = state.module.function(u8"host_load_core", hostLoadCoreType, wasm::Import{ u8"host" });
 
+	/* add the load-block host import */
+	wasm::Prototype hostLoadBlockType = state.module.prototype(u8"load_block_type",
+		{ { u8"id", wasm::Type::i32 }, { u8"core", wasm::Type::refExtern }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
+		{}
+	);
+	state.hostLoadBlock = state.module.function(u8"host_load_block", hostLoadBlockType, wasm::Import{ u8"host" });
+
 	/* add the host-main-get function */
 	wasm::Prototype hostGetMainExportType = state.module.prototype(u8"host_get_main_export_type",
 		{ { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
@@ -23,6 +30,13 @@ void glue::SetupHostImports(glue::State& state) {
 		{ wasm::Type::refFunction }
 	);
 	state.hostGetCoreFunction = state.module.function(u8"host_get_core_export", hostGetCoreExportType, wasm::Import{ u8"host" });
+
+	/* add the host-block-get function */
+	wasm::Prototype hostGetBlockExportType = state.module.prototype(u8"host_get_block_export_type",
+		{ { u8"instance", wasm::Type::refExtern }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
+		{ wasm::Type::refFunction }
+	);
+	state.hostGetBlockFunction = state.module.function(u8"host_get_block_export", hostGetBlockExportType, wasm::Import{ u8"host" });
 }
 
 void glue::SetupHostBody(glue::State& state) {
@@ -82,7 +96,7 @@ void glue::SetupHostBody(glue::State& state) {
 		sink[I::Call::Indirect(state.mainFunctions, {}, {})];
 
 		/* call the entry point of the main application */
-		sink[I::U32::Const(glue::MainMapping::mainStartup)];
+		sink[I::U32::Const(glue::MainMapping::startup)];
 		sink[I::Call::IndirectTail(state.mainFunctions, {}, {})];
 	}
 
@@ -114,7 +128,7 @@ void glue::SetupHostBody(glue::State& state) {
 			sink[I::Return()];
 		}
 
-		/* check if the context loading failed */
+		/* check if the core loading failed */
 		sink[I::Local::Get(sink.parameter(1))];
 		sink[I::Ref::IsNull()];
 		{
@@ -129,7 +143,7 @@ void glue::SetupHostBody(glue::State& state) {
 			sink[I::Local::Get(slotAddress)];
 			sink[I::U64::Load(state.memory, offsetof(glue::Slot, process))];
 			sink[I::U32::Const(0)];
-			sink[I::U32::Const(glue::MainMapping::contextCoreLoaded)];
+			sink[I::U32::Const(glue::MainMapping::coreLoaded)];
 			sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];
 		}
 
@@ -176,7 +190,69 @@ void glue::SetupHostBody(glue::State& state) {
 		sink[I::Local::Get(slotAddress)];
 		sink[I::U64::Load(state.memory, offsetof(glue::Slot, process))];
 		sink[I::U32::Const(1)];
-		sink[I::U32::Const(glue::MainMapping::contextCoreLoaded)];
+		sink[I::U32::Const(glue::MainMapping::coreLoaded)];
+		sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];
+	}
+
+	/* add the block-loaded callback function */
+	if (true) {
+		wasm::Prototype prototype = state.module.prototype(u8"host_block_loaded_type",
+			{ { u8"id", wasm::Type::i32 }, { u8"instance", wasm::Type::refExtern } },
+			{}
+		);
+		wasm::Sink sink{ state.module.function(u8"host_block_loaded", prototype, wasm::Export{}) };
+		wasm::Variable slotAddress = sink.local(wasm::Type::i32, u8"slot_address");
+
+		/* compute the slot address */
+		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U32::Const(sizeof(glue::Slot))];
+		sink[I::U32::Mul()];
+		sink[I::U32::Const(state.addressOfList)];
+		sink[I::U32::Add()];
+		sink[I::Local::Tee(slotAddress)];
+
+		/* check if the slot-state is valid */
+		sink[I::U32::Load8(state.memory, offsetof(glue::Slot, state))];
+		sink[I::U32::Const(glue::SlotState::loadingBlock)];
+		sink[I::U32::NotEqual()];
+		{
+			/* block is not awaited, simply return */
+			wasm::IfThen _if{ sink };
+			sink[I::Return()];
+		}
+
+		/* update the state as not loading anymore */
+		sink[I::Local::Get(slotAddress)];
+		sink[I::U32::Const(glue::SlotState::coreLoaded)];
+		sink[I::U32::Store8(state.memory, offsetof(glue::Slot, state))];
+
+		/* check if the block loading failed */
+		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Ref::IsNull()];
+		{
+			/* notify the main application about the failure */
+			wasm::IfThen _if{ sink };
+			sink[I::Local::Get(slotAddress)];
+			sink[I::U64::Load(state.memory, offsetof(glue::Slot, process))];
+			sink[I::U32::Const(0)];
+			sink[I::U32::Const(glue::MainMapping::blockLoaded)];
+			sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];
+		}
+
+		/* write the block-reference to the core block-list */
+		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U32::Const(glue::CoreMapping::_count)];
+		sink[I::U32::Mul()];
+		sink[I::U32::Const(glue::CoreMapping::blocksLoaded)];
+		sink[I::U32::Add()];
+		sink[I::Call::Indirect(state.coreFunctions, { wasm::Type::refExtern }, {})];
+
+		/* notify the main application about the successful load */
+		sink[I::Local::Get(slotAddress)];
+		sink[I::U64::Load(state.memory, offsetof(glue::Slot, process))];
+		sink[I::U32::Const(1)];
+		sink[I::U32::Const(glue::MainMapping::blockLoaded)];
 		sink[I::Call::IndirectTail(state.mainFunctions, { wasm::Type::i64, wasm::Type::i32 }, {})];
 	}
 }

@@ -31,9 +31,6 @@ namespace env {
 		env::ModuleState setupBlockModule(wasm::Module& mod) const;
 
 	public:
-		bool loadCore(const uint8_t* data, size_t size, std::function<void(bool)> loaded);
-
-	public:
 		const env::Context& context() const;
 		env::Context& context();
 		const env::Memory& memory() const;

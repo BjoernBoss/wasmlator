@@ -15,18 +15,22 @@ int main() {
 	//main_startup();
 	//return 0;
 
-	writer::TextWriter _writer;
+	writer::TextWriter _core, _block;
 	{
-		wasm::Module _module{ &_writer };
+		wasm::Module _modCore{ &_core };
+		wasm::Module _modBlock{ &_block };
 		env::Process* proc = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {});
 		if (proc) {
-			proc->setupCoreModule(_module);
+			proc->setupCoreModule(_modCore);
+			proc->setupBlockModule(_modBlock);
 			proc->release();
 		}
 	}
-	const std::u8string& data = _writer.output();
+	const std::u8string& core = _core.output();
+	const std::u8string& block = _block.output();
 
-	std::fstream{ "./temp-output.wat", std::ios::out }.write(reinterpret_cast<const char*>(data.data()), data.size());
+	std::fstream{ "./core-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(core.data()), core.size());
+	std::fstream{ "./block-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(block.data()), block.size());
 	return 0;
 }
 
@@ -45,11 +49,18 @@ uint32_t ctx_create(uint64_t process) {
 	ProcessList.push_back(process);
 	return uint32_t(ProcessList.size() - 1);
 }
+uint32_t ctx_load_core(uint32_t id, const uint8_t* data, uint32_t size) {
+	return {};
+}
+uint32_t ctx_load_block(uint32_t id, const uint8_t* data, uint32_t size, uint32_t exports) {
+	return {};
+}
 uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size) {
 	ctx_core_loaded(ProcessList[id], 1);
 	return 1;
 }
 void ctx_destroy(uint32_t id) {}
+void ctx_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address) {}
 
 void blocks_execute(uint32_t id, uint64_t address) {}
 void blocks_flush_blocks(uint32_t id) {}
