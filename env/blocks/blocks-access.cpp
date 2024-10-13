@@ -26,8 +26,10 @@ void env::detail::BlocksBuilder::fMakeLookup(wasm::Sink& sink, env::CoreState& s
 	sink[I::U32::And()];
 	sink[I::U32::Const(sizeof(Blocks::BlockCache))];
 	sink[I::U32::Mul()];
-	sink[I::U32::Const(pProcess->blocks().pCacheAddress)];
-	sink[I::U32::Add()];
+	if (pProcess->blocks().pCacheAddress > 0) {
+		sink[I::U32::Const(pProcess->blocks().pCacheAddress)];
+		sink[I::U32::Add()];
+	}
 	sink[I::Local::Tee(hashAddress)];
 
 	/* check if this is a cache-hit */

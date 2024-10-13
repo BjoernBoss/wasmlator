@@ -14,12 +14,13 @@ static std::u8string writeNullFunction(wasm::Module& mod, env::Process* proc, en
 	wasm::Sink sink{ mod.function(name, {}, {}, wasm::Export{}) };
 	wasm::Variable address = sink.local(wasm::Type::i64, u8"address");
 	sink[wasm::inst::U64::Const(rand() % 1000)];
+	sink[wasm::inst::Local::Set(address)];
 	proc->blocks().makeGoto(address, state);
 	return name;
 }
 
 void main_startup() {
-	struct State {
+	static struct State {
 		env::Process* process = 0;
 	} _state;
 
