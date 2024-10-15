@@ -1,5 +1,7 @@
 #include "../env-process.h"
 
+namespace I = wasm::inst;
+
 env::Context::Context(std::u8string_view name, env::Process* process) : pProcess{ process }, pName{ name } {
 	str::FormatTo(pLogHeader, u8"[{:>12}]: ", pName);
 	pId = 0;
@@ -11,9 +13,10 @@ env::Context::~Context() {
 	}
 }
 
-bool env::Context::fCreate(std::function<void(env::guest_t)> translate) {
+bool env::Context::fCreate(std::function<void(env::guest_t)> translate, std::function<void(int32_t)> terminated) {
 	pProcess->log(u8"Creating new context...");
 	pTranslate = translate;
+	pTerminated = terminated;
 
 	/* try to create the new context */
 	pId = bridge::Context::Create(pProcess);
@@ -43,6 +46,10 @@ void env::Context::fBlockLoaded(bool succeeded) {
 void env::Context::fTranslate(env::guest_t address) {
 	pProcess->debug(str::Format<std::u8string>(u8"Translate: [{:#018x}]", address));
 	pTranslate(address);
+}
+void env::Context::fTerminated(int32_t code) {
+	pProcess->debug(u8"Terminated: [", code, u8']');
+	pTerminated(code);
 }
 
 void env::Context::loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {
@@ -85,4 +92,11 @@ const std::u8string& env::Context::logHeader() const {
 }
 env::id_t env::Context::id() const {
 	return pId;
+}
+
+void env::Context::makeExit(const wasm::Variable& i32ExitCode, const env::ModuleState& state) const {
+	/* simply perform the call to exit */
+	wasm::Sink& sink{ i32ExitCode.sink() };
+	sink[I::Local::Get(i32ExitCode)];
+	sink[I::Call::Tail(state.ctx.exit)];
 }

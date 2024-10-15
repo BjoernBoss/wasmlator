@@ -21,6 +21,7 @@ extern "C" {
 	void ctx_core_loaded(uint64_t process, uint32_t succeeded);
 	void ctx_block_loaded(uint64_t process, uint32_t succeeded);
 	void ctx_translate(uint64_t process, uint64_t address);
+	void ctx_terminated(uint64_t process, int32_t code);
 
 	/* imports */
 	uint32_t ctx_create(uint64_t process);

@@ -19,7 +19,7 @@ int main() {
 	{
 		wasm::Module _modCore{ &_core };
 		wasm::Module _modBlock{ &_block };
-		env::Process* proc = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {});
+		env::Process* proc = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {}, [](int32_t) {});
 		if (proc) {
 			proc->setupCoreModule(_modCore);
 			proc->setupBlockModule(_modBlock);

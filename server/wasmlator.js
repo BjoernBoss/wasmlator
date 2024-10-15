@@ -212,6 +212,7 @@ _state.load_core = function (id, buffer) {
 	imports.map.flushed = _state.main.exports.map_flushed;
 	imports.map.associate = _state.main.exports.map_associate;
 	imports.ctx.translate = _state.main.exports.ctx_translate;
+	imports.ctx.terminated = _state.main.exports.ctx_terminated;
 
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)
@@ -239,6 +240,7 @@ _state.load_block = function (core, id, buffer) {
 	let imports = {
 		core: {},
 		mem: {},
+		ctx: {},
 		map: {}
 	};
 	imports.core.memory_physical = core.exports.memory_physical;
@@ -248,6 +250,7 @@ _state.load_block = function (core, id, buffer) {
 	imports.mem.lookup_execute = core.exports.mem_lookup_execute;
 	imports.map.goto = core.exports.map_goto;
 	imports.map.lookup = core.exports.map_lookup;
+	imports.ctx.exit = core.exports.ctx_exit;
 
 	/* try to instantiate the block module */
 	WebAssembly.instantiate(buffer, imports)

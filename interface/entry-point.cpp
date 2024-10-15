@@ -13,6 +13,31 @@ static std::u8string writeNullFunction(wasm::Module& mod, env::Process* proc, en
 	std::u8string name = str::Format<std::u8string>(u8"func_{:#018x}", addr);
 	wasm::Sink sink{ mod.function(name, {}, {}, wasm::Export{}) };
 	wasm::Variable address = sink.local(wasm::Type::i64, u8"address");
+	wasm::Variable count = sink.local(wasm::Type::i32, u8"count");
+
+	/* check if should terminate */
+	sink[wasm::inst::U64::Const(0)];
+	sink[wasm::inst::Local::Set(address)];
+	proc->memory().makeRead(address, state, 0, env::MemoryType::i32);
+	sink[wasm::inst::Local::Tee(count)];
+	sink[wasm::inst::U32::Const(2048)];
+	sink[wasm::inst::U32::GreaterEqual()];
+	{
+		wasm::IfThen _if{ sink };
+		wasm::Variable result = sink.local(wasm::Type::i32, u8"code");
+		sink[wasm::inst::U32::Const(123)];
+		sink[wasm::inst::Local::Set(result)];
+		proc->context().makeExit(result, state);
+	}
+
+	/* increase the counter */
+	sink[wasm::inst::Local::Get(count)];
+	sink[wasm::inst::U32::Const(1)];
+	sink[wasm::inst::U32::Add()];
+	sink[wasm::inst::Local::Set(count)];
+	proc->memory().makeWrite(address, count, state, 1, env::MemoryType::i32);
+
+	/* go to random address */
 	sink[wasm::inst::U64::Const(rand() % 1000)];
 	sink[wasm::inst::Local::Set(address)];
 	proc->mapping().makeGoto(address, state);
@@ -39,6 +64,10 @@ void main_startup() {
 			if (succeeded)
 				_state.process->mapping().execute(addr);
 			});
+		},
+		[&](int32_t terminated) {
+			util::log(u8"Process terminated with [", terminated, u8"]");
+			_state.process->release();
 		});
 
 	if (_state.process == 0)
@@ -57,16 +86,7 @@ void main_startup() {
 			return;
 		}
 
-		_state.process->memory().mmap(0x0, env::VirtPageSize, env::MemoryUsage::Write);
-		for (size_t i = 0; i < 256; ++i)
-			_state.process->memory().write<uint8_t>(i, uint8_t(i));
-
-		_state.process->memory().mprotect(0x0, env::VirtPageSize, env::MemoryUsage::Execute);
-		for (size_t i = 0; i < 256; ++i)
-			_state.process->log(str::Format<std::u8string>(u8"{:#06x}: {:02x}", i, _state.process->memory().code<uint8_t>(i)));
-
-		_state.process->memory().munmap(0x0, env::VirtPageSize);
-
+		_state.process->memory().mmap(0x0, env::VirtPageSize, env::MemoryUsage::Read | env::MemoryUsage::Write);
 		_state.process->mapping().execute(0x0123);
 		});
 	util::log(u8"Main: Application startup exited");

@@ -8,6 +8,7 @@ namespace env::bridge {
 		static void CoreLoaded(uint64_t process, bool succeeded);
 		static void BlockLoaded(uint64_t process, bool succeeded);
 		static void Translate(uint64_t process, uint64_t address);
+		static void Terminated(uint64_t process, int32_t address);
 
 		/* imports */
 		static env::id_t Create(env::Process* process);

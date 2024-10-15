@@ -11,7 +11,7 @@ namespace env::detail {
 		ContextAccess(env::Process* process);
 
 	public:
-		bool create(std::function<void(env::guest_t)> translate);
+		bool create(std::function<void(env::guest_t)> translate, std::function<void(int32_t)> terminated);
 	};
 
 	class ContextBuilder {
@@ -23,5 +23,7 @@ namespace env::detail {
 
 	public:
 		void setupCoreImports(wasm::Module& mod, env::CoreState& state) const;
+		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
+		void setupBlockImports(wasm::Module& mod, env::ModuleState& state) const;
 	};
 }

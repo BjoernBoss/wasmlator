@@ -2,11 +2,11 @@
 
 env::Process::Process(std::u8string_view name) : pContext{ name, this }, pMemory{ this }, pMapping{ this } {}
 
-env::Process* env::Process::Create(std::u8string_view name, uint32_t caches, std::function<void(env::guest_t)> translate) {
+env::Process* env::Process::Create(std::u8string_view name, uint32_t caches, std::function<void(env::guest_t)> translate, std::function<void(int32_t)> terminated) {
 	env::Process* out = new env::Process{ name };
 
 	/* try to setup the context */
-	if (!detail::ContextAccess{ out }.create(translate)) {
+	if (!detail::ContextAccess{ out }.create(translate, terminated)) {
 		delete out;
 		return 0;
 	}
@@ -39,6 +39,7 @@ env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) const {
 	/* setup the body */
 	detail::MemoryBuilder{ this }.setupCoreBody(mod, state);
 	detail::MappingBuilder{ this }.setupCoreBody(mod, state);
+	detail::ContextBuilder{ this }.setupCoreBody(mod, state);
 	return state.module;
 }
 env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) const {
@@ -51,6 +52,7 @@ env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) const {
 	/* setup the imports */
 	detail::MemoryBuilder{ this }.setupBlockImports(mod, state);
 	detail::MappingBuilder{ this }.setupBlockImports(mod, state);
+	detail::ContextBuilder{ this }.setupBlockImports(mod, state);
 	return state;
 }
 

@@ -13,6 +13,9 @@ void ctx_block_loaded(uint64_t process, uint32_t succeeded) {
 void ctx_translate(uint64_t process, uint64_t address) {
 	env::bridge::Context::Translate(process, address);
 }
+void ctx_terminated(uint64_t process, int32_t code) {
+	env::bridge::Context::Terminated(process, code);
+}
 
 uint32_t map_resolve(uint64_t process, uint64_t address) {
 	return env::bridge::Mapping::Resolve(process, address);

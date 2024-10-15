@@ -10,6 +10,9 @@ void env::bridge::Context::BlockLoaded(uint64_t process, bool succeeded) {
 void env::bridge::Context::Translate(uint64_t process, uint64_t address) {
 	reinterpret_cast<env::Process*>(process)->context().fTranslate(address);
 }
+void env::bridge::Context::Terminated(uint64_t process, int32_t code) {
+	reinterpret_cast<env::Process*>(process)->context().fTerminated(code);
+}
 
 env::id_t env::bridge::Context::Create(env::Process* process) {
 	return ctx_create(reinterpret_cast<uint64_t>(process));

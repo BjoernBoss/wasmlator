@@ -21,7 +21,7 @@ namespace env {
 		~Process() = default;
 
 	public:
-		static env::Process* Create(std::u8string_view name, uint32_t caches, std::function<void(env::guest_t)> translate);
+		static env::Process* Create(std::u8string_view name, uint32_t caches, std::function<void(env::guest_t)> translate, std::function<void(int32_t)> terminated);
 
 	public:
 		void release();

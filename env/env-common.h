@@ -59,6 +59,9 @@ namespace env {
 		wasm::Memory physical;
 		wasm::Memory management;
 		struct {
+			wasm::Function exit;
+		} ctx;
+		struct {
 			wasm::Function read;
 			wasm::Function write;
 			wasm::Function execute;
@@ -74,6 +77,7 @@ namespace env {
 		env::ModuleState module;
 		struct {
 			wasm::Function translate;
+			wasm::Function terminated;
 		} ctx;
 		struct {
 			wasm::Function lookup;
