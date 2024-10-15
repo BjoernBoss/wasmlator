@@ -1,6 +1,6 @@
 #include "../env-process.h"
 
-env::Context::Context(std::u8string_view name, env::Process* process) : pProcess{ process }, pName{ name }, pSelfName{ u8"core" } {
+env::Context::Context(std::u8string_view name, env::Process* process) : pProcess{ process }, pName{ name } {
 	str::FormatTo(pLogHeader, u8"[{:>12}]: ", pName);
 	pId = 0;
 }
@@ -58,6 +58,12 @@ void env::Context::loadCore(const uint8_t* data, size_t size, std::function<void
 	}
 }
 void env::Context::loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void(bool)> callback) {
+	/* validate the uniqueness of all blocks to be loaded */
+	for (const env::BlockExport& block : exports) {
+		if (pProcess->mapping().contains(block.address))
+			pProcess->fail(str::Format<std::u8string>(u8"Block for [{:#018x}] has already been loaded", block.address));
+	}
+
 	/* protected through glue-code to prevent parallel loads */
 	pProcess->debug(u8"Loading block...");
 
@@ -76,12 +82,6 @@ const std::u8string& env::Context::name() const {
 }
 const std::u8string& env::Context::logHeader() const {
 	return pLogHeader;
-}
-const std::u8string& env::Context::selfName() const {
-	return pSelfName;
-}
-wasm::Import env::Context::imported() const {
-	return wasm::Import{ pSelfName };
 }
 env::id_t env::Context::id() const {
 	return pId;

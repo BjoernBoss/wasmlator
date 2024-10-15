@@ -15,7 +15,7 @@ static std::u8string writeNullFunction(wasm::Module& mod, env::Process* proc, en
 	wasm::Variable address = sink.local(wasm::Type::i64, u8"address");
 	sink[wasm::inst::U64::Const(rand() % 1000)];
 	sink[wasm::inst::Local::Set(address)];
-	proc->blocks().makeGoto(address, state);
+	proc->mapping().makeGoto(address, state);
 	return name;
 }
 
@@ -37,7 +37,7 @@ void main_startup() {
 		const std::vector<uint8_t>& data = _writer.output();
 		_state.process->context().loadBlock(data.data(), data.size(), { { name, addr } }, [=](bool succeeded) {
 			if (succeeded)
-				_state.process->blocks().execute(addr);
+				_state.process->mapping().execute(addr);
 			});
 		});
 
@@ -67,7 +67,7 @@ void main_startup() {
 
 		_state.process->memory().munmap(0x0, env::VirtPageSize);
 
-		_state.process->blocks().execute(0x0123);
+		_state.process->mapping().execute(0x0123);
 		});
 	util::log(u8"Main: Application startup exited");
 }

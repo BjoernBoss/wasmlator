@@ -1,16 +1,16 @@
 #pragma once
 
 #include "../env-common.h"
-#include "blocks-access.h"
-#include "blocks-bridge.h"
+#include "mapping-access.h"
+#include "mapping-bridge.h"
 
 namespace env {
-	class Blocks {
-		friend struct bridge::Blocks;
-		friend class detail::BlocksAccess;
-		friend class detail::BlocksBuilder;
+	class Mapping {
+		friend struct bridge::Mapping;
+		friend class detail::MappingAccess;
+		friend class detail::MappingBuilder;
 	private:
-		struct BlockCache {
+		struct MappingCache {
 			env::guest_t address = 0;
 			uint32_t index = 0;
 		};
@@ -21,12 +21,12 @@ namespace env {
 		uint32_t pCacheAddress = 0;
 
 	public:
-		Blocks(env::Process* process);
-		Blocks(env::Blocks&&) = delete;
-		Blocks(const env::Blocks&) = delete;
+		Mapping(env::Process* process);
+		Mapping(env::Mapping&&) = delete;
+		Mapping(const env::Mapping&) = delete;
 
 	private:
-		uint32_t fLookup(env::guest_t address) const;
+		uint32_t fResolve(env::guest_t address) const;
 		void fAssociate(env::guest_t address, uint32_t index);
 		void fFlushed();
 
@@ -36,6 +36,7 @@ namespace env {
 
 	public:
 		void execute(env::guest_t address);
-		void flushBlocks();
+		bool contains(env::guest_t address) const;
+		void flush();
 	};
 }

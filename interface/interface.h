@@ -30,22 +30,23 @@ extern "C" {
 	void ctx_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address);
 }
 
-/* env/blocks/blocks-bridge interactions */
+/* env/mapping/mapping-bridge interactions */
 extern "C" {
 	/* exports */
-	uint32_t blocks_lookup_complex(uint64_t process, uint64_t address);
-	void blocks_flushed(uint64_t process);
-	void blocks_associate(uint64_t process, uint64_t address, uint32_t index);
+	uint32_t map_resolve(uint64_t process, uint64_t address);
+	void map_flushed(uint64_t process);
+	void map_associate(uint64_t process, uint64_t address, uint32_t index);
 
 	/* imports */
-	void blocks_execute(uint32_t id, uint64_t address);
-	void blocks_flush_blocks(uint32_t id);
+	void map_execute(uint32_t id, uint64_t address);
+	void map_flush_blocks(uint32_t id);
 }
 
 /* env/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
-	uint64_t mem_perform_lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+	void mem_lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage);
+	uint64_t mem_result_address(uint64_t process);
 	uint32_t mem_result_physical(uint64_t process);
 	uint32_t mem_result_size(uint64_t process);
 

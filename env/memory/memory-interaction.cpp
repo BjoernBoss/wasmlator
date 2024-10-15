@@ -102,20 +102,22 @@ void env::detail::MemoryInteraction::fMakeLookup(const env::CoreState& state, co
 	wasm::Variable outPhys = sink.local(wasm::Type::i32, u8"out_physical");
 	wasm::Variable outSize = sink.local(wasm::Type::i32, u8"out_size");
 
-	/* perform the call (only returns the address) */
+	/* perform the call */
 	sink[I::U64::Const(pProcess)];
 	sink[I::Local::Get(address)];
 	sink[I::Local::Get(size)];
 	sink[I::U32::Const(usage)];
-	sink[I::Call::Direct(state.mem_core.lookup)];
-	sink[I::Local::Set(outAddr)];
+	sink[I::Call::Direct(state.mem.lookup)];
 
-	/* fetch the remainder of the results */
+	/* fetch the result */
 	sink[I::U64::Const(pProcess)];
-	sink[I::Call::Direct(state.mem_core.getPhysical)];
+	sink[I::Call::Direct(state.mem.getAddress)];
+	sink[I::Local::Set(outAddr)];
+	sink[I::U64::Const(pProcess)];
+	sink[I::Call::Direct(state.mem.getPhysical)];
 	sink[I::Local::Set(outPhys)];
 	sink[I::U64::Const(pProcess)];
-	sink[I::Call::Direct(state.mem_core.getSize)];
+	sink[I::Call::Direct(state.mem.getSize)];
 	sink[I::Local::Set(outSize)];
 
 	/* write the address and physical offset back */
@@ -393,14 +395,18 @@ uint32_t env::detail::MemoryInteraction::configureAndAllocate(uint32_t address, 
 }
 void env::detail::MemoryInteraction::setupCoreImports(wasm::Module& mod, env::CoreState& state) const {
 	/* add the import to the lookup-function */
-	wasm::Prototype lookupPrototype = mod.prototype(u8"mem_lookup_type",
+	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_type",
 		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
-		{ wasm::Type::i64 }
+		{}
 	);
-	wasm::Prototype resultPrototype = mod.prototype(u8"mem_lookup_result_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i32 });
-	state.mem_core.lookup = mod.function(u8"perform_lookup", lookupPrototype, wasm::Import{ u8"memory" });
-	state.mem_core.getPhysical = mod.function(u8"result_physical", resultPrototype, wasm::Import{ u8"memory" });
-	state.mem_core.getSize = mod.function(u8"result_size", resultPrototype, wasm::Import{ u8"memory" });
+	state.mem.lookup = mod.function(u8"lookup", prototype, wasm::Import{ u8"mem" });
+
+	prototype = mod.prototype(u8"mem_lookup_i64_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i64 });
+	state.mem.getAddress = mod.function(u8"result_address", prototype, wasm::Import{ u8"mem" });
+
+	prototype = mod.prototype(u8"mem_lookup_i32_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i32 });
+	state.mem.getPhysical = mod.function(u8"result_physical", prototype, wasm::Import{ u8"mem" });
+	state.mem.getSize = mod.function(u8"result_size", prototype, wasm::Import{ u8"mem" });
 }
 void env::detail::MemoryInteraction::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
@@ -442,10 +448,10 @@ void env::detail::MemoryInteraction::setupCoreBody(wasm::Module& mod, env::CoreS
 }
 void env::detail::MemoryInteraction::setupBlockImports(wasm::Module& mod, env::ModuleState& state) const {
 	/* add the function-imports for the page-lookup */
-	wasm::Prototype prototype = mod.prototype(u8"mem_addr_lookup", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
-	state.mem.read = mod.function(u8"mem_lookup_read", prototype, pProcess->context().imported());
-	state.mem.write = mod.function(u8"mem_lookup_write", prototype, pProcess->context().imported());
-	state.mem.execute = mod.function(u8"mem_lookup_execute", prototype, pProcess->context().imported());
+	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
+	state.mem.read = mod.function(u8"lookup_read", prototype, wasm::Import{ u8"mem" });
+	state.mem.write = mod.function(u8"lookup_write", prototype, wasm::Import{ u8"mem" });
+	state.mem.execute = mod.function(u8"lookup_execute", prototype, wasm::Import{ u8"mem" });
 }
 
 void env::detail::MemoryInteraction::makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const {

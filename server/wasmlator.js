@@ -136,8 +136,8 @@ _state.load_main = function () {
 	imports.env.ctx_load_block = _state.glue.exports.ctx_load_block;
 	imports.env.ctx_destroy = _state.glue.exports.ctx_destroy;
 	imports.env.ctx_add_export = _state.glue.exports.ctx_add_export;
-	imports.env.blocks_execute = _state.glue.exports.blocks_execute;
-	imports.env.blocks_flush_blocks = _state.glue.exports.blocks_flush_blocks;
+	imports.env.map_execute = _state.glue.exports.map_execute;
+	imports.env.map_flush_blocks = _state.glue.exports.map_flush_blocks;
 	imports.env.mem_expand_physical = _state.glue.exports.mem_expand_physical;
 	imports.env.mem_move_physical = _state.glue.exports.mem_move_physical;
 	imports.env.mem_flush_caches = _state.glue.exports.mem_flush_caches;
@@ -200,17 +200,18 @@ _state.load_core = function (id, buffer) {
 
 	/* setup the core imports */
 	let imports = {
-		memory: {},
-		blocks: {},
-		context: {}
+		mem: {},
+		map: {},
+		ctx: {}
 	};
-	imports.memory.perform_lookup = _state.main.exports.mem_perform_lookup;
-	imports.memory.result_physical = _state.main.exports.mem_result_physical;
-	imports.memory.result_size = _state.main.exports.mem_result_size;
-	imports.blocks.lookup_complex = _state.main.exports.blocks_lookup_complex;
-	imports.blocks.flushed = _state.main.exports.blocks_flushed;
-	imports.blocks.associate = _state.main.exports.blocks_associate;
-	imports.context.translate = _state.main.exports.ctx_translate;
+	imports.mem.lookup = _state.main.exports.mem_lookup;
+	imports.mem.result_address = _state.main.exports.mem_result_address;
+	imports.mem.result_physical = _state.main.exports.mem_result_physical;
+	imports.mem.result_size = _state.main.exports.mem_result_size;
+	imports.map.resolve = _state.main.exports.map_resolve;
+	imports.map.flushed = _state.main.exports.map_flushed;
+	imports.map.associate = _state.main.exports.map_associate;
+	imports.ctx.translate = _state.main.exports.ctx_translate;
 
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)
@@ -236,15 +237,17 @@ _state.load_block = function (core, id, buffer) {
 
 	/* setup the block imports */
 	let imports = {
-		core: {}
+		core: {},
+		mem: {},
+		map: {}
 	};
 	imports.core.memory_physical = core.exports.memory_physical;
 	imports.core.memory_management = core.exports.memory_management;
-	imports.core.mem_lookup_read = core.exports.mem_lookup_read;
-	imports.core.mem_lookup_write = core.exports.mem_lookup_write;
-	imports.core.mem_lookup_execute = core.exports.mem_lookup_execute;
-	imports.core.blocks_goto = core.exports.blocks_goto;
-	imports.core.blocks_lookup = core.exports.blocks_lookup;
+	imports.mem.lookup_read = core.exports.mem_lookup_read;
+	imports.mem.lookup_write = core.exports.mem_lookup_write;
+	imports.mem.lookup_execute = core.exports.mem_lookup_execute;
+	imports.map.goto = core.exports.map_goto;
+	imports.map.lookup = core.exports.map_lookup;
 
 	/* try to instantiate the block module */
 	WebAssembly.instantiate(buffer, imports)

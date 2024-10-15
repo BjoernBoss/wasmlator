@@ -235,7 +235,7 @@ void glue::SetupContextFunctions(glue::State& state) {
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];
-		sink[I::U32::Const(glue::CoreMapping::blocksReserve)];
+		sink[I::U32::Const(glue::CoreMapping::mapReserve)];
 		sink[I::U32::Add()];
 		sink[I::Call::Indirect(state.coreFunctions, { wasm::Type::i32 }, { wasm::Type::i32 })];
 		sink[I::U32::EqualZero()];
@@ -326,7 +326,7 @@ void glue::SetupContextFunctions(glue::State& state) {
 		sink[I::Local::Tee(index)];
 
 		/* fetch the reference to the last loaded block */
-		sink[I::U32::Const(glue::CoreMapping::blocksGetLast)];
+		sink[I::U32::Const(glue::CoreMapping::mapGetLast)];
 		sink[I::U32::Add()];
 		sink[I::Call::Indirect(state.coreFunctions, {}, { wasm::Type::refExtern })];
 
@@ -338,7 +338,7 @@ void glue::SetupContextFunctions(glue::State& state) {
 		/* write the function back to the core module */
 		sink[I::Local::Get(sink.parameter(3))];
 		sink[I::Local::Get(index)];
-		sink[I::U32::Const(glue::CoreMapping::blocksAddExport)];
+		sink[I::U32::Const(glue::CoreMapping::mapAddExport)];
 		sink[I::U32::Add()];
 		sink[I::Call::Indirect(state.coreFunctions, { wasm::Type::refFunction, wasm::Type::i64 }, {})];
 	}

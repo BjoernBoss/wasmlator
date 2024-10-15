@@ -39,8 +39,8 @@ namespace env {
 		return env::PhysPageSize * ((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
 	}
 
-	static constexpr uint32_t MinBlocksList = 4;
-	static constexpr uint32_t BlocksListGrowth = 2;
+	static constexpr uint32_t MinBlockList = 4;
+	static constexpr uint32_t BlockListGrowth = 2;
 	static constexpr uint32_t MinFunctionList = 32;
 	static constexpr uint32_t FunctionListGrowth = 16;
 	static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
@@ -66,7 +66,7 @@ namespace env {
 		struct {
 			wasm::Function execute;
 			wasm::Function lookup;
-		} blocks;
+		} mapping;
 	};
 
 	/* state setup and shared for creating a core module */
@@ -74,17 +74,18 @@ namespace env {
 		env::ModuleState module;
 		struct {
 			wasm::Function translate;
-		} ctx_core;
+		} ctx;
 		struct {
 			wasm::Function lookup;
+			wasm::Function getAddress;
 			wasm::Function getPhysical;
 			wasm::Function getSize;
-		} mem_core;
+		} mem;
 		struct {
-			wasm::Function lookup;
+			wasm::Function resolve;
 			wasm::Function flushed;
 			wasm::Function associate;
-		} blocks_core;
+		} mapping;
 	};
 
 	/* memory reading type */

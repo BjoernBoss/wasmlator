@@ -12,5 +12,5 @@ void env::detail::ContextBuilder::setupCoreImports(wasm::Module& mod, env::CoreS
 		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 } },
 		{}
 	);
-	state.ctx_core.translate = mod.function(u8"translate", prototype, wasm::Import{ u8"context" });
+	state.ctx.translate = mod.function(u8"translate", prototype, wasm::Import{ u8"ctx" });
 }

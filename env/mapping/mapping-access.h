@@ -3,22 +3,22 @@
 #include "../env-common.h"
 
 namespace env::detail {
-	class BlocksAccess {
+	class MappingAccess {
 	private:
 		env::Process* pProcess = 0;
 
 	public:
-		BlocksAccess(env::Process* process);
+		MappingAccess(env::Process* process);
 
 	public:
 		uint32_t allocateFromManagement(uint32_t address);
 	};
-	class BlocksBuilder {
+	class MappingBuilder {
 	private:
 		const env::Process* pProcess = 0;
 
 	public:
-		BlocksBuilder(const env::Process* process);
+		MappingBuilder(const env::Process* process);
 
 	private:
 		void fMakeLookup(wasm::Sink& sink, env::CoreState& state, wasm::Table& functions, bool execute) const;

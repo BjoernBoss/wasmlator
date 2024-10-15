@@ -9,10 +9,10 @@ namespace glue {
 
 	enum class CoreMapping : uint8_t {
 		execute,
-		blocksReserve,
-		blocksLoaded,
-		blocksGetLast,
-		blocksAddExport,
+		mapReserve,
+		mapLoaded,
+		mapGetLast,
+		mapAddExport,
 		flushBlocks,
 
 		expandPhysical,
@@ -162,10 +162,10 @@ namespace glue {
 	void SetupContextFunctions(glue::State& state);
 
 	/*
-	*	Implement the separate blocks interaction functions, which are
+	*	Implement the separate mapping interaction functions, which are
 	*	directly forwarded to the functions exported from the core module
 	*/
-	void SetupBlocksFunctions(glue::State& state);
+	void SetupMapFunctions(glue::State& state);
 
 	/*
 	*	Implement the separate memory interaction functions, which are

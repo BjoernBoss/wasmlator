@@ -62,7 +62,7 @@ static void SetupAccessFunctions(glue::State& state, wasm::Type type, std::u8str
 void glue::SetupMemoryFunctions(glue::State& state) {
 	/* export the mem_expand_physical function and call the function from the corresponding core module */
 	if (true) {
-		wasm::Prototype prototype = state.module.prototype(u8"mem_expand_type",
+		wasm::Prototype prototype = state.module.prototype(u8"mem_expand_physical_type",
 			{ { u8"id", wasm::Type::i32 }, { u8"pages", wasm::Type::i32 } },
 			{ wasm::Type::i32 }
 		);
@@ -80,7 +80,7 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 
 	/* export the mem_move_physical function and call the function from the corresponding core module */
 	if (true) {
-		wasm::Prototype prototype = state.module.prototype(u8"mem_move_type",
+		wasm::Prototype prototype = state.module.prototype(u8"mem_move_physical_type",
 			{ { u8"id", wasm::Type::i32 }, { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
 			{}
 		);
@@ -100,7 +100,7 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 
 	/* export the flush_caches function and call the function from the corresponding core module */
 	if (true) {
-		wasm::Prototype prototype = state.module.prototype(u8"mem_flush_type",
+		wasm::Prototype prototype = state.module.prototype(u8"mem_flush_caches_type",
 			{ { u8"id", wasm::Type::i32 } },
 			{}
 		);
@@ -123,4 +123,39 @@ void glue::SetupMemoryFunctions(glue::State& state) {
 	SetupAccessFunctions(state, wasm::Type::i64, u8"i64", glue::CoreMapping::readi64, glue::CoreMapping::writei64, glue::CoreMapping::executei64);
 	SetupAccessFunctions(state, wasm::Type::f32, u8"f32", glue::CoreMapping::readf32, glue::CoreMapping::writef32, glue::CoreMapping::executef32);
 	SetupAccessFunctions(state, wasm::Type::f64, u8"f64", glue::CoreMapping::readf64, glue::CoreMapping::writef64, glue::CoreMapping::executef64);
+}
+
+void glue::SetupMapFunctions(glue::State& state) {
+	/* export the execute function and call the function from the corresponding core module */
+	if (true) {
+		wasm::Prototype prototype = state.module.prototype(u8"map_execute_type",
+			{ { u8"id", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } },
+			{}
+		);
+		wasm::Sink sink{ state.module.function(u8"map_execute", prototype, wasm::Export{}) };
+
+		sink[I::Local::Get(sink.parameter(1))];
+
+		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U32::Const(glue::CoreMapping::_count)];
+		sink[I::U32::Mul()];
+		sink[I::U32::Const(glue::CoreMapping::execute)];
+		sink[I::U32::Add()];
+		sink[I::Call::IndirectTail(state.coreFunctions, { wasm::Type::i64 }, {})];
+	}
+
+	/* export the flush_blocks function and call the function from the corresponding core module */
+	if (true) {
+		wasm::Prototype prototype = state.module.prototype(u8"map_flush_blocks_type",
+			{ { u8"id", wasm::Type::i32 } },
+			{}
+		);
+		wasm::Sink sink{ state.module.function(u8"map_flush_blocks", prototype, wasm::Export{}) };
+		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::U32::Const(glue::CoreMapping::_count)];
+		sink[I::U32::Mul()];
+		sink[I::U32::Const(glue::CoreMapping::flushBlocks)];
+		sink[I::U32::Add()];
+		sink[I::Call::IndirectTail(state.coreFunctions, {}, {})];
+	}
 }

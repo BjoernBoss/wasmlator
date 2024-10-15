@@ -4,39 +4,39 @@ namespace I = wasm::inst;
 
 void glue::SetupHostImports(glue::State& state) {
 	/* add the load-core host import */
-	wasm::Prototype hostLoadCoreType = state.module.prototype(u8"load_core_type",
+	wasm::Prototype prototype = state.module.prototype(u8"load_core_type",
 		{ { u8"id", wasm::Type::i32 }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
 		{}
 	);
-	state.hostLoadCore = state.module.function(u8"host_load_core", hostLoadCoreType, wasm::Import{ u8"host" });
+	state.hostLoadCore = state.module.function(u8"host_load_core", prototype, wasm::Import{ u8"host" });
 
 	/* add the load-block host import */
-	wasm::Prototype hostLoadBlockType = state.module.prototype(u8"load_block_type",
+	prototype = state.module.prototype(u8"load_block_type",
 		{ { u8"id", wasm::Type::i32 }, { u8"core", wasm::Type::refExtern }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
 		{}
 	);
-	state.hostLoadBlock = state.module.function(u8"host_load_block", hostLoadBlockType, wasm::Import{ u8"host" });
+	state.hostLoadBlock = state.module.function(u8"host_load_block", prototype, wasm::Import{ u8"host" });
 
 	/* add the host-main-get function */
-	wasm::Prototype hostGetMainExportType = state.module.prototype(u8"host_get_main_export_type",
+	prototype = state.module.prototype(u8"host_get_main_export_type",
 		{ { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
 		{ wasm::Type::refFunction }
 	);
-	state.hostGetMainFunction = state.module.function(u8"host_get_main_export", hostGetMainExportType, wasm::Import{ u8"host" });
+	state.hostGetMainFunction = state.module.function(u8"host_get_main_export", prototype, wasm::Import{ u8"host" });
 
 	/* add the host-core-get function */
-	wasm::Prototype hostGetCoreExportType = state.module.prototype(u8"host_get_core_export_type",
+	prototype = state.module.prototype(u8"host_get_core_export_type",
 		{ { u8"instance", wasm::Type::refExtern }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
 		{ wasm::Type::refFunction }
 	);
-	state.hostGetCoreFunction = state.module.function(u8"host_get_core_export", hostGetCoreExportType, wasm::Import{ u8"host" });
+	state.hostGetCoreFunction = state.module.function(u8"host_get_core_export", prototype, wasm::Import{ u8"host" });
 
 	/* add the host-block-get function */
-	wasm::Prototype hostGetBlockExportType = state.module.prototype(u8"host_get_block_export_type",
+	prototype = state.module.prototype(u8"host_get_block_export_type",
 		{ { u8"instance", wasm::Type::refExtern }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } },
 		{ wasm::Type::refFunction }
 	);
-	state.hostGetBlockFunction = state.module.function(u8"host_get_block_export", hostGetBlockExportType, wasm::Import{ u8"host" });
+	state.hostGetBlockFunction = state.module.function(u8"host_get_block_export", prototype, wasm::Import{ u8"host" });
 }
 
 void glue::SetupHostBody(glue::State& state) {
@@ -244,7 +244,7 @@ void glue::SetupHostBody(glue::State& state) {
 		sink[I::Local::Get(sink.parameter(0))];
 		sink[I::U32::Const(glue::CoreMapping::_count)];
 		sink[I::U32::Mul()];
-		sink[I::U32::Const(glue::CoreMapping::blocksLoaded)];
+		sink[I::U32::Const(glue::CoreMapping::mapLoaded)];
 		sink[I::U32::Add()];
 		sink[I::Call::Indirect(state.coreFunctions, { wasm::Type::refExtern }, {})];
 
