@@ -43,7 +43,7 @@ void glue::SetupHostBody(glue::State& state) {
 	/* add the main-loaded callback function */
 	if (true) {
 		wasm::Prototype prototype = state.module.prototype(u8"host_main_loaded_type",
-			{ wasm::Type::i32 },
+			{ { u8"result", wasm::Type::i32 } },
 			{}
 		);
 		wasm::Sink sink{ state.module.function(u8"host_main_loaded", prototype, wasm::Export{}) };

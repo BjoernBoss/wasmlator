@@ -29,8 +29,8 @@ int main() {
 	const std::u8string& core = _core.output();
 	const std::u8string& block = _block.output();
 
-	std::fstream{ "./core-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(core.data()), core.size());
-	std::fstream{ "./block-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(block.data()), block.size());
+	std::fstream{ "source/server/generated/core-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(core.data()), core.size());
+	std::fstream{ "source/server/generated/block-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(block.data()), block.size());
 	return 0;
 }
 
