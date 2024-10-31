@@ -1,38 +1,8 @@
-#include "interface.h"
-#include "../glue/generate.h"
+#include "../interface/interface.h"
 #include "../env/env-process.h"
 
 #include <ustring/ustring.h>
 #include <vector>
-#include <fstream>
-
-/* null-implementation for execution without glue-module */
-#ifndef EMSCRIPTEN_COMPILATION
-
-// #error currently not supported
-
-int main() {
-	//main_startup();
-	//return 0;
-
-	writer::TextWriter _core, _block;
-	{
-		wasm::Module _modCore{ &_core };
-		wasm::Module _modBlock{ &_block };
-		env::Process* proc = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {}, [](int32_t) {});
-		if (proc) {
-			proc->setupCoreModule(_modCore);
-			proc->setupBlockModule(_modBlock);
-			proc->release();
-		}
-	}
-	const std::u8string& core = _core.output();
-	const std::u8string& block = _block.output();
-
-	std::fstream{ "source/server/generated/core-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(core.data()), core.size());
-	std::fstream{ "source/server/generated/block-example.wat", std::ios::out }.write(reinterpret_cast<const char*>(block.data()), block.size());
-	return 0;
-}
 
 void host_print_u8(const char8_t* data, uint32_t size) {
 	str::PrintLn(std::u8string_view{ data, size });
@@ -156,5 +126,3 @@ double mem_execute_f64(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 8, env::MemoryUsage::Execute);
 	return {};
 }
-
-#endif

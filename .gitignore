@@ -1,3 +1,4 @@
-server/generated/**
-server/main.wasm
+build
+server/wasm/*
+server/wat/*
 .vscode/**

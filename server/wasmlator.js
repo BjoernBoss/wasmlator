@@ -1,12 +1,12 @@
 let _state = {
 	main: {
-		path: './main.wasm',
+		path: './wasm/main.wasm',
 		wasm: null,
 		memory: null,
 		exports: {}
 	},
 	glue: {
-		path: './generated/glue-module.wasm',
+		path: './wasm/glue-module.wasm',
 		wasm: null,
 		memory: null,
 		exports: {}
