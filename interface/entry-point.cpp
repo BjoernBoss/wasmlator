@@ -44,27 +44,29 @@ static std::u8string writeNullFunction(wasm::Module& mod, env::Process* proc, en
 	return name;
 }
 
+static void translateAddress(env::Process* process, env::guest_t addr) {
+	writer::BinaryWriter _writer;
+	wasm::Module _module{ &_writer };
+	env::ModuleState state = process->setupBlockModule(_module);
+
+	std::u8string name = writeNullFunction(_module, process, state, addr);
+	_module.close();
+
+
+	const std::vector<uint8_t>& data = _writer.output();
+	process->context().loadBlock(data.data(), data.size(), { { name, addr } }, [=](bool succeeded) {
+		if (succeeded)
+			process->mapping().execute(addr);
+		});
+}
+
 void main_startup() {
 	static struct State {
 		env::Process* process = 0;
 	} _state;
 
 	util::log(u8"Main: Application startup entered");
-	_state.process = env::Process::Create(u8"test_module", 4, [&](env::guest_t addr) {
-		writer::BinaryWriter _writer;
-		wasm::Module _module{ &_writer };
-		env::ModuleState state = _state.process->setupBlockModule(_module);
-
-		std::u8string name = writeNullFunction(_module, _state.process, state, addr);
-		_module.close();
-
-
-		const std::vector<uint8_t>& data = _writer.output();
-		_state.process->context().loadBlock(data.data(), data.size(), { { name, addr } }, [=](bool succeeded) {
-			if (succeeded)
-				_state.process->mapping().execute(addr);
-			});
-		},
+	_state.process = env::Process::Create(u8"test_module", 4, [&](env::guest_t addr) { translateAddress(_state.process, addr); },
 		[&](int32_t terminated) {
 			util::log(u8"Process terminated with [", terminated, u8"]");
 			_state.process->release();
