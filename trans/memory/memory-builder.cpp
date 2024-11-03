@@ -77,13 +77,13 @@ void trans::detail::MemoryBuilder::fMakeAccess(wasm::Module& mod, const detail::
 
 	/* make the read, write, and code function */
 	read[I::Local::Get(read.parameter(0))];
-	detail::MemoryWriter{ pProcess, read, state }.fMakeRead(env::detail::MemoryAccess{ pProcess }.readCache(), memoryType);
+	detail::MemoryWriter{ state, pProcess, read }.fMakeRead(env::detail::MemoryAccess{ pProcess }.readCache(), memoryType);
 
 	code[I::Local::Get(code.parameter(0))];
-	detail::MemoryWriter{ pProcess, code, state }.fMakeCode(env::detail::MemoryAccess{ pProcess }.codeCache(), memoryType);
+	detail::MemoryWriter{ state, pProcess, code }.fMakeCode(env::detail::MemoryAccess{ pProcess }.codeCache(), memoryType);
 
 	write[I::Local::Get(write.parameter(0))];
-	detail::MemoryWriter{ pProcess, write, state }.fMakeWrite(write.parameter(1), env::detail::MemoryAccess{ pProcess }.writeCache(), memoryType);
+	detail::MemoryWriter{ state, pProcess, write }.fMakeWrite(write.parameter(1), env::detail::MemoryAccess{ pProcess }.writeCache(), memoryType);
 }
 
 void trans::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod, detail::MemoryState& state) {

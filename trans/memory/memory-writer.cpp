@@ -2,12 +2,12 @@
 
 namespace I = wasm::inst;
 
-trans::detail::MemoryWriter::MemoryWriter(env::Process* process, wasm::Sink& sink, const detail::MemoryState& state) : pProcess{ process }, pSink{ sink }, pState{ state } {}
+trans::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, env::Process* process, wasm::Sink& sink) : pState{ state }, pProcess{ process }, pSink{ sink } {}
 
 void trans::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
 	uint32_t caches = env::detail::MemoryAccess{ pProcess }.cacheAddress();
 	if (cache >= caches)
-		throw trans::TranslationException{ u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined" };
+		throw trans::TranslationException{ L"Cache [", cache, u8"] out of bounds as only [", caches, L"] caches have been defined" };
 }
 void trans::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Function& lookup, trans::MemoryType type) const {
 	uint32_t cacheAddress = env::detail::MemoryAccess{ pProcess }.cacheAddress();

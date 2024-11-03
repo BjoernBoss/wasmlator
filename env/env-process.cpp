@@ -1,11 +1,11 @@
 #include "env-process.h"
 
-env::Process::Process(std::u8string_view name) : pMemory{ this }, pMapping{ this }, pName{ name } {
+env::Process::Process(std::u8string_view name) : pContext{ this }, pMemory{ this }, pMapping{ this }, pName{ name } {
 	str::FormatTo(pLogHeader, u8"[{:>12}]: ", pName);
 	pId = 0;
 }
 
-env::Process* env::Process::Create(std::u8string_view name, uint32_t caches) {
+env::Process* env::Process::Create(std::u8string_view name, uint32_t caches, uint32_t context) {
 	env::Process* out = new env::Process{ name };
 
 	/* try to setup the process */
@@ -21,6 +21,7 @@ env::Process* env::Process::Create(std::u8string_view name, uint32_t caches) {
 	/* initialize the components */
 	out->pPhysicalPages = env::PhysPageCount(env::detail::InitAllocBytes);
 	uint32_t endOfManagement = 0;
+	endOfManagement += detail::ContextAccess{ out }.configureAndAllocate(endOfManagement, context);
 	endOfManagement += detail::MappingAccess{ out }.allocateFromManagement(endOfManagement);
 	endOfManagement += detail::MemoryAccess{ out }.configureAndAllocate(endOfManagement, caches, out->pPhysicalPages);
 	out->pManagementPages = env::PhysPageCount(endOfManagement);
@@ -87,6 +88,12 @@ env::id_t env::Process::id() const {
 	return pId;
 }
 
+const env::Context& env::Process::context() const {
+	return pContext;
+}
+env::Context& env::Process::context() {
+	return pContext;
+}
 const env::Memory& env::Process::memory() const {
 	return pMemory;
 }

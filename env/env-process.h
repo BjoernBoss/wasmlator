@@ -1,6 +1,7 @@
 #pragma once
 
 #include "env-common.h"
+#include "context/env-context.h"
 #include "mapping/env-mapping.h"
 #include "memory/env-memory.h"
 #include "process/process-bridge.h"
@@ -13,6 +14,7 @@ namespace env {
 	private:
 		std::function<void(bool)> pLoaded;
 		std::vector<env::BlockExport> pExports;
+		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
 		uint32_t pManagementPages = 0;
@@ -28,7 +30,7 @@ namespace env {
 		~Process() = default;
 
 	public:
-		static env::Process* Create(std::u8string_view name, uint32_t caches);
+		static env::Process* Create(std::u8string_view name, uint32_t caches, uint32_t context);
 
 	private:
 		template <class... Args>
@@ -58,6 +60,8 @@ namespace env {
 		env::id_t id() const;
 
 	public:
+		const env::Context& context() const;
+		env::Context& context();
 		const env::Memory& memory() const;
 		env::Memory& memory();
 		const env::Mapping& mapping() const;

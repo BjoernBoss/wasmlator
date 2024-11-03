@@ -15,16 +15,6 @@ namespace env {
 		friend struct bridge::Memory;
 		friend class detail::MemoryAccess;
 	private:
-		struct MemCache {
-			env::guest_t address = 0;
-			env::physical_t physical = 0;
-			uint32_t size1 = 0;
-			uint32_t size2 = 0;
-			uint32_t size4 = 0;
-			uint32_t size8 = 0;
-		};
-
-	private:
 		detail::MemoryMapper pMapper;
 		detail::MemoryInteraction pInteraction;
 

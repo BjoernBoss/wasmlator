@@ -1,6 +1,7 @@
 #include "interface.h"
 
 #include "../env/process/process-bridge.h"
+#include "../env/context/context-bridge.h"
 #include "../env/memory/memory-bridge.h"
 #include "../env/mapping/mapping-bridge.h"
 
@@ -9,6 +10,10 @@ void proc_core_loaded(uint64_t process, uint32_t succeeded) {
 }
 void proc_block_loaded(uint64_t process, uint32_t succeeded) {
 	env::bridge::Process::BlockLoaded(process, succeeded > 0);
+}
+
+void ctx_set_exit_code(uint64_t process, int32_t code) {
+	env::bridge::Context::SetExitCode(process, code);
 }
 
 uint32_t map_resolve(uint64_t process, uint64_t address) {

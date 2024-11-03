@@ -6,12 +6,16 @@
 namespace trans::detail {
 	class MappingWriter {
 	private:
-		env::Process* pProcess = 0;
 		detail::MappingState pState;
+		env::Process* pProcess = 0;
 		wasm::Sink& pSink;
 
 	public:
+		MappingWriter(const detail::MappingState& state, env::Process* process, wasm::Sink& sink);
+
+	public:
 		void makeLookup() const;
+		void makeFuncLoad() const;
 		void makeInvoke() const;
 	};
 }

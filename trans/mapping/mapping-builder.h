@@ -16,7 +16,6 @@ namespace trans::detail {
 		wasm::Function lookup;
 		wasm::Table functions;
 		wasm::Memory management;
-		wasm::Memory physical;
 	};
 
 	class MappingBuilder {

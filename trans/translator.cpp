@@ -7,14 +7,19 @@ trans::Translator trans::Translator::CoreModule(wasm::Module& mod, env::Process*
 
 	detail::MemoryBuilder{ process }.setupCoreImports(mod, out.pMemory);
 	detail::MappingBuilder{ process }.setupCoreImports(mod, out.pMapping);
+	detail::ContextBuilder{ process }.setupCoreImports(mod, out.pContext);
 
 	/* setup the shared components */
 	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
-	out.pMemory.physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Export{});
-	out.pMemory.management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
+	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Export{});
+	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
+
+	out.pMemory.physical = physical;
+	out.pMemory.management = (out.pMapping.management = (out.pContext.management = management));
 
 	detail::MemoryBuilder{ process }.setupCoreBody(mod, out.pMemory);
 	detail::MappingBuilder{ process }.setupCoreBody(mod, out.pMapping);
+	detail::ContextBuilder{ process }.setupCoreBody(mod, out.pContext);
 
 	return out;
 }
@@ -23,11 +28,15 @@ trans::Translator trans::Translator::BlockModule(wasm::Module& mod, env::Process
 
 	/* setup the shared components */
 	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
-	out.pMemory.physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Import{ u8"core" });
-	out.pMemory.management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
+	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Import{ u8"core" });
+	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
+
+	out.pMemory.physical = physical;
+	out.pMemory.management = (out.pMapping.management = (out.pContext.management = management));
 
 	detail::MemoryBuilder{ process }.setupBlockImports(mod, out.pMemory);
 	detail::MappingBuilder{ process }.setupBlockImports(mod, out.pMapping);
+	detail::ContextBuilder{ process }.setupBlockImports(mod, out.pContext);
 
 	return out;
 }

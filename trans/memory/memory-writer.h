@@ -7,13 +7,13 @@ namespace trans::detail {
 	class MemoryWriter {
 		friend class detail::MemoryBuilder;
 	private:
-		env::Process* pProcess = 0;
 		detail::MemoryState pState;
-		mutable wasm::Variable pTempAddress;
+		env::Process* pProcess = 0;
 		wasm::Sink& pSink;
+		mutable wasm::Variable pTempAddress;
 
 	public:
-		MemoryWriter(env::Process* process, wasm::Sink& sink, const detail::MemoryState& state);
+		MemoryWriter(const detail::MemoryState& state, env::Process* process, wasm::Sink& sink);
 
 	private:
 		void fCheckCache(uint32_t cache) const;

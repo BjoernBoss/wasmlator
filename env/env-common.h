@@ -10,6 +10,12 @@
 #include "../util/logging.h"
 
 namespace env {
+	enum class ExecState : uint32_t {
+		translate,
+		terminated,
+		_custom
+	};
+
 	static constexpr uint64_t VirtPageSize = 0x1000;
 	static constexpr uint32_t VirtPageOffset(uint64_t address) {
 		return uint32_t(address & (env::VirtPageSize - 1));

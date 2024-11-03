@@ -29,6 +29,16 @@ extern "C" {
 	void proc_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address);
 }
 
+/* env/context/context-bridge interactions */
+extern "C" {
+	/* exports */
+	void ctx_set_exit_code(uint64_t process, int32_t code);
+
+	/* imports */
+	void ctx_read(uint32_t id, uint32_t offset, uint8_t* data, uint32_t size);
+	void ctx_write(uint32_t id, uint32_t offset, const uint8_t* data, uint32_t size);
+}
+
 /* env/mapping/mapping-bridge interactions */
 extern "C" {
 	/* exports */

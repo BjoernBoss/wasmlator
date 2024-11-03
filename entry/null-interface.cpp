@@ -32,6 +32,9 @@ uint32_t proc_set_core(uint32_t id, const uint8_t* data, uint32_t size) {
 void proc_destroy(uint32_t id) {}
 void proc_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address) {}
 
+void ctx_read(uint32_t id, uint32_t offset, uint8_t* data, uint32_t size) {}
+void ctx_write(uint32_t id, uint32_t offset, const uint8_t* data, uint32_t size) {}
+
 void map_execute(uint32_t id, uint64_t address) {}
 void map_flush_blocks(uint32_t id) {}
 
@@ -94,35 +97,35 @@ void mem_write_f32(uint32_t id, uint64_t address, float value) {
 void mem_write_f64(uint32_t id, uint64_t address, double value) {
 	mem_lookup(MemorySelf, address, 8, env::MemoryUsage::Write);
 }
-uint32_t mem_execute_u8_i32(uint32_t id, uint64_t address) {
+uint32_t mem_codeu8_i32(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 1, env::MemoryUsage::Execute);
 	return {};
 }
-uint32_t mem_execute_i8_i32(uint32_t id, uint64_t address) {
+uint32_t mem_codei8_i32(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 1, env::MemoryUsage::Execute);
 	return {};
 }
-uint32_t mem_execute_u16_i32(uint32_t id, uint64_t address) {
+uint32_t mem_codeu16_i32(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 2, env::MemoryUsage::Execute);
 	return {};
 }
-uint32_t mem_execute_i16_i32(uint32_t id, uint64_t address) {
+uint32_t mem_codei16_i32(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 2, env::MemoryUsage::Execute);
 	return {};
 }
-uint32_t mem_execute_i32(uint32_t id, uint64_t address) {
+uint32_t mem_codei32(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 4, env::MemoryUsage::Execute);
 	return {};
 }
-uint64_t mem_execute_i64(uint32_t id, uint64_t address) {
+uint64_t mem_codei64(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 8, env::MemoryUsage::Execute);
 	return {};
 }
-float mem_execute_f32(uint32_t id, uint64_t address) {
+float mem_codef32(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 4, env::MemoryUsage::Execute);
 	return {};
 }
-double mem_execute_f64(uint32_t id, uint64_t address) {
+double mem_codef64(uint32_t id, uint64_t address) {
 	mem_lookup(MemorySelf, address, 8, env::MemoryUsage::Execute);
 	return {};
 }

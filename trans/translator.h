@@ -7,6 +7,7 @@
 #include "trans-common.h"
 #include "memory/memory-builder.h"
 #include "mapping/mapping-builder.h"
+#include "context/context-builder.h"
 
 namespace trans {
 	struct TranslationInterface {
@@ -31,6 +32,7 @@ namespace trans {
 		wasm::Module& pModule;
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
+		detail::ContextState pContext;
 
 		std::unordered_map<env::guest_t, wasm::Function> pTranslated;
 		std::queue<Entry> pQueue;
