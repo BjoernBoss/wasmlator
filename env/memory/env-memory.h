@@ -10,7 +10,6 @@ namespace env {
 	class Memory {
 		friend struct bridge::Memory;
 		friend class detail::MemoryAccess;
-		friend class detail::MemoryBuilder;
 	private:
 		struct MemCache {
 			env::guest_t address = 0;
@@ -29,11 +28,6 @@ namespace env {
 		Memory(env::Process* process);
 		Memory(env::Memory&&) = delete;
 		Memory(const env::Memory&) = delete;
-
-	public:
-		void makeRead(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
-		void makeWrite(const wasm::Variable& i64Address, const wasm::Variable& value, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
-		void makeExecute(const wasm::Variable& i64Address, const env::ModuleState& state, uint32_t cacheIndex, env::MemoryType type) const;
 
 	public:
 		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);

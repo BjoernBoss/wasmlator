@@ -582,45 +582,6 @@ void env::detail::MemoryMapper::configure(uint32_t initialPageCount) {
 	/* setup the physical mapping */
 	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, uint32_t(env::PhysPageSize * initialPageCount), false });
 }
-void env::detail::MemoryMapper::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
-	/* add the memory-expansion function */
-	wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
-	{
-		wasm::Sink sink{ mod.function(u8"mem_expand_physical", expandPhysicalType, wasm::Export{}) };
-
-		/* number of pages to grow by */
-		sink[I::Local::Get(sink.parameter(0))];
-
-		sink[I::Memory::Grow(state.module.physical)];
-
-		/* convert result to 1 or 0 */
-		sink[I::I32::Const(0)];
-		sink[I::I32::Less()];
-		{
-			wasm::IfThen _if{ sink, {}, {}, {wasm::Type::i32 } };
-			sink[I::U32::Const(0)];
-			_if.otherwise();
-			sink[I::U32::Const(1)];
-		}
-	}
-
-	/* add the memory-move function */
-	wasm::Prototype movePhysicalType = mod.prototype(u8"mem_move_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
-	{
-		wasm::Sink sink{ mod.function(u8"mem_move_physical", movePhysicalType, wasm::Export{}) };
-
-		/* destination-address */
-		sink[I::Local::Get(sink.parameter(0))];
-
-		/* source-address */
-		sink[I::Local::Get(sink.parameter(1))];
-
-		/* size */
-		sink[I::Local::Get(sink.parameter(2))];
-
-		sink[I::Memory::Copy(state.module.physical)];
-	}
-}
 
 void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint32_t usage) const {
 	pProcess->debug(str::Format<std::u8string>(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,

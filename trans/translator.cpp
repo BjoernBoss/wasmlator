@@ -2,6 +2,34 @@
 
 trans::Translator::Translator(wasm::Module& mod, env::Mapping* mapping, trans::TranslationInterface* interface, size_t maxDepth) : pModule{ mod }, pMapping{ mapping }, pInterface{ interface }, pMaxDepth{ maxDepth } {}
 
+trans::Translator trans::Translator::CoreModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth) {
+	trans::Translator out{ mod, &process->mapping(), interface, maxDepth };
+
+	detail::MemoryBuilder{ process }.setupCoreImports(mod, out.pMemory);
+
+	/* setup the shared components */
+	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
+	out.pMemory.physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Export{});
+	out.pMemory.management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
+
+	detail::MemoryBuilder{ process }.setupCoreBody(mod, out.pMemory);
+
+	return out;
+}
+trans::Translator trans::Translator::BlockModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth) {
+	trans::Translator out{ mod, &process->mapping(), interface, maxDepth };
+
+	/* setup the shared components */
+	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
+	out.pMemory.physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Import{ u8"core" });
+	out.pMemory.management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
+
+	detail::MemoryBuilder{ process }.setupBlockImports(mod, out.pMemory);
+
+	return out;
+}
+
+
 size_t trans::Translator::fLookup(env::guest_t address, const std::vector<Translated>& list) const {
 	size_t first = 0, last = list.size() - 1;
 

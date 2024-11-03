@@ -59,14 +59,6 @@ namespace env {
 		wasm::Memory physical;
 		wasm::Memory management;
 		struct {
-			wasm::Function exit;
-		} ctx;
-		struct {
-			wasm::Function read;
-			wasm::Function write;
-			wasm::Function execute;
-		} mem;
-		struct {
 			wasm::Function execute;
 			wasm::Function lookup;
 		} mapping;
@@ -76,38 +68,13 @@ namespace env {
 	struct CoreState {
 		env::ModuleState module;
 		struct {
-			wasm::Function translate;
-			wasm::Function terminated;
-		} ctx;
-		struct {
-			wasm::Function lookup;
-			wasm::Function getAddress;
-			wasm::Function getPhysical;
-			wasm::Function getSize;
-		} mem;
-		struct {
 			wasm::Function resolve;
 			wasm::Function flushed;
 			wasm::Function associate;
 		} mapping;
-	};
-
-	/* memory reading type */
-	enum class MemoryType : uint8_t {
-		u8To32,
-		u16To32,
-		u8To64,
-		u16To64,
-		u32To64,
-		i8To32,
-		i16To32,
-		i8To64,
-		i16To64,
-		i32To64,
-		i32,
-		i64,
-		f32,
-		f64
+		struct {
+			wasm::Function translate;
+		} ctx;
 	};
 
 	/* memory page usage flags */

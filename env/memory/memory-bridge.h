@@ -33,13 +33,13 @@ namespace env::bridge {
 		static void Writef32(env::id_t id, env::guest_t address, float value);
 		static void Writef64(env::id_t id, env::guest_t address, double value);
 
-		static uint32_t Executei32Fromu8(env::id_t id, env::guest_t address);
-		static uint32_t Executei32Fromi8(env::id_t id, env::guest_t address);
-		static uint32_t Executei32Fromu16(env::id_t id, env::guest_t address);
-		static uint32_t Executei32Fromi16(env::id_t id, env::guest_t address);
-		static uint32_t Executei32(env::id_t id, env::guest_t address);
-		static uint64_t Executei64(env::id_t id, env::guest_t address);
-		static float Executef32(env::id_t id, env::guest_t address);
-		static double Executef64(env::id_t id, env::guest_t address);
+		static uint32_t Codei32Fromu8(env::id_t id, env::guest_t address);
+		static uint32_t Codei32Fromi8(env::id_t id, env::guest_t address);
+		static uint32_t Codei32Fromu16(env::id_t id, env::guest_t address);
+		static uint32_t Codei32Fromi16(env::id_t id, env::guest_t address);
+		static uint32_t Codei32(env::id_t id, env::guest_t address);
+		static uint64_t Codei64(env::id_t id, env::guest_t address);
+		static float Codef32(env::id_t id, env::guest_t address);
+		static double Codef64(env::id_t id, env::guest_t address);
 	};
 }

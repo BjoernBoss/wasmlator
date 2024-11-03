@@ -4,10 +4,12 @@
 #include "mapping/env-mapping.h"
 #include "memory/env-memory.h"
 #include "process/process-bridge.h"
+#include "process/process-access.h"
 
 namespace env {
 	class Process {
 		friend struct bridge::Process;
+		friend class detail::ProcessAccess;
 	private:
 		std::function<void(bool)> pLoaded;
 		std::vector<env::BlockExport> pExports;

@@ -1,36 +1,13 @@
 #pragma once
 
-#include <wasgen/wasm.h>
-#include <ustring/ustring.h>
 #include <queue>
 #include <unordered_map>
 #include <vector>
 
-#include "../env/env-process.h"
+#include "trans-common.h"
+#include "memory/memory-builder.h"
 
 namespace trans {
-	enum class InstType : uint8_t {
-		primitive,
-		jumpDirect,
-		jumpIndirect,
-		conditionalDirect,
-		call,
-		endOfBlock,
-		invalid
-	};
-
-	struct TranslationException : public str::BuildException {
-		template <class... Args>
-		constexpr TranslationException(const Args&... args) : str::BuildException{ args... } {}
-	};
-
-	struct Instruction {
-		uintptr_t data = 0;
-		env::guest_t target = 0;
-		size_t size = 0;
-		trans::InstType type = trans::InstType::primitive;
-	};
-
 	struct TranslationInterface {
 		virtual trans::Instruction fetch(env::guest_t addr) = 0;
 	};
@@ -51,14 +28,20 @@ namespace trans {
 
 	private:
 		wasm::Module& pModule;
+		detail::MemoryState pMemory;
+
 		std::unordered_map<env::guest_t, wasm::Function> pTranslated;
 		std::queue<Entry> pQueue;
 		env::Mapping* pMapping = 0;
 		trans::TranslationInterface* pInterface = 0;
 		size_t pMaxDepth = 0;
 
-	public:
+	private:
 		Translator(wasm::Module& mod, env::Mapping* mapping, trans::TranslationInterface* interface, size_t maxDepth);
+
+	public:
+		static trans::Translator CoreModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth);
+		static trans::Translator BlockModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth);
 
 	private:
 		size_t fLookup(env::guest_t address, const std::vector<Translated>& list) const;

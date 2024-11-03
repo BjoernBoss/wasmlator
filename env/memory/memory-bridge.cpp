@@ -74,27 +74,27 @@ void env::bridge::Memory::Writef64(env::id_t id, env::guest_t address, double va
 	mem_write_f64(id, address, value);
 }
 
-uint32_t env::bridge::Memory::Executei32Fromu8(env::id_t id, env::guest_t address) {
-	return mem_execute_u8_i32(id, address);
+uint32_t env::bridge::Memory::Codei32Fromu8(env::id_t id, env::guest_t address) {
+	return mem_code_u8_i32(id, address);
 }
-uint32_t env::bridge::Memory::Executei32Fromi8(env::id_t id, env::guest_t address) {
-	return mem_execute_i8_i32(id, address);
+uint32_t env::bridge::Memory::Codei32Fromi8(env::id_t id, env::guest_t address) {
+	return mem_code_i8_i32(id, address);
 }
-uint32_t env::bridge::Memory::Executei32Fromu16(env::id_t id, env::guest_t address) {
-	return mem_execute_u16_i32(id, address);
+uint32_t env::bridge::Memory::Codei32Fromu16(env::id_t id, env::guest_t address) {
+	return mem_code_u16_i32(id, address);
 }
-uint32_t env::bridge::Memory::Executei32Fromi16(env::id_t id, env::guest_t address) {
-	return mem_execute_i16_i32(id, address);
+uint32_t env::bridge::Memory::Codei32Fromi16(env::id_t id, env::guest_t address) {
+	return mem_code_i16_i32(id, address);
 }
-uint32_t env::bridge::Memory::Executei32(env::id_t id, env::guest_t address) {
-	return mem_execute_i32(id, address);
+uint32_t env::bridge::Memory::Codei32(env::id_t id, env::guest_t address) {
+	return mem_code_i32(id, address);
 }
-uint64_t env::bridge::Memory::Executei64(env::id_t id, env::guest_t address) {
-	return mem_execute_i64(id, address);
+uint64_t env::bridge::Memory::Codei64(env::id_t id, env::guest_t address) {
+	return mem_code_i64(id, address);
 }
-float env::bridge::Memory::Executef32(env::id_t id, env::guest_t address) {
-	return mem_execute_f32(id, address);
+float env::bridge::Memory::Codef32(env::id_t id, env::guest_t address) {
+	return mem_code_f32(id, address);
 }
-double env::bridge::Memory::Executef64(env::id_t id, env::guest_t address) {
-	return mem_execute_f64(id, address);
+double env::bridge::Memory::Codef64(env::id_t id, env::guest_t address) {
+	return mem_code_f64(id, address);
 }

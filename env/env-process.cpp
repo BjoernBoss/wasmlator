@@ -52,7 +52,6 @@ env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) const {
 	env::CoreState state;
 
 	/* setup the imports (will also reserve memory in the management-block) */
-	detail::MemoryBuilder{ this }.setupCoreImports(mod, state);
 	detail::MappingBuilder{ this }.setupCoreImports(mod, state);
 
 	/* setup the shared components */
@@ -60,7 +59,6 @@ env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) const {
 	state.module.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Export{});
 
 	/* setup the body */
-	detail::MemoryBuilder{ this }.setupCoreBody(mod, state);
 	detail::MappingBuilder{ this }.setupCoreBody(mod, state);
 	return state.module;
 }
@@ -68,11 +66,10 @@ env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) const {
 	env::ModuleState state;
 
 	/* setup the shared components */
-	state.physical = mod.memory(u8"memory_physical", wasm::Limit{ env::PhysPageCount(env::InitAllocBytes) }, wasm::Import{ u8"core" });
+	state.physical = mod.memory(u8"memory_physical", wasm::Limit{ pPhysicalPages }, wasm::Import{ u8"core" });
 	state.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Import{ u8"core" });
 
 	/* setup the imports */
-	detail::MemoryBuilder{ this }.setupBlockImports(mod, state);
 	detail::MappingBuilder{ this }.setupBlockImports(mod, state);
 	return state;
 }

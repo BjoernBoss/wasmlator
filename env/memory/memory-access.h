@@ -12,18 +12,10 @@ namespace env::detail {
 
 	public:
 		uint32_t configureAndAllocate(uint32_t address, uint32_t caches, uint32_t initialPageCount);
-	};
-
-	class MemoryBuilder {
-	private:
-		const env::Process* pProcess = 0;
-
-	public:
-		MemoryBuilder(const env::Process* process);
-
-	public:
-		void setupCoreImports(wasm::Module& mod, env::CoreState& state) const;
-		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
-		void setupBlockImports(wasm::Module& mod, env::ModuleState& state) const;
+		uint32_t caches() const;
+		uint32_t cacheAddress() const;
+		uint32_t readCache() const;
+		uint32_t writeCache() const;
+		uint32_t codeCache() const;
 	};
 }

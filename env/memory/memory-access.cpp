@@ -7,15 +7,18 @@ uint32_t env::detail::MemoryAccess::configureAndAllocate(uint32_t address, uint3
 	pProcess->memory().pMapper.configure(initialPageCount);
 	return pProcess->memory().pInteraction.configureAndAllocate(address, caches);
 }
-
-env::detail::MemoryBuilder::MemoryBuilder(const env::Process* process) : pProcess{ process } {}
-void env::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod, env::CoreState& state) const {
-	pProcess->memory().pInteraction.setupCoreImports(mod, state);
+uint32_t env::detail::MemoryAccess::caches() const {
+	return pProcess->memory().pInteraction.caches();
 }
-void env::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, env::CoreState& state) const {
-	pProcess->memory().pMapper.setupCoreBody(mod, state);
-	pProcess->memory().pInteraction.setupCoreBody(mod, state);
+uint32_t env::detail::MemoryAccess::cacheAddress() const {
+	return pProcess->memory().pInteraction.cacheAddress();
 }
-void env::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, env::ModuleState& state) const {
-	pProcess->memory().pInteraction.setupBlockImports(mod, state);
+uint32_t env::detail::MemoryAccess::readCache() const {
+	return pProcess->memory().pInteraction.readCache();
+}
+uint32_t env::detail::MemoryAccess::writeCache() const {
+	return pProcess->memory().pInteraction.writeCache();
+}
+uint32_t env::detail::MemoryAccess::codeCache() const {
+	return pProcess->memory().pInteraction.codeCache();
 }

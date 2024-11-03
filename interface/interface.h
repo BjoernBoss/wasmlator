@@ -69,12 +69,12 @@ extern "C" {
 	void mem_write_i64(uint32_t id, uint64_t address, uint64_t value);
 	void mem_write_f32(uint32_t id, uint64_t address, float value);
 	void mem_write_f64(uint32_t id, uint64_t address, double value);
-	uint32_t mem_execute_u8_i32(uint32_t id, uint64_t address);
-	uint32_t mem_execute_i8_i32(uint32_t id, uint64_t address);
-	uint32_t mem_execute_u16_i32(uint32_t id, uint64_t address);
-	uint32_t mem_execute_i16_i32(uint32_t id, uint64_t address);
-	uint32_t mem_execute_i32(uint32_t id, uint64_t address);
-	uint64_t mem_execute_i64(uint32_t id, uint64_t address);
-	float mem_execute_f32(uint32_t id, uint64_t address);
-	double mem_execute_f64(uint32_t id, uint64_t address);
+	uint32_t mem_code_u8_i32(uint32_t id, uint64_t address);
+	uint32_t mem_code_i8_i32(uint32_t id, uint64_t address);
+	uint32_t mem_code_u16_i32(uint32_t id, uint64_t address);
+	uint32_t mem_code_i16_i32(uint32_t id, uint64_t address);
+	uint32_t mem_code_i32(uint32_t id, uint64_t address);
+	uint64_t mem_code_i64(uint32_t id, uint64_t address);
+	float mem_code_f32(uint32_t id, uint64_t address);
+	double mem_code_f64(uint32_t id, uint64_t address);
 }

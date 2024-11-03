@@ -61,7 +61,6 @@ namespace env::detail {
 
 	public:
 		void configure(uint32_t initialPageCount);
-		void setupCoreBody(wasm::Module& mod, env::CoreState& state) const;
 
 	public:
 		void lookup(env::guest_t address, uint32_t size, uint32_t usage) const;
