@@ -52,10 +52,6 @@ namespace env {
 		void release();
 
 	public:
-		env::ModuleState setupCoreModule(wasm::Module& mod) const;
-		env::ModuleState setupBlockModule(wasm::Module& mod) const;
-
-	public:
 		void loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
 		void loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void(bool)> callback);
 		const std::u8string& name() const;

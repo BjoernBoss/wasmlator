@@ -7,6 +7,10 @@
 #include "memory-bridge.h"
 
 namespace env {
+	namespace detail {
+		static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
+	}
+
 	class Memory {
 		friend struct bridge::Memory;
 		friend class detail::MemoryAccess;

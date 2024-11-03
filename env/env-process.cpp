@@ -19,7 +19,7 @@ env::Process* env::Process::Create(std::u8string_view name, uint32_t caches) {
 	out->fLog(u8"Process created with id [", out->pId, u8']');
 
 	/* initialize the components */
-	out->pPhysicalPages = env::PhysPageCount(env::InitAllocBytes);
+	out->pPhysicalPages = env::PhysPageCount(env::detail::InitAllocBytes);
 	uint32_t endOfManagement = 0;
 	endOfManagement += detail::MappingAccess{ out }.allocateFromManagement(endOfManagement);
 	endOfManagement += detail::MemoryAccess{ out }.configureAndAllocate(endOfManagement, caches, out->pPhysicalPages);
@@ -46,32 +46,6 @@ void env::Process::fBlockLoaded(bool succeeded) {
 
 void env::Process::release() {
 	delete this;
-}
-
-env::ModuleState env::Process::setupCoreModule(wasm::Module& mod) const {
-	env::CoreState state;
-
-	/* setup the imports (will also reserve memory in the management-block) */
-	detail::MappingBuilder{ this }.setupCoreImports(mod, state);
-
-	/* setup the shared components */
-	state.module.physical = mod.memory(u8"memory_physical", wasm::Limit{ pPhysicalPages }, wasm::Export{});
-	state.module.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Export{});
-
-	/* setup the body */
-	detail::MappingBuilder{ this }.setupCoreBody(mod, state);
-	return state.module;
-}
-env::ModuleState env::Process::setupBlockModule(wasm::Module& mod) const {
-	env::ModuleState state;
-
-	/* setup the shared components */
-	state.physical = mod.memory(u8"memory_physical", wasm::Limit{ pPhysicalPages }, wasm::Import{ u8"core" });
-	state.management = mod.memory(u8"memory_management", wasm::Limit{ pManagementPages, pManagementPages }, wasm::Import{ u8"core" });
-
-	/* setup the imports */
-	detail::MappingBuilder{ this }.setupBlockImports(mod, state);
-	return state;
 }
 
 void env::Process::loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback) {

@@ -5,16 +5,18 @@
 #include "mapping-bridge.h"
 
 namespace env {
-	class Mapping {
-		friend struct bridge::Mapping;
-		friend class detail::MappingAccess;
-		friend class detail::MappingBuilder;
-	private:
+	namespace detail {
+		static constexpr uint32_t BlockLookupCacheBits = 10;
+
 		struct MappingCache {
 			env::guest_t address = 0;
 			uint32_t index = 0;
 		};
+	}
 
+	class Mapping {
+		friend struct bridge::Mapping;
+		friend class detail::MappingAccess;
 	private:
 		std::unordered_map<env::guest_t, uint32_t> pMapping;
 		env::Process* pProcess = 0;
@@ -29,10 +31,6 @@ namespace env {
 		uint32_t fResolve(env::guest_t address) const;
 		void fAssociate(env::guest_t address, uint32_t index);
 		void fFlushed();
-
-	public:
-		void makeGoto(const wasm::Variable& i64Address, const env::ModuleState& state) const;
-		void makeLookup(const wasm::Variable& i64Address, const env::ModuleState& state) const;
 
 	public:
 		void execute(env::guest_t address);

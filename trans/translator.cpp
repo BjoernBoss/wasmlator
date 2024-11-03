@@ -1,11 +1,12 @@
 #include "translator.h"
 
-trans::Translator::Translator(wasm::Module& mod, env::Mapping* mapping, trans::TranslationInterface* interface, size_t maxDepth) : pModule{ mod }, pMapping{ mapping }, pInterface{ interface }, pMaxDepth{ maxDepth } {}
+trans::Translator::Translator(wasm::Module& mod, env::Mapping* mapping, trans::TranslationInterface* interface, size_t maxDepth) : pModule{ mod }, pMapping_{ mapping }, pInterface{ interface }, pMaxDepth{ maxDepth } {}
 
 trans::Translator trans::Translator::CoreModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth) {
 	trans::Translator out{ mod, &process->mapping(), interface, maxDepth };
 
 	detail::MemoryBuilder{ process }.setupCoreImports(mod, out.pMemory);
+	detail::MappingBuilder{ process }.setupCoreImports(mod, out.pMapping);
 
 	/* setup the shared components */
 	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
@@ -13,6 +14,7 @@ trans::Translator trans::Translator::CoreModule(wasm::Module& mod, env::Process*
 	out.pMemory.management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
 
 	detail::MemoryBuilder{ process }.setupCoreBody(mod, out.pMemory);
+	detail::MappingBuilder{ process }.setupCoreBody(mod, out.pMapping);
 
 	return out;
 }
@@ -25,6 +27,7 @@ trans::Translator trans::Translator::BlockModule(wasm::Module& mod, env::Process
 	out.pMemory.management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
 
 	detail::MemoryBuilder{ process }.setupBlockImports(mod, out.pMemory);
+	detail::MappingBuilder{ process }.setupBlockImports(mod, out.pMapping);
 
 	return out;
 }

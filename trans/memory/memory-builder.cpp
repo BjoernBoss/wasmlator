@@ -1,3 +1,4 @@
+#include "memory-builder.h"
 #include "memory-writer.h"
 
 namespace I = wasm::inst;

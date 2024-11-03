@@ -1,7 +1,5 @@
 #include "../env-process.h"
 
-namespace I = wasm::inst;
-
 env::detail::MemoryMapper::MemoryMapper(env::Process* process) : pProcess{ process } {
 }
 
@@ -30,7 +28,7 @@ size_t env::detail::MemoryMapper::fLookupPhysical(env::physical_t physical) cons
 
 uint32_t env::detail::MemoryMapper::fExpandPhysical(uint32_t size, uint32_t growth) const {
 	/* allocate a little bit more to reduce the number of growings */
-	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(env::MinGrowthBytes, size + growth));
+	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(detail::MinGrowthBytes, size + growth));
 	if (bridge::Memory::ExpandPhysical(pProcess->id(), pages))
 		return uint32_t(pages * env::PhysPageSize);
 	size = env::PhysPageCount(size);
@@ -703,7 +701,7 @@ bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32
 	/* check if the lowest physical memory should be reduced and moved down
 	*	(there must at least be two slots, as an allocation has occurred in this call) */
 	uint32_t end = pPhysical.back().physical + pPhysical.back().size;
-	if (!pPhysical[0].used && pPhysical[0].size >= (end / env::ShiftMemoryFactor)) {
+	if (!pPhysical[0].used && pPhysical[0].size >= (end / detail::ShiftMemoryFactor)) {
 		uint32_t shift = pPhysical[1].physical;
 		fMovePhysical(0, shift, end - shift);
 

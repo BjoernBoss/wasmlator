@@ -3,6 +3,9 @@
 #include "../env-common.h"
 
 namespace env::detail {
+	static constexpr uint32_t MinGrowthBytes = 32 * env::VirtPageSize;
+	static constexpr uint32_t ShiftMemoryFactor = 3;
+
 	class MemoryMapper {
 		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:

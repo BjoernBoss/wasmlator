@@ -1,7 +1,5 @@
 #include "../env-process.h"
 
-namespace I = wasm::inst;
-
 env::Memory::Memory(env::Process* process) : pMapper{ process }, pInteraction{ process } {}
 
 bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {

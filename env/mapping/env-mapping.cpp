@@ -1,7 +1,5 @@
 #include "../env-process.h"
 
-namespace I = wasm::inst;
-
 env::Mapping::Mapping(env::Process* process) : pProcess{ process } {}
 
 uint32_t env::Mapping::fResolve(env::guest_t address) const {
@@ -18,17 +16,6 @@ void env::Mapping::fAssociate(env::guest_t address, uint32_t index) {
 void env::Mapping::fFlushed() {
 	pProcess->debug(u8"Flushed blocks");
 	pMapping.clear();
-}
-
-void env::Mapping::makeGoto(const wasm::Variable& i64Address, const env::ModuleState& state) const {
-	wasm::Sink& sink = i64Address.sink();
-	sink[I::Local::Get(i64Address)];
-	sink[I::Call::Tail(state.mapping.execute)];
-}
-void env::Mapping::makeLookup(const wasm::Variable& i64Address, const env::ModuleState& state) const {
-	wasm::Sink& sink = i64Address.sink();
-	sink[I::Local::Get(i64Address)];
-	sink[I::Call::Direct(state.mapping.lookup)];
 }
 
 void env::Mapping::execute(env::guest_t address) {

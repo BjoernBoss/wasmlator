@@ -1,7 +1,5 @@
 #include "../env-process.h"
 
-namespace I = wasm::inst;
-
 env::detail::MemoryAccess::MemoryAccess(env::Process* process) : pProcess{ process } {}
 uint32_t env::detail::MemoryAccess::configureAndAllocate(uint32_t address, uint32_t caches, uint32_t initialPageCount) {
 	pProcess->memory().pMapper.configure(initialPageCount);

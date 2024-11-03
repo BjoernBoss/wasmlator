@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ustring/ustring.h>
-#include <wasgen/wasm.h>
 #include <cinttypes>
 #include <string>
 #include <type_traits>
@@ -39,43 +38,11 @@ namespace env {
 		return env::PhysPageSize * ((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
 	}
 
-	static constexpr uint32_t MinBlockList = 4;
-	static constexpr uint32_t BlockListGrowth = 2;
-	static constexpr uint32_t MinFunctionList = 32;
-	static constexpr uint32_t FunctionListGrowth = 16;
-	static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
-	static constexpr uint32_t MinGrowthBytes = 32 * env::VirtPageSize;
-	static constexpr uint32_t ShiftMemoryFactor = 3;
-	static constexpr uint32_t BlockLookupCacheBits = 10;
-
 	using guest_t = uint64_t;
 	using physical_t = uint32_t;
 	using id_t = uint32_t;
 
 	class Process;
-
-	/* state setup and shared for creating a block/core module */
-	struct ModuleState {
-		wasm::Memory physical;
-		wasm::Memory management;
-		struct {
-			wasm::Function execute;
-			wasm::Function lookup;
-		} mapping;
-	};
-
-	/* state setup and shared for creating a core module */
-	struct CoreState {
-		env::ModuleState module;
-		struct {
-			wasm::Function resolve;
-			wasm::Function flushed;
-			wasm::Function associate;
-		} mapping;
-		struct {
-			wasm::Function translate;
-		} ctx;
-	};
 
 	/* memory page usage flags */
 	struct MemoryUsage {
