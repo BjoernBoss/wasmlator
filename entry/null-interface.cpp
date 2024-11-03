@@ -15,22 +15,22 @@ void host_fail_u8 [[noreturn]] (const char8_t* data, uint32_t size) {
 static std::vector<uint64_t> ProcessList = { 0 };
 static uint64_t MemorySelf = 0;
 
-uint32_t ctx_create(uint64_t process) {
+uint32_t proc_create(uint64_t process) {
 	ProcessList.push_back(process);
 	return uint32_t(ProcessList.size() - 1);
 }
-uint32_t ctx_load_core(uint32_t id, const uint8_t* data, uint32_t size) {
+uint32_t proc_load_core(uint32_t id, const uint8_t* data, uint32_t size) {
 	return {};
 }
-uint32_t ctx_load_block(uint32_t id, const uint8_t* data, uint32_t size, uint32_t exports) {
+uint32_t proc_load_block(uint32_t id, const uint8_t* data, uint32_t size, uint32_t exports) {
 	return {};
 }
-uint32_t ctx_set_core(uint32_t id, const uint8_t* data, uint32_t size) {
-	ctx_core_loaded(ProcessList[id], 1);
+uint32_t proc_set_core(uint32_t id, const uint8_t* data, uint32_t size) {
+	proc_core_loaded(ProcessList[id], 1);
 	return 1;
 }
-void ctx_destroy(uint32_t id) {}
-void ctx_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address) {}
+void proc_destroy(uint32_t id) {}
+void proc_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address) {}
 
 void map_execute(uint32_t id, uint64_t address) {}
 void map_flush_blocks(uint32_t id) {}

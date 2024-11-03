@@ -310,76 +310,76 @@ void env::detail::MemoryInteraction::fMakeAccess(wasm::Module& mod, const env::C
 }
 
 uint32_t env::detail::MemoryInteraction::fReadi32Fromi8(env::guest_t address) const {
-	return bridge::Memory::Readi32Fromi8(pProcess->context().id(), address);
+	return bridge::Memory::Readi32Fromi8(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32Fromu8(env::guest_t address) const {
-	return bridge::Memory::Readi32Fromu8(pProcess->context().id(), address);
+	return bridge::Memory::Readi32Fromu8(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32Fromi16(env::guest_t address) const {
-	return bridge::Memory::Readi32Fromi16(pProcess->context().id(), address);
+	return bridge::Memory::Readi32Fromi16(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32Fromu16(env::guest_t address) const {
-	return bridge::Memory::Readi32Fromu16(pProcess->context().id(), address);
+	return bridge::Memory::Readi32Fromu16(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fReadi32(env::guest_t address) const {
-	return bridge::Memory::Readi32(pProcess->context().id(), address);
+	return bridge::Memory::Readi32(pProcess->id(), address);
 }
 uint64_t env::detail::MemoryInteraction::fReadi64(env::guest_t address) const {
-	return bridge::Memory::Readi64(pProcess->context().id(), address);
+	return bridge::Memory::Readi64(pProcess->id(), address);
 }
 float env::detail::MemoryInteraction::fReadf32(env::guest_t address) const {
-	return bridge::Memory::Readf32(pProcess->context().id(), address);
+	return bridge::Memory::Readf32(pProcess->id(), address);
 }
 double env::detail::MemoryInteraction::fReadf64(env::guest_t address) const {
-	return bridge::Memory::Readf64(pProcess->context().id(), address);
+	return bridge::Memory::Readf64(pProcess->id(), address);
 }
 void env::detail::MemoryInteraction::fWritei32Fromi8(env::guest_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromi8(pProcess->context().id(), address, value);
+	bridge::Memory::Writei32Fromi8(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromu8(env::guest_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromu8(pProcess->context().id(), address, value);
+	bridge::Memory::Writei32Fromu8(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromi16(env::guest_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromi16(pProcess->context().id(), address, value);
+	bridge::Memory::Writei32Fromi16(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32Fromu16(env::guest_t address, uint32_t value) const {
-	bridge::Memory::Writei32Fromu16(pProcess->context().id(), address, value);
+	bridge::Memory::Writei32Fromu16(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei32(env::guest_t address, uint32_t value) const {
-	bridge::Memory::Writei32(pProcess->context().id(), address, value);
+	bridge::Memory::Writei32(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritei64(env::guest_t address, uint64_t value) const {
-	bridge::Memory::Writei64(pProcess->context().id(), address, value);
+	bridge::Memory::Writei64(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritef32(env::guest_t address, float value) const {
-	bridge::Memory::Writef32(pProcess->context().id(), address, value);
+	bridge::Memory::Writef32(pProcess->id(), address, value);
 }
 void env::detail::MemoryInteraction::fWritef64(env::guest_t address, double value) const {
-	bridge::Memory::Writef64(pProcess->context().id(), address, value);
+	bridge::Memory::Writef64(pProcess->id(), address, value);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromi8(env::guest_t address) const {
-	return bridge::Memory::Executei32Fromi8(pProcess->context().id(), address);
+	return bridge::Memory::Executei32Fromi8(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromu8(env::guest_t address) const {
-	return bridge::Memory::Executei32Fromu8(pProcess->context().id(), address);
+	return bridge::Memory::Executei32Fromu8(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromi16(env::guest_t address) const {
-	return bridge::Memory::Executei32Fromi16(pProcess->context().id(), address);
+	return bridge::Memory::Executei32Fromi16(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32Fromu16(env::guest_t address) const {
-	return bridge::Memory::Executei32Fromu16(pProcess->context().id(), address);
+	return bridge::Memory::Executei32Fromu16(pProcess->id(), address);
 }
 uint32_t env::detail::MemoryInteraction::fExecutei32(env::guest_t address) const {
-	return bridge::Memory::Executei32(pProcess->context().id(), address);
+	return bridge::Memory::Executei32(pProcess->id(), address);
 }
 uint64_t env::detail::MemoryInteraction::fExecutei64(env::guest_t address) const {
-	return bridge::Memory::Executei64(pProcess->context().id(), address);
+	return bridge::Memory::Executei64(pProcess->id(), address);
 }
 float env::detail::MemoryInteraction::fExecutef32(env::guest_t address) const {
-	return bridge::Memory::Executef32(pProcess->context().id(), address);
+	return bridge::Memory::Executef32(pProcess->id(), address);
 }
 double env::detail::MemoryInteraction::fExecutef64(env::guest_t address) const {
-	return bridge::Memory::Executef64(pProcess->context().id(), address);
+	return bridge::Memory::Executef64(pProcess->id(), address);
 }
 
 uint32_t env::detail::MemoryInteraction::configureAndAllocate(uint32_t address, uint32_t caches) {

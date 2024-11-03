@@ -31,19 +31,19 @@ size_t env::detail::MemoryMapper::fLookupPhysical(env::physical_t physical) cons
 uint32_t env::detail::MemoryMapper::fExpandPhysical(uint32_t size, uint32_t growth) const {
 	/* allocate a little bit more to reduce the number of growings */
 	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(env::MinGrowthBytes, size + growth));
-	if (bridge::Memory::ExpandPhysical(pProcess->context().id(), pages))
+	if (bridge::Memory::ExpandPhysical(pProcess->id(), pages))
 		return uint32_t(pages * env::PhysPageSize);
 	size = env::PhysPageCount(size);
-	if (size < pages && bridge::Memory::ExpandPhysical(pProcess->context().id(), size))
+	if (size < pages && bridge::Memory::ExpandPhysical(pProcess->id(), size))
 		return uint32_t(size * env::PhysPageSize);
 	return 0;
 }
 void env::detail::MemoryMapper::fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const {
-	bridge::Memory::MovePhysical(pProcess->context().id(), dest, source, size);
+	bridge::Memory::MovePhysical(pProcess->id(), dest, source, size);
 }
 void env::detail::MemoryMapper::fFlushCaches() const {
 	fCheckConsistency();
-	bridge::Memory::FlushCaches(pProcess->context().id());
+	bridge::Memory::FlushCaches(pProcess->id());
 }
 void env::detail::MemoryMapper::fCheckConsistency() const {
 	if (pPhysical.empty())

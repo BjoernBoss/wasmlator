@@ -32,11 +32,11 @@ void env::Mapping::makeLookup(const wasm::Variable& i64Address, const env::Modul
 }
 
 void env::Mapping::execute(env::guest_t address) {
-	bridge::Mapping::Execute(pProcess->context().id(), address);
+	bridge::Mapping::Execute(pProcess->id(), address);
 }
 bool env::Mapping::contains(env::guest_t address) const {
 	return (pMapping.find(address) != pMapping.end());
 }
 void env::Mapping::flush() {
-	bridge::Mapping::Flush(pProcess->context().id());
+	bridge::Mapping::Flush(pProcess->id());
 }

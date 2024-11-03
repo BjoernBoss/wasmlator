@@ -15,20 +15,18 @@ extern "C" {
 	void host_fail_u8 [[noreturn]] (const char8_t* data, uint32_t size);
 }
 
-/* env/context/context-bridge interactions */
+/* env/process/process-bridge interactions */
 extern "C" {
 	/* exports */
-	void ctx_core_loaded(uint64_t process, uint32_t succeeded);
-	void ctx_block_loaded(uint64_t process, uint32_t succeeded);
-	void ctx_translate(uint64_t process, uint64_t address);
-	void ctx_terminated(uint64_t process, int32_t code);
+	void proc_core_loaded(uint64_t process, uint32_t succeeded);
+	void proc_block_loaded(uint64_t process, uint32_t succeeded);
 
 	/* imports */
-	uint32_t ctx_create(uint64_t process);
-	uint32_t ctx_load_core(uint32_t id, const uint8_t* data, uint32_t size);
-	uint32_t ctx_load_block(uint32_t id, const uint8_t* data, uint32_t size, uint32_t exports);
-	void ctx_destroy(uint32_t id);
-	void ctx_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address);
+	uint32_t proc_create(uint64_t process);
+	uint32_t proc_load_core(uint32_t id, const uint8_t* data, uint32_t size);
+	uint32_t proc_load_block(uint32_t id, const uint8_t* data, uint32_t size, uint32_t exports);
+	void proc_destroy(uint32_t id);
+	void proc_add_export(uint32_t id, const char8_t* name, uint32_t size, uint64_t address);
 }
 
 /* env/mapping/mapping-bridge interactions */

@@ -54,7 +54,7 @@ static void translateAddress(env::Process* process, env::guest_t addr) {
 
 
 	const std::vector<uint8_t>& data = _writer.output();
-	process->context().loadBlock(data.data(), data.size(), { { name, addr } }, [=](bool succeeded) {
+	process->loadBlock(data.data(), data.size(), { { name, addr } }, [=](bool succeeded) {
 		if (succeeded)
 			process->mapping().execute(addr);
 		});
@@ -81,7 +81,7 @@ void main_startup() {
 
 	_module.close();
 	const std::vector<uint8_t>& data = _writer.output();
-	_state.process->context().loadCore(data.data(), data.size(), [=](bool succeeded) {
+	_state.process->loadCore(data.data(), data.size(), [=](bool succeeded) {
 		if (!succeeded) {
 			_state.process->log(u8"failed!");
 			_state.process->release();
