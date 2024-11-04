@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../trans-common.h"
+#include "../mapping/mapping-writer.h"
 
 namespace trans::detail {
 	struct OpenAddress {
@@ -43,6 +44,7 @@ namespace trans::detail {
 		size_t pDepth = 0;
 		size_t pMaxDepth = 0;
 		uint32_t pLinks = 0;
+		bool pNeedsStartup = false;
 
 	public:
 		Addresses(wasm::Module& mod, size_t maxDepth);
@@ -59,6 +61,6 @@ namespace trans::detail {
 		const wasm::Table& addresses();
 		bool empty() const;
 		detail::OpenAddress start();
-		std::vector<env::BlockExport> close();
+		std::vector<env::BlockExport> close(const detail::MappingState& mappingState);
 	};
 }

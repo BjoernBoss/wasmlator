@@ -57,7 +57,7 @@ void trans::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t n
 			/* perform the lookup and write the function back to the table */
 			{
 				wasm::IfThen _if{ pSink };
-				pSink[I::U32::Const(target.index)];
+				pSink[I::U64::Const(address)];
 				pMapping.makeLookup();
 				pSink[I::Local::Tee(pTempFuncIndex)];
 
@@ -134,7 +134,7 @@ void trans::detail::AddressWriter::makeJump(env::guest_t address) const {
 		/* perform the lookup and write the function back to the table */
 		{
 			wasm::IfThen _if{ pSink };
-			pSink[I::U32::Const(target.index)];
+			pSink[I::U64::Const(address)];
 			pMapping.makeLookup();
 			pSink[I::Local::Tee(pTempFuncIndex)];
 

@@ -114,7 +114,6 @@ void trans::Translator::fProcess(const detail::OpenAddress& next) {
 	std::vector<Translated> list;
 
 	fFetchSuperBlock(next.address, list);
-
 }
 
 void trans::Translator::run(env::guest_t address) {
@@ -123,5 +122,5 @@ void trans::Translator::run(env::guest_t address) {
 		fProcess(pAddresses.start());
 }
 std::vector<env::BlockExport> trans::Translator::close() {
-	return pAddresses.close();
+	return pAddresses.close(pMapping);
 }

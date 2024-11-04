@@ -18,6 +18,7 @@ trans::detail::Addresses::Placement& trans::detail::Addresses::fPush(env::guest_
 	if (env::Instance()->mapping().contains(address)) {
 		entry.index = pLinks++;
 		entry.alreadyExists = true;
+		pNeedsStartup = true;
 		return entry;
 	}
 
@@ -62,20 +63,41 @@ trans::detail::OpenAddress trans::detail::Addresses::start() {
 	pDepth = next.depth + 1;
 	return { entry.function, next.address };
 }
-std::vector<env::BlockExport> trans::detail::Addresses::close() {
+std::vector<env::BlockExport> trans::detail::Addresses::close(const detail::MappingState& mappingState) {
 	/* setup the addresses-table limit */
 	pModule.limit(pAddresses, wasm::Limit{ uint32_t(pLinks), uint32_t(pLinks) });
 
 	/* ensure that all functions have been written and collect the exports */
 	std::vector<env::BlockExport> exports;
-	for (const auto& it : pTranslated) {
-		if (!it.second.thisModule)
+	for (const auto& [addr, place] : pTranslated) {
+		if (!place.thisModule)
 			continue;
-		std::u8string name{ it.second.function.id() };
-		if (it.second.incomplete)
+		std::u8string name{ place.function.id() };
+		if (place.incomplete)
 			host::Fail(u8"Block Address [", name, u8"] has not been produced");
-		exports.push_back({ name, it.first });
+		exports.push_back({ name, addr });
 	}
 
+	/* setup the startup-function for the already existing imports */
+	if (pNeedsStartup) {
+		wasm::Function startup = pModule.function(u8"_setup_imports", {}, {});
+		wasm::Sink sink{ startup };
+		detail::MappingWriter mapping{ mappingState, sink };
+
+		/* iterate over the functions and write them all to the imports */
+		for (const auto& [addr, place] : pTranslated) {
+			if (place.thisModule || !place.alreadyExists)
+				continue;
+
+			/* perform the lookup (no need to verify index, as the function must exist) */
+			sink[I::U32::Const(place.index)];
+			sink[I::U64::Const(addr)];
+			mapping.makeLookup();
+			mapping.makeLoadFunction();
+			sink[I::Table::Set(pAddresses)];
+		}
+
+		pModule.startup(startup);
+	}
 	return exports;
 }
