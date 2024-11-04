@@ -6,22 +6,21 @@
 
 namespace env {
 	class Context {
-		friend struct bridge::Context;
-		friend class detail::ContextAccess;
+		friend struct detail::ContextBridge;
+		friend struct detail::ContextAccess;
 	private:
-		env::Process* pProcess = 0;
 		uint32_t pSize = 0;
 		uint32_t pAddress = 0;
 		int32_t pExit = 0;
 
 	public:
-		Context(env::Process* process);
+		Context() = default;
 		Context(env::Context&&) = delete;
 		Context(const env::Context&) = delete;
 
 	private:
-		void fRead(uint32_t offset, uint8_t* data, uint32_t size);
-		void fWrite(uint32_t offset, const uint8_t* data, uint32_t size);
+		void fRead(uint32_t offset, uint8_t* data, uint32_t size) const;
+		void fWrite(uint32_t offset, const uint8_t* data, uint32_t size) const;
 		void fSetExitCode(int32_t code);
 
 	public:

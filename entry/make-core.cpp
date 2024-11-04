@@ -2,6 +2,7 @@
 #include <wasgen/wasm.h>
 #include <fstream>
 
+#include "../interface/host.h"
 #include "../env/env-process.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
@@ -22,6 +23,8 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 }
 
 int main(int argc, char** argv) {
+	host::SetLogLevel(host::LogLevel::none);
+
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };
 

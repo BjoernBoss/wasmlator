@@ -14,14 +14,10 @@ namespace trans::detail {
 
 	class MemoryBuilder {
 	private:
-		env::Process* pProcess = 0;
 		wasm::Function pLookup;
 		wasm::Function pGetAddress;
 		wasm::Function pGetPhysical;
 		wasm::Function pGetSize;
-
-	public:
-		MemoryBuilder(env::Process* process);
 
 	private:
 		void fMakeLookup(const detail::MemoryState& state, const wasm::Function& function, uint32_t usage) const;

@@ -12,14 +12,14 @@ namespace env {
 	}
 
 	class Memory {
-		friend struct bridge::Memory;
-		friend class detail::MemoryAccess;
+		friend struct detail::MemoryBridge;
+		friend struct detail::MemoryAccess;
 	private:
 		detail::MemoryMapper pMapper;
 		detail::MemoryInteraction pInteraction;
 
 	public:
-		Memory(env::Process* process);
+		Memory() = default;
 		Memory(env::Memory&&) = delete;
 		Memory(const env::Memory&) = delete;
 

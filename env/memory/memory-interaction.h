@@ -16,7 +16,6 @@ namespace env::detail {
 
 	class MemoryInteraction {
 	private:
-		env::Process* pProcess = 0;
 		uint32_t pCacheCount = 0;
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
@@ -24,7 +23,7 @@ namespace env::detail {
 		uint32_t pCacheAddress = 0;
 
 	public:
-		MemoryInteraction(env::Process* process);
+		MemoryInteraction() = default;
 		MemoryInteraction(detail::MemoryInteraction&&) = delete;
 		MemoryInteraction(const detail::MemoryInteraction&) = delete;
 

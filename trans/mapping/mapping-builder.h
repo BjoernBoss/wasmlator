@@ -20,13 +20,9 @@ namespace trans::detail {
 
 	class MappingBuilder {
 	private:
-		env::Process* pProcess = 0;
 		wasm::Function pResolve;
 		wasm::Function pFlushed;
 		wasm::Function pAssociate;
-
-	public:
-		MappingBuilder(env::Process* process);
 
 	public:
 		void setupCoreImports(wasm::Module& mod, detail::MappingState& state);

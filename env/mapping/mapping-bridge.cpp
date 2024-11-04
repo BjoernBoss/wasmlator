@@ -1,19 +1,19 @@
 #include "../env-process.h"
 #include "../../interface/interface.h"
 
-uint32_t env::bridge::Mapping::Resolve(uint64_t process, uint64_t address) {
-	return reinterpret_cast<env::Process*>(process)->mapping().fResolve(address);
+uint32_t env::detail::MappingBridge::Resolve(uint64_t address) {
+	return env::Instance()->mapping().fResolve(address);
 }
-void env::bridge::Mapping::Flushed(uint64_t process) {
-	return reinterpret_cast<env::Process*>(process)->mapping().fFlushed();
+void env::detail::MappingBridge::Flushed() {
+	env::Instance()->mapping().fFlushed();
 }
-void env::bridge::Mapping::Associate(uint64_t process, uint64_t address, uint32_t index) {
-	return reinterpret_cast<env::Process*>(process)->mapping().fAssociate(address, index);
+void env::detail::MappingBridge::Associate(uint64_t address, uint32_t index) {
+	env::Instance()->mapping().fAssociate(address, index);
 }
 
-uint32_t env::bridge::Mapping::Execute(env::id_t id, env::guest_t address) {
-	return map_execute(id, address);
+uint32_t env::detail::MappingBridge::Execute(env::guest_t address) {
+	return map_execute(address);
 }
-void env::bridge::Mapping::Flush(env::id_t id) {
-	map_flush_blocks(id);
+void env::detail::MappingBridge::Flush() {
+	map_flush_blocks();
 }

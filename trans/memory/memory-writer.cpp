@@ -2,15 +2,15 @@
 
 namespace I = wasm::inst;
 
-trans::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, env::Process* process, wasm::Sink& sink) : pState{ state }, pProcess{ process }, pSink{ sink } {}
+trans::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
 
 void trans::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
-	uint32_t caches = env::detail::MemoryAccess{ pProcess }.cacheAddress();
+	uint32_t caches = env::detail::MemoryAccess{}.cacheAddress();
 	if (cache >= caches)
-		throw trans::TranslationException{ L"Cache [", cache, u8"] out of bounds as only [", caches, L"] caches have been defined" };
+		host::Fail(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
 void trans::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Function& lookup, trans::MemoryType type) const {
-	uint32_t cacheAddress = env::detail::MemoryAccess{ pProcess }.cacheAddress();
+	uint32_t cacheAddress = env::detail::MemoryAccess{}.cacheAddress();
 
 	/* check if the temporary variable needs to be initialized */
 	if (!pTempAddress.valid())

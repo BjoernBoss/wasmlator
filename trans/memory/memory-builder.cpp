@@ -3,8 +3,6 @@
 
 namespace I = wasm::inst;
 
-trans::detail::MemoryBuilder::MemoryBuilder(env::Process* process) : pProcess{ process } {}
-
 void trans::detail::MemoryBuilder::fMakeLookup(const detail::MemoryState& state, const wasm::Function& function, uint32_t usage) const {
 	wasm::Sink sink{ function };
 	wasm::Variable address = sink.parameter(0), size = sink.parameter(1), cacheAddress = sink.parameter(2);
@@ -15,20 +13,16 @@ void trans::detail::MemoryBuilder::fMakeLookup(const detail::MemoryState& state,
 	wasm::Variable outSize = sink.local(wasm::Type::i32, u8"out_size");
 
 	/* perform the call */
-	sink[I::U64::Const(pProcess)];
 	sink[I::Local::Get(address)];
 	sink[I::Local::Get(size)];
 	sink[I::U32::Const(usage)];
 	sink[I::Call::Direct(pLookup)];
 
 	/* fetch the result */
-	sink[I::U64::Const(pProcess)];
 	sink[I::Call::Direct(pGetAddress)];
 	sink[I::Local::Set(outAddr)];
-	sink[I::U64::Const(pProcess)];
 	sink[I::Call::Direct(pGetPhysical)];
 	sink[I::Local::Set(outPhys)];
-	sink[I::U64::Const(pProcess)];
 	sink[I::Call::Direct(pGetSize)];
 	sink[I::Local::Set(outSize)];
 
@@ -77,33 +71,33 @@ void trans::detail::MemoryBuilder::fMakeAccess(wasm::Module& mod, const detail::
 
 	/* make the read, write, and code function */
 	read[I::Local::Get(read.parameter(0))];
-	detail::MemoryWriter{ state, pProcess, read }.fMakeRead(env::detail::MemoryAccess{ pProcess }.readCache(), memoryType);
+	detail::MemoryWriter{ state, read }.fMakeRead(env::detail::MemoryAccess{}.readCache(), memoryType);
 
 	code[I::Local::Get(code.parameter(0))];
-	detail::MemoryWriter{ state, pProcess, code }.fMakeCode(env::detail::MemoryAccess{ pProcess }.codeCache(), memoryType);
+	detail::MemoryWriter{ state, code }.fMakeCode(env::detail::MemoryAccess{}.codeCache(), memoryType);
 
 	write[I::Local::Get(write.parameter(0))];
-	detail::MemoryWriter{ state, pProcess, write }.fMakeWrite(write.parameter(1), env::detail::MemoryAccess{ pProcess }.writeCache(), memoryType);
+	detail::MemoryWriter{ state, write }.fMakeWrite(write.parameter(1), env::detail::MemoryAccess{}.writeCache(), memoryType);
 }
 
 void trans::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod, detail::MemoryState& state) {
 	/* add the import to the lookup-function */
 	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
+		{ { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
 		{}
 	);
 	pLookup = mod.function(u8"lookup", prototype, wasm::Import{ u8"mem" });
 
-	prototype = mod.prototype(u8"mem_lookup_i64_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i64 });
+	prototype = mod.prototype(u8"mem_lookup_i64_type", {}, { wasm::Type::i64 });
 	pGetAddress = mod.function(u8"result_address", prototype, wasm::Import{ u8"mem" });
 
-	prototype = mod.prototype(u8"mem_lookup_i32_type", { { u8"process", wasm::Type::i64 } }, { wasm::Type::i32 });
+	prototype = mod.prototype(u8"mem_lookup_i32_type", {}, { wasm::Type::i32 });
 	pGetPhysical = mod.function(u8"result_physical", prototype, wasm::Import{ u8"mem" });
 	pGetSize = mod.function(u8"result_size", prototype, wasm::Import{ u8"mem" });
 }
 void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, detail::MemoryState& state) const {
-	uint32_t caches = env::detail::MemoryAccess{ pProcess }.caches();
-	uint32_t cacheAddress = env::detail::MemoryAccess{ pProcess }.cacheAddress();
+	uint32_t caches = env::detail::MemoryAccess{}.caches();
+	uint32_t cacheAddress = env::detail::MemoryAccess{}.cacheAddress();
 
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
 	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache_address", wasm::Type::i32 } }, { wasm::Type::i32 });

@@ -27,13 +27,12 @@ namespace env::detail {
 		};
 
 	private:
-		env::Process* pProcess = 0;
 		std::vector<MemPhysical> pPhysical;
 		std::vector<MemVirtual> pVirtual;
 		mutable MemLookup pLastLookup;
 
 	public:
-		MemoryMapper(env::Process* process);
+		MemoryMapper() = default;
 		MemoryMapper(detail::MemoryMapper&&) = delete;
 		MemoryMapper(const detail::MemoryMapper&) = delete;
 

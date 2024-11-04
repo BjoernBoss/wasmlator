@@ -1,42 +1,42 @@
 #include "translator.h"
 
-trans::Translator::Translator(wasm::Module& mod, env::Mapping* mapping, trans::TranslationInterface* interface, size_t maxDepth) : pModule{ mod }, pMapping_{ mapping }, pInterface{ interface }, pMaxDepth{ maxDepth } {}
+trans::Translator::Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) : pModule{ mod }, pInterface{ interface }, pMaxDepth{ maxDepth } {}
 
-trans::Translator trans::Translator::CoreModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth) {
-	trans::Translator out{ mod, &process->mapping(), interface, maxDepth };
+trans::Translator trans::Translator::CoreModule(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) {
+	trans::Translator out{ mod, interface, maxDepth };
 
-	detail::MemoryBuilder{ process }.setupCoreImports(mod, out.pMemory);
-	detail::MappingBuilder{ process }.setupCoreImports(mod, out.pMapping);
-	detail::ContextBuilder{ process }.setupCoreImports(mod, out.pContext);
+	detail::MemoryBuilder{}.setupCoreImports(mod, out.pMemory);
+	detail::MappingBuilder{}.setupCoreImports(mod, out.pMapping);
+	detail::ContextBuilder{}.setupCoreImports(mod, out.pContext);
 
 	/* setup the shared components */
-	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
+	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
 	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Export{});
 	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
 
 	out.pMemory.physical = physical;
 	out.pMemory.management = (out.pMapping.management = (out.pContext.management = management));
 
-	detail::MemoryBuilder{ process }.setupCoreBody(mod, out.pMemory);
-	detail::MappingBuilder{ process }.setupCoreBody(mod, out.pMapping);
-	detail::ContextBuilder{ process }.setupCoreBody(mod, out.pContext);
+	detail::MemoryBuilder{}.setupCoreBody(mod, out.pMemory);
+	detail::MappingBuilder{}.setupCoreBody(mod, out.pMapping);
+	detail::ContextBuilder{}.setupCoreBody(mod, out.pContext);
 
 	return out;
 }
-trans::Translator trans::Translator::BlockModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth) {
-	trans::Translator out{ mod, &process->mapping(), interface, maxDepth };
+trans::Translator trans::Translator::BlockModule(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) {
+	trans::Translator out{ mod, interface, maxDepth };
 
 	/* setup the shared components */
-	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{ process };
+	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
 	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Import{ u8"core" });
 	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
 
 	out.pMemory.physical = physical;
 	out.pMemory.management = (out.pMapping.management = (out.pContext.management = management));
 
-	detail::MemoryBuilder{ process }.setupBlockImports(mod, out.pMemory);
-	detail::MappingBuilder{ process }.setupBlockImports(mod, out.pMapping);
-	detail::ContextBuilder{ process }.setupBlockImports(mod, out.pContext);
+	detail::MemoryBuilder{}.setupBlockImports(mod, out.pMemory);
+	detail::MappingBuilder{}.setupBlockImports(mod, out.pMapping);
+	detail::ContextBuilder{}.setupBlockImports(mod, out.pContext);
 
 	return out;
 }
@@ -66,7 +66,7 @@ void trans::Translator::fFetchSuperBlock(env::guest_t address, std::vector<Trans
 
 			/* check if the next instruction failed to be decoded */
 			if (next.type == trans::InstType::invalid)
-				throw trans::TranslationException{ str::Format<std::wstring>(L"Unable to decode instruction [{:#018x}]", address) };
+				host::Fail(str::Format<std::u8string>(u8"Unable to decode instruction [{:#018x}]", address));
 			list.push_back({ next, address, 0, false, startOfBlock });
 			address += next.size;
 			startOfBlock = false;

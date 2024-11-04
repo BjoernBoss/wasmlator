@@ -7,7 +7,7 @@
 #include <functional>
 #include <unordered_map>
 
-#include "../util/logging.h"
+#include "../interface/host.h"
 
 namespace env {
 	enum class ExecState : uint32_t {
@@ -47,7 +47,6 @@ namespace env {
 
 	using guest_t = uint64_t;
 	using physical_t = uint32_t;
-	using id_t = uint32_t;
 
 	class Process;
 

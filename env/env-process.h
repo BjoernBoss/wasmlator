@@ -8,43 +8,28 @@
 #include "process/process-access.h"
 
 namespace env {
+	env::Process* Instance();
+
 	class Process {
-		friend struct bridge::Process;
-		friend class detail::ProcessAccess;
+		friend struct detail::ProcessBridge;
+		friend struct detail::ProcessAccess;
 	private:
-		std::function<void(bool)> pLoaded;
+		std::function<void()> pLoaded;
 		std::vector<env::BlockExport> pExports;
 		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
 		uint32_t pManagementPages = 0;
 		uint32_t pPhysicalPages = 0;
-		std::u8string pName;
-		std::u8string pLogHeader;
-		env::id_t pId = 0;
 
 	private:
-		Process(std::u8string_view name);
+		Process() = default;
 		Process(env::Process&&) = delete;
 		Process(const env::Process&) = delete;
 		~Process() = default;
 
 	public:
-		static env::Process* Create(std::u8string_view name, uint32_t caches, uint32_t context);
-
-	private:
-		template <class... Args>
-		void fLog(const Args&... args) const {
-			util::log(u8"Process ", pLogHeader, args...);
-		}
-		template <class... Args>
-		void fDebug(const Args&... args) const {
-			util::log(u8"Process ", pLogHeader, args...);
-		}
-		template <class... Args>
-		void fFail(const Args&... args) const {
-			util::fail(u8"Failure ", pLogHeader, args...);
-		}
+		static env::Process* Create(uint32_t caches, uint32_t context);
 
 	private:
 		void fCoreLoaded(bool succeeded);
@@ -54,10 +39,8 @@ namespace env {
 		void release();
 
 	public:
-		void loadCore(const uint8_t* data, size_t size, std::function<void(bool)> callback);
-		void loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void(bool)> callback);
-		const std::u8string& name() const;
-		env::id_t id() const;
+		void loadCore(const uint8_t* data, size_t size, std::function<void()> callback);
+		void loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback);
 
 	public:
 		const env::Context& context() const;
@@ -66,19 +49,5 @@ namespace env {
 		env::Memory& memory();
 		const env::Mapping& mapping() const;
 		env::Mapping& mapping();
-
-	public:
-		template <class... Args>
-		void log(const Args&... args) const {
-			fLog(args...);
-		}
-		template <class... Args>
-		void debug(const Args&... args) const {
-			fDebug(args...);
-		}
-		template <class... Args>
-		void fail(const Args&... args) const {
-			fFail(args...);
-		}
 	};
 }

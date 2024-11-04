@@ -2,15 +2,15 @@
 
 #include "../env-common.h"
 
-namespace env::bridge {
-	struct Mapping {
+namespace env::detail {
+	struct MappingBridge {
 		/* exports */
-		static uint32_t Resolve(uint64_t process, uint64_t address);
-		static void Flushed(uint64_t process);
-		static void Associate(uint64_t process, uint64_t address, uint32_t index);
+		static uint32_t Resolve(uint64_t address);
+		static void Flushed();
+		static void Associate(uint64_t address, uint32_t index);
 
 		/* imports */
-		static uint32_t Execute(env::id_t id, env::guest_t address);
-		static void Flush(env::id_t id);
+		static uint32_t Execute(env::guest_t address);
+		static void Flush();
 	};
 }

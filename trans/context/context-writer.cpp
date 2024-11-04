@@ -2,7 +2,7 @@
 
 namespace I = wasm::inst;
 
-trans::detail::ContextWriter::ContextWriter(const detail::ContextState& state, env::Process* process, wasm::Sink& sink) : pState{ state }, pProcess{ process }, pSink{ sink } {}
+trans::detail::ContextWriter::ContextWriter(const detail::ContextState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
 
 void trans::detail::ContextWriter::fCheckRange(uint32_t offset, trans::MemoryType type) const {
 	switch (type) {
@@ -30,9 +30,9 @@ void trans::detail::ContextWriter::fCheckRange(uint32_t offset, trans::MemoryTyp
 		break;
 	}
 
-	uint32_t size = env::detail::ContextAccess{ pProcess }.contextSize();
+	uint32_t size = env::detail::ContextAccess{}.contextSize();
 	if (offset > size)
-		throw trans::TranslationException{ L"Cannot read [", offset, L"] bytes from context of size [", size, L']' };
+		host::Fail(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }
 
 void trans::detail::ContextWriter::makeExit() const {
@@ -47,7 +47,7 @@ void trans::detail::ContextWriter::makeRead(uint32_t offset, trans::MemoryType t
 	fCheckRange(offset, type);
 
 	/* write the offset to the stack */
-	pSink[I::U32::Const(env::detail::ContextAccess{ pProcess }.contextAddress() + offset)];
+	pSink[I::U32::Const(env::detail::ContextAccess{}.contextAddress() + offset)];
 
 	/* read the value onto the stack */
 	switch (type) {
@@ -99,7 +99,7 @@ void trans::detail::ContextWriter::makeWrite(const wasm::Variable& value, uint32
 	fCheckRange(offset, type);
 
 	/* write the address and value to the stack */
-	pSink[I::U32::Const(env::detail::ContextAccess{ pProcess }.contextAddress() + offset)];
+	pSink[I::U32::Const(env::detail::ContextAccess{}.contextAddress() + offset)];
 	pSink[I::Local::Get(value)];
 
 	/* write the value to the context */

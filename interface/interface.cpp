@@ -5,36 +5,36 @@
 #include "../env/memory/memory-bridge.h"
 #include "../env/mapping/mapping-bridge.h"
 
-void proc_core_loaded(uint64_t process, uint32_t succeeded) {
-	env::bridge::Process::CoreLoaded(process, succeeded > 0);
+void proc_core_loaded(uint32_t succeeded) {
+	env::detail::ProcessBridge::CoreLoaded(succeeded > 0);
 }
-void proc_block_loaded(uint64_t process, uint32_t succeeded) {
-	env::bridge::Process::BlockLoaded(process, succeeded > 0);
-}
-
-void ctx_set_exit_code(uint64_t process, int32_t code) {
-	env::bridge::Context::SetExitCode(process, code);
+void proc_block_loaded(uint32_t succeeded) {
+	env::detail::ProcessBridge::BlockLoaded(succeeded > 0);
 }
 
-uint32_t map_resolve(uint64_t process, uint64_t address) {
-	return env::bridge::Mapping::Resolve(process, address);
-}
-void map_flushed(uint64_t process) {
-	return env::bridge::Mapping::Flushed(process);
-}
-void map_associate(uint64_t process, uint64_t address, uint32_t index) {
-	return env::bridge::Mapping::Associate(process, address, index);
+void ctx_set_exit_code(int32_t code) {
+	env::detail::ContextBridge::SetExitCode(code);
 }
 
-void mem_lookup(uint64_t process, uint64_t address, uint32_t size, uint32_t usage) {
-	env::bridge::Memory::Lookup(process, address, size, usage);
+uint32_t map_resolve(uint64_t address) {
+	return env::detail::MappingBridge::Resolve(address);
 }
-uint64_t mem_result_address(uint64_t process) {
-	return env::bridge::Memory::LookupAddress(process);
+void map_flushed() {
+	return env::detail::MappingBridge::Flushed();
 }
-uint32_t mem_result_physical(uint64_t process) {
-	return env::bridge::Memory::LookupPhysical(process);
+void map_associate(uint64_t address, uint32_t index) {
+	return env::detail::MappingBridge::Associate(address, index);
 }
-uint32_t mem_result_size(uint64_t process) {
-	return env::bridge::Memory::LookupSize(process);
+
+void mem_lookup(uint64_t address, uint32_t size, uint32_t usage) {
+	env::detail::MemoryBridge::Lookup(address, size, usage);
+}
+uint64_t mem_result_address() {
+	return env::detail::MemoryBridge::LookupAddress();
+}
+uint32_t mem_result_physical() {
+	return env::detail::MemoryBridge::LookupPhysical();
+}
+uint32_t mem_result_size() {
+	return env::detail::MemoryBridge::LookupSize();
 }

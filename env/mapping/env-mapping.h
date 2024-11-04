@@ -15,15 +15,14 @@ namespace env {
 	}
 
 	class Mapping {
-		friend struct bridge::Mapping;
-		friend class detail::MappingAccess;
+		friend struct detail::MappingBridge;
+		friend struct detail::MappingAccess;
 	private:
 		std::unordered_map<env::guest_t, uint32_t> pMapping;
-		env::Process* pProcess = 0;
 		uint32_t pCacheAddress = 0;
 
 	public:
-		Mapping(env::Process* process);
+		Mapping() = default;
 		Mapping(env::Mapping&&) = delete;
 		Mapping(const env::Mapping&) = delete;
 

@@ -36,16 +36,15 @@ namespace trans {
 
 		std::unordered_map<env::guest_t, wasm::Function> pTranslated;
 		std::queue<Entry> pQueue;
-		env::Mapping* pMapping_ = 0;
 		trans::TranslationInterface* pInterface = 0;
 		size_t pMaxDepth = 0;
 
 	private:
-		Translator(wasm::Module& mod, env::Mapping* mapping, trans::TranslationInterface* interface, size_t maxDepth);
+		Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
 
 	public:
-		static trans::Translator CoreModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth);
-		static trans::Translator BlockModule(wasm::Module& mod, env::Process* process, trans::TranslationInterface* interface, size_t maxDepth);
+		static trans::Translator CoreModule(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
+		static trans::Translator BlockModule(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
 
 	private:
 		size_t fLookup(env::guest_t address, const std::vector<Translated>& list) const;

@@ -7,11 +7,10 @@ namespace trans::detail {
 	class ContextWriter {
 	private:
 		detail::ContextState pState;
-		env::Process* pProcess = 0;
 		wasm::Sink& pSink;
 
 	public:
-		ContextWriter(const detail::ContextState& state, env::Process* process, wasm::Sink& sink);
+		ContextWriter(const detail::ContextState& state, wasm::Sink& sink);
 
 	private:
 		void fCheckRange(uint32_t offset, trans::MemoryType type) const;

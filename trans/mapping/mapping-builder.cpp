@@ -2,26 +2,24 @@
 
 namespace I = wasm::inst;
 
-trans::detail::MappingBuilder::MappingBuilder(env::Process* process) : pProcess{ process } {}
-
 void trans::detail::MappingBuilder::setupCoreImports(wasm::Module& mod, detail::MappingState& state) {
 	/* add the import to the lookup-function */
 	wasm::Prototype prototype = mod.prototype(u8"map_resolve_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 } },
+		{ { u8"addr", wasm::Type::i64 } },
 		{ wasm::Type::i32 }
 	);
 	pResolve = mod.function(u8"resolve", prototype, wasm::Import{ u8"map" });
 
 	/* add the import to the flush-function */
 	prototype = mod.prototype(u8"map_flushed_type",
-		{ { u8"process", wasm::Type::i64 } },
+		{},
 		{}
 	);
 	pFlushed = mod.function(u8"flushed", prototype, wasm::Import{ u8"map" });
 
 	/* add the import to the associate-function */
 	prototype = mod.prototype(u8"map_associate_type",
-		{ { u8"process", wasm::Type::i64 }, { u8"addr", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } },
+		{ { u8"addr", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } },
 		{}
 	);
 	pAssociate = mod.function(u8"associate", prototype, wasm::Import{ u8"map" });
@@ -57,7 +55,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		sink[I::U32::And()];
 		sink[I::U32::Const(sizeof(env::detail::MappingCache))];
 		sink[I::U32::Mul()];
-		uint32_t cacheAddress = env::detail::MappingAccess{ pProcess }.cacheAddress();
+		uint32_t cacheAddress = env::detail::MappingAccess{}.cacheAddress();
 		if (cacheAddress > 0) {
 			sink[I::U32::Const(cacheAddress)];
 			sink[I::U32::Add()];
@@ -83,7 +81,6 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		}
 
 		/* resolve the actual address, which has not yet been cached */
-		sink[I::U64::Const(pProcess)];
 		sink[I::Local::Get(address)];
 		sink[I::Call::Direct(pResolve)];
 		sink[I::Local::Tee(index)];
@@ -219,7 +216,6 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		sink[I::Global::Set(functionCount)];
 
 		/* notify the main application about the association */
-		sink[I::U64::Const(pProcess)];
 		sink[I::Local::Get(sink.parameter(1))];
 		sink[I::Local::Get(index)];
 		sink[I::Call::Direct(pAssociate)];
@@ -268,7 +264,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		wasm::Sink sink{ mod.function(u8"map_flush_blocks", {}, {}, wasm::Export{}) };
 
 		/* clear the caches */
-		sink[I::U32::Const(env::detail::MappingAccess{ pProcess }.cacheAddress())];
+		sink[I::U32::Const(env::detail::MappingAccess{}.cacheAddress())];
 		sink[I::U32::Const(0)];
 		sink[I::U32::Const(uint64_t(1 << env::detail::BlockLookupCacheBits) * sizeof(env::detail::MappingCache))];
 		sink[I::Memory::Fill(state.management)];
@@ -296,7 +292,6 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		sink[I::Global::Set(functionCount)];
 
 		/* notify the main application about the flushing */
-		sink[I::U64::Const(pProcess)];
 		sink[I::Call::Direct(pFlushed)];
 	}
 }

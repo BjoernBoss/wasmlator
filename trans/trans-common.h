@@ -5,6 +5,7 @@
 #include <ustring/ustring.h>
 
 #include "../env/env-process.h"
+#include "../interface/host.h"
 
 namespace trans {
 	/* memory reading type */
@@ -23,11 +24,6 @@ namespace trans {
 		i64,
 		f32,
 		f64
-	};
-
-	struct TranslationException : public str::BuildException {
-		template <class... Args>
-		constexpr TranslationException(const Args&... args) : str::BuildException{ args... } {}
 	};
 
 	enum class InstType : uint8_t {

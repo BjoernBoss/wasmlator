@@ -2,7 +2,7 @@
 
 namespace I = wasm::inst;
 
-trans::detail::MappingWriter::MappingWriter(const detail::MappingState& state, env::Process* process, wasm::Sink& sink) : pState{ state }, pProcess{ process }, pSink{ sink } {}
+trans::detail::MappingWriter::MappingWriter(const detail::MappingState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
 
 void trans::detail::MappingWriter::makeLookup() const {
 	pSink[I::Call::Direct(pState.lookup)];
