@@ -227,12 +227,40 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 
 	/* add the blocks-execute function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"addr", wasm::Type::i64 } }, {});
+		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"addr", wasm::Type::i64 } }, { wasm::Type::i32 });
 		wasm::Sink sink{ mod.function(u8"map_execute", prototype, wasm::Export{}) };
+		wasm::Variable result = sink.local(wasm::Type::i32, u8"result");
 
-		/* simply perform the goto */
 		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::Call::Tail(state.module.mapping.execute)];
+
+		/* simply perform the lookup and execution until the result-code is not execute anymore */
+		wasm::Loop _loop{ sink };
+
+		/* perform the lookup of the address */
+		sink[I::Call::Direct(state.lookup)];
+		sink[I::Local::Tee(result)];
+
+		/* check if the address could not be resolved */
+		sink[I::U32::EqualZero()];
+		{
+			wasm::IfThen _if{ sink };
+
+			sink[I::U32::Const(env::ExecState::translate)];
+			sink[I::Return()];
+		}
+
+		/* execute the address */
+		sink[I::Local::Get(result)];
+		sink[I::Call::Indirect(state.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
+		sink[I::Local::Tee(result)];
+
+		/* check if the another execute has been encountered */
+		sink[I::U32::Const(env::ExecState::_execute)];
+		sink[I::U32::Equal()];
+		sink[I::Branch::If(_loop)];
+
+		/* return the exec-state */
+		sink[I::Local::Get(result)];
 	}
 
 	/* add the blocks-flushing function */

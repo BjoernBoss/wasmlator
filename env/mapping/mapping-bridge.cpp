@@ -11,8 +11,8 @@ void env::bridge::Mapping::Associate(uint64_t process, uint64_t address, uint32_
 	return reinterpret_cast<env::Process*>(process)->mapping().fAssociate(address, index);
 }
 
-void env::bridge::Mapping::Execute(env::id_t id, env::guest_t address) {
-	map_execute(id, address);
+uint32_t env::bridge::Mapping::Execute(env::id_t id, env::guest_t address) {
+	return map_execute(id, address);
 }
 void env::bridge::Mapping::Flush(env::id_t id) {
 	map_flush_blocks(id);

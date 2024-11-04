@@ -18,8 +18,8 @@ void env::Mapping::fFlushed() {
 	pMapping.clear();
 }
 
-void env::Mapping::execute(env::guest_t address) {
-	bridge::Mapping::Execute(pProcess->id(), address);
+env::ExecState env::Mapping::execute(env::guest_t address) {
+	return static_cast<env::ExecState>(bridge::Mapping::Execute(pProcess->id(), address));
 }
 bool env::Mapping::contains(env::guest_t address) const {
 	return (pMapping.find(address) != pMapping.end());

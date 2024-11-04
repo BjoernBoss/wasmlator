@@ -15,7 +15,7 @@ namespace trans::detail {
 
 	public:
 		void makeLookup() const;
-		void makeFuncLoad() const;
+		void makeLoadFunction() const;
 		void makeInvoke() const;
 	};
 }

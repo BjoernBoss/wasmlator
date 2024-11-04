@@ -47,7 +47,7 @@ extern "C" {
 	void map_associate(uint64_t process, uint64_t address, uint32_t index);
 
 	/* imports */
-	void map_execute(uint32_t id, uint64_t address);
+	uint32_t map_execute(uint32_t id, uint64_t address);
 	void map_flush_blocks(uint32_t id);
 }
 

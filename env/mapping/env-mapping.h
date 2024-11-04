@@ -33,7 +33,7 @@ namespace env {
 		void fFlushed();
 
 	public:
-		void execute(env::guest_t address);
+		env::ExecState execute(env::guest_t address);
 		bool contains(env::guest_t address) const;
 		void flush();
 	};

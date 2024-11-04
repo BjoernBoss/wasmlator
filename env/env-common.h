@@ -11,6 +11,7 @@
 
 namespace env {
 	enum class ExecState : uint32_t {
+		_execute,
 		translate,
 		terminated,
 		_custom

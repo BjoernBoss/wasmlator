@@ -7,7 +7,7 @@ trans::detail::MappingWriter::MappingWriter(const detail::MappingState& state, e
 void trans::detail::MappingWriter::makeLookup() const {
 	pSink[I::Call::Direct(pState.lookup)];
 }
-void trans::detail::MappingWriter::makeFuncLoad() const {
+void trans::detail::MappingWriter::makeLoadFunction() const {
 	pSink[I::Table::Get(pState.functions)];
 }
 void trans::detail::MappingWriter::makeInvoke() const {
