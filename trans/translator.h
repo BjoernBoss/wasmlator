@@ -8,6 +8,7 @@
 #include "memory/memory-builder.h"
 #include "mapping/mapping-builder.h"
 #include "context/context-builder.h"
+#include "address/trans-address.h"
 
 namespace trans {
 	struct TranslationInterface {
@@ -16,10 +17,6 @@ namespace trans {
 
 	class Translator {
 	private:
-		struct Entry {
-			env::guest_t address = 0;
-			size_t depth = 0;
-		};
 		struct Translated {
 			trans::Instruction inst;
 			env::guest_t address = 0;
@@ -29,15 +26,11 @@ namespace trans {
 		};
 
 	private:
-		wasm::Module& pModule;
+		detail::Addresses pAddresses;
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
 		detail::ContextState pContext;
-
-		std::unordered_map<env::guest_t, wasm::Function> pTranslated;
-		std::queue<Entry> pQueue;
 		trans::TranslationInterface* pInterface = 0;
-		size_t pMaxDepth = 0;
 
 	private:
 		Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
@@ -51,11 +44,10 @@ namespace trans {
 		void fFetchSuperBlock(env::guest_t address, std::vector<Translated>& list);
 
 	private:
-		void fPush(env::guest_t address, size_t depth);
-		void fProcess(env::guest_t address, size_t depth);
+		void fProcess(const detail::OpenAddress& next);
 
 	public:
 		void run(env::guest_t address);
-		void close();
+		std::vector<env::BlockExport> close();
 	};
 }

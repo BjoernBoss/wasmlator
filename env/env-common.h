@@ -11,9 +11,16 @@
 
 namespace env {
 	enum class ExecState : uint32_t {
+		/* used internally for returns and such, may or may not have been translated yet, payload: next-address-to-execute */
 		_execute,
+
+		/* next address has not yet been translated, payload: none */
 		translate,
+
+		/* process has terminated, payload: none */
 		terminated,
+
+		/* custom exec-states, payload: none */
 		_custom
 	};
 

@@ -1,8 +1,11 @@
 #pragma once
 
-#include <cinttypes>
 #include <wasgen/wasm.h>
 #include <ustring/ustring.h>
+#include <cinttypes>
+#include <queue>
+#include <unordered_map>
+#include <vector>
 
 #include "../env/env-process.h"
 #include "../interface/host.h"
@@ -29,9 +32,7 @@ namespace trans {
 	enum class InstType : uint8_t {
 		primitive,
 		jumpDirect,
-		jumpIndirect,
 		conditionalDirect,
-		call,
 		endOfBlock,
 		invalid
 	};

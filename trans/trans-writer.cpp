@@ -18,3 +18,18 @@ void trans::Writer::ctxRead(uint32_t offset, trans::MemoryType type) const {
 void trans::Writer::ctxWrite(const wasm::Variable& value, uint32_t offset, trans::MemoryType type) const {
 	pContext.makeWrite(value, offset, type);
 }
+void trans::Writer::call(env::guest_t address, env::guest_t nextAddress) const {
+	pAddress.makeCall(address, nextAddress);
+}
+void trans::Writer::call(env::guest_t nextAddress) const {
+	pAddress.makeCallIndirect(nextAddress);
+}
+void trans::Writer::jump(env::guest_t address) const {
+	pAddress.makeJump(address);
+}
+void trans::Writer::jump() const {
+	pAddress.makeJumpIndirect();
+}
+void trans::Writer::ret() const {
+	pAddress.makeReturn();
+}

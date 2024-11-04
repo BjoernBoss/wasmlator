@@ -7,7 +7,7 @@ namespace trans::detail {
 	class MemoryWriter {
 		friend class detail::MemoryBuilder;
 	private:
-		detail::MemoryState pState;
+		const detail::MemoryState& pState;
 		wasm::Sink& pSink;
 		mutable wasm::Variable pTempAddress;
 

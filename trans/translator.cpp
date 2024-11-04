@@ -1,6 +1,6 @@
 #include "translator.h"
 
-trans::Translator::Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) : pModule{ mod }, pInterface{ interface }, pMaxDepth{ maxDepth } {}
+trans::Translator::Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) : pAddresses{ mod, maxDepth }, pInterface{ interface } {}
 
 trans::Translator trans::Translator::CoreModule(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) {
 	trans::Translator out{ mod, interface, maxDepth };
@@ -41,7 +41,6 @@ trans::Translator trans::Translator::BlockModule(wasm::Module& mod, trans::Trans
 	return out;
 }
 
-
 size_t trans::Translator::fLookup(env::guest_t address, const std::vector<Translated>& list) const {
 	size_t first = 0, last = list.size() - 1;
 
@@ -72,13 +71,15 @@ void trans::Translator::fFetchSuperBlock(env::guest_t address, std::vector<Trans
 			startOfBlock = false;
 
 			/* check if a valid end of the current strand has been found */
-			if (next.type == trans::InstType::endOfBlock || next.type == trans::InstType::jumpDirect || next.type == trans::InstType::jumpIndirect)
+			if (next.type == trans::InstType::endOfBlock || next.type == trans::InstType::jumpDirect)
 				break;
 		}
 
 		/* iterate over the instructions and check if any of the jumps jump into the instructions themselves,
 		*	or even to the current next address, in which case the block can be continued (iterate over all instructions
-		*	again, as previous instructions might become valid after another strand has been processed) */
+		*	again, as previous instructions might become valid after another strand has been processed)
+		*
+		*	Note: Ignore the case of a jump into an instruction, as it needs to be translated as a new super-block anyways */
 		bool continuation = false;
 		for (size_t i = 0; i < list.size(); ++i) {
 			/* check if the instruction can be considered and has not already been resolved as jumping locally */
@@ -109,31 +110,18 @@ void trans::Translator::fFetchSuperBlock(env::guest_t address, std::vector<Trans
 	}
 }
 
-
-// ignore the case of a jump into an instruction, as it needs to be translated as a new super-block
-
-void trans::Translator::fPush(env::guest_t address, size_t depth) {
-	/* check if the depth-limit has been reached */
-
-	/* check if the address has already been */
-}
-void trans::Translator::fProcess(env::guest_t address, size_t depth) {
+void trans::Translator::fProcess(const detail::OpenAddress& next) {
 	std::vector<Translated> list;
 
-	fFetchSuperBlock(address, list);
+	fFetchSuperBlock(next.address, list);
 
 }
 
 void trans::Translator::run(env::guest_t address) {
-	fPush(address, 0);
-
-	/* process the queue until all open addresses have been processed */
-	while (!pQueue.empty()) {
-		Entry entry = pQueue.front();
-		pQueue.pop();
-		fProcess(entry.address, entry.depth + 1);
-	}
+	pAddresses.pushRoot(address);
+	while (!pAddresses.empty())
+		fProcess(pAddresses.start());
 }
-void trans::Translator::close() {
-
+std::vector<env::BlockExport> trans::Translator::close() {
+	return pAddresses.close();
 }

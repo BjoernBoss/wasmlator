@@ -9,7 +9,7 @@ namespace trans::detail {
 	static constexpr uint32_t MinFunctionList = 32;
 	static constexpr uint32_t FunctionListGrowth = 16;
 
-	/* must be zero, as wasm::EqualZero is used internally */
+	/* must be zero, as MappingWriter::makeCheckFailed uses wasm::EqualZero internally */
 	static constexpr uint32_t NotFoundIndex = 0;
 
 	struct MappingState {

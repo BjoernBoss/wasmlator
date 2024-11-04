@@ -6,7 +6,7 @@
 namespace trans::detail {
 	class ContextWriter {
 	private:
-		detail::ContextState pState;
+		const detail::ContextState& pState;
 		wasm::Sink& pSink;
 
 	public:

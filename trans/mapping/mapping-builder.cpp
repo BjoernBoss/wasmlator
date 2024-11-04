@@ -1,4 +1,5 @@
 #include "mapping-builder.h"
+#include "mapping-writer.h"
 
 namespace I = wasm::inst;
 
@@ -237,7 +238,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		sink[I::Local::Tee(result)];
 
 		/* check if the address could not be resolved */
-		sink[I::U32::EqualZero()];
+		detail::MappingWriter{ state, sink }.makeCheckFailed();
 		{
 			wasm::IfThen _if{ sink };
 

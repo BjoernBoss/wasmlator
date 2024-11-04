@@ -3,6 +3,7 @@
 #include "trans-common.h"
 #include "memory/memory-writer.h"
 #include "context/context-writer.h"
+#include "address/address-writer.h"
 
 namespace trans {
 	class Writer {
@@ -10,6 +11,7 @@ namespace trans {
 		wasm::Sink pSink;
 		detail::MemoryWriter pMemory;
 		detail::ContextWriter pContext;
+		detail::AddressWriter pAddress;
 
 	public:
 		Writer(trans::Writer&&) = delete;
@@ -33,5 +35,20 @@ namespace trans {
 
 		/* writes variable to the context */
 		void ctxWrite(const wasm::Variable& value, uint32_t offset, trans::MemoryType type) const;
+
+		/* no expectations */
+		void call(env::guest_t address, env::guest_t nextAddress) const;
+
+		/* expects guest target-address on top of stack */
+		void call(env::guest_t nextAddress) const;
+
+		/* no expectations */
+		void jump(env::guest_t address) const;
+
+		/* expects guest target-address on top of stack */
+		void jump() const;
+
+		/* expects guest return-address on top of stack */
+		void ret() const;
 	};
 }
