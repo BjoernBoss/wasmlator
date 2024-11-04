@@ -40,7 +40,7 @@ void main_startup() {
 	wasm::Module _module{ &_writer };
 	TransInterface _interface;
 
-	trans::Translator _translator = trans::Translator::CoreModule(_module, &_interface, 4);
+	trans::Translator _translator{ true, _module, &_interface, 4 };
 	_translator.run(0x1234);
 	_translator.run(0x5678);
 
