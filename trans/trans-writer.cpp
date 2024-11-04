@@ -1,5 +1,10 @@
 #include "trans-writer.h"
 
+trans::Writer::Writer(wasm::Sink& sink, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses) : pSink{ sink }, pMemory{ memory, sink }, pContext{ context, sink }, pAddress{ mapping, addresses, sink } {}
+
+wasm::Sink& trans::Writer::sink() const {
+	return pSink;
+}
 void trans::Writer::read(uint32_t cacheIndex, trans::MemoryType type) const {
 	pMemory.makeRead(cacheIndex, type);
 }

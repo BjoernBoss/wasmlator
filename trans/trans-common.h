@@ -6,6 +6,7 @@
 #include <queue>
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 #include "../env/env-process.h"
 #include "../interface/host.h"
@@ -39,6 +40,7 @@ namespace trans {
 
 	struct Instruction {
 		uintptr_t data = 0;
+		env::guest_t address = 0;
 		env::guest_t target = 0;
 		size_t size = 0;
 		trans::InstType type = trans::InstType::primitive;

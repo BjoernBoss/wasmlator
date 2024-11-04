@@ -23,10 +23,11 @@ extern "C" {
 
 	/* imports */
 	uint32_t proc_create();
-	uint32_t proc_load_core(const uint8_t* data, uint32_t size);
-	uint32_t proc_load_block(const uint8_t* data, uint32_t size, uint32_t exports);
 	void proc_destroy();
-	void proc_add_export(const char8_t* name, uint32_t size, uint64_t address);
+	uint32_t proc_load_core(const uint8_t* data, uint32_t size, uint32_t exports);
+	uint32_t proc_load_block(const uint8_t* data, uint32_t size, uint32_t exports);
+	void proc_add_core_export(const char8_t* name, uint32_t size, uint64_t address);
+	void proc_add_block_export(const char8_t* name, uint32_t size, uint64_t address);
 }
 
 /* env/context/context-bridge interactions */

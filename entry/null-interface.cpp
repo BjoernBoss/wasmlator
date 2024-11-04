@@ -19,17 +19,18 @@ uint32_t proc_create() {
 	IsCreated = true;
 	return 1;
 }
-uint32_t proc_load_core(const uint8_t* data, uint32_t size) {
+void proc_destroy() {
+	IsCreated = false;
+}
+uint32_t proc_load_core(const uint8_t* data, uint32_t size, uint32_t exports) {
 	proc_core_loaded(1);
 	return 1;
 }
 uint32_t proc_load_block(const uint8_t* data, uint32_t size, uint32_t exports) {
 	return {};
 }
-void proc_destroy() {
-	IsCreated = false;
-}
-void proc_add_export(const char8_t* name, uint32_t size, uint64_t address) {}
+void proc_add_core_export(const char8_t* name, uint32_t size, uint64_t address) {}
+void proc_add_block_export(const char8_t* name, uint32_t size, uint64_t address) {}
 
 void ctx_read(uint32_t offset, uint8_t* data, uint32_t size) {}
 void ctx_write(uint32_t offset, const uint8_t* data, uint32_t size) {}

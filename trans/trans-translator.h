@@ -1,10 +1,7 @@
 #pragma once
 
-#include <queue>
-#include <unordered_map>
-#include <vector>
-
 #include "trans-common.h"
+#include "trans-writer.h"
 #include "memory/memory-builder.h"
 #include "mapping/mapping-builder.h"
 #include "context/context-builder.h"
@@ -13,16 +10,21 @@
 namespace trans {
 	struct TranslationInterface {
 		virtual trans::Instruction fetch(env::guest_t addr) = 0;
+		virtual void produce(const trans::Writer& writer, const trans::Instruction* data, size_t count) = 0;
 	};
 
 	class Translator {
 	private:
-		struct Translated {
-			trans::Instruction inst;
-			env::guest_t address = 0;
-			size_t index = 0;
-			bool local = false;
-			bool startOfBlock = false;
+		struct Range {
+		public:
+			size_t first = 0;
+			size_t last = 0;
+			bool backwards = false;
+
+		public:
+			friend bool operator<(const Range& l, const Range& r) {
+				return (l.first < r.first || (l.first == r.first && l.last < r.last));
+			}
 		};
 
 	private:
@@ -40,8 +42,9 @@ namespace trans {
 		static trans::Translator BlockModule(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
 
 	private:
-		size_t fLookup(env::guest_t address, const std::vector<Translated>& list) const;
-		void fFetchSuperBlock(env::guest_t address, std::vector<Translated>& list);
+		size_t fLookup(env::guest_t address, const std::vector<trans::Instruction>& list) const;
+		void fFetchSuperBlock(env::guest_t address, std::vector<trans::Instruction>& list) const;
+		void fSetupRanges(const std::vector<trans::Instruction>& list, std::set<Range>& ranges) const;
 
 	private:
 		void fProcess(const detail::OpenAddress& next);

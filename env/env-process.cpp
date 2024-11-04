@@ -6,33 +6,35 @@ env::Process* env::Instance() {
 	return ProcessInstance;
 }
 
-env::Process* env::Process::Create(uint32_t caches, uint32_t context) {
-	env::Process* out = new env::Process{};
-
+void env::Process::Create(uint32_t caches, uint32_t context) {
 	/* try to setup the process */
 	host::Log(u8"Creating new process...");
-	if (ProcessInstance != 0 || !detail::ProcessBridge::Create()) {
-		host::Log(u8"Process creation failed");
-		delete out;
-		return 0;
-	}
+	if (ProcessInstance != 0)
+		host::Fail(u8"Process creation failed as only one process can exist at a time");
+	if (!detail::ProcessBridge::Create())
+		host::Fail(u8"Process creation failed");
 	host::Log(u8"Process created");
-	ProcessInstance = out;
+	ProcessInstance = new env::Process{};
 
 	/* initialize the components */
-	out->pPhysicalPages = env::PhysPageCount(env::detail::InitAllocBytes);
+	ProcessInstance->pPhysicalPages = env::PhysPageCount(env::detail::InitAllocBytes);
 	uint32_t endOfManagement = 0;
 	endOfManagement += detail::ContextAccess{}.configureAndAllocate(endOfManagement, context);
 	endOfManagement += detail::MappingAccess{}.allocateFromManagement(endOfManagement);
-	endOfManagement += detail::MemoryAccess{}.configureAndAllocate(endOfManagement, caches, out->pPhysicalPages);
-	out->pManagementPages = env::PhysPageCount(endOfManagement);
-	return out;
+	endOfManagement += detail::MemoryAccess{}.configureAndAllocate(endOfManagement, caches, ProcessInstance->pPhysicalPages);
+	ProcessInstance->pManagementPages = env::PhysPageCount(endOfManagement);
 }
 
 void env::Process::fCoreLoaded(bool succeeded) {
 	if (!succeeded)
 		host::Fail(u8"Failed loading core");
 	host::Debug(u8"Core loading succeeded");
+
+	/* register all exports and mark the core as loaded (must succeed, as the slots have already been reserved) */
+	for (size_t i = 0; i < pExports.size(); ++i) {
+		host::Debug(str::Format<std::u8string>(u8"Associating [{}] to [{:#018x}]", pExports[i].name, pExports[i].address));
+		detail::ProcessBridge::AddCoreExport(pExports[i].name, pExports[i].address);
+	}
 	pLoaded();
 }
 void env::Process::fBlockLoaded(bool succeeded) {
@@ -43,7 +45,7 @@ void env::Process::fBlockLoaded(bool succeeded) {
 	/* register all exports and mark the block as loaded (must succeed, as the slots have already been reserved) */
 	for (size_t i = 0; i < pExports.size(); ++i) {
 		host::Debug(str::Format<std::u8string>(u8"Associating [{}] to [{:#018x}]", pExports[i].name, pExports[i].address));
-		detail::ProcessBridge::AddExport(pExports[i].name, pExports[i].address);
+		detail::ProcessBridge::AddBlockExport(pExports[i].name, pExports[i].address);
 	}
 	pLoaded();
 }
@@ -55,33 +57,37 @@ void env::Process::release() {
 	delete this;
 }
 
-void env::Process::loadCore(const uint8_t* data, size_t size, std::function<void()> callback) {
-	/* protected through glue-code to prevent multiple loads of core modules or parallel loads */
-	host::Debug(u8"Loading core...");
+void env::Process::loadCore(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback) {
+	/* validate the uniqueness of all blocks to be loaded */
+	std::unordered_set<env::guest_t> added;
+	for (const env::BlockExport& block : exports) {
+		if (pMapping.contains(block.address) || added.contains(block.address))
+			host::Fail(str::Format<std::u8string>(u8"Block for [{:#018x}] has already been defined", block.address));
+		added.insert(block.address);
+	}
 
 	/* try to perform the loading and check if it failed (dont set the callback yet, as a load might currently be in progress) */
-	if (detail::ProcessBridge::LoadCore(data, size))
-		pLoaded = callback;
-	else
+	host::Debug(u8"Loading core...");
+	if (!detail::ProcessBridge::LoadCore(data, size, exports.size()))
 		host::Fail(u8"Failed loading core");
+	pLoaded = callback;
+	pExports = exports;
 }
 void env::Process::loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback) {
 	/* validate the uniqueness of all blocks to be loaded */
+	std::unordered_set<env::guest_t> added;
 	for (const env::BlockExport& block : exports) {
-		if (pMapping.contains(block.address))
-			host::Fail(str::Format<std::u8string>(u8"Block for [{:#018x}] has already been loaded", block.address));
+		if (pMapping.contains(block.address) || added.contains(block.address))
+			host::Fail(str::Format<std::u8string>(u8"Block for [{:#018x}] has already been defined", block.address));
+		added.insert(block.address);
 	}
-
-	/* protected through glue-code to prevent parallel loads */
-	host::Debug(u8"Loading block...");
 
 	/* try to perform the loading and check if it failed (dont set the callback yet, as a load might currently be in progress) */
-	if (detail::ProcessBridge::LoadBlock(data, size, exports.size())) {
-		pLoaded = callback;
-		pExports = exports;
-	}
-	else
+	host::Debug(u8"Loading block...");
+	if (!detail::ProcessBridge::LoadBlock(data, size, exports.size()))
 		host::Fail(u8"Failed loading block");
+	pLoaded = callback;
+	pExports = exports;
 }
 
 const env::Context& env::Process::context() const {

@@ -103,9 +103,8 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		sink[I::Local::Get(index)];
 		sink[I::U32::Store(state.management, offsetof(env::detail::MappingCache, index))];
 
-		/* return the function */
+		/* return the function-index */
 		sink[I::Local::Get(index)];
-		sink[I::Table::Get(state.functions)];
 	}
 
 	/* add the reserve function */
@@ -231,7 +230,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 		sink[I::Local::Get(sink.parameter(0))];
 
 		/* simply perform the lookup and execution until the result-code is not execute anymore */
-		wasm::Loop _loop{ sink };
+		wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
 
 		/* perform the lookup of the address */
 		sink[I::Call::Direct(state.lookup)];
@@ -258,6 +257,9 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, detail::Map
 
 		/* return the exec-state */
 		sink[I::Local::Get(result)];
+		sink[I::Return()];
+		_loop.close();
+		sink[I::Unreachable()];
 	}
 
 	/* add the blocks-flushing function */

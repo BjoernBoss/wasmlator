@@ -29,7 +29,7 @@ namespace env {
 		~Process() = default;
 
 	public:
-		static env::Process* Create(uint32_t caches, uint32_t context);
+		static void Create(uint32_t caches, uint32_t context);
 
 	private:
 		void fCoreLoaded(bool succeeded);
@@ -39,7 +39,7 @@ namespace env {
 		void release();
 
 	public:
-		void loadCore(const uint8_t* data, size_t size, std::function<void()> callback);
+		void loadCore(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback);
 		void loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback);
 
 	public:

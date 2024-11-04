@@ -30,8 +30,8 @@ namespace trans::detail {
 			size_t depth = 0;
 
 		public:
-			bool operator<(const Queued& q) const {
-				return (depth < q.depth);
+			friend bool operator<(const Queued& l, const Queued& r) {
+				return (l.depth < r.depth);
 			}
 		};
 
@@ -57,6 +57,7 @@ namespace trans::detail {
 		void pushRoot(env::guest_t address);
 
 	public:
+		void setup();
 		const wasm::Prototype& blockPrototype();
 		const wasm::Table& addresses();
 		bool empty() const;

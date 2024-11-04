@@ -2,10 +2,7 @@
 
 namespace I = wasm::inst;
 
-trans::detail::Addresses::Addresses(wasm::Module& mod, size_t maxDepth) : pModule{ mod }, pMaxDepth{ maxDepth } {
-	pBlockPrototype = pModule.prototype(u8"block_type", {}, { wasm::Type::i64, wasm::Type::i32 });
-	pAddresses = pModule.table(u8"linked_addresses", true);
-}
+trans::detail::Addresses::Addresses(wasm::Module& mod, size_t maxDepth) : pModule{ mod }, pMaxDepth{ maxDepth } {}
 
 trans::detail::Addresses::Placement& trans::detail::Addresses::fPush(env::guest_t address, size_t depth) {
 	/* check if the address has already been translated */
@@ -44,6 +41,10 @@ void trans::detail::Addresses::pushRoot(env::guest_t address) {
 	fPush(address, 0);
 }
 
+void trans::detail::Addresses::setup() {
+	pBlockPrototype = pModule.prototype(u8"block_type", {}, { wasm::Type::i64, wasm::Type::i32 });
+	pAddresses = pModule.table(u8"linked_addresses", true);
+}
 const wasm::Prototype& trans::detail::Addresses::blockPrototype() {
 	return pBlockPrototype;
 }

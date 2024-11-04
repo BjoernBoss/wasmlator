@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "../interface/host.h"
 

@@ -10,9 +10,10 @@ namespace env::detail {
 
 		/* imports */
 		static bool Create();
-		static bool LoadCore(const uint8_t* data, size_t size);
-		static bool LoadBlock(const uint8_t* data, size_t size, size_t exports);
 		static void Destroy();
-		static void AddExport(const std::u8string_view name, env::guest_t address);
+		static bool LoadCore(const uint8_t* data, size_t size, size_t exports);
+		static bool LoadBlock(const uint8_t* data, size_t size, size_t exports);
+		static void AddCoreExport(const std::u8string_view name, env::guest_t address);
+		static void AddBlockExport(const std::u8string_view name, env::guest_t address);
 	};
 }
