@@ -26,16 +26,16 @@ workspace "wasmlator"
 	filter ""
 
 project "wasmlator"
-	files { "env/**", "interface/**", "util/**", "repos/**", "entry/standalone.cpp", "entry/null-interface.cpp" }
+	files { "env/**", "interface/**", "trans/**", "repos/**", "entry/standalone.cpp", "entry/null-interface.cpp" }
 
 project "make-glue"
 	files { "glue/**", "repos/**", "entry/make-glue.cpp" }
 
 project "make-core"
-	files { "env/**", "interface/**", "util/**", "repos/**", "entry/make-core.cpp", "entry/null-interface.cpp" }
+	files { "env/**", "interface/**", "trans/**", "repos/**", "entry/make-core.cpp", "entry/null-interface.cpp" }
 
 project "make-block"
-	files { "env/**", "interface/**", "util/**", "repos/**", "entry/make-block.cpp", "entry/null-interface.cpp" }
+	files { "env/**", "interface/**", "trans/**", "repos/**", "entry/make-block.cpp", "entry/null-interface.cpp" }
 
 filter "configurations:debug"
 	symbols "On"

@@ -18,7 +18,7 @@ path_server := server
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1
 em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_SYMBOLS=0 -sWASM_BIGINT -sALLOW_MEMORY_GROWTH -sSTANDALONE_WASM\
- -sEXPORTED_FUNCTIONS=_main_startup,_ctx_core_loaded,_ctx_block_loaded,_ctx_translate,_ctx_terminated,_map_resolve,_map_flushed,_map_associate,_mem_lookup,_mem_result_address,_mem_result_physical,_mem_result_size
+ -sEXPORTED_FUNCTIONS=_main_startup,_proc_core_loaded,_proc_block_loaded,_ctx_set_exit_code,_map_resolve,_map_flushed,_map_associate,_mem_lookup,_mem_result_address,_mem_result_physical,_mem_result_size
 
 # default clang-compiler with all relevant flags
 cc := clang++ -std=c++20 -O3 -I./repos
@@ -68,10 +68,12 @@ _out_self := $(path_build)/self
 $(_out_self):
 	mkdir -p $(_out_self)
 self_objects := $(patsubst %,$(_out_self)/%.o,context-access context-bridge env-context env-mapping mapping-access mapping-bridge\
-				env-memory memory-access memory-bridge memory-interaction memory-mapper env-process interface logging)
+				env-memory memory-access memory-bridge memory-interaction memory-mapper env-process process-access process-bridge\
+				interface host address-writer trans-address context-builder context-writer mapping-builder mapping-writer memory-builder\
+				memory-writer trans-superblock trans-writer trans-translator)
 self_objects_cc := $(self_objects)
 self_objects_em := $(subst .o,.em.o,$(self_objects))
-_self_prerequisites := $(ustring_includes) $(ustring_includes) $(wasgen_objects) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard interface/*.h) $(wildcard util/*.h) | $(_out_self)
+_self_prerequisites := $(ustring_includes) $(ustring_includes) $(wasgen_objects) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard trans/*.h) $(wildcard trans/*/*.h) $(wildcard interface/*.h) | $(_out_self)
 $(_out_self)/context-access.o: env/context/context-access.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
@@ -90,6 +92,9 @@ $(_out_self)/mapping-bridge.o: env/mapping/mapping-bridge.cpp $(_self_prerequisi
 $(_out_self)/env-mapping.o: env/mapping/env-mapping.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
+$(_out_self)/env-memory.o: env/memory/env-memory.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
 $(_out_self)/memory-access.o: env/memory/memory-access.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
@@ -102,16 +107,52 @@ $(_out_self)/memory-interaction.o: env/memory/memory-interaction.cpp $(_self_pre
 $(_out_self)/memory-mapper.o: env/memory/memory-mapper.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/env-memory.o: env/memory/env-memory.cpp $(_self_prerequisites)
+$(_out_self)/env-process.o: env/env-process.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/env-process.o: env/env-process.cpp $(_self_prerequisites)
+$(_out_self)/process-access.o: env/process/process-access.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/process-bridge.o: env/process/process-bridge.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/interface.o: interface/interface.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/logging.o: util/logging.cpp $(_self_prerequisites)
+$(_out_self)/host.o: interface/host.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/address-writer.o: trans/address/address-writer.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/trans-address.o: trans/address/trans-address.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/context-builder.o: trans/context/context-builder.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/context-writer.o: trans/context/context-writer.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/mapping-builder.o: trans/mapping/mapping-builder.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/mapping-writer.o: trans/mapping/mapping-writer.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/memory-builder.o: trans/memory/memory-builder.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/memory-writer.o: trans/memory/memory-writer.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/trans-superblock.o: trans/translator/trans-superblock.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/trans-writer.o: trans/translator/trans-writer.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/trans-translator.o: trans/trans-translator.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 

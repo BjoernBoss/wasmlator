@@ -4,16 +4,22 @@
 
 #include "../interface/host.h"
 #include "../env/env-process.h"
+#include "../trans/trans-translator.h"
+
+struct TransInterface final : public trans::TranslationInterface {
+	void blockStarted() override {}
+	void blockCompleted() override {}
+	trans::Instruction fetch(env::guest_t addr) override {
+		return trans::Instruction{ 0, 0, 0, 0, trans::InstType::invalid };
+	}
+	void produce(const trans::Writer& writer, const trans::Instruction* data, size_t count) override {}
+};
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
-
-		env::Process* proc = env::Process::Create(u8"test_module", 4, [](env::guest_t addr) {}, [](int32_t) {});
-		if (proc == 0)
-			return false;
-		proc->setupBlockModule(mod);
-		proc->release();
+		TransInterface _interface;
+		trans::Translator _translator{ false, mod, &_interface, 4 };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());
@@ -24,6 +30,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 int main(int argc, char** argv) {
 	host::SetLogLevel(host::LogLevel::none);
+	env::Process::Create(4, 0);
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };
