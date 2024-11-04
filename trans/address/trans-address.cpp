@@ -13,22 +13,22 @@ trans::detail::Addresses::Placement& trans::detail::Addresses::fPush(env::guest_
 
 	/* check if the address has already been translated in another block */
 	if (env::Instance()->mapping().contains(address)) {
-		entry.index = pLinks++;
 		entry.alreadyExists = true;
 		pNeedsStartup = true;
-		return entry;
 	}
 
-	/* check if the depth-limit has been reached and the address therefore needs to be linked */
-	if (depth > pMaxDepth) {
+	/* check if the depth-limit has been reached or the entry already exists and setup the address-table required for linking */
+	if (entry.alreadyExists || depth > pMaxDepth) {
 		entry.index = pLinks++;
+		if (!pAddresses.valid())
+			pAddresses = pModule.table(u8"linked_addresses", true);
 		return entry;
 	}
 
 	/* allocate the address to this module */
 	entry.thisModule = true;
 	entry.incomplete = true;
-	entry.function = pModule.function(str::Format<str::LocalU8<128>>(u8"addr_0x{:#018x}", address), pBlockPrototype, wasm::Export{});
+	entry.function = pModule.function(str::Format<str::LocalU8<128>>(u8"addr_{:#018x}", address), pBlockPrototype, wasm::Export{});
 	pQueue.push({ address, depth });
 	return entry;
 }
@@ -43,7 +43,6 @@ void trans::detail::Addresses::pushRoot(env::guest_t address) {
 
 void trans::detail::Addresses::setup() {
 	pBlockPrototype = pModule.prototype(u8"block_type", {}, { wasm::Type::i64, wasm::Type::i32 });
-	pAddresses = pModule.table(u8"linked_addresses", true);
 }
 const wasm::Prototype& trans::detail::Addresses::blockPrototype() {
 	return pBlockPrototype;
@@ -66,7 +65,8 @@ trans::detail::OpenAddress trans::detail::Addresses::start() {
 }
 std::vector<env::BlockExport> trans::detail::Addresses::close(const detail::MappingState& mappingState) {
 	/* setup the addresses-table limit */
-	pModule.limit(pAddresses, wasm::Limit{ uint32_t(pLinks), uint32_t(pLinks) });
+	if (pAddresses.valid())
+		pModule.limit(pAddresses, wasm::Limit{ uint32_t(pLinks), uint32_t(pLinks) });
 
 	/* ensure that all functions have been written and collect the exports */
 	std::vector<env::BlockExport> exports;
