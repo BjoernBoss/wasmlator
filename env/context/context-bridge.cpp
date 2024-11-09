@@ -5,9 +5,9 @@ void env::detail::ContextBridge::SetExitCode(int32_t code) {
 	env::Instance()->context().fSetExitCode(code);
 }
 
-void env::detail::ContextBridge::Read(uint32_t offset, uint8_t* data, uint32_t size) {
-	ctx_read(offset, data, size);
+uint64_t env::detail::ContextBridge::Read(uint32_t offset, uint32_t size) {
+	return ctx_read(offset, size);
 }
-void env::detail::ContextBridge::Write(uint32_t offset, const uint8_t* data, uint32_t size) {
-	ctx_write(offset, data, size);
+void env::detail::ContextBridge::Write(uint32_t offset, uint32_t size, uint64_t value) {
+	ctx_write(offset, size, value);
 }

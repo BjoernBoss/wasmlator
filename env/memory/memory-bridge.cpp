@@ -24,77 +24,12 @@ void env::detail::MemoryBridge::FlushCaches() {
 	mem_flush_caches();
 }
 
-uint32_t env::detail::MemoryBridge::Readi32Fromu8(env::guest_t address) {
-	return mem_read_u8_i32(address);
+uint64_t env::detail::MemoryBridge::Read(env::guest_t address, uint32_t size) {
+	return mem_read(address, size);
 }
-uint32_t env::detail::MemoryBridge::Readi32Fromi8(env::guest_t address) {
-	return mem_read_i8_i32(address);
+void env::detail::MemoryBridge::Write(env::guest_t address, uint32_t size, uint64_t value) {
+	mem_write(address, size, value);
 }
-uint32_t env::detail::MemoryBridge::Readi32Fromu16(env::guest_t address) {
-	return mem_read_u16_i32(address);
-}
-uint32_t env::detail::MemoryBridge::Readi32Fromi16(env::guest_t address) {
-	return mem_read_i16_i32(address);
-}
-uint32_t env::detail::MemoryBridge::Readi32(env::guest_t address) {
-	return mem_read_i32(address);
-}
-uint64_t env::detail::MemoryBridge::Readi64(env::guest_t address) {
-	return mem_read_i64(address);
-}
-float env::detail::MemoryBridge::Readf32(env::guest_t address) {
-	return mem_read_f32(address);
-}
-double env::detail::MemoryBridge::Readf64(env::guest_t address) {
-	return mem_read_f64(address);
-}
-
-void env::detail::MemoryBridge::Writei32Fromu8(env::guest_t address, uint32_t value) {
-	mem_write_u8_i32(address, value);
-}
-void env::detail::MemoryBridge::Writei32Fromi8(env::guest_t address, uint32_t value) {
-	mem_write_i8_i32(address, value);
-}
-void env::detail::MemoryBridge::Writei32Fromu16(env::guest_t address, uint32_t value) {
-	mem_write_u16_i32(address, value);
-}
-void env::detail::MemoryBridge::Writei32Fromi16(env::guest_t address, uint32_t value) {
-	mem_write_i16_i32(address, value);
-}
-void env::detail::MemoryBridge::Writei32(env::guest_t address, uint32_t value) {
-	mem_write_i32(address, value);
-}
-void env::detail::MemoryBridge::Writei64(env::guest_t address, uint64_t value) {
-	mem_write_i64(address, value);
-}
-void env::detail::MemoryBridge::Writef32(env::guest_t address, float value) {
-	mem_write_f32(address, value);
-}
-void env::detail::MemoryBridge::Writef64(env::guest_t address, double value) {
-	mem_write_f64(address, value);
-}
-
-uint32_t env::detail::MemoryBridge::Codei32Fromu8(env::guest_t address) {
-	return mem_code_u8_i32(address);
-}
-uint32_t env::detail::MemoryBridge::Codei32Fromi8(env::guest_t address) {
-	return mem_code_i8_i32(address);
-}
-uint32_t env::detail::MemoryBridge::Codei32Fromu16(env::guest_t address) {
-	return mem_code_u16_i32(address);
-}
-uint32_t env::detail::MemoryBridge::Codei32Fromi16(env::guest_t address) {
-	return mem_code_i16_i32(address);
-}
-uint32_t env::detail::MemoryBridge::Codei32(env::guest_t address) {
-	return mem_code_i32(address);
-}
-uint64_t env::detail::MemoryBridge::Codei64(env::guest_t address) {
-	return mem_code_i64(address);
-}
-float env::detail::MemoryBridge::Codef32(env::guest_t address) {
-	return mem_code_f32(address);
-}
-double env::detail::MemoryBridge::Codef64(env::guest_t address) {
-	return mem_code_f64(address);
+uint64_t env::detail::MemoryBridge::Code(env::guest_t address, uint32_t size) {
+	return mem_code(address, size);
 }

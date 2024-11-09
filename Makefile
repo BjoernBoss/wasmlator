@@ -18,7 +18,7 @@ path_server := server
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1
 em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_SYMBOLS=0 -sWASM_BIGINT -sALLOW_MEMORY_GROWTH -sSTANDALONE_WASM\
- -sEXPORTED_FUNCTIONS=_main_startup,_proc_core_loaded,_proc_block_loaded,_ctx_set_exit_code,_map_resolve,_map_flushed,_map_associate,_mem_lookup,_mem_result_address,_mem_result_physical,_mem_result_size
+ -sEXPORTED_FUNCTIONS=_main_startup,_main_core_loaded,_main_set_exit_code,_main_resolve,_main_flushed,_main_block_loaded,_main_lookup,_main_result_address,_main_result_physical,_main_result_size
 
 # default clang-compiler with all relevant flags
 cc := clang++ -std=c++20 -O3 -I./repos
@@ -68,9 +68,9 @@ _out_self := $(path_build)/self
 $(_out_self):
 	mkdir -p $(_out_self)
 self_objects := $(patsubst %,$(_out_self)/%.o,context-access context-bridge env-context env-mapping mapping-access mapping-bridge\
-				env-memory memory-access memory-bridge memory-interaction memory-mapper env-process process-access process-bridge\
-				interface host address-writer trans-address context-builder context-writer mapping-builder mapping-writer memory-builder\
-				memory-writer trans-superblock trans-writer trans-translator)
+				env-memory memory-access memory-bridge memory-mapper env-process process-access process-bridge interface\
+				host address-writer trans-address context-builder context-writer mapping-builder mapping-writer memory-builder\
+				memory-writer trans-superblock trans-writer trans-core glue-state trans-glue trans-translator)
 self_objects_cc := $(self_objects)
 self_objects_em := $(subst .o,.em.o,$(self_objects))
 _self_prerequisites := $(ustring_includes) $(ustring_includes) $(wasgen_objects) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard trans/*.h) $(wildcard trans/*/*.h) $(wildcard interface/*.h) | $(_out_self)
@@ -99,9 +99,6 @@ $(_out_self)/memory-access.o: env/memory/memory-access.cpp $(_self_prerequisites
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/memory-bridge.o: env/memory/memory-bridge.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/memory-interaction.o: env/memory/memory-interaction.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/memory-mapper.o: env/memory/memory-mapper.cpp $(_self_prerequisites)
@@ -152,27 +149,23 @@ $(_out_self)/trans-superblock.o: trans/translator/trans-superblock.cpp $(_self_p
 $(_out_self)/trans-writer.o: trans/translator/trans-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
+$(_out_self)/trans-core.o: trans/core/trans-core.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/glue-state.o: trans/glue/glue-state.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/trans-glue.o: trans/glue/trans-glue.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
 $(_out_self)/trans-translator.o: trans/trans-translator.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 
 # make-glue.exe compilation
-_out_glue := $(path_build)/glue
-$(_out_glue):
-	mkdir -p $(_out_glue)
-_glue_objects := $(patsubst %, $(_out_glue)/%.o, context host initialize setup)
-_glue_prerequisites := $(wildcard glue/*.h) $(wasgen_includes) $(ustring_includes) | $(_out_glue)
 glue_path := $(path_build)/make-glue.exe
-$(_out_glue)/context.o: glue/context-functions.cpp $(_glue_prerequisites)
-	$(cc) -c $< -o $@
-$(_out_glue)/host.o: glue/host-functions.cpp $(_glue_prerequisites)
-	$(cc) -c $< -o $@
-$(_out_glue)/initialize.o: glue/initialize-state.cpp $(_glue_prerequisites)
-	$(cc) -c $< -o $@
-$(_out_glue)/setup.o: glue/setup-functions.cpp $(_glue_prerequisites)
-	$(cc) -c $< -o $@
-$(glue_path): entry/make-glue.cpp $(_glue_objects) $(wasgen_objects) $(_glue_prerequisites)
-	$(cc) $< $(_glue_objects) $(wasgen_objects_cc) -o $@
+$(glue_path): entry/make-glue.cpp entry/null-interface.cpp $(self_objects)
+	$(cc) entry/make-glue.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
 
 # make-block.exe compilation
 block_path := $(path_build)/make-block.exe

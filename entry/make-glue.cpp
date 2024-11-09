@@ -2,20 +2,12 @@
 #include <wasgen/wasm.h>
 #include <fstream>
 
-#include "../glue/generate.h"
+#include "../trans/glue/trans-glue.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
-		glue::State state{ writer };
-
-		glue::SetupHostImports(state);
-
-		glue::InitializeState(state);
-
-		glue::SetupHostBody(state);
-		glue::SetupContextFunctions(state);
-		glue::SetupMapFunctions(state);
-		glue::SetupMemoryFunctions(state);
+		wasm::Module mod{ writer };
+		trans::SetupGlue(mod);
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());
@@ -25,6 +17,8 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 }
 
 int main(int argc, char** argv) {
+	host::SetLogLevel(host::LogLevel::none);
+
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };
 

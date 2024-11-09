@@ -3,7 +3,7 @@
 
 namespace I = wasm::inst;
 
-void trans::detail::MemoryBuilder::fMakeLookup(const detail::MemoryState& state, const wasm::Function& function, uint32_t usage) const {
+void trans::detail::MemoryBuilder::fMakeLookup(const wasm::Memory& management, const wasm::Function& function, uint32_t usage) const {
 	wasm::Sink sink{ function };
 	wasm::Variable address = sink.parameter(0), size = sink.parameter(1), cacheAddress = sink.parameter(2);
 
@@ -29,10 +29,10 @@ void trans::detail::MemoryBuilder::fMakeLookup(const detail::MemoryState& state,
 	/* write the address and physical offset back */
 	sink[I::Local::Get(cacheAddress)];
 	sink[I::Local::Get(outAddr)];
-	sink[I::U64::Store(state.management, offsetof(env::detail::MemoryCache, address))];
+	sink[I::U64::Store(management, offsetof(env::detail::MemoryCache, address))];
 	sink[I::Local::Get(cacheAddress)];
 	sink[I::Local::Get(outPhys)];
-	sink[I::U32::Store(state.management, offsetof(env::detail::MemoryCache, physical))];
+	sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, physical))];
 
 	/* write the different sizes back */
 	for (uint32_t i = 1; i <= 8; i *= 2) {
@@ -42,16 +42,16 @@ void trans::detail::MemoryBuilder::fMakeLookup(const detail::MemoryState& state,
 		sink[I::U32::Sub()];
 		switch (i) {
 		case 1:
-			sink[I::U32::Store(state.management, offsetof(env::detail::MemoryCache, size1))];
+			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size1))];
 			break;
 		case 2:
-			sink[I::U32::Store(state.management, offsetof(env::detail::MemoryCache, size2))];
+			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size2))];
 			break;
 		case 4:
-			sink[I::U32::Store(state.management, offsetof(env::detail::MemoryCache, size4))];
+			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size4))];
 			break;
 		case 8:
-			sink[I::U32::Store(state.management, offsetof(env::detail::MemoryCache, size8))];
+			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size8))];
 			break;
 		}
 	}
@@ -64,61 +64,42 @@ void trans::detail::MemoryBuilder::fMakeLookup(const detail::MemoryState& state,
 	sink[I::Local::Get(outPhys)];
 	sink[I::U32::Add()];
 }
-void trans::detail::MemoryBuilder::fMakeAccess(wasm::Module& mod, const detail::MemoryState& state, wasm::Type type, std::u8string_view name, trans::MemoryType memoryType) const {
-	wasm::Sink read{ mod.function(str::Build<std::u8string>(u8"mem_read_", name), { wasm::Type::i64 }, { type }, wasm::Export{}) };
-	wasm::Sink write{ mod.function(str::Build<std::u8string>(u8"mem_write_", name), { wasm::Type::i64, type }, {}, wasm::Export{}) };
-	wasm::Sink code{ mod.function(str::Build<std::u8string>(u8"mem_code_", name), { wasm::Type::i64 }, { type }, wasm::Export{}) };
 
-	/* make the read, write, and code function */
-	read[I::Local::Get(read.parameter(0))];
-	detail::MemoryWriter{ state, read }.fMakeRead(env::detail::MemoryAccess{}.readCache(), memoryType);
-
-	code[I::Local::Get(code.parameter(0))];
-	detail::MemoryWriter{ state, code }.fMakeCode(env::detail::MemoryAccess{}.codeCache(), memoryType);
-
-	write[I::Local::Get(write.parameter(0))];
-	detail::MemoryWriter{ state, write }.fMakeWrite(write.parameter(1), env::detail::MemoryAccess{}.writeCache(), memoryType);
+void trans::detail::MemoryBuilder::setupGlueMappings(detail::GlueState& glue) {
+	glue.define(u8"mem_flush_caches", {}, {});
+	glue.define(u8"mem_expand_physical", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
+	glue.define(u8"mem_move_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+	glue.define(u8"mem_read", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
+	glue.define(u8"mem_write", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"value", wasm::Type::i64 } }, {});
+	glue.define(u8"mem_code", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
 }
-
-void trans::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod, detail::MemoryState& state) {
+void trans::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod) {
 	/* add the import to the lookup-function */
-	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_type",
-		{ { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } },
-		{}
-	);
-	pLookup = mod.function(u8"lookup", prototype, wasm::Import{ u8"mem" });
+	wasm::Prototype prototype = mod.prototype(u8"main_lookup_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {});
+	pLookup = mod.function(u8"main_lookup", prototype, wasm::Import{ u8"main" });
 
-	prototype = mod.prototype(u8"mem_lookup_i64_type", {}, { wasm::Type::i64 });
-	pGetAddress = mod.function(u8"result_address", prototype, wasm::Import{ u8"mem" });
+	prototype = mod.prototype(u8"main_lookup_i64_type", {}, { wasm::Type::i64 });
+	pGetAddress = mod.function(u8"main_result_address", prototype, wasm::Import{ u8"main" });
 
-	prototype = mod.prototype(u8"mem_lookup_i32_type", {}, { wasm::Type::i32 });
-	pGetPhysical = mod.function(u8"result_physical", prototype, wasm::Import{ u8"mem" });
-	pGetSize = mod.function(u8"result_size", prototype, wasm::Import{ u8"mem" });
+	prototype = mod.prototype(u8"main_lookup_i32_type", {}, { wasm::Type::i32 });
+	pGetPhysical = mod.function(u8"main_result_physical", prototype, wasm::Import{ u8"main" });
+	pGetSize = mod.function(u8"main_result_size", prototype, wasm::Import{ u8"main" });
 }
-void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, detail::MemoryState& state) const {
+void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical) const {
 	uint32_t caches = env::detail::MemoryAccess{}.caches();
 	uint32_t cacheAddress = env::detail::MemoryAccess{}.cacheAddress();
+	detail::MemoryState state{ {}, {}, {}, management, physical };
 
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
-	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache_address", wasm::Type::i32 } }, { wasm::Type::i32 });
+	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
 	state.read = mod.function(u8"mem_lookup_read", prototype, wasm::Export{});
 	state.write = mod.function(u8"mem_lookup_write", prototype, wasm::Export{});
 	state.code = mod.function(u8"mem_lookup_code", prototype, wasm::Export{});
 
 	/* add the actual implementations */
-	fMakeLookup(state, state.read, env::MemoryUsage::Read);
-	fMakeLookup(state, state.write, env::MemoryUsage::Write);
-	fMakeLookup(state, state.code, env::MemoryUsage::Execute);
-
-	/* add the separate access functions */
-	fMakeAccess(mod, state, wasm::Type::i32, u8"u8_i32", trans::MemoryType::u8To32);
-	fMakeAccess(mod, state, wasm::Type::i32, u8"i8_i32", trans::MemoryType::i8To32);
-	fMakeAccess(mod, state, wasm::Type::i32, u8"u16_i32", trans::MemoryType::u16To32);
-	fMakeAccess(mod, state, wasm::Type::i32, u8"i16_i32", trans::MemoryType::i16To32);
-	fMakeAccess(mod, state, wasm::Type::i32, u8"i32", trans::MemoryType::i32);
-	fMakeAccess(mod, state, wasm::Type::i64, u8"i64", trans::MemoryType::i64);
-	fMakeAccess(mod, state, wasm::Type::f32, u8"f32", trans::MemoryType::f32);
-	fMakeAccess(mod, state, wasm::Type::f64, u8"f64", trans::MemoryType::f64);
+	fMakeLookup(management, state.read, env::MemoryUsage::Read);
+	fMakeLookup(management, state.write, env::MemoryUsage::Write);
+	fMakeLookup(management, state.code, env::MemoryUsage::Execute);
 
 	/* add the cache-flushing function */
 	{
@@ -133,7 +114,7 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, detail::Memo
 		/* size */
 		sink[I::U32::Const(uint64_t(caches + env::detail::InternalCaches) * sizeof(env::detail::MemoryCache))];
 
-		sink[I::Memory::Fill(state.management)];
+		sink[I::Memory::Fill(management)];
 	}
 
 	/* add the memory-expansion function */
@@ -144,7 +125,7 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, detail::Memo
 		/* number of pages to grow by */
 		sink[I::Local::Get(sink.parameter(0))];
 
-		sink[I::Memory::Grow(state.physical)];
+		sink[I::Memory::Grow(physical)];
 
 		/* convert result to 1 or 0 */
 		sink[I::I32::Const(0)];
@@ -171,13 +152,106 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, detail::Memo
 		/* size */
 		sink[I::Local::Get(sink.parameter(2))];
 
-		sink[I::Memory::Copy(state.physical)];
+		sink[I::Memory::Copy(physical)];
+	}
+
+	/* add the read-access function */
+	{
+		prototype = mod.prototype(u8"mem_read", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
+		wasm::Sink sink{ mod.function(u8"mem_read", prototype, wasm::Export{}) };
+		detail::MemoryWriter _writer{ state, sink };
+
+		sink[I::Local::Get(sink.parameter(0))];
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::U32::TrailingNulls()];
+		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
+		_block1.close();
+		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), trans::MemoryType::u8To64);
+		sink[I::Return()];
+
+		_block2.close();
+		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), trans::MemoryType::u16To64);
+		sink[I::Return()];
+
+		_block4.close();
+		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), trans::MemoryType::u32To64);
+		sink[I::Return()];
+
+		_block8.close();
+		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), trans::MemoryType::i64);
+	}
+
+	/* add the write-access function */
+	{
+		prototype = mod.prototype(u8"mem_write", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"value", wasm::Type::i64 } }, {});
+		wasm::Sink sink{ mod.function(u8"mem_write", prototype, wasm::Export{}) };
+		detail::MemoryWriter _writer{ state, sink };
+
+		sink[I::Local::Get(sink.parameter(0))];
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::U32::TrailingNulls()];
+		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
+		_block1.close();
+		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u8To64);
+		sink[I::Return()];
+
+		_block2.close();
+		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u16To64);
+		sink[I::Return()];
+
+		_block4.close();
+		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u32To64);
+		sink[I::Return()];
+
+		_block8.close();
+		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::i64);
+	}
+
+	/* add the code-access function */
+	{
+		prototype = mod.prototype(u8"mem_code", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
+		wasm::Sink sink{ mod.function(u8"mem_code", prototype, wasm::Export{}) };
+		detail::MemoryWriter _writer{ state, sink };
+
+		sink[I::Local::Get(sink.parameter(0))];
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::U32::TrailingNulls()];
+		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
+		_block1.close();
+		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), trans::MemoryType::u8To64);
+		sink[I::Return()];
+
+		_block2.close();
+		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), trans::MemoryType::u16To64);
+		sink[I::Return()];
+
+		_block4.close();
+		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), trans::MemoryType::u32To64);
+		sink[I::Return()];
+
+		_block8.close();
+		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), trans::MemoryType::i64);
 	}
 }
-void trans::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, detail::MemoryState& state) const {
+void trans::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical, detail::MemoryState& state) const {
+	state.management = management;
+	state.physical = physical;
+
 	/* add the function-imports for the page-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"addr", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
-	state.read = mod.function(u8"lookup_read", prototype, wasm::Import{ u8"mem" });
-	state.write = mod.function(u8"lookup_write", prototype, wasm::Import{ u8"mem" });
-	state.code = mod.function(u8"lookup_code", prototype, wasm::Import{ u8"mem" });
+	state.read = mod.function(u8"mem_lookup_read", prototype, wasm::Import{ u8"core" });
+	state.write = mod.function(u8"mem_lookup_write", prototype, wasm::Import{ u8"core" });
+	state.code = mod.function(u8"mem_lookup_code", prototype, wasm::Import{ u8"core" });
 }

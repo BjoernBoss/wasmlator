@@ -19,7 +19,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
 		TransInterface _interface;
-		trans::Translator _translator{ false, mod, &_interface, 4 };
+		trans::Translator _translator{ mod, &_interface, 4 };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());

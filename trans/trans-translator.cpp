@@ -1,38 +1,6 @@
 #include "trans-translator.h"
 
-trans::Translator::Translator(bool core, wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) : pAddresses{ mod, maxDepth }, pInterface{ interface } {
-	if (core)
-		fSetupForCore(mod);
-	else
-		fSetupForBlock(mod);
-}
-
-void trans::Translator::fSetupForCore(wasm::Module& mod) {
-	detail::MemoryBuilder _memory;
-	detail::MappingBuilder _mapping;
-	detail::ContextBuilder _context;
-
-	/* initialize the core-imports */
-	_memory.setupCoreImports(mod, pMemory);
-	_mapping.setupCoreImports(mod, pMapping);
-	_context.setupCoreImports(mod, pContext);
-
-	/* setup the shared components */
-	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
-	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Export{});
-	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
-	pMemory.physical = physical;
-	pMemory.management = (pMapping.management = (pContext.management = management));
-
-	/* setup the core-bodies */
-	_memory.setupCoreBody(mod, pMemory);
-	_mapping.setupCoreBody(mod, pMapping);
-	_context.setupCoreBody(mod, pContext);
-
-	/* setup the components of the translator-members */
-	pAddresses.setup();
-}
-void trans::Translator::fSetupForBlock(wasm::Module& mod) {
+trans::Translator::Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth) : pAddresses{ mod, maxDepth }, pInterface{ interface } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
@@ -41,17 +9,16 @@ void trans::Translator::fSetupForBlock(wasm::Module& mod) {
 	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
 	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Import{ u8"core" });
 	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
-	pMemory.physical = physical;
-	pMemory.management = (pMapping.management = (pContext.management = management));
 
 	/* initialize the block-imports */
-	_memory.setupBlockImports(mod, pMemory);
+	_memory.setupBlockImports(mod, management, physical, pMemory);
 	_mapping.setupBlockImports(mod, pMapping);
-	_context.setupBlockImports(mod, pContext);
+	_context.setupBlockImports(mod, management, pContext);
 
 	/* setup the components of the translator-members */
 	pAddresses.setup();
 }
+
 void trans::Translator::fProcess(const detail::OpenAddress& next) {
 	detail::SuperBlock block;
 

@@ -6,6 +6,7 @@
 #include "../interface/host.h"
 #include "../env/env-process.h"
 #include "../trans/trans-translator.h"
+#include "../trans/core/trans-core.h"
 
 struct CPUContext {
 	uint32_t eax = 0;
@@ -49,28 +50,37 @@ struct TransInterface final : public trans::TranslationInterface {
 	}
 };
 
-void main_startup() {
-	host::Log(u8"Main: Application startup entered");
-	env::Process::Create(4, sizeof(CPUContext));
-
+static void translate(env::guest_t address) {
 	writer::TextWriter _writer;
 	wasm::Module _module{ &_writer };
-	TransInterface _interface;
 
-	trans::Translator _translator{ true, _module, &_interface, 4 };
+	TransInterface _interface;
+	trans::Translator _translator{ _module, &_interface, 4 };
+
 	_translator.run(0x1234);
 	_translator.run(0x5678);
 
 	std::vector<env::BlockExport> exported = _translator.close();
 	_module.close();
 
-	const std::u8string test = _writer.output();
+	host::Log(_writer.output());
+}
 
-	//const std::vector<uint8_t>& data = _writer.output();
-	//
-	//env::Instance()->loadCore(data.data(), data.size(), exported, []() {
-	//	env::Instance()->mapping().execute(0x1234);
-	//	});
+void main_startup() {
+	host::Log(u8"Main: Application startup entered");
+	env::Process::Create(4, sizeof(CPUContext));
+
+	/* setup the core */
+	writer::BinaryWriter _writer;
+	wasm::Module _module{ &_writer };
+	trans::SetupCore(_module);
+
+	/* upload the core */
+	const std::vector<uint8_t>& data = _writer.output();
+	env::Instance()->loadCore(data.data(), data.size(), []() {
+
+		translate(0x1234);
+		});
 
 	host::Log(u8"Main: Application startup exited");
 }

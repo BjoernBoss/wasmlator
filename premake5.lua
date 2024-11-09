@@ -3,6 +3,8 @@ newaction {
 	description = "Remove all build artifacts",
 	execute     = function ()
 		os.rmdir("./build")
+		os.rmdir("./server/wat")
+		os.rmdir("./server/wasm")
 		print("All artifacts have been removed.")
 	end
 }
@@ -29,7 +31,7 @@ project "wasmlator"
 	files { "env/**", "interface/**", "trans/**", "repos/**", "entry/standalone.cpp", "entry/null-interface.cpp" }
 
 project "make-glue"
-	files { "glue/**", "repos/**", "entry/make-glue.cpp" }
+	files { "env/**", "interface/**", "trans/**", "repos/**", "entry/make-core.cpp", "entry/null-interface.cpp" }
 
 project "make-core"
 	files { "env/**", "interface/**", "trans/**", "repos/**", "entry/make-core.cpp", "entry/null-interface.cpp" }

@@ -15,7 +15,6 @@ namespace env {
 		friend struct detail::ProcessAccess;
 	private:
 		std::function<void()> pLoaded;
-		std::vector<env::BlockExport> pExports;
 		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
@@ -33,14 +32,10 @@ namespace env {
 
 	private:
 		void fCoreLoaded(bool succeeded);
-		void fBlockLoaded(bool succeeded);
 
 	public:
+		void loadCore(const uint8_t* data, size_t size, std::function<void()> callback);
 		void release();
-
-	public:
-		void loadCore(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback);
-		void loadBlock(const uint8_t* data, size_t size, const std::vector<env::BlockExport>& exports, std::function<void()> callback);
 
 	public:
 		const env::Context& context() const;

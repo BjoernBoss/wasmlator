@@ -25,13 +25,11 @@ namespace trans {
 		trans::TranslationInterface* pInterface = 0;
 
 	public:
-		Translator(bool core, wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
+		Translator(wasm::Module& mod, trans::TranslationInterface* interface, size_t maxDepth);
 		Translator(trans::Translator&&) = delete;
 		Translator(const trans::Translator&) = delete;
 
 	private:
-		void fSetupForCore(wasm::Module& mod);
-		void fSetupForBlock(wasm::Module& mod);
 		void fProcess(const detail::OpenAddress& next);
 
 	public:

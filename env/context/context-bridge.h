@@ -8,7 +8,7 @@ namespace env::detail {
 		static void SetExitCode(int32_t code);
 
 		/* imports */
-		static void Read(uint32_t offset, uint8_t* data, uint32_t size);
-		static void Write(uint32_t offset, const uint8_t* data, uint32_t size);
+		static uint64_t Read(uint32_t offset, uint32_t size);
+		static void Write(uint32_t offset, uint32_t size, uint64_t value);
 	};
 }

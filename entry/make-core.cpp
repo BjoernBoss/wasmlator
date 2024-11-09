@@ -4,22 +4,12 @@
 
 #include "../interface/host.h"
 #include "../env/env-process.h"
-#include "../trans/trans-translator.h"
-
-struct TransInterface final : public trans::TranslationInterface {
-	void blockStarted() override {}
-	void blockCompleted() override {}
-	trans::Instruction fetch(env::guest_t addr) override {
-		return trans::Instruction{ 0, 0, 0, 0, trans::InstType::invalid };
-	}
-	void produce(const trans::Writer& writer, const trans::Instruction* data, size_t count) override {}
-};
+#include "../trans/core/trans-core.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
-		TransInterface _interface;
-		trans::Translator _translator{ true, mod, &_interface, 4 };
+		trans::SetupCore(mod);
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());
