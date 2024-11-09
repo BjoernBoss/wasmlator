@@ -49,7 +49,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 		wasm::Prototype prototype = mod.prototype(u8"map_lookup_type", { { u8"addr", wasm::Type::i64 } }, { wasm::Type::i32 });
 		state.lookup = mod.function(u8"map_lookup", prototype, wasm::Export{});
 		wasm::Sink sink{ state.lookup };
-		wasm::Variable address = sink.parameter(0);
+		wasm::Variable address = sink.param(0);
 		wasm::Variable hashAddress = sink.local(wasm::Type::i32, u8"hash_address");
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"index");
 
@@ -156,7 +156,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 
 		/* check if the functions-table needs to be resized to accommodate the exports */
 		sink[I::Global::Get(functionCount)];
-		sink[I::Local::Get(sink.parameter(2))];
+		sink[I::Param::Get(2)];
 		sink[I::U32::Add()];
 		sink[I::Local::Tee(finalCount)];
 		sink[I::Table::Size(state.functions)];
@@ -191,8 +191,8 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 		sink[I::U32::Store(management)];
 
 		/* perform the actual load-request */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Param::Get(0)];
+		sink[I::Param::Get(1)];
 		sink[I::Call::Direct(pLoadBlock)];
 
 		/* return 1 to indicate success */
@@ -205,7 +205,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 		wasm::Sink sink{ mod.function(u8"map_block_loaded", prototype, wasm::Export{}) };
 
 		/* check if the load failed and notify the main application */
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 		sink[I::Ref::IsNull()];
 		{
 			wasm::IfThen _if{ sink };
@@ -215,7 +215,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 
 		/* write the instance to the last index of the blocks-list (must already be reserved, therefore no bounds-checking) */
 		sink[I::Global::Get(blockCount)];
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 		sink[I::Table::Set(blocks)];
 
 		/* increment the block-counter */
@@ -248,8 +248,8 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 		sink[I::Table::Get(blocks)];
 
 		/* perform the load of the actual function */
-		sink[I::Local::Get(sink.parameter(0))];
-		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Param::Get(0)];
+		sink[I::Param::Get(1)];
 		sink[I::Call::Direct(pGetExport)];
 		sink[I::Local::Tee(func)];
 
@@ -284,7 +284,7 @@ void trans::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm:
 		wasm::Sink sink{ mod.function(u8"map_execute", prototype, wasm::Export{}) };
 		wasm::Variable result = sink.local(wasm::Type::i32, u8"result");
 
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 
 		/* simply perform the lookup and execution until the result-code is not execute anymore */
 		wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };

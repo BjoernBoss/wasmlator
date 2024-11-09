@@ -5,7 +5,7 @@ namespace I = wasm::inst;
 
 void trans::detail::MemoryBuilder::fMakeLookup(const wasm::Memory& management, const wasm::Function& function, uint32_t usage) const {
 	wasm::Sink sink{ function };
-	wasm::Variable address = sink.parameter(0), size = sink.parameter(1), cacheAddress = sink.parameter(2);
+	wasm::Variable address = sink.param(0), size = sink.param(1), cacheAddress = sink.param(2);
 
 	/* allocate the local variables necessary to write the temporary result back */
 	wasm::Variable outAddr = sink.local(wasm::Type::i64, u8"out_address");
@@ -123,7 +123,7 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::
 		wasm::Sink sink{ mod.function(u8"mem_expand_physical", expandPhysicalType, wasm::Export{}) };
 
 		/* number of pages to grow by */
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 
 		sink[I::Memory::Grow(physical)];
 
@@ -144,13 +144,13 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::
 		wasm::Sink sink{ mod.function(u8"mem_move_physical", movePhysicalType, wasm::Export{}) };
 
 		/* destination-address */
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 
 		/* source-address */
-		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Param::Get(1)];
 
 		/* size */
-		sink[I::Local::Get(sink.parameter(2))];
+		sink[I::Param::Get(2)];
 
 		sink[I::Memory::Copy(physical)];
 	}
@@ -161,12 +161,12 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::
 		wasm::Sink sink{ mod.function(u8"mem_read", prototype, wasm::Export{}) };
 		detail::MemoryWriter _writer{ state, sink };
 
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
@@ -191,28 +191,28 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::
 		wasm::Sink sink{ mod.function(u8"mem_write", prototype, wasm::Export{}) };
 		detail::MemoryWriter _writer{ state, sink };
 
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u8To64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u8To64);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u16To64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u16To64);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u32To64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::u32To64);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeWrite(sink.parameter(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::i64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), trans::MemoryType::i64);
 	}
 
 	/* add the code-access function */
@@ -221,12 +221,12 @@ void trans::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::
 		wasm::Sink sink{ mod.function(u8"mem_code", prototype, wasm::Export{}) };
 		detail::MemoryWriter _writer{ state, sink };
 
-		sink[I::Local::Get(sink.parameter(0))];
+		sink[I::Param::Get(0)];
 		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		sink[I::Local::Get(sink.parameter(1))];
+		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();

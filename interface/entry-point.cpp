@@ -74,6 +74,7 @@ void main_startup() {
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
 	trans::SetupCore(_module);
+	_module.close();
 
 	/* upload the core */
 	const std::vector<uint8_t>& data = _writer.output();

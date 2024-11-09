@@ -5,8 +5,8 @@ namespace I = wasm::inst;
 trans::detail::GlueState::GlueState(wasm::Module& mod) : pModule{ mod } {}
 void trans::detail::GlueState::setup() {
 	/* define the imports */
-	wasm::Prototype prototype = pModule.prototype(u8"get_export_type", { { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
-	pGetExport = pModule.function(u8"get_export", prototype, wasm::Import{ u8"host" });
+	wasm::Prototype prototype = pModule.prototype(u8"host_get_export_type", { { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
+	pGetExport = pModule.function(u8"host_get_export", prototype, wasm::Import{ u8"host" });
 
 	/* define the table and memory */
 	pFunctions = pModule.table(u8"function_list", true);
@@ -20,7 +20,7 @@ void trans::detail::GlueState::define(std::u8string_view name, std::initializer_
 
 	/* write the parameter to the stack */
 	for (uint32_t i = 0; i < params.size(); ++i)
-		sink[I::Local::Get(sink.parameter(i))];
+		sink[I::Local::Get(sink.param(i))];
 	sink[I::U32::Const(pLoaded.size())];
 	sink[I::Call::IndirectTail(pFunctions, prototype)];
 
@@ -40,8 +40,8 @@ void trans::detail::GlueState::complete() {
 	pModule.limit(pFunctions, wasm::Limit{ entries, entries });
 
 	/* add the setup-core-functions function */
-	wasm::Prototype prototype = pModule.prototype(u8"setup_core_functions_type", {}, { wasm::Type::i32 });
-	wasm::Sink sink{ pModule.function(u8"setup_core_functions", prototype, wasm::Export{}) };
+	wasm::Prototype prototype = pModule.prototype(u8"proc_setup_core_functions_type", {}, { wasm::Type::i32 });
+	wasm::Sink sink{ pModule.function(u8"proc_setup_core_functions", prototype, wasm::Export{}) };
 	wasm::Variable func = sink.local(wasm::Type::refFunction, u8"exported_function");
 	for (size_t i = 0; i < pLoaded.size(); ++i) {
 		/* fetch the export from the core module */

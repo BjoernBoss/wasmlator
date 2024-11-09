@@ -10,7 +10,8 @@ let _state = {
 		wasm: null,
 		memory: null,
 		exports: {}
-	}
+	},
+	core_exports: null
 };
 
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
@@ -28,14 +29,8 @@ _state.abortControlled = function () {
 	throw new _ControlledAbort();
 }
 
-/* create a string from the utf-8 encoded data at ptr in the glue application */
-_state.load_glue_string = function (ptr, size) {
-	let view = new DataView(_state.glue.memory.buffer, ptr, size);
-	return new TextDecoder('utf-8').decode(view);
-}
-
 /* create a string from the utf-8 encoded data at ptr in the main application */
-_state.load_main_string = function (ptr, size) {
+_state.load_string = function (ptr, size) {
 	let view = new DataView(_state.main.memory.buffer, ptr, size);
 	return new TextDecoder('utf-8').decode(view);
 }
@@ -49,43 +44,19 @@ _state.make_buffer = function (ptr, size) {
 _state.load_glue = function () {
 	console.log(`WasmLator.js: Loading glue module...`);
 
+	let load_string = function (ptr, size) {
+		let view = new DataView(_state.glue.memory.buffer, ptr, size);
+		return new TextDecoder('utf-8').decode(view);
+	};
+
 	/* setup the glue imports */
 	let imports = {
 		host: {}
 	};
-	imports.host.host_load_core = function (id, ptr, size) {
-		let buffer = _state.make_buffer(ptr, size);
-		_state.load_core(id, buffer)
-	};
-	imports.host.host_load_block = function (id, core, ptr, size) {
-		let buffer = _state.make_buffer(ptr, size);
-		_state.load_block(core, id, buffer)
-	};
-	imports.host.host_get_main_export = function (ptr, size) {
-		let name = _state.load_glue_string(ptr, size);
-		let fn = _state.main.exports[name];
-		if (fn === undefined) {
-			console.error(`Failed to load [${name}] from main-exports`);
-			_state.abortControlled();
-		}
-		return fn;
-	};
-	imports.host.host_get_core_export = function (instance, ptr, size) {
-		let name = _state.load_glue_string(ptr, size);
-		let fn = instance.exports[name];
-		if (fn === undefined) {
-			console.error(`Failed to load [${name}] from core-exports`);
-			_state.abortControlled();
-		}
-		return fn;
-	};
-	imports.host.host_get_block_export = function (instance, ptr, size) {
-		let name = _state.load_main_string(ptr, size);
-		let fn = instance.exports[name];
-		if (fn === undefined) {
-			console.error(`Failed to load [${name}] from block-exports`);
-			_state.abortControlled();
-		}
+	imports.host.host_get_export = function (ptr, size) {
+		let fn = _state.core_exports[load_string(ptr, size)];
+		if (fn === undefined)
+			return null;
 		return fn;
 	};
 
@@ -125,46 +96,27 @@ _state.load_main = function () {
 		_state.abortControlled();
 	};
 	imports.env.host_print_u8 = function (ptr, size) {
-		console.log(_state.load_main_string(ptr, size));
-	}
-	imports.env.host_fail_u8 = function (ptr, size) {
-		console.error(_state.load_main_string(ptr, size));
+		console.log(_state.load_string(ptr, size));
+	};
+	imports.env.host_abort = function () {
 		_state.abortControlled();
-	}
-	imports.env.ctx_create = _state.glue.exports.ctx_create;
-	imports.env.ctx_load_core = _state.glue.exports.ctx_load_core;
-	imports.env.ctx_load_block = _state.glue.exports.ctx_load_block;
-	imports.env.ctx_destroy = _state.glue.exports.ctx_destroy;
-	imports.env.ctx_add_export = _state.glue.exports.ctx_add_export;
-	imports.env.map_execute = _state.glue.exports.map_execute;
+	};
+	imports.env.host_load_core = function (ptr, size) {
+		_state.load_core(_state.make_buffer(ptr, size));
+	};
+	imports.env.proc_setup_core_functions = _state.glue.exports.proc_setup_core_functions;
+	imports.env.ctx_read = _state.glue.exports.ctx_read;
+	imports.env.ctx_write = _state.glue.exports.ctx_write;
+	imports.env.map_load_block = _state.glue.exports.map_load_block;
+	imports.env.map_define = _state.glue.exports.map_define;
 	imports.env.map_flush_blocks = _state.glue.exports.map_flush_blocks;
+	imports.env.map_execute = _state.glue.exports.map_execute;
+	imports.env.mem_flush_caches = _state.glue.exports.mem_flush_caches;
 	imports.env.mem_expand_physical = _state.glue.exports.mem_expand_physical;
 	imports.env.mem_move_physical = _state.glue.exports.mem_move_physical;
-	imports.env.mem_flush_caches = _state.glue.exports.mem_flush_caches;
-	imports.env.mem_read_u8_i32 = _state.glue.exports.mem_read_u8_i32;
-	imports.env.mem_read_i8_i32 = _state.glue.exports.mem_read_i8_i32;
-	imports.env.mem_read_u16_i32 = _state.glue.exports.mem_read_u16_i32;
-	imports.env.mem_read_i16_i32 = _state.glue.exports.mem_read_i16_i32;
-	imports.env.mem_read_i32 = _state.glue.exports.mem_read_i32;
-	imports.env.mem_read_i64 = _state.glue.exports.mem_read_i64;
-	imports.env.mem_read_f32 = _state.glue.exports.mem_read_f32;
-	imports.env.mem_read_f64 = _state.glue.exports.mem_read_f64;
-	imports.env.mem_write_u8_i32 = _state.glue.exports.mem_write_u8_i32;
-	imports.env.mem_write_i8_i32 = _state.glue.exports.mem_write_i8_i32;
-	imports.env.mem_write_u16_i32 = _state.glue.exports.mem_write_u16_i32;
-	imports.env.mem_write_i16_i32 = _state.glue.exports.mem_write_i16_i32;
-	imports.env.mem_write_i32 = _state.glue.exports.mem_write_i32;
-	imports.env.mem_write_i64 = _state.glue.exports.mem_write_i64;
-	imports.env.mem_write_f32 = _state.glue.exports.mem_write_f32;
-	imports.env.mem_write_f64 = _state.glue.exports.mem_write_f64;
-	imports.env.mem_execute_u8_i32 = _state.glue.exports.mem_execute_u8_i32;
-	imports.env.mem_execute_i8_i32 = _state.glue.exports.mem_execute_i8_i32;
-	imports.env.mem_execute_u16_i32 = _state.glue.exports.mem_execute_u16_i32;
-	imports.env.mem_execute_i16_i32 = _state.glue.exports.mem_execute_i16_i32;
-	imports.env.mem_execute_i32 = _state.glue.exports.mem_execute_i32;
-	imports.env.mem_execute_i64 = _state.glue.exports.mem_execute_i64;
-	imports.env.mem_execute_f32 = _state.glue.exports.mem_execute_f32;
-	imports.env.mem_execute_f64 = _state.glue.exports.mem_execute_f64;
+	imports.env.mem_read = _state.glue.exports.mem_read;
+	imports.env.mem_write = _state.glue.exports.mem_write;
+	imports.env.mem_code = _state.glue.exports.mem_code;
 
 	/* fetch the main application javascript-wrapper */
 	fetch(_state.main.path, { credentials: 'same-origin' })
@@ -179,11 +131,12 @@ _state.load_main = function () {
 			_state.main.exports = _state.main.wasm.exports;
 			_state.main.memory = _state.main.exports.memory;
 
-			/* notify the glue module about the loaded main application, which will also startup the wasmlator itself (will also call the
-			*	required _initialize function; do this in a separate call to prevent exceptions from propagating into the catch-handler) */
+			/* startup the main application (do this in a separate call to
+			*	prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
 				console.log(`WasmLator.js: Starting up main module...`);
-				_state.glue.exports.host_main_loaded(1);
+				_state.main.exports._initialize();
+				_state.main.exports.main_startup();
 			});
 		})
 		.catch((err) => {
@@ -195,39 +148,47 @@ _state.load_main = function () {
 }
 
 /* load a core module */
-_state.load_core = function (id, buffer) {
-	console.log(`WasmLator.js: Instantiating core for [${id}]...`);
+_state.load_core = function (buffer) {
+	console.log(`WasmLator.js: Loading core...`);
 
 	/* setup the core imports */
 	let imports = {
-		mem: {},
-		map: {},
-		ctx: {}
+		main: {},
+		host: {}
 	};
-	imports.mem.lookup = _state.main.exports.mem_lookup;
-	imports.mem.result_address = _state.main.exports.mem_result_address;
-	imports.mem.result_physical = _state.main.exports.mem_result_physical;
-	imports.mem.result_size = _state.main.exports.mem_result_size;
-	imports.map.resolve = _state.main.exports.map_resolve;
-	imports.map.flushed = _state.main.exports.map_flushed;
-	imports.map.associate = _state.main.exports.map_associate;
-	imports.ctx.translate = _state.main.exports.ctx_translate;
-	imports.ctx.terminated = _state.main.exports.ctx_terminated;
+	imports.main.main_set_exit_code = _state.main.exports.main_set_exit_code;
+	imports.main.main_resolve = _state.main.exports.main_resolve;
+	imports.main.main_flushed = _state.main.exports.main_flushed;
+	imports.main.main_block_loaded = _state.main.exports.main_block_loaded;
+	imports.main.main_lookup = _state.main.exports.main_lookup;
+	imports.main.main_result_address = _state.main.exports.main_result_address;
+	imports.main.main_result_physical = _state.main.exports.main_result_physical;
+	imports.main.main_result_size = _state.main.exports.main_result_size;
+	imports.host.host_load_block = function(ptr, size) {
+		_state.load_core(_state.make_buffer(ptr, size));
+	}
+	imports.host.host_get_export = function(instance, ptr, size) {
+		let fn = instance.exports[_state.load_string(ptr, size)];
+		if (fn === undefined)
+			return null;
+		return fn;
+	}
 
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)
 		.then((instance) => {
-			/* notify the glue module about the loaded core (do this in a separate
+			/* notify the main about the loaded core(do this in a separate
 			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
-				console.log(`WasmLator.js: Core for [${id}] loaded`);
-				_state.glue.exports.host_core_loaded(id, instance.instance);
+				console.log(`WasmLator.js: Core loaded`);
+				_state.core_exports = instance.instance.exports;
+				_state.main.exports.main_core_loaded(1);
 			});
 		})
 		.catch((err) => {
 			_state.controlled(() => {
-				console.error(`WasmLator.js: Failed to load core for [${id}]: ${err}`);
-				_state.glue.exports.host_core_loaded(id, null);
+				console.error(`WasmLator.js: Failed to load core: ${err}`);
+				_state.main.exports.main_core_loaded(0);
 			});
 		});
 }

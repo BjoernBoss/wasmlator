@@ -11,7 +11,7 @@ void host_abort [[noreturn]] () {
 	exit(1);
 }
 
-uint32_t proc_load_core(const uint8_t* data, uint32_t size) {
+uint32_t host_load_core(const uint8_t* data, uint32_t size) {
 	main_core_loaded(1);
 	return 1;
 }

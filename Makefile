@@ -73,7 +73,7 @@ self_objects := $(patsubst %,$(_out_self)/%.o,context-access context-bridge env-
 				memory-writer trans-superblock trans-writer trans-core glue-state trans-glue trans-translator)
 self_objects_cc := $(self_objects)
 self_objects_em := $(subst .o,.em.o,$(self_objects))
-_self_prerequisites := $(ustring_includes) $(ustring_includes) $(wasgen_objects) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard trans/*.h) $(wildcard trans/*/*.h) $(wildcard interface/*.h) | $(_out_self)
+_self_prerequisites := $(ustring_includes) $(wasgen_includes) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard trans/*.h) $(wildcard trans/*/*.h) $(wildcard interface/*.h) | $(_out_self)
 $(_out_self)/context-access.o: env/context/context-access.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
@@ -164,17 +164,17 @@ $(_out_self)/trans-translator.o: trans/trans-translator.cpp $(_self_prerequisite
 
 # make-glue.exe compilation
 glue_path := $(path_build)/make-glue.exe
-$(glue_path): entry/make-glue.cpp entry/null-interface.cpp $(self_objects)
+$(glue_path): entry/make-glue.cpp entry/null-interface.cpp $(self_objects) $(wasgen_objects)
 	$(cc) entry/make-glue.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
 
 # make-block.exe compilation
 block_path := $(path_build)/make-block.exe
-$(block_path): entry/make-block.cpp entry/null-interface.cpp $(self_objects)
+$(block_path): entry/make-block.cpp entry/null-interface.cpp $(self_objects) $(wasgen_objects)
 	$(cc) entry/make-block.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
 
 # make-core.exe compilation
 core_path := $(path_build)/make-core.exe
-$(core_path): entry/make-core.cpp entry/null-interface.cpp $(self_objects)
+$(core_path): entry/make-core.cpp entry/null-interface.cpp $(self_objects) $(wasgen_objects)
 	$(cc) entry/make-core.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
 
 # generate all wat output
@@ -205,7 +205,7 @@ wasm: $(_out_wasm)/glue-module.wasm $(_out_wasm)/core-module.wasm $(_out_wasm)/b
 
 # main application compilation
 _main_path := $(_out_wasm)/main.wasm
-$(_main_path): interface/entry-point.cpp $(self_objects)
+$(_main_path): interface/entry-point.cpp $(self_objects) $(wasgen_objects)
 	$(em_main) $< $(self_objects_em) $(wasgen_objects_em) -o $@
 
 # setup the wasm for the server

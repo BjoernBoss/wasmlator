@@ -21,7 +21,7 @@ extern "C" {
 	void main_core_loaded(uint32_t succeeded);
 
 	/* imports */
-	uint32_t proc_load_core(const uint8_t* data, uint32_t size);
+	uint32_t host_load_core(const uint8_t* data, uint32_t size);
 	uint32_t proc_setup_core_functions();
 }
 
