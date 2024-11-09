@@ -5,33 +5,33 @@
 
 #include "../interface/host.h"
 #include "../env/env-process.h"
-#include "../trans/trans-translator.h"
-#include "../trans/core/trans-core.h"
+#include "../gen/gen-translator.h"
+#include "../gen/core/gen-core.h"
 
 struct CPUContext {
 	uint32_t eax = 0;
 };
 
-struct TransInterface final : public trans::TranslationInterface {
+struct TransInterface final : public gen::TranslationInterface {
 	void blockStarted() override {}
 	void blockCompleted() override {}
 
-	trans::Instruction fetch(env::guest_t addr) override {
-		if (addr == 0x1234)
-			return trans::Instruction{ 1, addr, 0, 2, trans::InstType::primitive };
-		if (addr == 0x1236)
-			return trans::Instruction{ 2, addr, 0x123a, 1, trans::InstType::conditionalDirect };
-		if (addr == 0x1237)
-			return trans::Instruction{ 1, addr, 0, 3, trans::InstType::primitive };
-		if (addr == 0x123a)
-			return trans::Instruction{ 0, addr, 0, 2, trans::InstType::endOfBlock };
+	gen::Instruction fetch(env::guest_t address) override {
+		if (address == 0x1234)
+			return gen::Instruction{ 1, address, 0, 2, gen::InstType::primitive };
+		if (address == 0x1236)
+			return gen::Instruction{ 2, address, 0x123a, 1, gen::InstType::conditionalDirect };
+		if (address == 0x1237)
+			return gen::Instruction{ 1, address, 0, 3, gen::InstType::primitive };
+		if (address == 0x123a)
+			return gen::Instruction{ 0, address, 0, 2, gen::InstType::endOfBlock };
 
-		if (addr == 0x5678)
-			return trans::Instruction{ 0, addr, 0, 2, trans::InstType::endOfBlock };
+		if (address == 0x5678)
+			return gen::Instruction{ 0, address, 0, 2, gen::InstType::endOfBlock };
 
-		return trans::Instruction{ 0, 0, 0, 0, trans::InstType::invalid };
+		return gen::Instruction{ 0, 0, 0, 0, gen::InstType::invalid };
 	}
-	void produce(const trans::Writer& writer, const trans::Instruction* data, size_t count) override {
+	void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) override {
 		for (size_t i = 0; i < count; ++i) {
 			switch (data[i].data) {
 			case 0:
@@ -55,7 +55,7 @@ static void translate(env::guest_t address) {
 	wasm::Module _module{ &_writer };
 
 	TransInterface _interface;
-	trans::Translator _translator{ _module, &_interface, 4 };
+	gen::Translator _translator{ _module, &_interface, 4 };
 
 	_translator.run(0x1234);
 	_translator.run(0x5678);
@@ -73,7 +73,7 @@ void main_startup() {
 	/* setup the core */
 	writer::BinaryWriter _writer;
 	wasm::Module _module{ &_writer };
-	trans::SetupCore(_module);
+	gen::SetupCore(_module);
 	_module.close();
 
 	/* upload the core */

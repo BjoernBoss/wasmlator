@@ -2,12 +2,12 @@
 #include <wasgen/wasm.h>
 #include <fstream>
 
-#include "../trans/glue/trans-glue.h"
+#include "../gen/glue/gen-glue.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
-		trans::SetupGlue(mod);
+		gen::SetupGlue(mod);
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());

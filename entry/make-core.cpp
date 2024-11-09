@@ -4,12 +4,12 @@
 
 #include "../interface/host.h"
 #include "../env/env-process.h"
-#include "../trans/core/trans-core.h"
+#include "../gen/core/gen-core.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
-		trans::SetupCore(mod);
+		gen::SetupCore(mod);
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());

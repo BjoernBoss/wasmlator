@@ -4,22 +4,22 @@
 
 #include "../interface/host.h"
 #include "../env/env-process.h"
-#include "../trans/trans-translator.h"
+#include "../gen/gen-translator.h"
 
-struct TransInterface final : public trans::TranslationInterface {
+struct TransInterface final : public gen::TranslationInterface {
 	void blockStarted() override {}
 	void blockCompleted() override {}
-	trans::Instruction fetch(env::guest_t addr) override {
-		return trans::Instruction{ 0, 0, 0, 0, trans::InstType::invalid };
+	gen::Instruction fetch(env::guest_t address) override {
+		return gen::Instruction{ 0, 0, 0, 0, gen::InstType::invalid };
 	}
-	void produce(const trans::Writer& writer, const trans::Instruction* data, size_t count) override {}
+	void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) override {}
 };
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
 		TransInterface _interface;
-		trans::Translator _translator{ mod, &_interface, 4 };
+		gen::Translator _translator{ mod, &_interface, 4 };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());

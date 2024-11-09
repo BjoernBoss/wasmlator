@@ -69,11 +69,11 @@ $(_out_self):
 	mkdir -p $(_out_self)
 self_objects := $(patsubst %,$(_out_self)/%.o,context-access context-bridge env-context env-mapping mapping-access mapping-bridge\
 				env-memory memory-access memory-bridge memory-mapper env-process process-access process-bridge interface\
-				host address-writer trans-address context-builder context-writer mapping-builder mapping-writer memory-builder\
-				memory-writer trans-superblock trans-writer trans-core glue-state trans-glue trans-translator)
+				host address-writer gen-address context-builder context-writer mapping-builder mapping-writer memory-builder\
+				memory-writer gen-superblock gen-writer gen-core glue-state gen-glue gen-translator)
 self_objects_cc := $(self_objects)
 self_objects_em := $(subst .o,.em.o,$(self_objects))
-_self_prerequisites := $(ustring_includes) $(wasgen_includes) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard trans/*.h) $(wildcard trans/*/*.h) $(wildcard interface/*.h) | $(_out_self)
+_self_prerequisites := $(ustring_includes) $(wasgen_includes) $(wildcard env/*.h) $(wildcard env/*/*.h) $(wildcard gen/*.h) $(wildcard gen/*/*.h) $(wildcard interface/*.h) | $(_out_self)
 $(_out_self)/context-access.o: env/context/context-access.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
@@ -119,46 +119,46 @@ $(_out_self)/interface.o: interface/interface.cpp $(_self_prerequisites)
 $(_out_self)/host.o: interface/host.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/address-writer.o: trans/address/address-writer.cpp $(_self_prerequisites)
+$(_out_self)/address-writer.o: gen/address/address-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/trans-address.o: trans/address/trans-address.cpp $(_self_prerequisites)
+$(_out_self)/gen-address.o: gen/address/gen-address.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/context-builder.o: trans/context/context-builder.cpp $(_self_prerequisites)
+$(_out_self)/context-builder.o: gen/context/context-builder.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/context-writer.o: trans/context/context-writer.cpp $(_self_prerequisites)
+$(_out_self)/context-writer.o: gen/context/context-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/mapping-builder.o: trans/mapping/mapping-builder.cpp $(_self_prerequisites)
+$(_out_self)/mapping-builder.o: gen/mapping/mapping-builder.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/mapping-writer.o: trans/mapping/mapping-writer.cpp $(_self_prerequisites)
+$(_out_self)/mapping-writer.o: gen/mapping/mapping-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/memory-builder.o: trans/memory/memory-builder.cpp $(_self_prerequisites)
+$(_out_self)/memory-builder.o: gen/memory/memory-builder.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/memory-writer.o: trans/memory/memory-writer.cpp $(_self_prerequisites)
+$(_out_self)/memory-writer.o: gen/memory/memory-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/trans-superblock.o: trans/translator/trans-superblock.cpp $(_self_prerequisites)
+$(_out_self)/gen-superblock.o: gen/translator/gen-superblock.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/trans-writer.o: trans/translator/trans-writer.cpp $(_self_prerequisites)
+$(_out_self)/gen-writer.o: gen/translator/gen-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/trans-core.o: trans/core/trans-core.cpp $(_self_prerequisites)
+$(_out_self)/gen-core.o: gen/core/gen-core.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/glue-state.o: trans/glue/glue-state.cpp $(_self_prerequisites)
+$(_out_self)/glue-state.o: gen/glue/glue-state.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/trans-glue.o: trans/glue/trans-glue.cpp $(_self_prerequisites)
+$(_out_self)/gen-glue.o: gen/glue/gen-glue.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
-$(_out_self)/trans-translator.o: trans/trans-translator.cpp $(_self_prerequisites)
+$(_out_self)/gen-translator.o: gen/gen-translator.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 

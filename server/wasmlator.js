@@ -131,8 +131,8 @@ _state.load_main = function () {
 			_state.main.exports = _state.main.wasm.exports;
 			_state.main.memory = _state.main.exports.memory;
 
-			/* startup the main application (do this in a separate call to
-			*	prevent exceptions from propagating into the catch-handler) */
+			/* startup the main application, which requires the internal _initialize and explicitly created main_startup
+			*	to be invoked (do this in a separate call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
 				console.log(`WasmLator.js: Starting up main module...`);
 				_state.main.exports._initialize();
@@ -208,7 +208,7 @@ _state.load_block = function (core, id, buffer) {
 	imports.core.memory_management = core.exports.memory_management;
 	imports.mem.lookup_read = core.exports.mem_lookup_read;
 	imports.mem.lookup_write = core.exports.mem_lookup_write;
-	imports.mem.lookup_execute = core.exports.mem_lookup_execute;
+	imports.mem.lookup_code = core.exports.mem_lookup_code;
 	imports.map.goto = core.exports.map_goto;
 	imports.map.lookup = core.exports.map_lookup;
 	imports.ctx.exit = core.exports.ctx_exit;
