@@ -2,7 +2,7 @@
 
 #include <cinttypes>
 
-/* env/entry-point interactions */
+/* environment/entry-point interactions */
 extern "C" {
 	/* exports */
 	void main_startup();
@@ -15,7 +15,7 @@ extern "C" {
 	void host_abort [[noreturn]] ();
 }
 
-/* env/process/process-bridge interactions */
+/* environment/process/process-bridge interactions */
 extern "C" {
 	/* exports */
 	void main_core_loaded(uint32_t succeeded);
@@ -25,7 +25,7 @@ extern "C" {
 	uint32_t proc_setup_core_functions();
 }
 
-/* env/context/context-bridge interactions */
+/* environment/context/context-bridge interactions */
 extern "C" {
 	/* exports */
 	void main_set_exit_code(int32_t code);
@@ -35,7 +35,7 @@ extern "C" {
 	void ctx_write(uint32_t offset, uint32_t size, uint64_t value);
 }
 
-/* env/mapping/mapping-bridge interactions */
+/* environment/mapping/mapping-bridge interactions */
 extern "C" {
 	/* exports */
 	uint32_t main_resolve(uint64_t address);
@@ -49,7 +49,7 @@ extern "C" {
 	uint32_t map_execute(uint64_t address);
 }
 
-/* env/memory/memory-bridge interactions */
+/* environment/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
 	void main_lookup(uint64_t address, uint32_t size, uint32_t usage);

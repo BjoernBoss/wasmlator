@@ -1,9 +1,9 @@
 #include "interface.h"
 
-#include "../env/process/process-bridge.h"
-#include "../env/context/context-bridge.h"
-#include "../env/memory/memory-bridge.h"
-#include "../env/mapping/mapping-bridge.h"
+#include "../environment/process/process-bridge.h"
+#include "../environment/context/context-bridge.h"
+#include "../environment/memory/memory-bridge.h"
+#include "../environment/mapping/mapping-bridge.h"
 
 void main_core_loaded(uint32_t succeeded) {
 	env::detail::ProcessBridge::CoreLoaded(succeeded > 0);

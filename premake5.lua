@@ -21,6 +21,7 @@ workspace "wasmlator"
 	kind "ConsoleApp"
 
 	includedirs { "repos" }
+	files { "environment/**", "interface/**", "generate/**", "repos/**", "system/**" }
 
 	-- enforce msvc to use character-encoding utf-8
 	filter { "toolset:msc*" }
@@ -28,16 +29,16 @@ workspace "wasmlator"
 	filter ""
 
 project "wasmlator"
-	files { "env/**", "interface/**", "gen/**", "repos/**", "entry/standalone.cpp", "entry/null-interface.cpp" }
+	files { "entry/standalone.cpp", "entry/null-interface.cpp", "entry/null-specification.h" }
 
 project "make-glue"
-	files { "env/**", "interface/**", "gen/**", "repos/**", "entry/make-core.cpp", "entry/null-interface.cpp" }
+	files { "entry/make-glue.cpp", "entry/null-interface.cpp", "entry/null-specification.h" }
 
 project "make-core"
-	files { "env/**", "interface/**", "gen/**", "repos/**", "entry/make-core.cpp", "entry/null-interface.cpp" }
+	files { "entry/make-core.cpp", "entry/null-interface.cpp", "entry/null-specification.h" }
 
 project "make-block"
-	files { "env/**", "interface/**", "gen/**", "repos/**", "entry/make-block.cpp", "entry/null-interface.cpp" }
+	files { "entry/make-block.cpp", "entry/null-interface.cpp", "entry/null-specification.h" }
 
 filter "configurations:debug"
 	symbols "On"

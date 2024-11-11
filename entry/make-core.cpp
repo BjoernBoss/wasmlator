@@ -3,8 +3,9 @@
 #include <fstream>
 
 #include "../interface/host.h"
-#include "../env/env-process.h"
-#include "../gen/core/gen-core.h"
+#include "../environment/env-process.h"
+#include "../generate/core/gen-core.h"
+#include "null-specification.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
@@ -20,7 +21,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 int main(int argc, char** argv) {
 	host::SetLogLevel(host::LogLevel::none);
-	env::Process::Create(4, 0);
+	env::Process::Create(std::make_unique<NullSpecification>());
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };

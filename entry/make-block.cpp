@@ -3,23 +3,14 @@
 #include <fstream>
 
 #include "../interface/host.h"
-#include "../env/env-process.h"
-#include "../gen/gen-translator.h"
-
-struct TransInterface final : public gen::TranslationInterface {
-	void blockStarted() override {}
-	void blockCompleted() override {}
-	gen::Instruction fetch(env::guest_t address) override {
-		return gen::Instruction{ 0, 0, 0, 0, gen::InstType::invalid };
-	}
-	void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) override {}
-};
+#include "../environment/env-process.h"
+#include "../generate/gen-translator.h"
+#include "null-specification.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
-		TransInterface _interface;
-		gen::Translator _translator{ mod, &_interface, 4 };
+		gen::Translator _translator{ mod };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());
@@ -30,7 +21,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 int main(int argc, char** argv) {
 	host::SetLogLevel(host::LogLevel::none);
-	env::Process::Create(4, 0);
+	env::Process::Create(std::make_unique<NullSpecification>());
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };

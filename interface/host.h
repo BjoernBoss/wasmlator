@@ -16,27 +16,27 @@ namespace host {
 	/* write message as [debug] out */
 	void Debug(const std::u8string_view& msg);
 
-	/* write message as [fail] out and terminate the execution */
-	void Fail [[noreturn]] (const std::u8string_view& msg);
+	/* write message as [fatal] out and terminate the execution */
+	void Fatal [[noreturn]] (const std::u8string_view& msg);
 
-	/* build the message and log it using host::log */
+	/* build the message and log it using host::Log */
 	template <class... Args>
 	void Log(const Args&... args) {
 		std::u8string str = str::Build<std::u8string>(args...);
 		host::Log(std::u8string_view{ str });
 	}
 
-	/* build the message and log it using host::debug */
+	/* build the message and log it using host::Debug */
 	template <class... Args>
 	void Debug(const Args&... args) {
 		std::u8string str = str::Build<std::u8string>(args...);
 		host::Debug(std::u8string_view{ str });
 	}
 
-	/* build the message and log it using host::fail */
+	/* build the message and log it using host::Fatal */
 	template <class... Args>
-	void Fail [[noreturn]] (const Args&... args) {
+	void Fatal [[noreturn]] (const Args&... args) {
 		std::u8string str = str::Build<std::u8string>(args...);
-		host::Fail(std::u8string_view{ str });
+		host::Fatal(std::u8string_view{ str });
 	}
 }

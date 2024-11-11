@@ -2,7 +2,7 @@
 #include <wasgen/wasm.h>
 #include <fstream>
 
-#include "../gen/glue/gen-glue.h"
+#include "../generate/glue/gen-glue.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {

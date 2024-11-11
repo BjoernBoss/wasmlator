@@ -18,7 +18,7 @@ void host::Debug(const std::u8string_view& msg) {
 		host_print_u8(buf.data(), uint32_t(buf.size()));
 	}
 }
-void host::Fail(const std::u8string_view& msg) {
+void host::Fatal(const std::u8string_view& msg) {
 	std::u8string buf;
 	str::BuildTo(buf, u8"Exception: ", msg);
 	host_print_u8(buf.data(), uint32_t(buf.size()));

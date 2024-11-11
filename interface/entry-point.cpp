@@ -4,19 +4,44 @@
 #include <stdlib.h>
 
 #include "../interface/host.h"
-#include "../env/env-process.h"
-#include "../gen/gen-translator.h"
-#include "../gen/core/gen-core.h"
+#include "../environment/env-process.h"
+#include "../generate/gen-translator.h"
+#include "../generate/core/gen-core.h"
 
 struct CPUContext {
 	uint32_t eax = 0;
 };
 
-struct TransInterface final : public gen::TranslationInterface {
+struct TestCPUImpl final : public sys::Specification {
+public:
+	TestCPUImpl() : sys::Specification{ 4, 4, sizeof(CPUContext), false } {}
+
+public:
+	void setupCore(wasm::Module& mod) override {
+		gen::SetupCore(mod);
+	}
+	void setupBlock(wasm::Module& mod) override {
+	}
+	void coreLoaded() override {
+		writer::TextWriter _writer;
+		wasm::Module _module{ &_writer };
+
+		gen::Translator _translator{ _module };
+
+		_translator.run(0x1234);
+		_translator.run(0x5678);
+
+		std::vector<env::BlockExport> exported = _translator.close();
+		_module.close();
+
+		host::Log(_writer.output());
+	}
+	void bodyLoaded() override {}
+
+public:
 	void blockStarted() override {}
 	void blockCompleted() override {}
-
-	gen::Instruction fetch(env::guest_t address) override {
+	gen::Instruction fetchInstruction(env::guest_t address) override {
 		if (address == 0x1234)
 			return gen::Instruction{ 1, address, 0, 2, gen::InstType::primitive };
 		if (address == 0x1236)
@@ -31,7 +56,7 @@ struct TransInterface final : public gen::TranslationInterface {
 
 		return gen::Instruction{ 0, 0, 0, 0, gen::InstType::invalid };
 	}
-	void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) override {
+	void produceInstructions(const gen::Writer& writer, const gen::Instruction* data, size_t count) override {
 		for (size_t i = 0; i < count; ++i) {
 			switch (data[i].data) {
 			case 0:
@@ -50,38 +75,8 @@ struct TransInterface final : public gen::TranslationInterface {
 	}
 };
 
-static void translate(env::guest_t address) {
-	writer::TextWriter _writer;
-	wasm::Module _module{ &_writer };
-
-	TransInterface _interface;
-	gen::Translator _translator{ _module, &_interface, 4 };
-
-	_translator.run(0x1234);
-	_translator.run(0x5678);
-
-	std::vector<env::BlockExport> exported = _translator.close();
-	_module.close();
-
-	host::Log(_writer.output());
-}
-
 void main_startup() {
 	host::Log(u8"Main: Application startup entered");
-	env::Process::Create(4, sizeof(CPUContext));
-
-	/* setup the core */
-	writer::BinaryWriter _writer;
-	wasm::Module _module{ &_writer };
-	gen::SetupCore(_module);
-	_module.close();
-
-	/* upload the core */
-	const std::vector<uint8_t>& data = _writer.output();
-	env::Instance()->loadCore(data.data(), data.size(), []() {
-
-		translate(0x1234);
-		});
-
+	env::Process::Create(std::make_unique<TestCPUImpl>());
 	host::Log(u8"Main: Application startup exited");
 }
