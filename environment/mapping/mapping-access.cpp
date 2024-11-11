@@ -15,3 +15,7 @@ uint32_t env::detail::MappingAccess::cacheAddress() const {
 uint32_t env::detail::MappingAccess::loadingAddress() const {
 	return env::Instance()->mapping().pLoadingAddress;
 }
+void env::detail::MappingAccess::coreLoaded() const {
+	detail::ProcessBridge::DefineCoreBound(u8"core", u8"map_functions");
+	detail::ProcessBridge::DefineCoreBound(u8"core", u8"map_lookup");
+}

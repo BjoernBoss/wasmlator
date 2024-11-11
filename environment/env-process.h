@@ -4,6 +4,7 @@
 #include "context/env-context.h"
 #include "mapping/env-mapping.h"
 #include "memory/env-memory.h"
+#include "interact/env-interact.h"
 #include "process/process-bridge.h"
 #include "process/process-access.h"
 #include "../system/sys-specification.h"
@@ -20,6 +21,7 @@ namespace env {
 		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
+		env::Interact pInteract;
 		uint32_t pManagementPages = 0;
 		uint32_t pPhysicalPages = 0;
 
@@ -48,5 +50,7 @@ namespace env {
 		env::Memory& memory();
 		const env::Mapping& mapping() const;
 		env::Mapping& mapping();
+		const env::Interact& interact() const;
+		env::Interact& interact();
 	};
 }

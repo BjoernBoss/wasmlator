@@ -5,6 +5,7 @@
 #include "../memory/memory-writer.h"
 #include "../context/context-writer.h"
 #include "../address/address-writer.h"
+#include "../interact/interact-writer.h"
 
 namespace gen {
 	class Translator;
@@ -17,9 +18,10 @@ namespace gen {
 		detail::MemoryWriter pMemory;
 		detail::ContextWriter pContext;
 		detail::AddressWriter pAddress;
+		detail::InteractWriter pInteract;
 
 	private:
-		Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses);
+		Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact);
 
 	public:
 		Writer(gen::Writer&&) = delete;
@@ -73,5 +75,11 @@ namespace gen {
 		/* expects guest return-address on top of stack
 		*	Note: generated code will contain a return-statement */
 		void ret() const;
+
+		/* no expectations */
+		void invokeVoid(uint32_t index) const;
+
+		/* expects [i64] parameter on top of stack and writes value to stack */
+		void invokeParam(uint32_t index) const;
 	};
 }

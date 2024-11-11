@@ -11,7 +11,8 @@ let _state = {
 		memory: null,
 		exports: {}
 	},
-	core_exports: null
+	core_exports: null,
+	block_imports: {},
 };
 
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
@@ -84,17 +85,23 @@ _state.load_glue = function () {
 /* load the actual primary application once the glue module has been loaded and compiled */
 _state.load_main = function () {
 	console.log(`WasmLator.js: Loading main application...`);
-
-	/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 	let imports = {
 		env: {},
 		wasi_snapshot_preview1: {}
 	};
+	
+	/* copy all glue exports as imports of main */
+	imports.env = { ..._state.glue.exports };
+	imports.env.memory = undefined;
+
+	/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 	imports.env.emscripten_notify_memory_growth = function () { };
 	imports.wasi_snapshot_preview1.proc_exit = function (code) {
 		console.error(`WasmLator.js: Main application unexpectedly terminated itself with [${code}]`);
 		_state.abortControlled();
 	};
+	
+	/* setup the remaining host-imports */
 	imports.env.host_print_u8 = function (ptr, size) {
 		console.log(_state.load_string(ptr, size));
 	};
@@ -104,19 +111,13 @@ _state.load_main = function () {
 	imports.env.host_load_core = function (ptr, size) {
 		_state.load_core(_state.make_buffer(ptr, size));
 	};
-	imports.env.proc_setup_core_functions = _state.glue.exports.proc_setup_core_functions;
-	imports.env.ctx_read = _state.glue.exports.ctx_read;
-	imports.env.ctx_write = _state.glue.exports.ctx_write;
-	imports.env.map_load_block = _state.glue.exports.map_load_block;
-	imports.env.map_define = _state.glue.exports.map_define;
-	imports.env.map_flush_blocks = _state.glue.exports.map_flush_blocks;
-	imports.env.map_execute = _state.glue.exports.map_execute;
-	imports.env.mem_flush_caches = _state.glue.exports.mem_flush_caches;
-	imports.env.mem_expand_physical = _state.glue.exports.mem_expand_physical;
-	imports.env.mem_move_physical = _state.glue.exports.mem_move_physical;
-	imports.env.mem_read = _state.glue.exports.mem_read;
-	imports.env.mem_write = _state.glue.exports.mem_write;
-	imports.env.mem_code = _state.glue.exports.mem_code;
+	imports.env.host_define_block_binding = function (mod_ptr, mod_size, name_ptr, name_size) {
+		let mod = _state.load_string(mod_ptr, mod_size);
+		let name = _state.load_string(name_ptr, name_size);
+		if (_state.block_imports[mod] == undefined)
+			_state.block_imports[mod] = {};
+		_state.block_imports[mod][name] = _state.core_exports[name];
+	};
 
 	/* fetch the main application javascript-wrapper */
 	fetch(_state.main.path, { credentials: 'same-origin' })
@@ -150,12 +151,12 @@ _state.load_main = function () {
 /* load a core module */
 _state.load_core = function (buffer) {
 	console.log(`WasmLator.js: Loading core...`);
-
-	/* setup the core imports */
 	let imports = {
 		main: {},
 		host: {}
 	};
+	
+	/* setup the core imports */
 	imports.main.main_set_exit_code = _state.main.exports.main_set_exit_code;
 	imports.main.main_resolve = _state.main.exports.main_resolve;
 	imports.main.main_flushed = _state.main.exports.main_flushed;
@@ -164,10 +165,10 @@ _state.load_core = function (buffer) {
 	imports.main.main_result_address = _state.main.exports.main_result_address;
 	imports.main.main_result_physical = _state.main.exports.main_result_physical;
 	imports.main.main_result_size = _state.main.exports.main_result_size;
-	imports.host.host_load_block = function(ptr, size) {
+	imports.host.host_load_block = function (ptr, size) {
 		_state.load_core(_state.make_buffer(ptr, size));
 	}
-	imports.host.host_get_export = function(instance, ptr, size) {
+	imports.host.host_get_export = function (instance, ptr, size) {
 		let fn = instance.exports[_state.load_string(ptr, size)];
 		if (fn === undefined)
 			return null;
@@ -198,20 +199,7 @@ _state.load_block = function (core, id, buffer) {
 	console.log(`WasmLator.js: Instantiating block for [${id}]...`);
 
 	/* setup the block imports */
-	let imports = {
-		core: {},
-		mem: {},
-		ctx: {},
-		map: {}
-	};
-	imports.core.memory_physical = core.exports.memory_physical;
-	imports.core.memory_management = core.exports.memory_management;
-	imports.mem.lookup_read = core.exports.mem_lookup_read;
-	imports.mem.lookup_write = core.exports.mem_lookup_write;
-	imports.mem.lookup_code = core.exports.mem_lookup_code;
-	imports.map.goto = core.exports.map_goto;
-	imports.map.lookup = core.exports.map_lookup;
-	imports.ctx.exit = core.exports.ctx_exit;
+	let imports = {};
 
 	/* try to instantiate the block module */
 	WebAssembly.instantiate(buffer, imports)

@@ -1,7 +1,7 @@
 #include "env-process.h"
 
 #include <wasgen/wasm.h>
-#include "../generate/core/gen-core.h"
+#include "../generate/interact/interact-builder.h"
 
 static env::Process* ProcessInstance = 0;
 
@@ -39,6 +39,9 @@ void env::Process::fLoadCore() {
 		/* setup the core module to be loaded */
 		wasm::Module mod{ &writer };
 		pSpecification->setupCore(mod);
+
+		/* finalize the internal components */
+		gen::detail::InteractBuilder{}.finalizeCoreBody(mod);
 	}
 	catch (const wasm::Exception& e) {
 		host::Fatal(u8"WASM exception occurred while creating the core module: ", e.what());
@@ -57,6 +60,11 @@ void env::Process::fCoreLoaded(bool succeeded) {
 	/* setup the core-function mappings */
 	if (!detail::ProcessBridge::SetupCoreFunctions())
 		host::Fatal(u8"Failed to setup core functions");
+
+	/* notify the core-objects about the core being loaded */
+	detail::InteractAccess{}.coreLoaded();
+	detail::MemoryAccess{}.coreLoaded();
+	detail::MappingAccess{}.coreLoaded();
 
 	/* notify the the specification about the loaded core */
 	pSpecification->coreLoaded();
@@ -91,4 +99,10 @@ const env::Mapping& env::Process::mapping() const {
 }
 env::Mapping& env::Process::mapping() {
 	return pMapping;
+}
+const env::Interact& env::Process::interact() const {
+	return pInteract;
+}
+env::Interact& env::Process::interact() {
+	return pInteract;
 }

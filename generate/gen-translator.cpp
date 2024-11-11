@@ -5,6 +5,7 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
+	detail::InteractBuilder _interact;
 
 	/* setup the shared components */
 	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
@@ -15,6 +16,7 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	_memory.setupBlockImports(mod, management, physical, pMemory);
 	_mapping.setupBlockImports(mod, pMapping);
 	_context.setupBlockImports(mod, management, pContext);
+	_interact.setupBlockImports(mod, pInteract);
 
 	/* setup the components of the translator-members */
 	pAddresses.setup();
@@ -48,7 +50,7 @@ void gen::Translator::fProcess(const detail::OpenAddress& next) {
 
 	/* setup the actual sink to the super-block and instruction-writer */
 	wasm::Sink sink{ next.function };
-	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses };
+	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
 
 	/* iterate over the chunks of the super-block and produce them */
 	while (true) {

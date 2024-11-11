@@ -4,6 +4,7 @@
 #include "../environment/context/context-bridge.h"
 #include "../environment/memory/memory-bridge.h"
 #include "../environment/mapping/mapping-bridge.h"
+#include "../environment/interact/interact-bridge.h"
 
 void main_core_loaded(uint32_t succeeded) {
 	env::detail::ProcessBridge::CoreLoaded(succeeded > 0);
@@ -34,4 +35,11 @@ uint32_t main_result_physical() {
 }
 uint32_t main_result_size() {
 	return env::detail::MemoryBridge::LookupSize();
+}
+
+void main_invoke_void(uint32_t index) {
+	env::detail::InteractBridge::CallVoid(index);
+}
+uint64_t main_invoke_param(uint64_t param, uint32_t index) {
+	return env::detail::InteractBridge::CallParam(param, index);
 }

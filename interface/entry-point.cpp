@@ -13,16 +13,31 @@ struct CPUContext {
 };
 
 struct TestCPUImpl final : public sys::Specification {
+private:
+	uint32_t pTestIndex = 0;
+
 public:
 	TestCPUImpl() : sys::Specification{ 4, 4, sizeof(CPUContext), false } {}
 
 public:
 	void setupCore(wasm::Module& mod) override {
+		pTestIndex = env::Instance()->interact().defineCallback([]() {
+			host::Log(u8"test-callback called!");
+			});
+
 		gen::SetupCore(mod);
+
+		wasm::Sink sink{ mod.function(u8"test", { wasm::Type::i64 }, { wasm::Type::i64 }, wasm::Export{}) };
+		sink[wasm::inst::Param::Get(0)];
+		sink[wasm::inst::U64::Const(1)];
+		sink[wasm::inst::U64::Add()];
 	}
 	void setupBlock(wasm::Module& mod) override {
+
 	}
 	void coreLoaded() override {
+		host::Log(u8"Test: ", env::Instance()->interact().call(u8"test", 63));
+
 		writer::TextWriter _writer;
 		wasm::Module _module{ &_writer };
 
@@ -65,6 +80,7 @@ public:
 				break;
 			case 1:
 				writer.sink()[wasm::inst::Nop()];
+				writer.invokeVoid(pTestIndex);
 				break;
 			case 2:
 				writer.sink()[wasm::inst::U32::Const(1)];

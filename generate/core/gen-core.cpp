@@ -2,17 +2,18 @@
 #include "../memory/memory-builder.h"
 #include "../context/context-builder.h"
 #include "../mapping/mapping-builder.h"
+#include "../interact/interact-builder.h"
 #include "../environment/env-process.h"
 
 void gen::SetupCore(wasm::Module& mod) {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
+	detail::InteractBuilder _interact;
 
 	/* initialize the core-imports */
 	_memory.setupCoreImports(mod);
 	_mapping.setupCoreImports(mod);
-	_context.setupCoreImports(mod);
 
 	/* setup the shared components */
 	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};

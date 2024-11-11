@@ -6,11 +6,6 @@ void gen::detail::ContextBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"ctx_read", { { u8"offset", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
 	glue.define(u8"ctx_write", { { u8"offset", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"value", wasm::Type::i64 } }, {});
 }
-void gen::detail::ContextBuilder::setupCoreImports(wasm::Module& mod) {
-	/* add the import to the exit-code-setter function */
-	wasm::Prototype prototype = mod.prototype(u8"main_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
-	pSetExit = mod.function(u8"main_set_exit_code", prototype, wasm::Import{ u8"main" });
-}
 void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
 	/* add the context-read function */
 	{
@@ -71,20 +66,11 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		_block8.close();
 		sink[I::U64::Store(management, env::detail::ContextAccess{}.contextAddress())];
 	}
-
-	/* add the exit-code-setter function */
-	{
-		wasm::Prototype prototype = mod.prototype(u8"ctx_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
-		wasm::Sink sink{ mod.function(u8"ctx_set_exit_code", prototype, wasm::Export{}) };
-
-		sink[I::Param::Get(0)];
-		sink[I::Call::Tail(pSetExit)];
-	}
 }
 void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, detail::ContextState& state) const {
 	state.management = management;
 
 	/* add the function-import for the exit-code-setter function */
-	wasm::Prototype prototype = mod.prototype(u8"ctx_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
-	state.exit = mod.function(u8"ctx_set_exit_code", prototype, wasm::Import{ u8"core" });
+	wasm::Prototype prototype = mod.prototype(u8"main_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
+	state.exit = mod.function(u8"main_set_exit_code", prototype, wasm::Import{ u8"main" });
 }

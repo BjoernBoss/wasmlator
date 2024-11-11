@@ -8,7 +8,7 @@ extern "C" {
 	void main_startup();
 }
 
-/* util/logging interactions */
+/* interface/host interactions */
 extern "C" {
 	/* imports */
 	void host_print_u8(const char8_t* data, uint32_t size);
@@ -23,6 +23,7 @@ extern "C" {
 	/* imports */
 	uint32_t host_load_core(const uint8_t* data, uint32_t size);
 	uint32_t proc_setup_core_functions();
+	void host_define_block_binding(const char8_t* modName, uint32_t modSize, const char8_t* name, uint32_t size);
 }
 
 /* environment/context/context-bridge interactions */
@@ -64,4 +65,15 @@ extern "C" {
 	uint64_t mem_read(uint64_t address, uint32_t size);
 	void mem_write(uint64_t address, uint32_t size, uint64_t value);
 	uint64_t mem_code(uint64_t address, uint32_t size);
+}
+
+/* environment/interact/interact-bridge interactions */
+extern "C" {
+	/* exports */
+	void main_invoke_void(uint32_t index);
+	uint64_t main_invoke_param(uint64_t param, uint32_t index);
+
+	/* imports */
+	void int_call_void(uint32_t index);
+	uint64_t int_call_param(uint64_t param, uint32_t index);
 }

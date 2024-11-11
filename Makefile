@@ -18,7 +18,7 @@ path_server := server
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1 -fwasm-exceptions
 em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_SYMBOLS=0 -sWASM_BIGINT -sALLOW_MEMORY_GROWTH -sSTANDALONE_WASM\
- -sEXPORTED_FUNCTIONS=_main_startup,_main_core_loaded,_main_set_exit_code,_main_resolve,_main_flushed,_main_block_loaded,_main_lookup,_main_result_address,_main_result_physical,_main_result_size
+ -sEXPORTED_FUNCTIONS=_main_startup,_main_core_loaded,_main_set_exit_code,_main_resolve,_main_flushed,_main_block_loaded,_main_lookup,_main_result_address,_main_result_physical,_main_result_size,_main_invoke_void,_main_invoke_param
 
 # default clang-compiler with all relevant flags
 cc := clang++ -std=c++20 -O3 -I./repos
@@ -70,7 +70,8 @@ $(_out_self):
 self_objects := $(patsubst %,$(_out_self)/%.o,context-access context-bridge env-context env-mapping mapping-access mapping-bridge\
 				env-memory memory-access memory-bridge memory-mapper env-process process-access process-bridge interface\
 				host address-writer gen-address context-builder context-writer mapping-builder mapping-writer memory-builder\
-				memory-writer gen-superblock gen-writer gen-core glue-state gen-glue gen-translator)
+				memory-writer gen-superblock gen-writer gen-core glue-state gen-glue gen-translator env-interact interact-access\
+				interact-bridge interact-builder interact-writer)
 self_objects_cc := $(self_objects)
 self_objects_em := $(subst .o,.em.o,$(self_objects))
 _self_prerequisites := $(ustring_includes) $(wasgen_includes) $(wildcard environment/*.h) $(wildcard environment/*/*.h) $(wildcard generate/*.h) $(wildcard generate/*/*.h) $(wildcard system/*.h) $(wildcard system/*/*.h) $(wildcard interface/*.h) | $(_out_self)
@@ -102,6 +103,15 @@ $(_out_self)/memory-bridge.o: environment/memory/memory-bridge.cpp $(_self_prere
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/memory-mapper.o: environment/memory/memory-mapper.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/env-interact.o: environment/interact/env-interact.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/interact-access.o: environment/interact/interact-access.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/interact-bridge.o: environment/interact/interact-bridge.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/env-process.o: environment/env-process.cpp $(_self_prerequisites)
@@ -141,6 +151,12 @@ $(_out_self)/memory-builder.o: generate/memory/memory-builder.cpp $(_self_prereq
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/memory-writer.o: generate/memory/memory-writer.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/interact-builder.o: generate/interact/interact-builder.cpp $(_self_prerequisites)
+	$(em) -c $< -o $(subst .o,.em.o,$@)
+	$(cc) -c $< -o $@
+$(_out_self)/interact-writer.o: generate/interact/interact-writer.cpp $(_self_prerequisites)
 	$(em) -c $< -o $(subst .o,.em.o,$@)
 	$(cc) -c $< -o $@
 $(_out_self)/gen-superblock.o: generate/translator/gen-superblock.cpp $(_self_prerequisites)

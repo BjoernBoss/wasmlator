@@ -10,5 +10,6 @@ namespace env::detail {
 		uint32_t readCache() const;
 		uint32_t writeCache() const;
 		uint32_t codeCache() const;
+		void coreLoaded() const;
 	};
 }

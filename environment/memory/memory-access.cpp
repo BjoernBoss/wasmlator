@@ -28,3 +28,8 @@ uint32_t env::detail::MemoryAccess::writeCache() const {
 uint32_t env::detail::MemoryAccess::codeCache() const {
 	return env::Instance()->memory().pCodeCache;
 }
+void env::detail::MemoryAccess::coreLoaded() const {
+	detail::ProcessBridge::DefineCoreBound(u8"core", u8"mem_lookup_read");
+	detail::ProcessBridge::DefineCoreBound(u8"core", u8"mem_lookup_write");
+	detail::ProcessBridge::DefineCoreBound(u8"core", u8"mem_lookup_code");
+}

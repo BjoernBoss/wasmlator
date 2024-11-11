@@ -10,5 +10,6 @@ namespace env::detail {
 		/* imports */
 		static bool LoadCore(const uint8_t* data, size_t size);
 		static bool SetupCoreFunctions();
+		static void DefineCoreBound(const std::u8string& mod, const std::u8string& name);
 	};
 }

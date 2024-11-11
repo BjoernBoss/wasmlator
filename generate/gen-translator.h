@@ -16,6 +16,7 @@ namespace gen {
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
 		detail::ContextState pContext;
+		detail::InteractState pInteract;
 
 	public:
 		Translator(wasm::Module& mod);

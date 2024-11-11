@@ -34,9 +34,9 @@ namespace gen::detail {
 	*		i32 mem_lookup_code(i64 address, i32 size, i32 cache);
 	*
 	*	Body-Imports:
-	*		i32 core.lookup_read(i64 address, i32 size, i32 cache);
-	*		i32 core.lookup_write(i64 address, i32 size, i32 cache);
-	*		i32 core.lookup_code(i64 address, i32 size, i32 cache);
+	*		i32 core.mem_lookup_read(i64 address, i32 size, i32 cache);
+	*		i32 core.mem_lookup_write(i64 address, i32 size, i32 cache);
+	*		i32 core.mem_lookup_code(i64 address, i32 size, i32 cache);
 	*/
 
 	class MemoryBuilder {
