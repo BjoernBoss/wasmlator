@@ -84,7 +84,7 @@ _state.load_glue = function () {
 
 /* load the actual primary application once the glue module has been loaded and compiled */
 _state.load_main = function () {
-	console.log(`WasmLator.js: Loading main application...`);
+	console.log(`WasmLator.js: Loading main module...`);
 	let imports = {
 		env: {},
 		wasi_snapshot_preview1: {}
@@ -97,19 +97,19 @@ _state.load_main = function () {
 	/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 	imports.env.emscripten_notify_memory_growth = function () { };
 	imports.wasi_snapshot_preview1.proc_exit = function (code) {
-		console.error(`WasmLator.js: Main application unexpectedly terminated itself with [${code}]`);
+		console.error(`WasmLator.js: Main module unexpectedly terminated itself with [${code}]`);
 		_state.abortControlled();
 	};
 	
 	/* setup the remaining host-imports */
-	imports.env.host_print_u8 = function (ptr, size) {
-		console.log(_state.load_string(ptr, size));
+	imports.env.host_print_u8 = function (ptr, size, err) {
+		(err ? console.error : console.log)(_state.load_string(ptr, size));
 	};
 	imports.env.host_abort = function () {
 		_state.abortControlled();
 	};
-	imports.env.host_load_core = function (ptr, size) {
-		_state.load_core(_state.make_buffer(ptr, size));
+	imports.env.host_load_core = function (ptr, size, process) {
+		return _state.load_core(_state.make_buffer(ptr, size), process);
 	};
 	imports.env.host_define_block_binding = function (mod_ptr, mod_size, name_ptr, name_size) {
 		let mod = _state.load_string(mod_ptr, mod_size);
@@ -149,8 +149,8 @@ _state.load_main = function () {
 }
 
 /* load a core module */
-_state.load_core = function (buffer) {
-	console.log(`WasmLator.js: Loading core...`);
+_state.load_core = function (buffer, process) {
+	console.log(`WasmLator.js: Loading core for process [${process}]...`);
 	let imports = {
 		main: {},
 		host: {}
@@ -178,20 +178,22 @@ _state.load_core = function (buffer) {
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)
 		.then((instance) => {
-			/* notify the main about the loaded core(do this in a separate
+			/* notify the main about the loaded core (do this in a separate
 			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
-				console.log(`WasmLator.js: Core loaded`);
+				console.log(`WasmLator.js: Core loaded for process [${process}]`);
 				_state.core_exports = instance.instance.exports;
-				_state.main.exports.main_core_loaded(1);
+				if (_state.main.exports.main_core_loaded(process, 1) == 0)
+					_state.core_exports = null;
 			});
 		})
 		.catch((err) => {
 			_state.controlled(() => {
-				console.error(`WasmLator.js: Failed to load core: ${err}`);
-				_state.main.exports.main_core_loaded(0);
+				console.error(`WasmLator.js: Failed to load core for process [${process}]: ${err}`);
+				_state.main.exports.main_core_loaded(process, 0);
 			});
 		});
+	return 1;
 }
 
 /* load a block module */

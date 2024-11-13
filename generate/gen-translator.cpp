@@ -26,7 +26,7 @@ void gen::Translator::fProcess(const detail::OpenAddress& next) {
 	detail::SuperBlock block;
 
 	/* notify the interface about the newly starting block */
-	env::Instance()->specification().blockStarted();
+	env::Instance()->specification().translationStarted();
 
 	/* construct the current super-block */
 	env::guest_t address = next.address;
@@ -61,7 +61,7 @@ void gen::Translator::fProcess(const detail::OpenAddress& next) {
 	}
 
 	/* notify the interface about the completed block */
-	env::Instance()->specification().blockCompleted();
+	env::Instance()->specification().translationCompleted();
 }
 
 void gen::Translator::run(env::guest_t address) {

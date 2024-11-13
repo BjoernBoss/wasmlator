@@ -11,17 +11,18 @@ extern "C" {
 /* interface/host interactions */
 extern "C" {
 	/* imports */
-	void host_print_u8(const char8_t* data, uint32_t size);
+	void host_print_u8(const char8_t* data, uint32_t size, uint32_t error);
 	void host_abort [[noreturn]] ();
 }
 
 /* environment/process/process-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_core_loaded(uint32_t succeeded);
+	uint32_t main_core_loaded(uint32_t process, uint32_t succeeded);
+	uint32_t main_block_loaded(uint32_t process, uint32_t succeeded);
 
 	/* imports */
-	uint32_t host_load_core(const uint8_t* data, uint32_t size);
+	uint32_t host_load_core(const uint8_t* data, uint32_t size, uint32_t process);
 	uint32_t proc_setup_core_functions();
 	void host_define_block_binding(const char8_t* modName, uint32_t modSize, const char8_t* name, uint32_t size);
 }
@@ -41,10 +42,9 @@ extern "C" {
 	/* exports */
 	uint32_t main_resolve(uint64_t address);
 	void main_flushed();
-	void main_block_loaded(uint32_t succeeded);
 
 	/* imports */
-	uint32_t map_load_block(const uint8_t* data, uint32_t size, uint32_t exports);
+	uint32_t map_load_block(const uint8_t* data, uint32_t size, uint32_t exports, uint32_t process);
 	uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address);
 	void map_flush_blocks();
 	uint32_t map_execute(uint64_t address);

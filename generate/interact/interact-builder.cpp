@@ -35,26 +35,26 @@ void gen::detail::InteractBuilder::finalizeCoreBody(wasm::Module& mod) const {
 	mod.limit(exported, wasm::Limit{ uint32_t(list.size()), uint32_t(list.size()) });
 	mod.elements(exported, wasm::Value::MakeU32(0), list);
 
-	/* add the void-invoke function */
+	/* add the void-call function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"int_invoke_void_type", { { u8"index", wasm::Type::i32 } }, {});
+		wasm::Prototype prototype = mod.prototype(u8"int_call_void_type", { { u8"index", wasm::Type::i32 } }, {});
 		wasm::Prototype voidFnType = mod.prototype(u8"int_void_fn_type", {}, {});
-		wasm::Sink sink{ mod.function(u8"int_invoke_void", prototype, wasm::Export{}) };
+		wasm::Sink sink{ mod.function(u8"int_call_void", prototype, wasm::Export{}) };
 
 		/* call the function at the given index in the table */
 		sink[I::Param::Get(0)];
 		sink[I::Call::IndirectTail(exported, voidFnType)];
 	}
 
-	/* add the param-invoke function */
+	/* add the param-call function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"int_invoke_param_type", { { u8"index", wasm::Type::i32 }, { u8"param", wasm::Type::i64 } }, { wasm::Type::i64 });
+		wasm::Prototype prototype = mod.prototype(u8"int_call_param_type", { { u8"param", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } }, { wasm::Type::i64 });
 		wasm::Prototype paramFnType = mod.prototype(u8"int_param_fn_type", { { u8"param", wasm::Type::i64 } }, { wasm::Type::i64 });
-		wasm::Sink sink{ mod.function(u8"int_invoke_param", prototype, wasm::Export{}) };
+		wasm::Sink sink{ mod.function(u8"int_call_param", prototype, wasm::Export{}) };
 
 		/* call the function at the given index in the table */
-		sink[I::Param::Get(1)];
 		sink[I::Param::Get(0)];
+		sink[I::Param::Get(1)];
 		sink[I::Call::IndirectTail(exported, paramFnType)];
 	}
 }

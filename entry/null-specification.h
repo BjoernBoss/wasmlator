@@ -8,13 +8,13 @@ public:
 
 public:
 	void setupCore(wasm::Module& mod) override {}
-	void setupBlock(wasm::Module& mod) override {}
+	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) override { return {}; }
 	void coreLoaded() override {}
-	void bodyLoaded() override {}
+	void blockLoaded() override {}
 
 public:
-	void blockStarted() override {}
-	void blockCompleted() override {}
+	void translationStarted() override {}
+	void translationCompleted() override {}
 	gen::Instruction fetchInstruction(env::guest_t address) override {
 		return gen::Instruction{ 0, 0, 0, 0, gen::InstType::invalid };
 	}

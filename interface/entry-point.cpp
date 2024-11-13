@@ -32,8 +32,8 @@ public:
 		sink[wasm::inst::U64::Const(1)];
 		sink[wasm::inst::U64::Add()];
 	}
-	void setupBlock(wasm::Module& mod) override {
-
+	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) override {
+		return {};
 	}
 	void coreLoaded() override {
 		host::Log(u8"Test: ", env::Instance()->interact().call(u8"test", 63));
@@ -51,11 +51,11 @@ public:
 
 		host::Log(_writer.output());
 	}
-	void bodyLoaded() override {}
+	void blockLoaded() override {}
 
 public:
-	void blockStarted() override {}
-	void blockCompleted() override {}
+	void translationStarted() override {}
+	void translationCompleted() override {}
 	gen::Instruction fetchInstruction(env::guest_t address) override {
 		if (address == 0x1234)
 			return gen::Instruction{ 1, address, 0, 2, gen::InstType::primitive };

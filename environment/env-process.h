@@ -16,14 +16,22 @@ namespace env {
 		friend struct detail::ProcessBridge;
 		friend struct detail::ProcessAccess;
 	private:
+		enum class LoadingState : uint8_t {
+			none,
+			core,
+			block
+		};
+
+	private:
 		std::unique_ptr<sys::Specification> pSpecification;
-		std::function<void()> pLoaded;
+		std::vector<env::BlockExport> pExports;
 		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
 		env::Interact pInteract;
 		uint32_t pManagementPages = 0;
 		uint32_t pPhysicalPages = 0;
+		LoadingState pLoading = LoadingState::none;
 
 	private:
 		Process(std::unique_ptr<sys::Specification>&& specification);
@@ -36,9 +44,12 @@ namespace env {
 
 	private:
 		void fLoadCore();
-		void fCoreLoaded(bool succeeded);
+		void fLoadBlock();
+		bool fCoreLoaded(uint32_t process, bool succeeded);
+		bool fBlockLoaded(uint32_t process, bool succeeded);
 
 	public:
+		void nextBlock();
 		void release();
 
 	public:

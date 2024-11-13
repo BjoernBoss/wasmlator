@@ -12,8 +12,8 @@ namespace gen::detail {
 
 	/*
 	*	Core-Exports to Main:
-	*		void int_invoke_void(i32 index);
-	*		i64 int_invoke_param(i32 index, i64 param);
+	*		void int_call_void(i32 index);
+	*		i64 int_call_param(i64 param, i32 index);
 	*
 	*	Body-Imports:
 	*		void main.main_invoke_void(i32 index);

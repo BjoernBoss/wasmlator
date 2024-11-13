@@ -9,7 +9,6 @@ void gen::SetupCore(wasm::Module& mod) {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
-	detail::InteractBuilder _interact;
 
 	/* initialize the core-imports */
 	_memory.setupCoreImports(mod);

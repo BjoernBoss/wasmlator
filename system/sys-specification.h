@@ -3,6 +3,7 @@
 #include <wasgen/wasm.h>
 #include <cinttypes>
 
+#include "../environment/env-common.h"
 #include "../generate/translator/gen-writer.h"
 
 namespace sys {
@@ -21,13 +22,13 @@ namespace sys {
 
 	public:
 		virtual void setupCore(wasm::Module& mod) = 0;
-		virtual void setupBlock(wasm::Module& mod) = 0;
+		virtual std::vector<env::BlockExport> setupBlock(wasm::Module& mod) = 0;
 		virtual void coreLoaded() = 0;
-		virtual void bodyLoaded() = 0;
+		virtual void blockLoaded() = 0;
 
 	public:
-		virtual void blockStarted() = 0;
-		virtual void blockCompleted() = 0;
+		virtual void translationStarted() = 0;
+		virtual void translationCompleted() = 0;
 		virtual gen::Instruction fetchInstruction(env::guest_t address) = 0;
 		virtual void produceInstructions(const gen::Writer& writer, const gen::Instruction* data, size_t count) = 0;
 

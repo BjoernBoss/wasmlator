@@ -4,15 +4,15 @@
 #include <ustring/ustring.h>
 #include <vector>
 
-void host_print_u8(const char8_t* data, uint32_t size) {
-	str::PrintLn(std::u8string_view{ data, size });
+void host_print_u8(const char8_t* data, uint32_t size, uint32_t error) {
+	str::BuildTo((error > 0 ? std::cerr : std::cout), std::u8string_view{ data, size }, '\n');
 }
 void host_abort [[noreturn]] () {
 	exit(1);
 }
 
-uint32_t host_load_core(const uint8_t* data, uint32_t size) {
-	main_core_loaded(1);
+uint32_t host_load_core(const uint8_t* data, uint32_t size, uint32_t process) {
+	main_core_loaded(process, 1);
 	return 1;
 }
 uint32_t proc_setup_core_functions() { return 1; }
@@ -21,8 +21,8 @@ void host_define_block_binding(const char8_t* modName, uint32_t modSize, const c
 uint64_t ctx_read(uint32_t offset, uint32_t size) { return{}; }
 void ctx_write(uint32_t offset, uint32_t size, uint64_t value) {}
 
-uint32_t map_load_block(const uint8_t* data, uint32_t size, uint32_t exports) {
-	main_block_loaded(1);
+uint32_t map_load_block(const uint8_t* data, uint32_t size, uint32_t exports, uint32_t process) {
+	main_block_loaded(process, 1);
 	return 1;
 }
 uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address) { return {}; }
