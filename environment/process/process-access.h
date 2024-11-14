@@ -4,7 +4,7 @@
 
 namespace env::detail {
 	struct ProcessAccess {
-		uint32_t physicalPages() const;
-		uint32_t managementPages() const;
+		static uint32_t PhysicalPages();
+		static uint32_t ManagementPages();
 	};
 }

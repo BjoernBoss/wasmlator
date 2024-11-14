@@ -22,9 +22,9 @@ void env::Process::Create(std::unique_ptr<sys::Specification>&& specification) {
 	/* initialize the components */
 	ProcessInstance->pPhysicalPages = env::PhysPageCount(env::detail::InitAllocBytes);
 	uint32_t endOfManagement = 0;
-	endOfManagement += detail::ContextAccess{}.configureAndAllocate(endOfManagement);
-	endOfManagement += detail::MappingAccess{}.allocateFromManagement(endOfManagement);
-	endOfManagement += detail::MemoryAccess{}.configureAndAllocate(endOfManagement, ProcessInstance->pPhysicalPages);
+	endOfManagement += detail::ContextAccess::ConfigureAndAllocate(endOfManagement);
+	endOfManagement += detail::MappingAccess::AllocateFromManagement(endOfManagement);
+	endOfManagement += detail::MemoryAccess::ConfigureAndAllocate(endOfManagement, ProcessInstance->pPhysicalPages);
 	ProcessInstance->pManagementPages = env::PhysPageCount(endOfManagement);
 
 	/* allocate the next process-stamp */
@@ -78,7 +78,7 @@ void env::Process::fLoadBlock() {
 
 	/* setup the block loading */
 	pExports = exports;
-	if (!detail::MappingAccess{}.loadBlock(writer.output(), pExports, ProcessStamp))
+	if (!detail::MappingAccess::LoadBlock(writer.output(), pExports, ProcessStamp))
 		host::Fatal(u8"Failed loading block");
 }
 bool env::Process::fCoreLoaded(uint32_t stamp, bool succeeded) {
@@ -96,9 +96,9 @@ bool env::Process::fCoreLoaded(uint32_t stamp, bool succeeded) {
 		host::Fatal(u8"Failed to import all core-functions accessed by the main application");
 
 	/* notify the core-objects about the core being loaded */
-	detail::InteractAccess{}.coreLoaded();
-	detail::MemoryAccess{}.coreLoaded();
-	detail::MappingAccess{}.coreLoaded();
+	detail::InteractAccess::CoreLoaded();
+	detail::MemoryAccess::CoreLoaded();
+	detail::MappingAccess::CoreLoaded();
 	pLoading = LoadingState::none;
 
 	/* notify the the specification about the loaded core */
@@ -117,7 +117,7 @@ bool env::Process::fBlockLoaded(uint32_t stamp, bool succeeded) {
 	host::Debug(u8"Block loading succeeded");
 
 	/* register all exports and update the loading-state */
-	detail::MappingAccess{}.blockLoaded(pExports);
+	detail::MappingAccess::BlockLoaded(pExports);
 	pLoading = LoadingState::none;
 	pExports.clear();
 

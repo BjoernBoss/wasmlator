@@ -63,7 +63,7 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::U32::And()];
 		sink[I::U32::Const(sizeof(env::detail::MappingCache))];
 		sink[I::U32::Mul()];
-		uint32_t cacheAddress = env::detail::MappingAccess{}.cacheAddress();
+		uint32_t cacheAddress = env::detail::MappingAccess::CacheAddress();
 		if (cacheAddress > 0) {
 			sink[I::U32::Const(cacheAddress)];
 			sink[I::U32::Add()];
@@ -283,7 +283,7 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		wasm::Sink sink{ mod.function(u8"map_flush_blocks", {}, {}, wasm::Export{}) };
 
 		/* clear the caches */
-		sink[I::U32::Const(env::detail::MappingAccess{}.cacheAddress())];
+		sink[I::U32::Const(env::detail::MappingAccess::CacheAddress())];
 		sink[I::U32::Const(0)];
 		sink[I::U32::Const(uint64_t(1 << env::detail::BlockLookupCacheBits) * sizeof(env::detail::MappingCache))];
 		sink[I::Memory::Fill(management)];

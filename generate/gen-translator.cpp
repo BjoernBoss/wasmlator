@@ -8,9 +8,9 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	detail::InteractBuilder _interact;
 
 	/* setup the shared components */
-	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
-	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Import{ u8"core" });
-	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Import{ u8"core" });
+	uint32_t mpages = env::detail::ProcessAccess::ManagementPages(), ppages = env::detail::ProcessAccess::PhysicalPages();
+	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ ppages }, wasm::Import{ u8"core" });
+	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ mpages, mpages }, wasm::Import{ u8"core" });
 
 	/* initialize the block-imports */
 	_memory.setupBlockImports(mod, management, physical, pMemory);

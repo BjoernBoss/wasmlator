@@ -86,8 +86,8 @@ void gen::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod) {
 	pGetSize = mod.function(u8"main_result_size", prototype, wasm::Import{ u8"main" });
 }
 void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical) const {
-	uint32_t caches = env::detail::MemoryAccess{}.caches();
-	uint32_t cacheAddress = env::detail::MemoryAccess{}.cacheAddress();
+	uint32_t caches = env::detail::MemoryAccess::Caches();
+	uint32_t cacheAddress = env::detail::MemoryAccess::CacheAddress();
 	detail::MemoryState state{ {}, {}, {}, management, physical };
 
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
@@ -170,19 +170,19 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), gen::MemoryType::u8To64);
+		_writer.fMakeRead(env::detail::MemoryAccess::ReadCache(), gen::MemoryType::u8To64);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), gen::MemoryType::u16To64);
+		_writer.fMakeRead(env::detail::MemoryAccess::ReadCache(), gen::MemoryType::u16To64);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), gen::MemoryType::u32To64);
+		_writer.fMakeRead(env::detail::MemoryAccess::ReadCache(), gen::MemoryType::u32To64);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeRead(env::detail::MemoryAccess{}.readCache(), gen::MemoryType::i64);
+		_writer.fMakeRead(env::detail::MemoryAccess::ReadCache(), gen::MemoryType::i64);
 	}
 
 	/* add the write-access function */
@@ -200,19 +200,19 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), gen::MemoryType::u8To64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), gen::MemoryType::u16To64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), gen::MemoryType::u32To64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess{}.writeCache(), gen::MemoryType::i64);
+		_writer.fMakeWrite(sink.param(2), env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64);
 	}
 
 	/* add the code-access function */
@@ -230,19 +230,19 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), gen::MemoryType::u8To64);
+		_writer.fMakeCode(env::detail::MemoryAccess::CodeCache(), gen::MemoryType::u8To64);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), gen::MemoryType::u16To64);
+		_writer.fMakeCode(env::detail::MemoryAccess::CodeCache(), gen::MemoryType::u16To64);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), gen::MemoryType::u32To64);
+		_writer.fMakeCode(env::detail::MemoryAccess::CodeCache(), gen::MemoryType::u32To64);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeCode(env::detail::MemoryAccess{}.codeCache(), gen::MemoryType::i64);
+		_writer.fMakeCode(env::detail::MemoryAccess::CodeCache(), gen::MemoryType::i64);
 	}
 }
 void gen::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical, detail::MemoryState& state) const {

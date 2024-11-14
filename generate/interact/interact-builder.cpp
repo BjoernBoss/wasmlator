@@ -19,14 +19,14 @@ void gen::detail::InteractBuilder::finalizeCoreBody(wasm::Module& mod) const {
 
 		/* check if this is a void-function */
 		if (proto.parameter().empty() && proto.result().empty()) {
-			env::detail::InteractAccess{}.defineExported(std::u8string{ fn.id() }, uint32_t(list.size()), false);
+			env::detail::InteractAccess::DefineExported(std::u8string{ fn.id() }, uint32_t(list.size()), false);
 			list.push_back(wasm::Value::MakeFunction(fn));
 		}
 
 		/* check if this is a param-function */
 		if (proto.parameter().size() == 1 && proto.parameter()[0].type == wasm::Type::i64 &&
 			proto.result().size() == 1 && proto.result()[0] == wasm::Type::i64) {
-			env::detail::InteractAccess{}.defineExported(std::u8string{ fn.id() }, uint32_t(list.size()), true);
+			env::detail::InteractAccess::DefineExported(std::u8string{ fn.id() }, uint32_t(list.size()), true);
 			list.push_back(wasm::Value::MakeFunction(fn));
 		}
 	}

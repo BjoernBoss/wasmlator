@@ -5,12 +5,12 @@ namespace I = wasm::inst;
 gen::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
 
 void gen::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
-	uint32_t caches = env::detail::MemoryAccess{}.cacheAddress();
+	uint32_t caches = env::detail::MemoryAccess::CacheAddress();
 	if (cache >= caches)
 		host::Fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
 void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type) const {
-	uint32_t cacheAddress = env::detail::MemoryAccess{}.cacheAddress();
+	uint32_t cacheAddress = env::detail::MemoryAccess::CacheAddress();
 
 	/* check if the temporary variable needs to be initialized */
 	if (!pTempAddress.valid())

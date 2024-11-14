@@ -21,19 +21,19 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		sink[I::U64::Load8(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Load8(management, env::detail::ContextAccess::ContextAddress())];
 		sink[I::Return()];
 
 		_block2.close();
-		sink[I::U64::Load16(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Load16(management, env::detail::ContextAccess::ContextAddress())];
 		sink[I::Return()];
 
 		_block4.close();
-		sink[I::U64::Load32(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Load32(management, env::detail::ContextAccess::ContextAddress())];
 		sink[I::Return()];
 
 		_block8.close();
-		sink[I::U64::Load(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Load(management, env::detail::ContextAccess::ContextAddress())];
 
 	}
 
@@ -52,19 +52,19 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		sink[I::U64::Store8(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Store8(management, env::detail::ContextAccess::ContextAddress())];
 		sink[I::Return()];
 
 		_block2.close();
-		sink[I::U64::Store16(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Store16(management, env::detail::ContextAccess::ContextAddress())];
 		sink[I::Return()];
 
 		_block4.close();
-		sink[I::U64::Store32(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Store32(management, env::detail::ContextAccess::ContextAddress())];
 		sink[I::Return()];
 
 		_block8.close();
-		sink[I::U64::Store(management, env::detail::ContextAccess{}.contextAddress())];
+		sink[I::U64::Store(management, env::detail::ContextAccess::ContextAddress())];
 	}
 }
 void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, detail::ContextState& state) const {

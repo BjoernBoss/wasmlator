@@ -15,9 +15,9 @@ void gen::SetupCore(wasm::Module& mod) {
 	_mapping.setupCoreImports(mod);
 
 	/* setup the shared components */
-	env::detail::ProcessAccess _proc = env::detail::ProcessAccess{};
-	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ _proc.physicalPages() }, wasm::Export{});
-	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ _proc.managementPages(), _proc.managementPages() }, wasm::Export{});
+	uint32_t mpages = env::detail::ProcessAccess::ManagementPages(), ppages = env::detail::ProcessAccess::PhysicalPages();
+	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ ppages }, wasm::Export{});
+	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ mpages, mpages }, wasm::Export{});
 
 	/* setup the core-bodies */
 	_memory.setupCoreBody(mod, management, physical);

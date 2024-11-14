@@ -4,12 +4,12 @@
 
 namespace env::detail {
 	struct MemoryAccess {
-		uint32_t configureAndAllocate(uint32_t address, uint32_t initialPageCount);
-		uint32_t caches() const;
-		uint32_t cacheAddress() const;
-		uint32_t readCache() const;
-		uint32_t writeCache() const;
-		uint32_t codeCache() const;
-		void coreLoaded() const;
+		static uint32_t ConfigureAndAllocate(uint32_t address, uint32_t initialPageCount);
+		static uint32_t Caches();
+		static uint32_t CacheAddress();
+		static uint32_t ReadCache();
+		static uint32_t WriteCache();
+		static uint32_t CodeCache();
+		static void CoreLoaded();
 	};
 }

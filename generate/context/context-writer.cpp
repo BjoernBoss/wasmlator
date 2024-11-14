@@ -30,7 +30,7 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 		break;
 	}
 
-	uint32_t size = env::detail::ContextAccess{}.contextSize();
+	uint32_t size = env::detail::ContextAccess::ContextSize();
 	if (offset > size)
 		host::Fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }
@@ -47,7 +47,7 @@ void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type)
 	fCheckRange(offset, type);
 
 	/* write the offset to the stack */
-	pSink[I::U32::Const(env::detail::ContextAccess{}.contextAddress() + offset)];
+	pSink[I::U32::Const(env::detail::ContextAccess::ContextAddress() + offset)];
 
 	/* read the value onto the stack */
 	switch (type) {
@@ -99,7 +99,7 @@ void gen::detail::ContextWriter::makeWrite(const wasm::Variable& value, uint32_t
 	fCheckRange(offset, type);
 
 	/* write the address and value to the stack */
-	pSink[I::U32::Const(env::detail::ContextAccess{}.contextAddress() + offset)];
+	pSink[I::U32::Const(env::detail::ContextAccess::ContextAddress() + offset)];
 	pSink[I::Local::Get(value)];
 
 	/* write the value to the context */

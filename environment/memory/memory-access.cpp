@@ -1,6 +1,6 @@
 #include "../env-process.h"
 
-uint32_t env::detail::MemoryAccess::configureAndAllocate(uint32_t address, uint32_t initialPageCount) {
+uint32_t env::detail::MemoryAccess::ConfigureAndAllocate(uint32_t address, uint32_t initialPageCount) {
 	env::Instance()->memory().pMapper.configure(initialPageCount);
 
 	/* setup the cache-indices for both the guest-application and the internal read/write/code caches */
@@ -13,22 +13,22 @@ uint32_t env::detail::MemoryAccess::configureAndAllocate(uint32_t address, uint3
 	env::Instance()->memory().pCacheAddress = address;
 	return (env::Instance()->memory().pCacheCount + detail::InternalCaches) * uint32_t(sizeof(detail::MemoryCache));
 }
-uint32_t env::detail::MemoryAccess::caches() const {
+uint32_t env::detail::MemoryAccess::Caches() {
 	return env::Instance()->memory().pCacheCount;
 }
-uint32_t env::detail::MemoryAccess::cacheAddress() const {
+uint32_t env::detail::MemoryAccess::CacheAddress() {
 	return env::Instance()->memory().pCacheAddress;
 }
-uint32_t env::detail::MemoryAccess::readCache() const {
+uint32_t env::detail::MemoryAccess::ReadCache() {
 	return env::Instance()->memory().pReadCache;
 }
-uint32_t env::detail::MemoryAccess::writeCache() const {
+uint32_t env::detail::MemoryAccess::WriteCache() {
 	return env::Instance()->memory().pWriteCache;
 }
-uint32_t env::detail::MemoryAccess::codeCache() const {
+uint32_t env::detail::MemoryAccess::CodeCache() {
 	return env::Instance()->memory().pCodeCache;
 }
-void env::detail::MemoryAccess::coreLoaded() const {
+void env::detail::MemoryAccess::CoreLoaded() {
 	detail::ProcessBridge::DefineCoreBound(u8"core", u8"mem_lookup_read");
 	detail::ProcessBridge::DefineCoreBound(u8"core", u8"mem_lookup_write");
 	detail::ProcessBridge::DefineCoreBound(u8"core", u8"mem_lookup_code");
