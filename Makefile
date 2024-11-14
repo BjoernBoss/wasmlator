@@ -1,3 +1,24 @@
+# python script, which reads all of the cpp-files, recursively processes the
+# includes, and generates a make-file to create all of the corresponding object-files
+py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p in v: return\
+\n v[p] = set(t for t in (os.path.relpath(os.path.join('./repos', i)).replace('\\u005c', '/') for i in re.findall('\\u0023include <(.*)>', open(p, 'r').read())) if os.path.isfile(t))\
+\n v[p].update(t for t in (os.path.relpath(os.path.join(os.path.dirname(p), i)).replace('\\u005c', '/') for i in re.findall('\\u0023include \\u0022(.*)\\u0022', open(p, 'r').read())) if os.path.isfile(t))\
+\n for t in v[p]:\n  c(t)\nfor (dir, _, files) in os.walk('.'):\n for f in files:\n  if f.endswith('.cpp'):\n   c(os.path.relpath(os.path.join(dir, f)).replace('\\u005c', '/'))\nwhile True:\
+\n dirty = False\n for p in v:\n  o = v[p].copy()\n  for t in v[p]:\n   o.update(v[t])\n  if len(o) != len(v[p]):\n   dirty = True\n  v[p] = o\n if not dirty: break\
+\nf, l, o = open(sys.argv[1], 'w'), [], []\nfor p in v:\n if not p.endswith('.cpp'): continue\n if p.find('entry/') != -1:\n  o.append(p)\n  continue\n n = os.path.basename(p)[:-4]\
+\n f.write(f'\\u0024(cc_path)/{n}.o: {p} ' + ' '.join(t for t in v[p]) + ' | \\u0024(cc_path)\\u000a')\n f.write(f'\\u0009\\u0024(cc) -c \\u0024< -o \\u0024@\\u000a')\
+\n f.write(f'\\u0024(em_path)/{n}.o: {p} ' + ' '.join(t for t in v[p]) + ' | \\u0024(em_path)\\u000a')\n f.write(f'\\u0009\\u0024(em) -c \\u0024< -o \\u0024@\\u000a')\n l.append(n)\
+\nf.write('\\u000a')\nf.write(f'obj_list_cc := ' + ' '.join(f'\\u0024(cc_path)/{n}.o' for n in l) + '\\u000a')\nf.write(f'obj_list_em := ' + ' '.join(f'\\u0024(em_path)/{n}.o' for n in l) + '\\u000a')\
+\nf.write('\\u000a')\nf.writelines(os.path.basename(p)[:-4].replace('-', '_') + f'_prerequisites := {p} ' + ' '.join(t for t in v[p]) + '\\u000a' for p in o)"
+
+# relevant paths referenced throughout this script
+build_path := build
+wat_path := server/wat
+wasm_path := server/wasm
+bin_path := $(build_path)/make
+cc_path := $(build_path)/make/cc
+em_path := $(build_path)/make/em
+
 # help-menu
 help:
 	@echo "Usage: make [target]"
@@ -8,12 +29,34 @@ help:
 	@echo "   server (generate the glue module and main module to server/wasm)"
 	@echo "   wat (generate example glue/core/block modules to server/wat)"
 	@echo "   wasm (generate example glue/core/block modules to server/wasm)"
+	@echo ""
+	@echo "Note:"
+	@echo "   This makefile will create and include a generated makefile, which is generated"
+	@echo "   through inlined python. This makefile will automatically be generated for the"
+	@echo "   (server/wat/wasm) targets. Should the fundamental structure of the repository"
+	@echo "   change, simply perform a full clean and full creation to update the script."
+.PHONY: help
 
-# build-output directory
-path_build := build/make
+# clean all produced output
+clean:
+	rm -rf $(wat_path)
+	rm -rf $(wasm_path)
+	rm -rf $(build_path)
+.PHONY: clean
 
-# server-output directory
-path_server := server
+# path-creating targets
+$(cc_path):
+	@ mkdir -p $(cc_path)
+$(em_path):
+	@ mkdir -p $(em_path)
+$(wat_path):
+	@ mkdir -p $(wat_path)
+$(wasm_path):
+	@ mkdir -p $(wasm_path)
+$(bin_path):
+	@ mkdir -p $(bin_path)
+$(build_path):
+	@ mkdir -p $(build_path)
 
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1 -fwasm-exceptions
@@ -23,214 +66,58 @@ em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_S
 # default clang-compiler with all relevant flags
 cc := clang++ -std=c++20 -O3 -I./repos
 
-# repos/ustring includes
-ustring_includes := $(wildcard repos/ustring/*.h) $(wildcard repos/ustring/*/*.h) $(wildcard repos/ustring/*/*/*.h)
+# execute the python-script to generate the make-file, if it does not exist yet
+generated_path := $(build_path)/generated.make
+$(generated_path): | $(build_path)
+	@ py -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $(generated_path)
+	@echo generated $(generated_path)
 
-# repos/wasgen compilation
-_out_wasgen := $(path_build)/wasgen
-$(_out_wasgen):
-	mkdir -p $(_out_wasgen)
-wasgen_objects := $(patsubst %,$(_out_wasgen)/%.o,module sink target binary-base binary-module binary-sink text-base text-module text-sink)
-wasgen_objects_cc := $(wasgen_objects)
-wasgen_objects_em := $(subst .o,.em.o,$(wasgen_objects))
-wasgen_includes := $(wildcard repos/wasgen/*.h) $(wildcard repos/wasgen/*/*.h) $(wildcard repos/wasgen/*/*/*.h)
-_wasgen_prerequisites := $(wasgen_includes) $(ustring_includes) | $(_out_wasgen)
-$(_out_wasgen)/module.o: repos/wasgen/objects/wasm-module.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/sink.o: repos/wasgen/sink/wasm-sink.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/target.o: repos/wasgen/sink/wasm-target.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/binary-base.o: repos/wasgen/writer/binary/binary-base.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/binary-module.o: repos/wasgen/writer/binary/binary-module.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/binary-sink.o: repos/wasgen/writer/binary/binary-sink.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/text-base.o: repos/wasgen/writer/text/text-base.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/text-module.o: repos/wasgen/writer/text/text-module.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_wasgen)/text-sink.o: repos/wasgen/writer/text/text-sink.cpp $(_wasgen_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-
-# self compilation
-_out_self := $(path_build)/self
-$(_out_self):
-	mkdir -p $(_out_self)
-self_objects := $(patsubst %,$(_out_self)/%.o,context-access context-bridge env-context env-mapping mapping-access mapping-bridge\
-				env-memory memory-access memory-bridge memory-mapper env-process process-access process-bridge interface\
-				host address-writer gen-address context-builder context-writer mapping-builder mapping-writer memory-builder\
-				memory-writer gen-superblock gen-writer gen-core glue-state gen-glue gen-translator env-interact interact-access\
-				interact-bridge interact-builder interact-writer)
-self_objects_cc := $(self_objects)
-self_objects_em := $(subst .o,.em.o,$(self_objects))
-_self_prerequisites := $(ustring_includes) $(wasgen_includes) $(wildcard environment/*.h) $(wildcard environment/*/*.h) $(wildcard generate/*.h) $(wildcard generate/*/*.h) $(wildcard system/*.h) $(wildcard system/*/*.h) $(wildcard interface/*.h) | $(_out_self)
-$(_out_self)/context-access.o: environment/context/context-access.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/context-bridge.o: environment/context/context-bridge.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/env-context.o: environment/context/env-context.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/mapping-access.o: environment/mapping/mapping-access.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/mapping-bridge.o: environment/mapping/mapping-bridge.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/env-mapping.o: environment/mapping/env-mapping.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/env-memory.o: environment/memory/env-memory.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/memory-access.o: environment/memory/memory-access.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/memory-bridge.o: environment/memory/memory-bridge.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/memory-mapper.o: environment/memory/memory-mapper.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/env-interact.o: environment/interact/env-interact.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/interact-access.o: environment/interact/interact-access.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/interact-bridge.o: environment/interact/interact-bridge.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/env-process.o: environment/env-process.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/process-access.o: environment/process/process-access.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/process-bridge.o: environment/process/process-bridge.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/interface.o: interface/interface.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/host.o: interface/host.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/address-writer.o: generate/address/address-writer.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/gen-address.o: generate/address/gen-address.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/context-builder.o: generate/context/context-builder.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/context-writer.o: generate/context/context-writer.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/mapping-builder.o: generate/mapping/mapping-builder.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/mapping-writer.o: generate/mapping/mapping-writer.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/memory-builder.o: generate/memory/memory-builder.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/memory-writer.o: generate/memory/memory-writer.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/interact-builder.o: generate/interact/interact-builder.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/interact-writer.o: generate/interact/interact-writer.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/gen-superblock.o: generate/translator/gen-superblock.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/gen-writer.o: generate/translator/gen-writer.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/gen-core.o: generate/core/gen-core.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/glue-state.o: generate/glue/glue-state.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/gen-glue.o: generate/glue/gen-glue.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
-$(_out_self)/gen-translator.o: generate/gen-translator.cpp $(_self_prerequisites)
-	$(em) -c $< -o $(subst .o,.em.o,$@)
-	$(cc) -c $< -o $@
+# include the generated build-script, which builds all separate objects
+# (references cc/cc_path/em/em_path and produces all *_prerequisites, as well as obj_list_cc and obj_list_em)
+ifneq ($(subst clean,,$(subst help,,$(MAKECMDGOALS))),)
+include $(generated_path)
+endif
 
 # make-glue.exe compilation
-glue_path := $(path_build)/make-glue.exe
-$(glue_path): entry/make-glue.cpp entry/null-interface.cpp entry/null-specification.h $(self_objects) $(wasgen_objects)
-	$(cc) entry/make-glue.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
+glue_path := $(bin_path)/make-glue.exe
+$(glue_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
+	$(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # make-block.exe compilation
-block_path := $(path_build)/make-block.exe
-$(block_path): entry/make-block.cpp entry/null-interface.cpp entry/null-specification.h $(self_objects) $(wasgen_objects)
-	$(cc) entry/make-block.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
+block_path := $(bin_path)/make-block.exe
+$(block_path): $(make_block_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
+	$(cc) entry/make-block.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # make-core.exe compilation
-core_path := $(path_build)/make-core.exe
-$(core_path): entry/make-core.cpp entry/null-interface.cpp entry/null-specification.h $(self_objects) $(wasgen_objects)
-	$(cc) entry/make-core.cpp entry/null-interface.cpp $(self_objects_cc) $(wasgen_objects_cc) -o $@
+core_path := $(bin_path)/make-core.exe
+$(core_path): $(make_core_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
+	$(cc) entry/make-core.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # generate all wat output
-_out_wat := $(path_server)/wat
-$(_out_wat):
-	mkdir -p $(_out_wat)
-$(_out_wat)/glue-module.wat: $(glue_path) | $(_out_wat)
-	$(glue_path) $(_out_wat)/glue-module.wat
-$(_out_wat)/core-module.wat: $(core_path) | $(_out_wat)
-	$(core_path) $(_out_wat)/core-module.wat
-$(_out_wat)/block-module.wat: $(block_path) | $(_out_wat)
-	$(block_path) $(_out_wat)/block-module.wat
-wat: $(_out_wat)/glue-module.wat $(_out_wat)/core-module.wat $(_out_wat)/block-module.wat
+$(wat_path)/glue-module.wat: $(glue_path) | $(wat_path)
+	$(glue_path) $(wat_path)/glue-module.wat
+$(wat_path)/core-module.wat: $(core_path) | $(wat_path)
+	$(core_path) $(wat_path)/core-module.wat
+$(wat_path)/block-module.wat: $(block_path) | $(wat_path)
+	$(block_path) $(wat_path)/block-module.wat
+wat: $(wat_path)/glue-module.wat $(wat_path)/core-module.wat $(wat_path)/block-module.wat
 .PHONY: wat
 
 # generate all wasm output
-_out_wasm := $(path_server)/wasm
-$(_out_wasm):
-	mkdir -p $(_out_wasm)
-$(_out_wasm)/glue-module.wasm: $(glue_path) | $(_out_wasm)
-	$(glue_path) $(_out_wasm)/glue-module.wasm
-$(_out_wasm)/core-module.wasm: $(core_path) | $(_out_wasm)
-	$(core_path) $(_out_wasm)/core-module.wasm
-$(_out_wasm)/block-module.wasm: $(block_path) | $(_out_wasm)
-	$(block_path) $(_out_wasm)/block-module.wasm
-wasm: $(_out_wasm)/glue-module.wasm $(_out_wasm)/core-module.wasm $(_out_wasm)/block-module.wasm
+$(wasm_path)/glue-module.wasm: $(glue_path) | $(wasm_path)
+	$(glue_path) $(wasm_path)/glue-module.wasm
+$(wasm_path)/core-module.wasm: $(core_path) | $(wasm_path)
+	$(core_path) $(wasm_path)/core-module.wasm
+$(wasm_path)/block-module.wasm: $(block_path) | $(wasm_path)
+	$(block_path) $(wasm_path)/block-module.wasm
+wasm: $(wasm_path)/glue-module.wasm $(wasm_path)/core-module.wasm $(wasm_path)/block-module.wasm
 .PHONY: wasm
 
 # main application compilation
-_main_path := $(_out_wasm)/main.wasm
-$(_main_path): interface/entry-point.cpp $(self_objects) $(wasgen_objects)
-	$(em_main) $< $(self_objects_em) $(wasgen_objects_em) -o $@
+main_path := $(wasm_path)/main.wasm
+$(main_path): $(obj_list_em)
+	$(em_main) $(obj_list_em) -o $@
 
 # setup the wasm for the server
-server: $(_out_wasm)/glue-module.wasm $(_main_path)
+server: $(wasm_path)/glue-module.wasm $(main_path)
 .PHONY: server
-
-# clean all produced output
-clean:
-	rm -rf server/wat
-	rm -rf server/wasm
-	rm -rf build
-.PHONY: clean
