@@ -69,8 +69,8 @@ cc := clang++ -std=c++20 -O3 -I./repos
 # execute the python-script to generate the make-file, if it does not exist yet
 generated_path := $(build_path)/generated.make
 $(generated_path): | $(build_path)
-	@ py -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $(generated_path)
-	@echo generated $(generated_path)
+	@echo Generating... $@
+	@ py -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $@
 
 # include the generated build-script, which builds all separate objects
 # (references cc/cc_path/em/em_path and produces all *_prerequisites, as well as obj_list_cc and obj_list_em)
@@ -78,45 +78,54 @@ ifneq ($(subst clean,,$(subst help,,$(MAKECMDGOALS))),)
 include $(generated_path)
 endif
 
-# make-glue.exe compilation
-glue_path := $(bin_path)/make-glue.exe
+# glue-generator compilation
+glue_path := $(bin_path)/glue.exe
 $(glue_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
-	$(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
+	@ $(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
-# make-block.exe compilation
-block_path := $(bin_path)/make-block.exe
+# example block-generator compilation
+block_path := $(bin_path)/block.exe
 $(block_path): $(make_block_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
-	$(cc) entry/make-block.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
+	@echo Generating... $@
+	@ $(cc) entry/make-block.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
-# make-core.exe compilation
-core_path := $(bin_path)/make-core.exe
+# example core-generator compilation
+core_path := $(bin_path)/core.exe
 $(core_path): $(make_core_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
-	$(cc) entry/make-core.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
+	@echo Generating... $@
+	@ $(cc) entry/make-core.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # generate all wat output
 $(wat_path)/glue-module.wat: $(glue_path) | $(wat_path)
-	$(glue_path) $(wat_path)/glue-module.wat
+	@echo Generating... $@
+	@ $(glue_path) $@
 $(wat_path)/core-module.wat: $(core_path) | $(wat_path)
-	$(core_path) $(wat_path)/core-module.wat
+	@echo Generating... $@
+	@ $(core_path) $@
 $(wat_path)/block-module.wat: $(block_path) | $(wat_path)
-	$(block_path) $(wat_path)/block-module.wat
+	@echo Generating... $@
+	@ $(block_path) $@
 wat: $(wat_path)/glue-module.wat $(wat_path)/core-module.wat $(wat_path)/block-module.wat
 .PHONY: wat
 
 # generate all wasm output
 $(wasm_path)/glue-module.wasm: $(glue_path) | $(wasm_path)
-	$(glue_path) $(wasm_path)/glue-module.wasm
+	@echo Generating... $@
+	@ $(glue_path) $@
 $(wasm_path)/core-module.wasm: $(core_path) | $(wasm_path)
-	$(core_path) $(wasm_path)/core-module.wasm
+	@echo Generating... $@
+	@ $(core_path) $@
 $(wasm_path)/block-module.wasm: $(block_path) | $(wasm_path)
-	$(block_path) $(wasm_path)/block-module.wasm
+	@echo Generating... $@
+	@ $(block_path) $@
 wasm: $(wasm_path)/glue-module.wasm $(wasm_path)/core-module.wasm $(wasm_path)/block-module.wasm
 .PHONY: wasm
 
 # main application compilation
 main_path := $(wasm_path)/main.wasm
 $(main_path): $(obj_list_em)
-	$(em_main) $(obj_list_em) -o $@
+	@echo Generating... $@
+	@ $(em_main) $(obj_list_em) -o $@
 
 # setup the wasm for the server
 server: $(wasm_path)/glue-module.wasm $(main_path)

@@ -33,7 +33,6 @@ int main(int argc, char** argv) {
 			/* write the file out */
 			std::fstream _out{ path, std::ios::out | std::ios::binary };
 			_out.write(reinterpret_cast<const char*>(data.data()), data.size());
-			str::PrintLn(u8"Generated WASM at: [", path, u8']');
 		}
 		else if (path.ends_with(".wat")) {
 			writer::TextWriter writer;
@@ -46,7 +45,6 @@ int main(int argc, char** argv) {
 			/* write the file out */
 			std::fstream _out{ path, std::ios::out | std::ios::binary };
 			_out.write(reinterpret_cast<const char*>(data.data()), data.size());
-			str::PrintLn(u8"Generated WAT at: [", path, u8']');
 		}
 		else {
 			str::PrintLn(u8"Invalid usage. Expected wasm or wat file paths.");
