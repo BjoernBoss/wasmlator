@@ -11,7 +11,7 @@ void env::Mapping::fFlushed() {
 	host::Debug(u8"Flushed blocks");
 	pMapping.clear();
 }
-bool env::Mapping::fLoadBlock(const std::vector<uint8_t>& data, const std::vector<env::BlockExport>& exports, uint32_t process) {
+bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
 	/* validate the uniqueness of all blocks to be loaded */
 	std::unordered_set<env::guest_t> added;
 	for (const env::BlockExport& block : exports) {
@@ -20,8 +20,8 @@ bool env::Mapping::fLoadBlock(const std::vector<uint8_t>& data, const std::vecto
 		added.insert(block.address);
 	}
 
-	/* try to start the loading */
-	return detail::MappingBridge::LoadBlock(data.data(), data.size(), exports.size(), process);
+	/* try to reserve the given number of exports */
+	return detail::MappingBridge::Reserve(exports.size());
 }
 void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 	/* validate all indices and write them to the map */

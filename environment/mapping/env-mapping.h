@@ -32,7 +32,7 @@ namespace env {
 	private:
 		uint32_t fResolve(env::guest_t address) const;
 		void fFlushed();
-		bool fLoadBlock(const std::vector<uint8_t>& data, const std::vector<env::BlockExport>& exports, uint32_t process);
+		bool fCheckLoadable(const std::vector<env::BlockExport>& exports);
 		void fBlockExports(const std::vector<env::BlockExport>& exports);
 
 	public:

@@ -16,22 +16,28 @@ namespace env {
 		friend struct detail::ProcessBridge;
 		friend struct detail::ProcessAccess;
 	private:
-		enum class LoadingState : uint8_t {
+		enum class State : uint8_t {
 			none,
-			core,
-			block
+			loadingCore,
+			coreLoaded,
+			loadingBlock
+		};
+		struct CoreToBlockBinding {
+			std::u8string mod;
+			std::u8string name;
 		};
 
 	private:
 		std::unique_ptr<sys::Specification> pSpecification;
 		std::vector<env::BlockExport> pExports;
+		std::vector<CoreToBlockBinding> pBindings;
 		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
 		env::Interact pInteract;
 		uint32_t pManagementPages = 0;
 		uint32_t pPhysicalPages = 0;
-		LoadingState pLoading = LoadingState::none;
+		State pState = State::none;
 
 	private:
 		Process(std::unique_ptr<sys::Specification>&& specification);
@@ -47,6 +53,7 @@ namespace env {
 		void fLoadBlock();
 		bool fCoreLoaded(uint32_t process, bool succeeded);
 		bool fBlockLoaded(uint32_t process, bool succeeded);
+		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 
 	public:
 		void nextBlock();

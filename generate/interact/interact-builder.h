@@ -2,7 +2,6 @@
 
 #include "../gen-common.h"
 #include "../glue/glue-state.h"
-#include "../environment/interact/env-interact.h"
 
 namespace gen::detail {
 	struct InteractState {
@@ -11,18 +10,23 @@ namespace gen::detail {
 	};
 
 	/*
+	*	Core-Imports:
+	*		void main.main_invoke_void(i32 index);
+	*		i64 main.main_invoke_param(i64 param, i32 index);
+	*
 	*	Core-Exports to Main:
 	*		void int_call_void(i32 index);
 	*		i64 int_call_param(i64 param, i32 index);
 	*
 	*	Body-Imports:
-	*		void main.main_invoke_void(i32 index);
-	*		i64 main.main_invoke_param(i64 param, i32 index);
+	*		void int.main_invoke_void(i32 index);
+	*		i64 int.main_invoke_param(i64 param, i32 index);
 	*/
 
 	class InteractBuilder {
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
+		void setupCoreImports(wasm::Module& mod) const;
 		void finalizeCoreBody(wasm::Module& mod) const;
 		void setupBlockImports(wasm::Module& mod, detail::InteractState& state) const;
 	};

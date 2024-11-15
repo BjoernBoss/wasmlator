@@ -1,4 +1,5 @@
 #include "context-writer.h"
+#include "../environment/context/context-access.h"
 
 namespace I = wasm::inst;
 

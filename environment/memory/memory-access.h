@@ -10,6 +10,5 @@ namespace env::detail {
 		static uint32_t ReadCache();
 		static uint32_t WriteCache();
 		static uint32_t CodeCache();
-		static void CoreLoaded();
 	};
 }

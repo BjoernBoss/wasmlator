@@ -50,6 +50,7 @@ int main(int argc, char** argv) {
 			str::PrintLn(u8"Invalid usage. Expected wasm or wat file paths.");
 			return 1;
 		}
+		str::PrintLn(L"Created [", path, L']');
 	}
 	return 0;
 }

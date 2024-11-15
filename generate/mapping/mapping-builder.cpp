@@ -1,14 +1,15 @@
 #include "mapping-builder.h"
 #include "mapping-writer.h"
+#include "../environment/mapping/env-mapping.h"
+#include "../environment/process/process-access.h"
 
 namespace I = wasm::inst;
 
 void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
-	glue.define(u8"map_load_block", { { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
+	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 	glue.define(u8"map_flush_blocks", {}, {});
 	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	glue.define(u8"map_block_loaded", { { u8"process", wasm::Type::i32 }, { u8"instance", wasm::Type::refExtern } }, { wasm::Type::i32 });
 }
 void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	/* add the import to the lookup function */
@@ -19,24 +20,16 @@ void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	prototype = mod.prototype(u8"main_flushed_type", {}, {});
 	pFlushed = mod.function(u8"main_flushed", prototype, wasm::Import{ u8"main" });
 
-	/* add the import to the block-loaded function */
-	prototype = mod.prototype(u8"main_block_loaded_type", { { u8"process", wasm::Type::i32 }, { u8"succeeded", wasm::Type::i32 } }, { wasm::Type::i32 });
-	pBlockLoaded = mod.function(u8"main_block_loaded", prototype, wasm::Import{ u8"main" });
-
-	/* add the import to the load-block function */
-	prototype = mod.prototype(u8"host_load_block_type", { { u8"process", wasm::Type::i32 }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
-	pLoadBlock = mod.function(u8"host_load_block", prototype, wasm::Import{ u8"host" });
-
 	/* add the import to the get-export function */
-	prototype = mod.prototype(u8"host_get_export_type", { { u8"instance", wasm::Type::refExtern }, { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
-	pGetExport = mod.function(u8"host_get_export", prototype, wasm::Import{ u8"host" });
+	prototype = mod.prototype(u8"glue_get_function_type", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
+	pGetFunction = mod.function(u8"glue_get_function", prototype, wasm::Import{ u8"glue" });
+
+	/* define the bindings passed to the blocks */
+	env::detail::ProcessAccess::AddCoreBinding(u8"map", u8"map_functions");
+	env::detail::ProcessAccess::AddCoreBinding(u8"map", u8"map_lookup");
 }
 void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
 	detail::MappingState state;
-
-	/* add the cache for the last loaded block-reference */
-	wasm::Global lastBlock = mod.global(u8"last_block", wasm::Type::refExtern, true);
-	mod.value(lastBlock, wasm::Value::MakeExtern());
 
 	/* add the function-table and total-count (first slot is always null-slot to allow lookup-failure to be indicated by zero-return) */
 	state.functions = mod.table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Export{});
@@ -116,14 +109,14 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 	/* add the load-block function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_load_block_type", { { u8"ptr", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"exports", wasm::Type::i32 }, { u8"process", wasm::Type::i32 } }, { wasm::Type::i32 });
-		wasm::Sink sink{ mod.function(u8"map_load_block", prototype, wasm::Export{}) };
+		wasm::Prototype prototype = mod.prototype(u8"map_reserve_type", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
+		wasm::Sink sink{ mod.function(u8"map_reserve", prototype, wasm::Export{}) };
 		wasm::Variable finalCount = sink.local(wasm::Type::i32, u8"count");
 		wasm::Variable tableSize = sink.local(wasm::Type::i32, u8"table_size");
 
 		/* check if the functions-table needs to be resized to accommodate the exports */
 		sink[I::Global::Get(functionCount)];
-		sink[I::Param::Get(2)];
+		sink[I::Param::Get(0)];
 		sink[I::U32::Add()];
 		sink[I::Local::Tee(finalCount)];
 		sink[I::Table::Size(state.functions)];
@@ -152,48 +145,8 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 			sink[I::Return()];
 		}
 
-		/* perform the actual load-request */
-		sink[I::Param::Get(3)];
-		sink[I::Param::Get(0)];
-		sink[I::Param::Get(1)];
-		sink[I::Call::Direct(pLoadBlock)];
-
 		/* return 1 to indicate success */
 		sink[I::U32::Const(1)];
-	}
-
-	/* add the block-loaded function */
-	{
-		wasm::Prototype prototype = mod.prototype(u8"map_block_loaded_type", { { u8"process", wasm::Type::i32 }, { u8"instance", wasm::Type::refExtern } }, { wasm::Type::i32 });
-		wasm::Sink sink{ mod.function(u8"map_block_loaded", prototype, wasm::Export{}) };
-
-		/* cache the reference to the last loaded block */
-		sink[I::Param::Get(1)];
-		sink[I::Global::Set(lastBlock)];
-
-		/* push the process-id for the call */
-		sink[I::Param::Get(0)];
-
-		/* select the succeeded attribute based on the reference not being null */
-		sink[I::U32::Const(0)];
-		sink[I::U32::Const(1)];
-		sink[I::Param::Get(1)];
-		sink[I::Ref::IsNull()];
-		sink[I::Select()];
-
-		/* perform the actual call and check if the block can be discarded */
-		sink[I::Call::Direct(pBlockLoaded)];
-		{
-			wasm::IfThen _if{ sink, u8"", {}, { wasm::Type::i32 } };
-			sink[I::U32::Const(1)];
-
-			_if.otherwise();
-
-			/* clear the reference simply to allow the underlying object to be garbage-collected */
-			sink[I::Ref::NullExtern()];
-			sink[I::Global::Set(lastBlock)];
-			sink[I::U32::Const(0)];
-		}
 	}
 
 	/* add the define function */
@@ -203,13 +156,10 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		wasm::Variable func = sink.local(wasm::Type::refFunction, u8"exported_function");
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"function_index");
 
-		/* fetch the reference to the last block */
-		sink[I::Global::Get(lastBlock)];
-
 		/* perform the load of the actual function */
 		sink[I::Param::Get(0)];
 		sink[I::Param::Get(1)];
-		sink[I::Call::Direct(pGetExport)];
+		sink[I::Call::Direct(pGetFunction)];
 		sink[I::Local::Tee(func)];
 
 		/* check if the import failed */
@@ -288,10 +238,6 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::U32::Const(uint64_t(1 << env::detail::BlockLookupCacheBits) * sizeof(env::detail::MappingCache))];
 		sink[I::Memory::Fill(management)];
 
-		/* null the last-block reference (to ensure all references are dropped) */
-		sink[I::Ref::NullExtern()];
-		sink[I::Global::Set(lastBlock)];
-
 		/* null the function-table (to ensure all references are dropped) */
 		sink[I::U32::Const(0)];
 		sink[I::Ref::NullFunction()];
@@ -308,9 +254,9 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 }
 void gen::detail::MappingBuilder::setupBlockImports(wasm::Module& mod, detail::MappingState& state) const {
 	/* add the function-table import */
-	state.functions = mod.table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Import{ u8"core" });
+	state.functions = mod.table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Import{ u8"map" });
 
 	/* add the function-import for the block-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	state.lookup = mod.function(u8"map_lookup", prototype, wasm::Import{ u8"core" });
+	state.lookup = mod.function(u8"map_lookup", prototype, wasm::Import{ u8"map" });
 }

@@ -5,14 +5,21 @@
 namespace gen::detail {
 	/*
 	*	Imports:
-	*		ext_func host.get_export(i32 ptr, i32 size);
+	*		ext_func host.host_get_function(ext_ref instance, i32 name, i32 size, i32 main_memory);
+	*		ext_ref host.host_get_export(ext_ref instance, i32 name, i32 size);
 	*
 	*	Exports to Main:
-	*		as defined by mapping-builder/context-builder/memory-builder
-	*		i32 setup_core_functions();
+	*		as defined by the builders
+	*
+	*	Exports to Core:
+	*		ext_ref glue_get_export(i32 name, i32 size);
+	*		ext_func glue_get_function(i32 name, i32 size);
+	*		i32 glue_setup_core_map();
+	*		void glue_reset();
 	*
 	*	Exports to Host:
 	*		uint8_t memory[...];
+	*		void set_last_instance(ext_ref instance);
 	*/
 
 	struct GlueState {
@@ -26,6 +33,7 @@ namespace gen::detail {
 		wasm::Module& pModule;
 		wasm::Table pFunctions;
 		wasm::Memory pMemory;
+		wasm::Function pGetFunction;
 		wasm::Function pGetExport;
 		std::vector<LoadFunction> pLoaded;
 		uint32_t pEndOfMemory = 0;

@@ -1,4 +1,5 @@
 #include "memory-writer.h"
+#include "../environment/memory/env-memory.h"
 
 namespace I = wasm::inst;
 

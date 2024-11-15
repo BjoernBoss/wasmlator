@@ -1,5 +1,7 @@
 #include "memory-builder.h"
 #include "memory-writer.h"
+#include "../environment/memory/env-memory.h"
+#include "../environment/process/process-access.h"
 
 namespace I = wasm::inst;
 
@@ -84,6 +86,11 @@ void gen::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod) {
 	prototype = mod.prototype(u8"main_lookup_i32_type", {}, { wasm::Type::i32 });
 	pGetPhysical = mod.function(u8"main_result_physical", prototype, wasm::Import{ u8"main" });
 	pGetSize = mod.function(u8"main_result_size", prototype, wasm::Import{ u8"main" });
+
+	/* define the bindings passed to the blocks */
+	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_read");
+	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_write");
+	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_code");
 }
 void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical) const {
 	uint32_t caches = env::detail::MemoryAccess::Caches();
@@ -251,7 +258,7 @@ void gen::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, const wasm
 
 	/* add the function-imports for the page-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
-	state.read = mod.function(u8"mem_lookup_read", prototype, wasm::Import{ u8"core" });
-	state.write = mod.function(u8"mem_lookup_write", prototype, wasm::Import{ u8"core" });
-	state.code = mod.function(u8"mem_lookup_code", prototype, wasm::Import{ u8"core" });
+	state.read = mod.function(u8"mem_lookup_read", prototype, wasm::Import{ u8"mem" });
+	state.write = mod.function(u8"mem_lookup_write", prototype, wasm::Import{ u8"mem" });
+	state.code = mod.function(u8"mem_lookup_code", prototype, wasm::Import{ u8"mem" });
 }

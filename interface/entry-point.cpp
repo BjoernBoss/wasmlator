@@ -5,7 +5,7 @@
 
 #include "../interface/host.h"
 #include "../environment/env-process.h"
-#include "../generate/gen-translator.h"
+#include "../generate/translator/gen-translator.h"
 #include "../generate/core/gen-core.h"
 
 struct CPUContext {
@@ -25,7 +25,7 @@ public:
 			host::Log(u8"test-callback called!");
 			});
 
-		gen::SetupCore(mod);
+		gen::Core _core{ mod };
 
 		wasm::Sink sink{ mod.function(u8"test", { wasm::Type::i64 }, { wasm::Type::i64 }, wasm::Export{}) };
 		sink[wasm::inst::Param::Get(0)];
@@ -95,6 +95,4 @@ void main_startup() {
 	host::Log(u8"Main: Application startup entered");
 	env::Process::Create(std::make_unique<TestCPUImpl>());
 	host::Log(u8"Main: Application startup exited");
-
-	env::Instance()->release();
 }

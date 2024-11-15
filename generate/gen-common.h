@@ -12,6 +12,8 @@
 #include "../interface/host.h"
 
 namespace gen {
+	class Writer;
+
 	/* memory reading type */
 	enum class MemoryType : uint8_t {
 		u8To32,

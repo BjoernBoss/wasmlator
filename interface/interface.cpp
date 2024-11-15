@@ -6,11 +6,11 @@
 #include "../environment/mapping/mapping-bridge.h"
 #include "../environment/interact/interact-bridge.h"
 
-uint32_t main_core_loaded(uint32_t process, uint32_t succeeded) {
-	return (env::detail::ProcessBridge::CoreLoaded(process, succeeded > 0) ? 1 : 0);
+void main_core_loaded(uint32_t process, uint32_t succeeded) {
+	env::detail::ProcessBridge::CoreLoaded(process, succeeded > 0);
 }
-uint32_t main_block_loaded(uint32_t process, uint32_t succeeded) {
-	return (env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0) ? 1 : 0);
+void main_block_loaded(uint32_t process, uint32_t succeeded) {
+	env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0);
 }
 
 void main_set_exit_code(int32_t code) {

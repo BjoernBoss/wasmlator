@@ -14,9 +14,9 @@ const std::u8string& env::Interact::blockImportModule() const {
 	return pBlockImportName;
 }
 void env::Interact::bindExport(std::u8string_view name) {
-	if (pCoreLoaded)
-		host::Fatal(u8"Cannot bind object [", name, u8"] as export after the core has been loaded");
-	pCoreBound.push_back(std::u8string{ name });
+	if (pCoreState != LoadingState::none)
+		host::Fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
+	detail::ProcessAccess::AddCoreBinding(pBlockImportName, std::u8string{ name });
 }
 uint32_t env::Interact::defineCallback(std::function<void()> fn) {
 	pVoidCallbacks.emplace_back(fn);
@@ -27,7 +27,7 @@ uint32_t env::Interact::defineCallback(std::function<uint64_t(uint64_t)> fn) {
 	return uint32_t(pParamCallbacks.size() - 1);
 }
 void env::Interact::call(const std::u8string& name) const {
-	if (!pCoreLoaded)
+	if (pCoreState != LoadingState::loaded)
 		host::Fatal(u8"Cannot call core function before the core has been loaded");
 
 	/* check if the function has been exported by the core */
@@ -39,7 +39,7 @@ void env::Interact::call(const std::u8string& name) const {
 	detail::InteractBridge::CallVoid(it->second);
 }
 uint64_t env::Interact::call(const std::u8string& name, uint64_t param) const {
-	if (!pCoreLoaded)
+	if (pCoreState != LoadingState::loaded)
 		host::Fatal(u8"Cannot call core function before the core has been loaded");
 
 	/* check if the function has been exported by the core */

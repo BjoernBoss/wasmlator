@@ -1,4 +1,6 @@
 #include "interact-builder.h"
+#include "../environment/interact/interact-access.h"
+#include "../environment/process/process-access.h"
 
 namespace I = wasm::inst;
 
@@ -6,7 +8,21 @@ void gen::detail::InteractBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"int_call_void", { { u8"index", wasm::Type::i32 } }, {});
 	glue.define(u8"int_call_param", { { u8"param", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } }, { wasm::Type::i64 });
 }
+void gen::detail::InteractBuilder::setupCoreImports(wasm::Module& mod) const {
+	/* import the main invoke-void method and pass it through as binding to the blocks */
+	wasm::Prototype prototype = mod.prototype(u8"main_invoke_void_type", { { u8"index", wasm::Type::i32 } }, {});
+	mod.function(u8"main_invoke_void", prototype, wasm::Transport{ u8"main" });
+	env::detail::ProcessAccess::AddCoreBinding(u8"int", u8"main_invoke_void");
+
+	/* import the main invoke-param method and pass it through as binding to the blocks */
+	prototype = mod.prototype(u8"main_invoke_param_type", { { u8"param", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } }, { wasm::Type::i64 });
+	mod.function(u8"main_invoke_param", prototype, wasm::Transport{ u8"main" });
+	env::detail::ProcessAccess::AddCoreBinding(u8"int", u8"main_invoke_param");
+}
 void gen::detail::InteractBuilder::finalizeCoreBody(wasm::Module& mod) const {
+	/* mark the core as being finalized in order to prevent further functions to be defined */
+	env::detail::InteractAccess::FinalizingCore();
+
 	/* add the exported function-table */
 	wasm::Table exported = mod.table(u8"call_list", true);
 	std::vector<wasm::Value> list;
@@ -61,9 +77,9 @@ void gen::detail::InteractBuilder::finalizeCoreBody(wasm::Module& mod) const {
 void gen::detail::InteractBuilder::setupBlockImports(wasm::Module& mod, detail::InteractState& state) const {
 	/* add the function-import for the void-invoke function */
 	wasm::Prototype prototype = mod.prototype(u8"main_invoke_void_type", { { u8"index", wasm::Type::i32 } }, {});
-	state.invokeVoid = mod.function(u8"main_invoke_void", prototype, wasm::Import{ u8"main" });
+	state.invokeVoid = mod.function(u8"main_invoke_void", prototype, wasm::Import{ u8"int" });
 
 	/* add the function-import for the param-invoke function */
 	prototype = mod.prototype(u8"main_invoke_param_type", { { u8"param", wasm::Type::i64 }, { u8"index", wasm::Type::i32 } }, { wasm::Type::i64 });
-	state.invokeParam = mod.function(u8"main_invoke_param", prototype, wasm::Import{ u8"main" });
+	state.invokeParam = mod.function(u8"main_invoke_param", prototype, wasm::Import{ u8"int" });
 }

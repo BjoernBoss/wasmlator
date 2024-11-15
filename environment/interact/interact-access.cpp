@@ -9,8 +9,10 @@ bool env::detail::InteractAccess::CheckParamIndex(uint32_t index) {
 void env::detail::InteractAccess::DefineExported(const std::u8string& name, uint32_t index, bool param) {
 	(param ? env::Instance()->interact().pCallParam : env::Instance()->interact().pCallVoid).insert({ name, index });
 }
+void env::detail::InteractAccess::FinalizingCore() {
+	env::Instance()->interact().pCoreState = env::Interact::LoadingState::loading;
+}
+
 void env::detail::InteractAccess::CoreLoaded() {
-	env::Instance()->interact().pCoreLoaded = true;
-	for (const std::u8string& name : env::Instance()->interact().pCoreBound)
-		detail::ProcessBridge::DefineCoreBound(env::Instance()->interact().pBlockImportName, name);
+	env::Instance()->interact().pCoreState = env::Interact::LoadingState::loaded;
 }

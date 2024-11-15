@@ -1,7 +1,7 @@
 #include "../env-process.h"
 
-bool env::detail::MappingAccess::LoadBlock(const std::vector<uint8_t>& data, const std::vector<env::BlockExport>& exports, uint32_t process) {
-	return env::Instance()->mapping().fLoadBlock(data, exports, process);
+bool env::detail::MappingAccess::CheckLoadable(const std::vector<env::BlockExport>& exports) {
+	return env::Instance()->mapping().fCheckLoadable(exports);
 }
 void env::detail::MappingAccess::BlockLoaded(const std::vector<env::BlockExport>& exports) {
 	env::Instance()->mapping().fBlockExports(exports);
@@ -13,8 +13,4 @@ uint32_t env::detail::MappingAccess::AllocateFromManagement(uint32_t address) {
 }
 uint32_t env::detail::MappingAccess::CacheAddress() {
 	return env::Instance()->mapping().pCacheAddress;
-}
-void env::detail::MappingAccess::CoreLoaded() {
-	detail::ProcessBridge::DefineCoreBound(u8"core", u8"map_functions");
-	detail::ProcessBridge::DefineCoreBound(u8"core", u8"map_lookup");
 }

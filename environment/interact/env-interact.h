@@ -9,13 +9,19 @@ namespace env {
 		friend struct detail::InteractBridge;
 		friend struct detail::InteractAccess;
 	private:
+		enum class LoadingState : uint8_t {
+			none,
+			loading,
+			loaded
+		};
+
+	private:
 		std::unordered_map<std::u8string, uint32_t> pCallVoid;
 		std::unordered_map<std::u8string, uint32_t> pCallParam;
 		std::vector<std::function<void()>> pVoidCallbacks;
 		std::vector<std::function<uint64_t(uint64_t)>> pParamCallbacks;
-		std::vector<std::u8string> pCoreBound;
 		std::u8string pBlockImportName;
-		bool pCoreLoaded = false;
+		LoadingState pCoreState = LoadingState::none;
 
 	public:
 		Interact() = default;

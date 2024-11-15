@@ -1,18 +1,14 @@
 let _state = {
 	main: {
 		path: './wasm/main.wasm',
-		wasm: null,
 		memory: null,
 		exports: {}
 	},
 	glue: {
 		path: './wasm/glue-module.wasm',
-		wasm: null,
 		memory: null,
 		exports: {}
 	},
-	core_exports: null,
-	block_imports: {},
 };
 
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
@@ -30,9 +26,9 @@ _state.abortControlled = function () {
 	throw new _ControlledAbort();
 }
 
-/* create a string from the utf-8 encoded data at ptr in the main application */
-_state.load_string = function (ptr, size) {
-	let view = new DataView(_state.main.memory.buffer, ptr, size);
+/* create a string from the utf-8 encoded data at ptr in the main application or the glue-module */
+_state.load_string = function (ptr, size, main_memory) {
+	let view = new DataView((main_memory ? _state.main.memory.buffer : _state.glue.memory.buffer), ptr, size);
 	return new TextDecoder('utf-8').decode(view);
 }
 
@@ -45,20 +41,21 @@ _state.make_buffer = function (ptr, size) {
 _state.load_glue = function () {
 	console.log(`WasmLator.js: Loading glue module...`);
 
-	let load_string = function (ptr, size) {
-		let view = new DataView(_state.glue.memory.buffer, ptr, size);
-		return new TextDecoder('utf-8').decode(view);
-	};
-
 	/* setup the glue imports */
 	let imports = {
 		host: {}
 	};
-	imports.host.host_get_export = function (ptr, size) {
-		let fn = _state.core_exports[load_string(ptr, size)];
-		if (fn === undefined)
+	imports.host.host_get_export = function (instance, ptr, size) {
+		let obj = instance.exports[_state.load_string(ptr, size, true)];
+		if (obj === undefined)
 			return null;
-		return fn;
+		return obj;
+	};
+	imports.host.host_get_function = function (instance, ptr, size, main_memory) {
+		let obj = instance.exports[_state.load_string(ptr, size, main_memory)];
+		if (obj === undefined)
+			return null;
+		return obj;
 	};
 
 	/* fetch the initial glue module and try to instantiate it */
@@ -70,8 +67,7 @@ _state.load_glue = function () {
 		})
 		.then((instance) => {
 			console.log(`WasmLator.js: Glue module loaded`);
-			_state.glue.wasm = instance.instance;
-			_state.glue.exports = _state.glue.wasm.exports;
+			_state.glue.exports = instance.instance.exports;
 			_state.glue.memory = _state.glue.exports.memory;
 
 			/* load the main module, which will then startup the wasmlator */
@@ -90,9 +86,8 @@ _state.load_main = function () {
 		wasi_snapshot_preview1: {}
 	};
 	
-	/* copy all glue exports as imports of main (except for the memory reference) */
+	/* copy all glue exports as imports of main (only the relevant will be bound) */
 	imports.env = { ..._state.glue.exports };
-	imports.env.memory = undefined;
 
 	/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 	imports.env.emscripten_notify_memory_growth = function () { };
@@ -103,20 +98,13 @@ _state.load_main = function () {
 	
 	/* setup the remaining host-imports */
 	imports.env.host_print_u8 = function (ptr, size, err) {
-		(err ? console.error : console.log)(_state.load_string(ptr, size));
+		(err ? console.error : console.log)(_state.load_string(ptr, size, true));
 	};
 	imports.env.host_abort = function () {
 		_state.abortControlled();
 	};
 	imports.env.host_load_core = function (ptr, size, process) {
 		return _state.load_core(_state.make_buffer(ptr, size), process);
-	};
-	imports.env.host_define_block_binding = function (mod_ptr, mod_size, name_ptr, name_size) {
-		let mod = _state.load_string(mod_ptr, mod_size);
-		let name = _state.load_string(name_ptr, name_size);
-		if (_state.block_imports[mod] == undefined)
-			_state.block_imports[mod] = {};
-		_state.block_imports[mod][name] = _state.core_exports[name];
 	};
 
 	/* fetch the main application javascript-wrapper */
@@ -128,8 +116,7 @@ _state.load_main = function () {
 		})
 		.then((instance) => {
 			console.log(`WasmLator.js: Main module loaded`);
-			_state.main.wasm = instance.instance;
-			_state.main.exports = _state.main.wasm.exports;
+			_state.main.exports = instance.instance.exports;
 			_state.main.memory = _state.main.exports.memory;
 
 			/* startup the main application, which requires the internal _initialize and explicitly created main_startup
@@ -150,29 +137,10 @@ _state.load_main = function () {
 
 /* load a core module */
 _state.load_core = function (buffer, process) {
-	let imports = {
-		main: {},
-		host: {}
-	};
-	
-	/* setup the core imports */
-	imports.main.main_set_exit_code = _state.main.exports.main_set_exit_code;
-	imports.main.main_resolve = _state.main.exports.main_resolve;
-	imports.main.main_flushed = _state.main.exports.main_flushed;
-	imports.main.main_block_loaded = _state.main.exports.main_block_loaded;
-	imports.main.main_lookup = _state.main.exports.main_lookup;
-	imports.main.main_result_address = _state.main.exports.main_result_address;
-	imports.main.main_result_physical = _state.main.exports.main_result_physical;
-	imports.main.main_result_size = _state.main.exports.main_result_size;
-	imports.host.host_load_block = function (ptr, size) {
-		_state.load_core(_state.make_buffer(ptr, size));
-	}
-	imports.host.host_get_export = function (instance, ptr, size) {
-		let fn = instance.exports[_state.load_string(ptr, size)];
-		if (fn === undefined)
-			return null;
-		return fn;
-	}
+	/* copy all glue/main exports as imports of the core (only the relevant will be bound) */
+	let imports = {};
+	imports.glue = { ..._state.glue.exports };
+	imports.main = { ..._state.main.exports };
 
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)
@@ -180,13 +148,11 @@ _state.load_core = function (buffer, process) {
 			/* notify the main about the loaded core (do this in a separate
 			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
-				let old_exports = _state.core_exports;
-
-				/* check if the core is rejected, in which case the old exports can just be restored, no matter
-				*	their value (this only works, if main_core_loaded returns immediately upon invalid process-id) */
-				_state.core_exports = instance.instance.exports;
-				if (_state.main.exports.main_core_loaded(process, 1) == 0)
-					_state.core_exports = old_exports;
+				/* set the last-instance, invoke the handler, and then reset the last-instance
+				*	again, in order to ensure unused instances can be garbage-collected */
+				_state.glue.exports.set_last_instance(instance.instance);
+				_state.main.exports.main_core_loaded(process, 1);
+				_state.glue.exports.set_last_instance(null);
 			});
 		})
 		.catch((err) => {

@@ -8,8 +8,8 @@ void env::detail::MappingBridge::Flushed() {
 	env::Instance()->mapping().fFlushed();
 }
 
-bool env::detail::MappingBridge::LoadBlock(const uint8_t* data, size_t size, size_t exports, uint32_t process) {
-	return (map_load_block(data, uint32_t(size), uint32_t(exports), process) > 0);
+bool env::detail::MappingBridge::Reserve(size_t exports) {
+	return (map_reserve(uint32_t(exports)) > 0);
 }
 uint32_t env::detail::MappingBridge::Define(const char8_t* name, size_t size, env::guest_t address) {
 	return map_define(name, uint32_t(size), address);

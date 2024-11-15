@@ -9,7 +9,7 @@ namespace env::detail {
 		static void Flushed();
 
 		/* imports */
-		static bool LoadBlock(const uint8_t* data, size_t size, size_t exports, uint32_t process);
+		static bool Reserve(size_t exports);
 		static uint32_t Define(const char8_t* name, size_t size, env::guest_t address);
 		static void Flush();
 		static uint32_t Execute(env::guest_t address);

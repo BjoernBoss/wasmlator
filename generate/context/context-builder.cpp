@@ -1,10 +1,18 @@
 #include "context-builder.h"
+#include "../environment/context/context-access.h"
+#include "../environment/process/process-access.h"
 
 namespace I = wasm::inst;
 
 void gen::detail::ContextBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"ctx_read", { { u8"offset", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
 	glue.define(u8"ctx_write", { { u8"offset", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"value", wasm::Type::i64 } }, {});
+}
+void gen::detail::ContextBuilder::setupCoreImports(wasm::Module& mod) const {
+	/* import the main set-exit-code method and pass it through as binding to the blocks */
+	wasm::Prototype prototype = mod.prototype(u8"main_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
+	mod.function(u8"main_set_exit_code", prototype, wasm::Transport{ u8"main" });
+	env::detail::ProcessAccess::AddCoreBinding(u8"ctx", u8"main_set_exit_code");
 }
 void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
 	/* add the context-read function */
@@ -72,5 +80,5 @@ void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const was
 
 	/* add the function-import for the exit-code-setter function */
 	wasm::Prototype prototype = mod.prototype(u8"main_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
-	state.exit = mod.function(u8"main_set_exit_code", prototype, wasm::Import{ u8"main" });
+	state.exit = mod.function(u8"main_set_exit_code", prototype, wasm::Import{ u8"ctx" });
 }
