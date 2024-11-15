@@ -171,7 +171,7 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::Param::Get(1)];
 		sink[I::Global::Set(lastBlock)];
 
-		/* push the process-stamp for the call */
+		/* push the process-id for the call */
 		sink[I::Param::Get(0)];
 
 		/* select the succeeded attribute based on the reference not being null */

@@ -90,7 +90,7 @@ _state.load_main = function () {
 		wasi_snapshot_preview1: {}
 	};
 	
-	/* copy all glue exports as imports of main */
+	/* copy all glue exports as imports of main (except for the memory reference) */
 	imports.env = { ..._state.glue.exports };
 	imports.env.memory = undefined;
 
@@ -150,7 +150,6 @@ _state.load_main = function () {
 
 /* load a core module */
 _state.load_core = function (buffer, process) {
-	console.log(`WasmLator.js: Loading core for process [${process}]...`);
 	let imports = {
 		main: {},
 		host: {}
@@ -181,15 +180,18 @@ _state.load_core = function (buffer, process) {
 			/* notify the main about the loaded core (do this in a separate
 			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
-				console.log(`WasmLator.js: Core loaded for process [${process}]`);
+				let old_exports = _state.core_exports;
+
+				/* check if the core is rejected, in which case the old exports can just be restored, no matter
+				*	their value (this only works, if main_core_loaded returns immediately upon invalid process-id) */
 				_state.core_exports = instance.instance.exports;
 				if (_state.main.exports.main_core_loaded(process, 1) == 0)
-					_state.core_exports = null;
+					_state.core_exports = old_exports;
 			});
 		})
 		.catch((err) => {
 			_state.controlled(() => {
-				console.error(`WasmLator.js: Failed to load core for process [${process}]: ${err}`);
+				console.error(`WasmLator.js: Failed to load core: ${err}`);
 				_state.main.exports.main_core_loaded(process, 0);
 			});
 		});

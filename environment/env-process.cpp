@@ -4,7 +4,7 @@
 #include "../generate/interact/interact-builder.h"
 
 static env::Process* ProcessInstance = 0;
-static uint32_t ProcessStamp = 0;
+static uint32_t ProcessId = 0;
 
 env::Process* env::Instance() {
 	return ProcessInstance;
@@ -27,16 +27,15 @@ void env::Process::Create(std::unique_ptr<sys::Specification>&& specification) {
 	endOfManagement += detail::MemoryAccess::ConfigureAndAllocate(endOfManagement, ProcessInstance->pPhysicalPages);
 	ProcessInstance->pManagementPages = env::PhysPageCount(endOfManagement);
 
-	/* allocate the next process-stamp */
-	++ProcessStamp;
-	host::Log(u8"Process created");
+	/* allocate the next process-id */
+	host::Log(u8"Process created with id [", ++ProcessId, u8"]");
 
 	/* setup the core module */
 	ProcessInstance->fLoadCore();
 }
 
 void env::Process::fLoadCore() {
-	host::Debug(u8"Loading core...");
+	host::Debug(u8"Loading core for [", ProcessId, u8"]...");
 	writer::BinaryWriter writer;
 
 	pLoading = LoadingState::core;
@@ -54,19 +53,19 @@ void env::Process::fLoadCore() {
 
 	/* setup the core loading */
 	const std::vector<uint8_t>& data = writer.output();
-	if (!detail::ProcessBridge::LoadCore(data.data(), data.size(), ProcessStamp))
-		host::Fatal(u8"Failed loading core");
+	if (!detail::ProcessBridge::LoadCore(data.data(), data.size(), ProcessId))
+		host::Fatal(u8"Failed initiating loading of core for [", ProcessId, u8']');
 }
 void env::Process::fLoadBlock() {
+	host::Debug(u8"Loading block for [", ProcessId, u8"]...");
 	writer::BinaryWriter writer;
 	std::vector<env::BlockExport> exports;
 
 	/* check if a loading is currently in progress */
 	if (pLoading != LoadingState::none)
 		host::Fatal(u8"Cannot load a block while another load is in progress");
-	host::Debug(u8"Loading block...");
-
 	pLoading = LoadingState::block;
+
 	try {
 		/* setup the block module to be loaded */
 		wasm::Module mod{ &writer };
@@ -78,18 +77,17 @@ void env::Process::fLoadBlock() {
 
 	/* setup the block loading */
 	pExports = exports;
-	if (!detail::MappingAccess::LoadBlock(writer.output(), pExports, ProcessStamp))
-		host::Fatal(u8"Failed loading block");
+	if (!detail::MappingAccess::LoadBlock(writer.output(), pExports, ProcessId))
+		host::Fatal(u8"Failed initiating loading of block for [", ProcessId, u8']');
 }
-bool env::Process::fCoreLoaded(uint32_t stamp, bool succeeded) {
-	/* check if the load can just be silently discarded, as it was created for an old process */
-	if (stamp != ProcessStamp) {
-		host::Debug(u8"Old load silently discarded");
+bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
+	/* check if the ids still match and otherwise simply discard the call (no need to update
+	*	the loading-state, as it will not be affected by a process of a different id) */
+	if (process != ProcessId)
 		return false;
-	}
 	if (!succeeded)
-		host::Fatal(u8"Failed loading core");
-	host::Debug(u8"Core loading succeeded");
+		host::Fatal(u8"Failed loading core for [", ProcessId, u8']');
+	host::Debug(u8"Core loading succeeded for [", ProcessId, u8']');
 
 	/* setup the core-function mappings */
 	if (!detail::ProcessBridge::SetupCoreFunctions())
@@ -106,15 +104,14 @@ bool env::Process::fCoreLoaded(uint32_t stamp, bool succeeded) {
 	return true;
 
 }
-bool env::Process::fBlockLoaded(uint32_t stamp, bool succeeded) {
-	/* check if the load can just be silently discarded, as it was created for an old process */
-	if (stamp != ProcessStamp) {
-		host::Debug(u8"Old load silently discarded");
+bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
+	/* check if the ids still match and otherwise simply discard the call (no need to update
+	*	the loading-state, as it will not be affected by a process of a different id) */
+	if (process != ProcessId)
 		return false;
-	}
 	if (!succeeded)
-		host::Fatal(u8"Failed loading block");
-	host::Debug(u8"Block loading succeeded");
+		host::Fatal(u8"Failed loading block for [", ProcessId, u8']');
+	host::Debug(u8"Block loading succeeded for [", ProcessId, u8']');
 
 	/* register all exports and update the loading-state */
 	detail::MappingAccess::BlockLoaded(pExports);
@@ -130,7 +127,7 @@ void env::Process::nextBlock() {
 	fLoadBlock();
 }
 void env::Process::release() {
-	host::Log(u8"Destroying process...");
+	host::Log(u8"Destroying process with id [", ProcessId, u8"]...");
 	ProcessInstance = 0;
 	delete this;
 	host::Log(u8"Process destroyed");

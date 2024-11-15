@@ -95,4 +95,6 @@ void main_startup() {
 	host::Log(u8"Main: Application startup entered");
 	env::Process::Create(std::make_unique<TestCPUImpl>());
 	host::Log(u8"Main: Application startup exited");
+
+	env::Instance()->release();
 }

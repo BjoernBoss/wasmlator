@@ -2,14 +2,16 @@
 #include "../interface/interface.h"
 
 bool env::detail::ProcessBridge::CoreLoaded(uint32_t process, bool succeeded) {
-	if (env::Instance() == 0)
-		return false;
-	return env::Instance()->fCoreLoaded(process, succeeded);
+	if (env::Instance() != 0 && env::Instance()->fCoreLoaded(process, succeeded))
+		return true;
+	host::Debug(u8"Old core-load for [", process, u8"] silently discarded");
+	return false;
 }
 bool env::detail::ProcessBridge::BlockLoaded(uint32_t process, bool succeeded) {
-	if (env::Instance() == 0)
-		return false;
-	return env::Instance()->fBlockLoaded(process, succeeded);
+	if (env::Instance() != 0 && env::Instance()->fBlockLoaded(process, succeeded))
+		return true;
+	host::Debug(u8"Old block-load for [", process, u8"] silently discarded");
+	return false;
 }
 
 bool env::detail::ProcessBridge::LoadCore(const uint8_t* data, size_t size, uint32_t process) {
