@@ -91,11 +91,10 @@ std::vector<env::BlockExport> gen::detail::Addresses::close(const detail::Mappin
 			if (place.thisModule || !place.alreadyExists)
 				continue;
 
-			/* perform the lookup (no need to verify index, as the function must exist) */
+			/* perform the lookup (will only throw an exception, if the blocks were to be flushed mid block-creation) */
 			sink[I::U32::Const(place.index)];
 			sink[I::U64::Const(address)];
-			mapping.makeLookup();
-			mapping.makeLoadFunction();
+			mapping.makeGetFunction();
 			sink[I::Table::Set(pAddresses)];
 		}
 

@@ -10,7 +10,6 @@ namespace gen::detail {
 		detail::MappingWriter pMapping;
 		detail::Addresses& pHost;
 		wasm::Sink& pSink;
-		mutable wasm::Variable pTempFuncIndex;
 		mutable wasm::Variable pTempRetState;
 		mutable wasm::Variable pTempRetAddress;
 

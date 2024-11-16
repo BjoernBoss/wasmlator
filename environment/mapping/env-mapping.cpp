@@ -1,10 +1,14 @@
 #include "../env-process.h"
 
 uint32_t env::Mapping::fResolve(env::guest_t address) const {
-	host::Debug(str::Format<std::u8string>(u8"Lookup block: [{:#018x}]", address));
+	/* check if the address has already been translated */
 	auto it = pMapping.find(address);
-	if (it == pMapping.end())
-		return 0;
+	if (it == pMapping.end()) {
+		host::Debug(str::Format<std::u8string>(u8"Lookup block: [{:#018x}] resulted in: None", address));
+		throw env::Translate{ address };
+	}
+
+	host::Debug(str::Format<std::u8string>(u8"Lookup block: [{:#018x}] resulted in: [{}]", address, it->second));
 	return it->second;
 }
 void env::Mapping::fFlushed() {
@@ -28,7 +32,7 @@ void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 	for (size_t i = 0; i < exports.size(); ++i) {
 		host::Debug(str::Format<std::u8string>(u8"Associating [{}] to [{:#018x}]", exports[i].name, exports[i].address));
 		uint32_t index = detail::MappingBridge::Define(exports[i].name.c_str(), exports[i].name.size(), exports[i].address);
-		if (index == detail::NotFoundIndex)
+		if (index == detail::InvalidMapping)
 			host::Fatal(u8"Failed to load [", exports[i].name, u8"] from block");
 		pMapping.insert({ exports[i].address, index });
 	}

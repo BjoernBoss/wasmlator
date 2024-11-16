@@ -81,19 +81,10 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 			sink[I::Return()];
 		}
 
-		/* resolve the actual address, which has not yet been cached */
+		/* resolve the actual address, which has not yet been cached (will either return a valid index or throw an exception) */
 		sink[I::Local::Get(address)];
 		sink[I::Call::Direct(pResolve)];
-		sink[I::Local::Tee(index)];
-
-		/* check if the lookup failed and return the null-index */
-		sink[I::U32::EqualZero()];
-		{
-			wasm::IfThen _if{ sink };
-
-			sink[I::U32::Const(env::detail::NotFoundIndex)];
-			sink[I::Return()];
-		}
+		sink[I::Local::Set(index)];
 
 		/* write the index to the cache */
 		sink[I::Local::Get(hashAddress)];
@@ -165,9 +156,9 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		/* check if the import failed */
 		sink[I::Ref::IsNull()];
 		{
-			/* notify the application about the failure by returning the corresponding not-found index */
+			/* notify the application about the failure by returning the corresponding invalid-mapping index */
 			wasm::IfThen _if{ sink };
-			sink[I::U32::Const(env::detail::NotFoundIndex)];
+			sink[I::U32::Const(env::detail::InvalidMapping)];
 			sink[I::Return()];
 		}
 
@@ -198,25 +189,14 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		/* simply perform the lookup and execution until the result-code is not execute anymore */
 		wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
 
-		/* perform the lookup of the address */
+		/* perform the lookup of the address (will either find the index, or throw an exception) */
 		sink[I::Call::Direct(state.lookup)];
-		sink[I::Local::Tee(result)];
-
-		/* check if the address could not be resolved */
-		detail::MappingWriter{ state, sink }.makeCheckFailed();
-		{
-			wasm::IfThen _if{ sink };
-
-			sink[I::U32::Const(env::ExecState::translate)];
-			sink[I::Return()];
-		}
 
 		/* execute the address */
-		sink[I::Local::Get(result)];
 		sink[I::Call::Indirect(state.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
 		sink[I::Local::Tee(result)];
 
-		/* check if the another execute has been encountered */
+		/* check if another execute has been encountered */
 		sink[I::U32::Const(env::ExecState::_execute)];
 		sink[I::U32::Equal()];
 		sink[I::Branch::If(_loop)];

@@ -13,10 +13,8 @@ namespace gen::detail {
 		MappingWriter(const detail::MappingState& state, wasm::Sink& sink);
 
 	public:
-		void makeCheckFailed() const;
-		void makeLookup() const;
-		void makeLoadFunction() const;
-		void makeInvoke() const;
+		void makeGetFunction() const;
+		void makeDirectInvoke() const;
 		void makeTailInvoke() const;
 	};
 }

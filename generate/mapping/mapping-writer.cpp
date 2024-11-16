@@ -4,18 +4,15 @@ namespace I = wasm::inst;
 
 gen::detail::MappingWriter::MappingWriter(const detail::MappingState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
 
-void gen::detail::MappingWriter::makeCheckFailed() const {
-	pSink[I::U32::EqualZero()];
-}
-void gen::detail::MappingWriter::makeLookup() const {
+void gen::detail::MappingWriter::makeGetFunction() const {
 	pSink[I::Call::Direct(pState.lookup)];
-}
-void gen::detail::MappingWriter::makeLoadFunction() const {
 	pSink[I::Table::Get(pState.functions)];
 }
-void gen::detail::MappingWriter::makeInvoke() const {
+void gen::detail::MappingWriter::makeDirectInvoke() const {
+	pSink[I::Call::Direct(pState.lookup)];
 	pSink[I::Call::Indirect(pState.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
 }
 void gen::detail::MappingWriter::makeTailInvoke() const {
+	pSink[I::Call::Direct(pState.lookup)];
 	pSink[I::Call::IndirectTail(pState.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
 }

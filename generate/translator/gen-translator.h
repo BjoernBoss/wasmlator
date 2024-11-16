@@ -9,7 +9,8 @@
 #include "../address/gen-address.h"
 
 namespace gen {
-	/* env::Process instance must be created */
+	/* env::Process instance must be created
+	*	Note: blocks must not be flushed mid block-creation */
 	class Translator {
 	private:
 		detail::Addresses pAddresses;

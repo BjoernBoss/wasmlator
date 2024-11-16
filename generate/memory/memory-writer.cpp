@@ -53,7 +53,7 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 
 	{
 		/* greater-equal, perform mem-cache lookup */
-		wasm::IfThen _if{ pSink, {}, {}, { wasm::Type::i32 } };
+		wasm::IfThen _if{ pSink, u8"", {}, { wasm::Type::i32 } };
 
 		/* recover the original address */
 		pSink[I::Local::Get(pTempAddress)];

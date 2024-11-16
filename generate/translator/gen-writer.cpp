@@ -26,11 +26,11 @@ void gen::Writer::ctxRead(uint32_t offset, gen::MemoryType type) const {
 void gen::Writer::ctxWrite(const wasm::Variable& value, uint32_t offset, gen::MemoryType type) const {
 	pContext.makeWrite(value, offset, type);
 }
-void gen::Writer::call(env::guest_t address, env::guest_t nextAddress) const {
-	pAddress.makeCall(address, nextAddress);
+void gen::Writer::call(env::guest_t address, const gen::Instruction& inst) const {
+	pAddress.makeCall(address, inst.address + inst.size);
 }
-void gen::Writer::call(env::guest_t nextAddress) const {
-	pAddress.makeCallIndirect(nextAddress);
+void gen::Writer::call(const gen::Instruction& inst) const {
+	pAddress.makeCallIndirect(inst.address + inst.size);
 }
 void gen::Writer::jump(env::guest_t address) const {
 	pAddress.makeJump(address);

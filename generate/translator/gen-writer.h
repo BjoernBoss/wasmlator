@@ -55,21 +55,21 @@ namespace gen {
 		void ctxWrite(const wasm::Variable& value, uint32_t offset, gen::MemoryType type) const;
 
 		/* no expectations
-		*	Note: generated code may contain a return-statement */
-		void call(env::guest_t address, env::guest_t nextAddress) const;
+		*	Note: generated code may abort the control-flow */
+		void call(env::guest_t address, const gen::Instruction& inst) const;
 
 		/* expects guest target-address on top of stack
-		*	Note: generated code may contain a return-statement */
-		void call(env::guest_t nextAddress) const;
+		*	Note: generated code may abort the control-flow */
+		void call(const gen::Instruction& inst) const;
 
 		/* no expectations
 		*	Note: generated code will contain a tail-call
-		*	Note: generated code may contain a return-statement */
+		*	Note: generated code may abort the control-flow */
 		void jump(env::guest_t address) const;
 
 		/* expects guest target-address on top of stack
 		*	Note: generated code will contain a tail-call
-		*	Note: generated code may contain a return-statement */
+		*	Note: generated code may abort the control-flow */
 		void jump() const;
 
 		/* expects guest return-address on top of stack
@@ -79,7 +79,7 @@ namespace gen {
 		/* no expectations */
 		void invokeVoid(uint32_t index) const;
 
-		/* expects [i64] parameter on top of stack and writes value to stack */
+		/* expects [i64] parameter on top of stack and writes [i64] value to stack */
 		void invokeParam(uint32_t index) const;
 	};
 }

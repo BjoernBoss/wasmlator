@@ -9,29 +9,14 @@
 #include <unordered_set>
 #include <bit>
 #include <memory>
+#include <limits>
 
 #include "../interface/host.h"
 
 namespace env {
-	/* thrown the guest terminates */
-	struct Termianted {
-		int32_t code = 0;
-	};
-
-	/* thrown on memory exceptions (both when accessed by main or guest) */
-	struct MemoryFault {
-
-	};
-
-	/* thrown  */
-
-
 	enum class ExecState : uint32_t {
 		/* used internally for returns and such, may or may not have been translated yet, payload: next-address-to-execute */
 		_execute,
-
-		/* next address has not yet been translated, payload: none */
-		translate,
 
 		/* custom exec-states, payload: none */
 		_custom
@@ -80,6 +65,21 @@ namespace env {
 	/* block exported function entry */
 	struct BlockExport {
 		std::u8string name;
+		env::guest_t address = 0;
+	};
+
+	/* thrown the guest terminates */
+	struct Termianted {
+		int32_t code = 0;
+	};
+
+	/* thrown on memory exceptions (both when accessed by main or guest) */
+	struct MemoryFault {
+
+	};
+
+	/* thrown whenever an unknown address is to be executed */
+	struct Translate {
 		env::guest_t address = 0;
 	};
 }

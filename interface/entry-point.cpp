@@ -99,6 +99,7 @@ public:
 			case 1:
 				writer.sink()[wasm::inst::Nop()];
 				writer.invokeVoid(pTestIndex);
+				writer.call(0x5678, data[i]);
 				break;
 			case 2:
 				writer.sink()[wasm::inst::U32::Const(1)];

@@ -7,6 +7,8 @@
 #include "../generate/translator/gen-writer.h"
 
 namespace sys {
+	/* wasm should only be created within setupCore/setupBlock,
+	*	as they are wrapped to catch any potential wasm-issues */
 	class Specification {
 	private:
 		size_t pMaxDepth = 0;

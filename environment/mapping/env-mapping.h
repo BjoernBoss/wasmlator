@@ -13,8 +13,8 @@ namespace env {
 			uint32_t index = 0;
 		};
 
-		/* must be zero, as MappingWriter::makeCheckFailed uses wasm::EqualZero internally */
-		static constexpr uint32_t NotFoundIndex = 0;
+		/* must be zero, as both EqualZero and memset(null) are used */
+		static constexpr uint32_t InvalidMapping = 0;
 	}
 
 	class Mapping {

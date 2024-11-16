@@ -10,22 +10,21 @@ void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const
 	if (!pTempRetAddress.valid())
 		pTempRetAddress = pSink.local(wasm::Type::i64, u8"address_temp_address");
 
-
 	/* check for the mode not matching */
 	pSink[I::Local::Tee(pTempRetState)];
 	pSink[I::U32::Const(env::ExecState::_execute)];
 	pSink[I::U32::NotEqual()];
 	{
 		/* simply fully return the paramter to the caller */
-		wasm::IfThen _if{ pSink };
+		wasm::IfThen _if{ pSink, u8"", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		pSink[I::Local::Get(pTempRetState)];
 		pSink[I::Return()];
 	}
 
 	/* validate the addresses match */
 	pSink[I::Local::Tee(pTempRetAddress)];
-	pSink[I::U32::Const(nextAddress)];
-	pSink[I::U32::NotEqual()];
+	pSink[I::U64::Const(nextAddress)];
+	pSink[I::U64::NotEqual()];
 	{
 		/* trigger an execution of the target address */
 		wasm::IfThen _if{ pSink };
@@ -50,30 +49,18 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 			pSink[I::Table::Get(pHost.addresses())];
 			pSink[I::Ref::IsNull()];
 
-			/* ensure that the local variables exist */
-			if (!pTempFuncIndex.valid())
-				pTempFuncIndex = pSink.local(wasm::Type::i32, u8"address_temp_function");
-
 			/* perform the lookup and write the function back to the table */
 			{
 				wasm::IfThen _if{ pSink };
-				pSink[I::U64::Const(address)];
-				pMapping.makeLookup();
-				pSink[I::Local::Tee(pTempFuncIndex)];
 
-				/* check if the lookup failed, because the address has not yet been translated */
-				pMapping.makeCheckFailed();
-				{
-					wasm::IfThen _if{ pSink };
-					pSink[I::U64::Const(0)];
-					pSink[I::U32::Const(env::ExecState::translate)];
-					pSink[I::Return()];
-				}
-
-				/* write the lookup-result to the linked table */
+				/* index for the address to be written to */
 				pSink[I::U32::Const(target.index)];
-				pSink[I::Local::Get(pTempFuncIndex)];
-				pMapping.makeLoadFunction();
+
+				/* lookup the actual function corresponding to the address */
+				pSink[I::U64::Const(address)];
+				pMapping.makeGetFunction();
+
+				/* write the address to the table */
 				pSink[I::Table::Set(pHost.addresses())];
 			}
 		}
@@ -86,30 +73,7 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 	fCallLandingPad(nextAddress);
 }
 void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) const {
-	/* ensure that the local variables exist */
-	if (!pTempFuncIndex.valid())
-		pTempFuncIndex = pSink.local(wasm::Type::i32, u8"address_temp_function");
-
-	/* perform the lookup and write the function back to the table */
-	{
-		/* lookup the function */
-		pMapping.makeLookup();
-		pSink[I::Local::Tee(pTempFuncIndex)];
-
-		/* check if the lookup failed, because the address has not yet been translated */
-		pMapping.makeCheckFailed();
-		{
-			wasm::IfThen _if{ pSink };
-			pSink[I::U64::Const(0)];
-			pSink[I::U32::Const(env::ExecState::translate)];
-			pSink[I::Return()];
-		}
-
-		/* invoke the function */
-		pSink[I::Local::Get(pTempFuncIndex)];
-		pMapping.makeInvoke();
-	}
-
+	pMapping.makeDirectInvoke();
 	fCallLandingPad(nextAddress);
 }
 void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
@@ -127,30 +91,18 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 		pSink[I::Table::Get(pHost.addresses())];
 		pSink[I::Ref::IsNull()];
 
-		/* ensure that the local variables exist */
-		if (!pTempFuncIndex.valid())
-			pTempFuncIndex = pSink.local(wasm::Type::i32, u8"address_temp_function");
-
 		/* perform the lookup and write the function back to the table */
 		{
 			wasm::IfThen _if{ pSink };
-			pSink[I::U64::Const(address)];
-			pMapping.makeLookup();
-			pSink[I::Local::Tee(pTempFuncIndex)];
 
-			/* check if the lookup failed, because the address has not yet been translated */
-			pMapping.makeCheckFailed();
-			{
-				wasm::IfThen _if{ pSink };
-				pSink[I::U64::Const(0)];
-				pSink[I::U32::Const(env::ExecState::translate)];
-				pSink[I::Return()];
-			}
-
-			/* write the lookup-result to the linked table */
+			/* index for the address to be written to */
 			pSink[I::U32::Const(target.index)];
-			pSink[I::Local::Get(pTempFuncIndex)];
-			pMapping.makeLoadFunction();
+
+			/* lookup the actual function corresponding to the address */
+			pSink[I::U64::Const(address)];
+			pMapping.makeGetFunction();
+
+			/* write the address to the table */
 			pSink[I::Table::Set(pHost.addresses())];
 		}
 	}
@@ -160,29 +112,7 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 	pSink[I::Call::IndirectTail(pHost.addresses(), pHost.blockPrototype())];
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
-	/* ensure that the local variables exist */
-	if (!pTempFuncIndex.valid())
-		pTempFuncIndex = pSink.local(wasm::Type::i32, u8"address_temp_function");
-
-	/* perform the lookup and write the function back to the table */
-	{
-		/* lookup the function */
-		pMapping.makeLookup();
-		pSink[I::Local::Tee(pTempFuncIndex)];
-
-		/* check if the lookup failed, because the address has not yet been translated */
-		pMapping.makeCheckFailed();
-		{
-			wasm::IfThen _if{ pSink };
-			pSink[I::U64::Const(0)];
-			pSink[I::U32::Const(env::ExecState::translate)];
-			pSink[I::Return()];
-		}
-
-		/* invoke the function */
-		pSink[I::Local::Get(pTempFuncIndex)];
-		pMapping.makeTailInvoke();
-	}
+	pMapping.makeDirectInvoke();
 }
 void gen::detail::AddressWriter::makeReturn() const {
 	/* write the execute-state onto the stack and simply return fully */
