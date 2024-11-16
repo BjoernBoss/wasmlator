@@ -16,7 +16,7 @@ namespace gen::detail {
 		void fCheckRange(uint32_t offset, gen::MemoryType type) const;
 
 	public:
-		void makeExit() const;
+		void makeTerminate() const;
 		void makeRead(uint32_t offset, gen::MemoryType type) const;
 		void makeWrite(const wasm::Variable& value, uint32_t offset, gen::MemoryType type) const;
 	};

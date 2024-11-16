@@ -10,9 +10,9 @@ void gen::detail::ContextBuilder::setupGlueMappings(detail::GlueState& glue) {
 }
 void gen::detail::ContextBuilder::setupCoreImports(wasm::Module& mod) const {
 	/* import the main set-exit-code method and pass it through as binding to the blocks */
-	wasm::Prototype prototype = mod.prototype(u8"main_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
-	mod.function(u8"main_set_exit_code", prototype, wasm::Transport{ u8"main" });
-	env::detail::ProcessAccess::AddCoreBinding(u8"ctx", u8"main_set_exit_code");
+	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 } }, {});
+	mod.function(u8"main_terminate", prototype, wasm::Transport{ u8"main" });
+	env::detail::ProcessAccess::AddCoreBinding(u8"ctx", u8"main_terminate");
 }
 void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
 	/* add the context-read function */
@@ -78,7 +78,7 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, detail::ContextState& state) const {
 	state.management = management;
 
-	/* add the function-import for the exit-code-setter function */
-	wasm::Prototype prototype = mod.prototype(u8"main_set_exit_code_type", { { u8"code", wasm::Type::i32 } }, {});
-	state.exit = mod.function(u8"main_set_exit_code", prototype, wasm::Import{ u8"ctx" });
+	/* add the function-import for the terminate function */
+	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 } }, {});
+	state.terminate = mod.function(u8"main_terminate", prototype, wasm::Import{ u8"ctx" });
 }

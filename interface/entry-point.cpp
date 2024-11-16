@@ -12,6 +12,8 @@ struct CPUContext {
 	uint32_t eax = 0;
 };
 
+struct Test {};
+
 struct TestCPUImpl final : public sys::Specification {
 private:
 	uint32_t pTestIndex = 0;
@@ -29,6 +31,7 @@ public:
 	void setupCore(wasm::Module& mod) override {
 		pTestIndex = env::Instance()->interact().defineCallback([]() {
 			host::Log(u8"test-callback called!");
+			throw Test{};
 			});
 
 		gen::Core _core{ mod };
@@ -59,8 +62,13 @@ public:
 		env::Instance()->startNewBlock();
 	}
 	void blockLoaded() override {
-		auto res = env::Instance()->mapping().execute(0x1234);
-		host::Log(u8"Execution of 0x1234 completed: [", size_t(res), u8']');
+		try {
+			auto res = env::Instance()->mapping().execute(0x1234);
+			host::Log(u8"Execution of 0x1234 completed: [", size_t(res), u8']');
+		}
+		catch (const Test& t) {
+			host::Log(u8"Test caught!");
+		}
 	}
 
 public:

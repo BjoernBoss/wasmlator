@@ -17,8 +17,8 @@ void gen::Writer::code(uint32_t cacheIndex, gen::MemoryType type) const {
 void gen::Writer::write(const wasm::Variable& value, uint32_t cacheIndex, gen::MemoryType type) const {
 	pMemory.makeWrite(value, cacheIndex, type);
 }
-void gen::Writer::exit() const {
-	pContext.makeExit();
+void gen::Writer::terminate() const {
+	pContext.makeTerminate();
 }
 void gen::Writer::ctxRead(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeRead(offset, type);

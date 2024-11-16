@@ -1,8 +1,8 @@
 #include "../env-process.h"
 #include "../../interface/interface.h"
 
-void env::detail::ContextBridge::SetExitCode(int32_t code) {
-	env::Instance()->context().fSetExitCode(code);
+void env::detail::ContextBridge::Terminate(int32_t code) {
+	env::Instance()->context().fTerminate(code);
 }
 
 uint64_t env::detail::ContextBridge::Read(uint32_t offset, uint32_t size) {

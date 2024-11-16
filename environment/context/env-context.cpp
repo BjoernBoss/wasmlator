@@ -35,10 +35,6 @@ void env::Context::fWrite(uint32_t offset, const uint8_t* data, uint32_t size) c
 	WriteAll<uint16_t>(offset, data, size, i);
 	WriteAll<uint8_t>(offset, data, size, i);
 }
-void env::Context::fSetExitCode(int32_t code) {
-	pExit = code;
-}
-
-int32_t env::Context::exitCode() const {
-	return pExit;
+void env::Context::fTerminate(int32_t code) {
+	throw env::Termianted{ code };
 }

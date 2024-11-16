@@ -11,7 +11,6 @@ namespace env {
 	private:
 		uint32_t pSize = 0;
 		uint32_t pAddress = 0;
-		int32_t pExit = 0;
 
 	public:
 		Context() = default;
@@ -21,10 +20,11 @@ namespace env {
 	private:
 		void fRead(uint32_t offset, uint8_t* data, uint32_t size) const;
 		void fWrite(uint32_t offset, const uint8_t* data, uint32_t size) const;
-		void fSetExitCode(int32_t code);
+
+	private:
+		void fTerminate(int32_t code);
 
 	public:
-		int32_t exitCode() const;
 		template <class Type>
 		Type read(uint32_t offset = 0) const {
 			Type out{};

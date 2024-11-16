@@ -5,7 +5,7 @@
 namespace env::detail {
 	struct ContextBridge {
 		/* exports */
-		static void SetExitCode(int32_t code);
+		static void Terminate(int32_t code);
 
 		/* imports */
 		static uint64_t Read(uint32_t offset, uint32_t size);

@@ -5,20 +5,20 @@
 
 namespace gen::detail {
 	struct ContextState {
-		wasm::Function exit;
+		wasm::Function terminate;
 		wasm::Memory management;
 	};
 
 	/*
 	*	Core-Imports:
-	*		void main.main_set_exit_code(i32 code);
+	*		void main.main_terminate(i32 code);
 	*
 	*	Core-Exports to Main:
 	*		i64 ctx_read(i32 offset, i32 size);
 	*		void ctx_write(i32 offset, i32 size, i64 value);
 	*
 	*	Body-Imports:
-	*		void ctx.main_set_exit_code(i32 code);
+	*		void ctx.main_terminate(i32 code);
 	*/
 
 	class ContextBuilder {

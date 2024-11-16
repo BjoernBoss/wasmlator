@@ -13,8 +13,8 @@ void main_block_loaded(uint32_t process, uint32_t succeeded) {
 	env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0);
 }
 
-void main_set_exit_code(int32_t code) {
-	env::detail::ContextBridge::SetExitCode(code);
+void main_terminate(int32_t code) {
+	env::detail::ContextBridge::Terminate(code);
 }
 
 uint32_t main_resolve(uint64_t address) {

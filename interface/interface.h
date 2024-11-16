@@ -36,7 +36,7 @@ extern "C" {
 /* environment/context/context-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_set_exit_code(int32_t code);
+	void main_terminate(int32_t code);
 
 	/* imports */
 	uint64_t ctx_read(uint32_t offset, uint32_t size);

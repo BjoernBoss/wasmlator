@@ -45,8 +45,8 @@ namespace gen {
 		void write(const wasm::Variable& value, uint32_t cacheIndex, gen::MemoryType type) const;
 
 		/* expects [i32] result-code on top of stack
-		*	Note: generated code will contain a return-statement */
-		void exit() const;
+		*	Note: generated code will abort the control-flow */
+		void terminate() const;
 
 		/* writes value from context to stack */
 		void ctxRead(uint32_t offset, gen::MemoryType type) const;
