@@ -38,3 +38,6 @@ void env::Context::fWrite(uint32_t offset, const uint8_t* data, uint32_t size) c
 void env::Context::fTerminate(int32_t code) {
 	throw env::Termianted{ code };
 }
+void env::Context::fNotDecodable(env::guest_t address) {
+	throw env::NotDecodable{ address };
+}

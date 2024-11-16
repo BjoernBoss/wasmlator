@@ -17,7 +17,7 @@ private:
 	uint32_t pTestIndex = 0;
 
 public:
-	TestCPUImpl() : sys::Specification{ 4, 4, sizeof(CPUContext), false } {}
+	TestCPUImpl() : sys::Specification{ 4, 4, sizeof(CPUContext) } {}
 
 private:
 	void fTestBlock(gen::Translator& trans) {
@@ -66,6 +66,9 @@ public:
 		catch (const env::Translate& t) {
 			host::Log(u8"Translate caught: ", t.address);
 		}
+		catch (const env::NotDecodable& t) {
+			host::Log(u8"NotDecodable caught: ", t.address);
+		}
 	}
 
 public:
@@ -83,8 +86,10 @@ public:
 
 		if (address == 0x5678)
 			return gen::Instruction{ 2, address, 0x567c, 1, gen::InstType::conditionalDirect };
-		if (address == 0x5679 || address == 0x567a || address == 0x567b || address == 0x567c)
+		if (address == 0x5679 || address == 0x567a || address == 0x567c)
 			return gen::Instruction{ 4, address, 0, 1, gen::InstType::primitive };
+		if (address == 0x567b)
+			return gen::Instruction{ 5, address, 0xcdef, 1, gen::InstType::primitive };
 		if (address == 0x567d)
 			return gen::Instruction{ 2, address, 0x567a, 1, gen::InstType::conditionalDirect };
 		if (address == 0x567e)
@@ -117,16 +122,19 @@ public:
 			case 4:
 				writer.sink()[wasm::inst::Nop()];
 				break;
+			case 5:
+				writer.call(0xcdef, data[i]);
+				break;
 			}
 		}
 	}
 };
 
-void main_startup() {
+void StartupProcess() {
 	host::Log(u8"Main: Application startup entered");
 	env::Process::Create(std::make_unique<TestCPUImpl>());
-	host::Log(u8"Main: Application startup exited");
 
 	env::Instance()->release();
 	env::Process::Create(std::make_unique<TestCPUImpl>());
+	host::Log(u8"Main: Application startup exited");
 }

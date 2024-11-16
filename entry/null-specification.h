@@ -4,7 +4,7 @@
 
 struct NullSpecification final : public sys::Specification {
 public:
-	NullSpecification() : sys::Specification{ 1, 1, 1, false } {}
+	NullSpecification() : sys::Specification{ 1, 1, 1 } {}
 
 public:
 	void setupCore(wasm::Module& mod) override {}

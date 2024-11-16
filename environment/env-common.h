@@ -78,4 +78,9 @@ namespace env {
 	struct Translate {
 		env::guest_t address = 0;
 	};
+
+	/* thrown whenever an undecodable instruction is to be executed */
+	struct NotDecodable {
+		env::guest_t address = 0;
+	};
 }

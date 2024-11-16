@@ -14,7 +14,7 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	_core.setupBlockImports(mod, physical, management);
 	_memory.setupBlockImports(mod, management, physical, pMemory);
 	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
-	_context.setupBlockImports(mod, management, pContext);
+	_context.setupBlockImports(mod, management, pNotDecodable, pContext);
 	_interact.setupBlockImports(mod, pInteract);
 
 	/* setup the components of the translator-members */
@@ -22,7 +22,7 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 }
 
 void gen::Translator::fProcess(const detail::OpenAddress& next) {
-	detail::SuperBlock block;
+	detail::SuperBlock block{ pNotDecodable };
 
 	/* notify the interface about the newly starting block */
 	env::Instance()->specification().translationStarted();
@@ -31,18 +31,13 @@ void gen::Translator::fProcess(const detail::OpenAddress& next) {
 	env::guest_t address = next.address;
 	do {
 		/* iterate over the instruction stream and look for the end of the current strand */
-		while (true) {
-			gen::Instruction inst = env::Instance()->specification().fetchInstruction(address);
-			inst.address = address;
+		gen::Instruction inst{};
+		do {
+			inst = env::Instance()->specification().fetchInstruction(address);
+		} while (block.push(inst, address));
 
-			/* check if the next instruction failed to be decoded */
-			if (inst.type == gen::InstType::invalid)
-				host::Fatal(str::Format<std::u8string>(u8"Unable to decode instruction [{:#018x}]", address));
-			address += inst.size;
-			if (!block.push(inst))
-				break;
-		}
-	} while (block.incomplete(address));
+		/* check if the overall super-block can be continued */
+	} while (block.incomplete());
 
 	/* setup the ranges of the super-block */
 	block.setupRanges();

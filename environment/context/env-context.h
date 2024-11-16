@@ -23,6 +23,7 @@ namespace env {
 
 	private:
 		void fTerminate(int32_t code);
+		void fNotDecodable(env::guest_t address);
 
 	public:
 		template <class Type>

@@ -1,5 +1,9 @@
 #include "gen-superblock.h"
 
+namespace I = wasm::inst;
+
+gen::detail::SuperBlock::SuperBlock(const wasm::Function& notDecodable) : pNotDecodable{ notDecodable } {}
+
 size_t gen::detail::SuperBlock::fLookup(env::guest_t address) const {
 	size_t first = 0, last = pList.size() - 1;
 
@@ -137,13 +141,26 @@ gen::detail::RangeIt gen::detail::SuperBlock::fConflictCluster(std::set<detail::
 	return begin;
 }
 
-bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
-	pList.push_back(inst);
+bool gen::detail::SuperBlock::push(const gen::Instruction& inst, env::guest_t& address) {
+	pList.emplace_back(inst).address = address;
 
-	/* check if the current strand can be continued */
+	/* check if its an invalid instruction, in which case the block will be ended and the extent will be set to null */
+	if (inst.type == gen::InstType::invalid) {
+		host::Debug(str::Format<std::u8string>(u8"Unable to decode instruction [{:#018x}]", address));
+		pList.back().size = 0;
+		return false;
+	}
+
+	/* advance the address and check if the current strand can be continued */
+	address += inst.size;
 	return (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect);
 }
-bool gen::detail::SuperBlock::incomplete(env::guest_t address) const {
+bool gen::detail::SuperBlock::incomplete() const {
+	/* check if the block ends on an invalid instruction of unknown extent and otherwise compute the current next address */
+	if (pList.back().type == gen::InstType::invalid)
+		return false;
+	env::guest_t address = pList.back().address + pList.back().size;
+
 	/* iterate over the instructions and check if any of the jumps jump to the current next
 	*	address, in which case the block can be continued (iterate over all instructions again,
 	*	as previous instructions might become valid after another strand has been processed)
@@ -225,8 +242,8 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 				target.cfg = sink.local(wasm::Type::i32, str::BuildTo<std::u8string>(u8"_cfg_", pIt->target));
 
 			/* add the code to reset the variable upon entry of the loop backwards */
-			sink[wasm::inst::U32::Const(0)];
-			sink[wasm::inst::Local::Set(target.cfg)];
+			sink[I::U32::Const(0)];
+			sink[I::Local::Set(target.cfg)];
 		}
 
 		/* add the next header (mark the jump as internal and thereby not accessible,
@@ -239,19 +256,19 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 		/* check if the conditional forward-jump of the resolved irreducible control-flow needs to be added */
 		if (!pIt->backwards && target.irreducible) {
 			/* check if the corresponding loop was entered from its neighbors, not by jumping */
-			sink[wasm::inst::Local::Get(target.cfg)];
-			sink[wasm::inst::U32::EqualZero()];
+			sink[I::Local::Get(target.cfg)];
+			sink[I::U32::EqualZero()];
 			wasm::IfThen _if{ sink };
 
 			/* mark the loop as now being entered in a valid fashion (no need to ensure this is added
 			*	immediately after the loop-header, as they will both have the same first-address, and
 			*	therefore it will be executed before any specification-generated code will be executed) */
-			sink[wasm::inst::U32::Const(1)];
-			sink[wasm::inst::Local::Set(target.cfg)];
+			sink[I::U32::Const(1)];
+			sink[I::Local::Set(target.cfg)];
 
 			/* add the immediate jump to the actual target address */
 			_if.otherwise();
-			sink[wasm::inst::Branch::Direct(pStack.back().target)];
+			sink[I::Branch::Direct(pStack.back().target)];
 		}
 		++pIt;
 	}
@@ -262,6 +279,18 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 		last = pStack.back().last;
 	if (pIt != pRanges.end() && pIt->first <= last)
 		last = pIt->first - 1;
+
+	/* check if the last instruction could not be decoded, in which case the failure-stub needs to
+	*	be inserted (only if this is the last empty chunk, otherwise remove it from the chunk) */
+	if (last + 1 == pList.size() && pList.back().type == gen::InstType::invalid) {
+		if (pIndex == last) {
+			sink[I::U64::Const(pList.back().address)];
+			sink[I::Call::Direct(pNotDecodable)];
+			sink[I::Unreachable()];
+			return { 0, 0 };
+		}
+		--last;
+	}
 
 	/* setup the chunk and advance the index */
 	detail::InstChunk chunk{ pList.data() + pIndex, (last - pIndex) + 1 };

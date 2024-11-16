@@ -13,8 +13,8 @@ let _state = {
 
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
 *	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
-class FatalError extends Error {};
-class UnknownExitError extends Error {};
+class FatalError extends Error { };
+class UnknownExitError extends Error { };
 _state.controlled = function (fn) {
 	try {
 		fn();
@@ -22,7 +22,7 @@ _state.controlled = function (fn) {
 		if (e instanceof Error)
 			console.error(e);
 		else
-			console.error(`Unknown exception occurred: ${e.stack}`)
+			console.error(`Unhandled exception occurred: ${e.stack}`)
 	}
 }
 
@@ -127,18 +127,15 @@ _state.load_main = function () {
 			_state.main.exports = instance.instance.exports;
 			_state.main.memory = _state.main.exports.memory;
 
-			/* startup the main application, which requires the internal _initialize and explicitly created main_startup to be invoked */
+			/* startup the main application, which requires the internal _initialize and explicitly created main_initialize to be invoked */
 			_state.controlled(() => {
 				console.log(`WasmLator.js: Starting up main module...`);
 				_state.main.exports._initialize();
-				_state.main.exports.main_startup();
+				_state.main.exports.main_initialize();
 			});
 		})
 		.catch((err) => {
-			_state.controlled(() => {
-				console.error(`WasmLator.js: Failed to load main module: ${err}`);
-				_state.glue.exports.host_main_loaded(0);
-			});
+			console.error(`WasmLator.js: Failed to load main module: ${err}`);
 		});
 }
 

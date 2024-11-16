@@ -2,10 +2,14 @@
 
 #include <cinttypes>
 
+/* primary application entry point */
+void StartupProcess();
+
+
 /* environment/entry-point interactions */
 extern "C" {
 	/* exports */
-	void main_startup();
+	void main_initialize();
 }
 
 /* glue/host interactions */
@@ -37,6 +41,7 @@ extern "C" {
 extern "C" {
 	/* exports */
 	void main_terminate(int32_t code);
+	void main_not_decodable(uint64_t address);
 
 	/* imports */
 	uint64_t ctx_read(uint32_t offset, uint32_t size);

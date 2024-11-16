@@ -14,10 +14,9 @@ namespace sys {
 		size_t pMaxDepth = 0;
 		uint32_t pMemoryCaches = 0;
 		uint32_t pContextSize = 0;
-		bool pIs32Bit = false;
 
 	protected:
-		constexpr Specification(size_t maxTranslationDepth, uint32_t memoryCaches, uint32_t contextSize, bool is32bit) : pMaxDepth{ maxTranslationDepth }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize }, pIs32Bit{ is32bit } {}
+		constexpr Specification(size_t maxTranslationDepth, uint32_t memoryCaches, uint32_t contextSize) : pMaxDepth{ maxTranslationDepth }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {}
 
 	public:
 		virtual ~Specification() = default;
@@ -43,9 +42,6 @@ namespace sys {
 		}
 		constexpr uint32_t contextSize() const {
 			return pContextSize;
-		}
-		constexpr bool is32bit() const {
-			return pIs32Bit;
 		}
 	};
 }

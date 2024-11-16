@@ -48,11 +48,12 @@ namespace gen::detail {
 		std::vector<Target> pTargets;
 		std::vector<gen::Instruction> pList;
 		std::set<detail::InstRange> pRanges;
+		wasm::Function pNotDecodable;
 		detail::RangeIt pIt;
 		size_t pIndex = 0;
 
 	public:
-		SuperBlock() = default;
+		SuperBlock(const wasm::Function& notDecodable);
 
 	private:
 		size_t fLookup(env::guest_t address) const;
@@ -61,8 +62,8 @@ namespace gen::detail {
 		detail::RangeIt fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last);
 
 	public:
-		bool push(const gen::Instruction& inst);
-		bool incomplete(env::guest_t address) const;
+		bool push(const gen::Instruction& inst, env::guest_t& address);
+		bool incomplete() const;
 		void setupRanges();
 
 	public:

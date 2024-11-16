@@ -19,6 +19,7 @@ namespace gen {
 		detail::MappingState pMapping;
 		detail::ContextState pContext;
 		detail::InteractState pInteract;
+		wasm::Function pNotDecodable;
 
 	public:
 		Translator(wasm::Module& mod);

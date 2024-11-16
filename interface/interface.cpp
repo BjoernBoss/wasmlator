@@ -6,15 +6,37 @@
 #include "../environment/mapping/mapping-bridge.h"
 #include "../environment/interact/interact-bridge.h"
 
+void main_initialize() {
+	try {
+		StartupProcess();
+	}
+	catch (...) {
+		host::Fatal(u8"Unhandled exception caught [main_initialize]");
+	}
+}
+
 void main_core_loaded(uint32_t process, uint32_t succeeded) {
-	env::detail::ProcessBridge::CoreLoaded(process, succeeded > 0);
+	try {
+		env::detail::ProcessBridge::CoreLoaded(process, succeeded > 0);
+	}
+	catch (...) {
+		host::Fatal(u8"Unhandled exception caught [main_core_loaded]");
+	}
 }
 void main_block_loaded(uint32_t process, uint32_t succeeded) {
-	env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0);
+	try {
+		env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0);
+	}
+	catch (...) {
+		host::Fatal(u8"Unhandled exception caught [main_core_loaded]");
+	}
 }
 
 void main_terminate(int32_t code) {
 	env::detail::ContextBridge::Terminate(code);
+}
+void main_not_decodable(uint64_t address) {
+	env::detail::ContextBridge::NotDecodable(address);
 }
 
 uint32_t main_resolve(uint64_t address) {

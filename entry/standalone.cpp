@@ -4,6 +4,6 @@
 int main() {
 	host::SetLogLevel(host::LogLevel::debug);
 
-	main_startup();
+	StartupProcess();
 	return 0;
 }

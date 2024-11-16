@@ -12,6 +12,7 @@ namespace gen::detail {
 	/*
 	*	Core-Imports:
 	*		void main.main_terminate(i32 code);
+	*		void main.main_not_decodable(i64 address);
 	*
 	*	Core-Exports to Main:
 	*		i64 ctx_read(i32 offset, i32 size);
@@ -19,6 +20,7 @@ namespace gen::detail {
 	*
 	*	Body-Imports:
 	*		void ctx.main_terminate(i32 code);
+	*		void ctx.main_not_decodable(i64 address);
 	*/
 
 	class ContextBuilder {
@@ -26,6 +28,6 @@ namespace gen::detail {
 		void setupGlueMappings(detail::GlueState& glue);
 		void setupCoreImports(wasm::Module& mod) const;
 		void setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const;
-		void setupBlockImports(wasm::Module& mod, const wasm::Memory& management, detail::ContextState& state) const;
+		void setupBlockImports(wasm::Module& mod, const wasm::Memory& management, wasm::Function& notDecodable, detail::ContextState& state) const;
 	};
 }
