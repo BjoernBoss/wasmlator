@@ -12,10 +12,11 @@ uint32_t host_load_block(const uint8_t* data, uint32_t size, uint32_t process) {
 	main_block_loaded(process, 1);
 	return 1;
 }
-void host_print_u8(const char8_t* data, uint32_t size, uint32_t error) {
-	str::BuildTo((error > 0 ? std::cerr : std::cout), std::u8string_view{ data, size }, '\n');
+void host_print_u8(const char8_t* data, uint32_t size) {
+	str::BuildTo(std::cout, std::u8string_view{ data, size }, '\n');
 }
-void host_abort [[noreturn]] () {
+void host_fatal_u8 [[noreturn]] (const char8_t* data, uint32_t size) {
+	str::BuildTo(std::cerr, std::u8string_view{ data, size }, '\n');
 	exit(1);
 }
 uint32_t glue_setup_core_map() { return 1; }

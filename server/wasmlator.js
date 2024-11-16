@@ -13,17 +13,17 @@ let _state = {
 
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
 *	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
-class _ControlledAbort { }
+class FatalError extends Error {};
+class UnknownExitError extends Error {};
 _state.controlled = function (fn) {
 	try {
 		fn();
 	} catch (e) {
-		if (!(e instanceof _ControlledAbort))
-			console.error(`Uncaught controlled exception: ${e.stack}`);
+		if (e instanceof Error)
+			console.error(e);
+		else
+			console.error(`Unknown exception occurred: ${e.stack}`)
 	}
-}
-_state.abortControlled = function () {
-	throw new _ControlledAbort();
 }
 
 /* create a string from the utf-8 encoded data at ptr in the main application or the glue-module */
@@ -60,7 +60,7 @@ _state.load_glue = function () {
 	imports.host.host_make_object = function () {
 		return {};
 	}
-	imports.host.host_set_member = function(obj, name, size, value) {
+	imports.host.host_set_member = function (obj, name, size, value) {
 		obj[_state.load_string(name, size, true)] = value;
 	}
 
@@ -98,16 +98,15 @@ _state.load_main = function () {
 	/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 	imports.env.emscripten_notify_memory_growth = function () { };
 	imports.wasi_snapshot_preview1.proc_exit = function (code) {
-		console.error(`WasmLator.js: Main module unexpectedly terminated itself with [${code}]`);
-		_state.abortControlled();
+		throw new UnknownExitError(`WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`);
 	};
 
 	/* setup the remaining host-imports */
-	imports.env.host_print_u8 = function (ptr, size, err) {
-		(err ? console.error : console.log)(_state.load_string(ptr, size, true));
+	imports.env.host_print_u8 = function (ptr, size) {
+		console.log(_state.load_string(ptr, size, true));
 	};
-	imports.env.host_abort = function () {
-		_state.abortControlled();
+	imports.env.host_fatal_u8 = function (ptr, size) {
+		throw new FatalError(`Wasmlator.js: ${_state.load_string(ptr, size, true)}`);
 	};
 	imports.env.host_load_core = function (ptr, size, process) {
 		return _state.load_core(_state.make_buffer(ptr, size), process);
@@ -128,8 +127,7 @@ _state.load_main = function () {
 			_state.main.exports = instance.instance.exports;
 			_state.main.memory = _state.main.exports.memory;
 
-			/* startup the main application, which requires the internal _initialize and explicitly created main_startup
-			*	to be invoked (do this in a separate call to prevent exceptions from propagating into the catch-handler) */
+			/* startup the main application, which requires the internal _initialize and explicitly created main_startup to be invoked */
 			_state.controlled(() => {
 				console.log(`WasmLator.js: Starting up main module...`);
 				_state.main.exports._initialize();
@@ -154,8 +152,6 @@ _state.load_core = function (buffer, process) {
 	/* try to instantiate the core module */
 	WebAssembly.instantiate(buffer, imports)
 		.then((instance) => {
-			/* notify the main about the loaded core (do this in a separate
-			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
 				/* set the last-instance, invoke the handler, and then reset the last-instance
 				*	again, in order to ensure unused instances can be garbage-collected */
@@ -181,8 +177,6 @@ _state.load_block = function (buffer, process) {
 	/* try to instantiate the block module */
 	WebAssembly.instantiate(buffer, imports)
 		.then((instance) => {
-			/* notify the main about the loaded block (do this in a separate
-			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
 				/* set the last-instance, invoke the handler, and then reset the last-instance
 				*	again, in order to ensure unused instances can be garbage-collected */

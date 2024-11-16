@@ -590,11 +590,11 @@ void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint
 
 	/* check if an entry has been found */
 	if (index >= pVirtual.size() || address < pVirtual[index].address || address >= pVirtual[index].address + pVirtual[index].size)
-		host::Fatal(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
+		throw env::MemoryFault{ address, size, usage, 0 };
 
 	/* check if the usage attributes are valid */
 	if ((pVirtual[index].usage & usage) != usage)
-		host::Fatal(str::Format<std::u8string>(u8"Virtual page-protection fault at address [{:#018x}] encountered", address));
+		throw env::MemoryFault{ address, size, usage, pVirtual[index].usage };
 
 	/* collect all previous and upcoming regions of the same usage */
 	pLastLookup = MemoryMapper::MemLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
@@ -615,7 +615,7 @@ void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint
 
 	/* check if the access-size is valid */
 	if (pLastLookup.address + pLastLookup.size < address + size)
-		host::Fatal(str::Format<std::u8string>(u8"Virtual page-fault at address [{:#018x}] encountered", address));
+		throw env::MemoryFault{ address, size, usage, 0 };
 }
 const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLookup() const {
 	return pLastLookup;

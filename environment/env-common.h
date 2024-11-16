@@ -68,7 +68,10 @@ namespace env {
 
 	/* thrown on memory exceptions (both when accessed by main or guest) */
 	struct MemoryFault {
-
+		env::guest_t address = 0;
+		uint32_t size = 0;
+		uint32_t usedUsage = 0;
+		uint32_t actualUsage = 0;
 	};
 
 	/* thrown whenever an unknown address is to be executed */
