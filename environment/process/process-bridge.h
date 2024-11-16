@@ -13,6 +13,10 @@ namespace env::detail {
 		static bool LoadBlock(const std::vector<uint8_t>& data, uint32_t process);
 		static bool SetExport(const std::u8string& name, uint32_t index);
 		static bool SetupCoreMap();
-		static void Reset();
+		static void ResetCoreMap();
+		static void BlockImportsPrepare();
+		static void BlockImportsNextMember(const std::u8string& name);
+		static void BlockImportsSetValue(const std::u8string& name, uint32_t index);
+		static void BlockImportsCommit(bool null);
 	};
 }

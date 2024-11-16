@@ -22,15 +22,15 @@ namespace env {
 			coreLoaded,
 			loadingBlock
 		};
-		struct CoreToBlockBinding {
-			std::u8string mod;
+		struct Binding {
 			std::u8string name;
+			uint32_t index = 0;
 		};
 
 	private:
 		std::unique_ptr<sys::Specification> pSpecification;
 		std::vector<env::BlockExport> pExports;
-		std::vector<CoreToBlockBinding> pBindings;
+		std::unordered_map<std::u8string, std::vector<Binding>> pBindings;
 		env::Context pContext;
 		env::Memory pMemory;
 		env::Mapping pMapping;
@@ -56,7 +56,7 @@ namespace env {
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 
 	public:
-		void nextBlock();
+		void startNewBlock();
 		void release();
 
 	public:

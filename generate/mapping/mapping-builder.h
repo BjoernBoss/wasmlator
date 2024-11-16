@@ -25,11 +25,11 @@ namespace gen::detail {
 	*		i32 map_execute(i64 address);
 	*
 	*	Core-Exports to Body:
-	*		func_ref map_functions[...];
+	*		ext_func map_functions[...];
 	*		i32 map_lookup(i64 address);
 	*
 	*	Body-Imports:
-	*		func_ref map.map_functions[...];
+	*		ext_func map.map_functions[...];
 	*		i32 map.map_lookup(i64 address);
 	*/
 

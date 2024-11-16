@@ -16,7 +16,7 @@ extern "C" {
 	void host_print_u8(const char8_t* data, uint32_t size, uint32_t error);
 	void host_abort [[noreturn]] ();
 	uint32_t glue_setup_core_map();
-	void glue_reset();
+	void glue_reset_core_map();
 }
 
 /* environment/process/process-bridge interactions */
@@ -27,6 +27,10 @@ extern "C" {
 
 	/* imports */
 	uint32_t proc_export(const char8_t* name, uint32_t size, uint32_t index);
+	void proc_block_imports_prepare();
+	void proc_block_imports_next_member(const char8_t* name, uint32_t size);
+	void proc_block_imports_set_value(const char8_t* name, uint32_t size, uint32_t index);
+	void proc_block_imports_commit(uint32_t null);
 }
 
 /* environment/context/context-bridge interactions */

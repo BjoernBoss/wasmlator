@@ -10,5 +10,8 @@ void env::detail::ProcessAccess::AddCoreBinding(const std::u8string& mod, const 
 	env::Instance()->fAddBinding(mod, name);
 }
 size_t env::detail::ProcessAccess::BindingCount() {
-	return env::Instance()->pBindings.size();
+	size_t count = 0;
+	for (const auto& [mod, bindings] : env::Instance()->pBindings)
+		count += bindings.size();
+	return count;
 }

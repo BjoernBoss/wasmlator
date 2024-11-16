@@ -19,10 +19,14 @@ void host_abort [[noreturn]] () {
 	exit(1);
 }
 uint32_t glue_setup_core_map() { return 1; }
-void glue_reset() {}
+void glue_reset_core_map() {}
 
 
 uint32_t proc_export(const char8_t* name, uint32_t size, uint32_t index) { return 1; }
+void proc_block_imports_prepare() {}
+void proc_block_imports_next_member(const char8_t* name, uint32_t size) {}
+void proc_block_imports_set_value(const char8_t* name, uint32_t size, uint32_t index) {}
+void proc_block_imports_commit(uint32_t null) {}
 
 uint64_t ctx_read(uint32_t offset, uint32_t size) { return{}; }
 void ctx_write(uint32_t offset, uint32_t size, uint64_t value) {}

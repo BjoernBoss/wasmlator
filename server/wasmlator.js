@@ -57,6 +57,12 @@ _state.load_glue = function () {
 			return null;
 		return obj;
 	};
+	imports.host.host_make_object = function () {
+		return {};
+	}
+	imports.host.host_set_member = function(obj, name, size, value) {
+		obj[_state.load_string(name, size, true)] = value;
+	}
 
 	/* fetch the initial glue module and try to instantiate it */
 	fetch(_state.glue.path, { credentials: 'same-origin' })
@@ -85,7 +91,7 @@ _state.load_main = function () {
 		env: {},
 		wasi_snapshot_preview1: {}
 	};
-	
+
 	/* copy all glue exports as imports of main (only the relevant will be bound) */
 	imports.env = { ..._state.glue.exports };
 
@@ -95,7 +101,7 @@ _state.load_main = function () {
 		console.error(`WasmLator.js: Main module unexpectedly terminated itself with [${code}]`);
 		_state.abortControlled();
 	};
-	
+
 	/* setup the remaining host-imports */
 	imports.env.host_print_u8 = function (ptr, size, err) {
 		(err ? console.error : console.log)(_state.load_string(ptr, size, true));
@@ -105,6 +111,9 @@ _state.load_main = function () {
 	};
 	imports.env.host_load_core = function (ptr, size, process) {
 		return _state.load_core(_state.make_buffer(ptr, size), process);
+	};
+	imports.env.host_load_block = function (ptr, size, process) {
+		return _state.load_block(_state.make_buffer(ptr, size), process);
 	};
 
 	/* fetch the main application javascript-wrapper */
@@ -165,28 +174,30 @@ _state.load_core = function (buffer, process) {
 }
 
 /* load a block module */
-_state.load_block = function (core, id, buffer) {
-	console.log(`WasmLator.js: Instantiating block for [${id}]...`);
-
-	/* setup the block imports */
-	let imports = {};
+_state.load_block = function (buffer, process) {
+	/* fetch the imports-object */
+	let imports = _state.glue.exports.get_imports();
 
 	/* try to instantiate the block module */
 	WebAssembly.instantiate(buffer, imports)
 		.then((instance) => {
-			/* notify the glue module about the loaded block (do this in a separate
+			/* notify the main about the loaded block (do this in a separate
 			*	call to prevent exceptions from propagating into the catch-handler) */
 			_state.controlled(() => {
-				console.log(`WasmLator.js: Block for [${id}] loaded`);
-				_state.glue.exports.host_block_loaded(id, instance.instance);
+				/* set the last-instance, invoke the handler, and then reset the last-instance
+				*	again, in order to ensure unused instances can be garbage-collected */
+				_state.glue.exports.set_last_instance(instance.instance);
+				_state.main.exports.main_block_loaded(process, 1);
+				_state.glue.exports.set_last_instance(null);
 			});
 		})
 		.catch((err) => {
 			_state.controlled(() => {
-				console.error(`WasmLator.js: Failed to load block for [${id}]: ${err}`);
-				_state.glue.exports.host_block_loaded(id, null);
+				console.error(`WasmLator.js: Failed to load block: ${err}`);
+				_state.main.exports.main_block_loaded(process, 0);
 			});
 		});
+	return 1;
 }
 
 _state.load_glue();

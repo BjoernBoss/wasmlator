@@ -54,7 +54,6 @@ void env::Process::fLoadCore() {
 void env::Process::fLoadBlock() {
 	host::Debug(u8"Loading block for [", ProcessId, u8"]...");
 	writer::BinaryWriter writer;
-	std::vector<env::BlockExport> exports;
 
 	/* check if a loading is currently in progress */
 	if (pState == State::none)
@@ -66,16 +65,30 @@ void env::Process::fLoadBlock() {
 	try {
 		/* setup the block module to be loaded */
 		wasm::Module mod{ &writer };
-		exports = pSpecification->setupBlock(mod);
+		pExports = pSpecification->setupBlock(mod);
 	}
 	catch (const wasm::Exception& e) {
-		host::Fatal(u8"WASM exception occurred while creating the core module: ", e.what());
+		host::Fatal(u8"WASM exception occurred while creating the block module: ", e.what());
 	}
 
-	/* check if the exports are valid and start the loading */
-	pExports = exports;
-	if (!detail::MappingAccess::CheckLoadable(pExports) || !detail::ProcessBridge::LoadBlock(writer.output(), ProcessId))
-		host::Fatal(u8"Failed initiating loading of core for [", ProcessId, u8']');
+	/* check if the exports are valid */
+	if (detail::MappingAccess::CheckLoadable(pExports)) {
+		/* construct the imports-object for the block */
+		detail::ProcessBridge::BlockImportsPrepare();
+		for (const auto& [mod, bindings] : pBindings) {
+			detail::ProcessBridge::BlockImportsNextMember(mod);
+			for (const auto& [name, index] : bindings)
+				detail::ProcessBridge::BlockImportsSetValue(name, index);
+		}
+		detail::ProcessBridge::BlockImportsCommit(false);
+
+		/* try to load the actual block and clear the imports-reference (to allow garbage collection to occur) */
+		bool loading = detail::ProcessBridge::LoadBlock(writer.output(), ProcessId);
+		detail::ProcessBridge::BlockImportsCommit(true);
+		if (loading)
+			return;
+	}
+	host::Fatal(u8"Failed initiating loading of block for [", ProcessId, u8']');
 }
 bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
@@ -91,9 +104,13 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 		host::Fatal(u8"Failed to import all core-functions accessed by the main application");
 
 	/* register all core bindings */
-	for (size_t i = 0; i < pBindings.size(); ++i) {
-		if (!detail::ProcessBridge::SetExport(pBindings[i].name, uint32_t(i)))
-			host::Fatal(u8"Failed to setup binding for [", pBindings[i].name, u8"] of object exported by core to blocks");
+	uint32_t bindingIndex = 0;
+	for (auto& [mod, bindings] : pBindings) {
+		for (auto& [name, index] : bindings) {
+			index = bindingIndex++;
+			if (!detail::ProcessBridge::SetExport(name, index))
+				host::Fatal(u8"Failed to setup binding for [", name, u8"] of object exported by core to blocks");
+		}
 	}
 
 	/* notify the core-objects about the core being loaded */
@@ -124,17 +141,17 @@ bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 	return true;
 }
 void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& name) {
-	pBindings.push_back({ mod, name });
+	pBindings[mod].push_back({ name, 0 });
 }
 
-void env::Process::nextBlock() {
+void env::Process::startNewBlock() {
 	fLoadBlock();
 }
 void env::Process::release() {
 	host::Log(u8"Destroying process with id [", ProcessId, u8"]...");
 
 	/* reset all mapped core-functions and release the current instance */
-	detail::ProcessBridge::Reset();
+	detail::ProcessBridge::ResetCoreMap();
 	ProcessInstance = 0;
 	delete this;
 	host::Log(u8"Process destroyed");

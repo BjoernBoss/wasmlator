@@ -22,6 +22,18 @@ bool env::detail::ProcessBridge::SetExport(const std::u8string& name, uint32_t i
 bool env::detail::ProcessBridge::SetupCoreMap() {
 	return (glue_setup_core_map() > 0);
 }
-void env::detail::ProcessBridge::Reset() {
-	glue_reset();
+void env::detail::ProcessBridge::ResetCoreMap() {
+	glue_reset_core_map();
+}
+void env::detail::ProcessBridge::BlockImportsPrepare() {
+	proc_block_imports_prepare();
+}
+void env::detail::ProcessBridge::BlockImportsNextMember(const std::u8string& name) {
+	proc_block_imports_next_member(name.data(), uint32_t(name.size()));
+}
+void env::detail::ProcessBridge::BlockImportsSetValue(const std::u8string& name, uint32_t index) {
+	proc_block_imports_set_value(name.data(), uint32_t(name.size()), index);
+}
+void env::detail::ProcessBridge::BlockImportsCommit(bool null) {
+	proc_block_imports_commit(null ? 1 : 0);
 }

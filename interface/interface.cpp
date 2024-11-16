@@ -38,8 +38,8 @@ uint32_t main_result_size() {
 }
 
 void main_invoke_void(uint32_t index) {
-	env::detail::InteractBridge::CallVoid(index);
+	env::detail::InteractBridge::InvokeVoid(index);
 }
 uint64_t main_invoke_param(uint64_t param, uint32_t index) {
-	return env::detail::InteractBridge::CallParam(param, index);
+	return env::detail::InteractBridge::InvokeParam(param, index);
 }

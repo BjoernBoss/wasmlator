@@ -1,13 +1,14 @@
 #include "gen-core.h"
+#include "core-builder.h"
 #include "../memory/memory-builder.h"
 #include "../context/context-builder.h"
 #include "../mapping/mapping-builder.h"
-#include "../environment/process/process-access.h"
 
 gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
+	detail::CoreBuilder _core;
 	wasm::Global lastInstance;
 
 	/* initialize the core-imports */
@@ -17,12 +18,9 @@ gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	pInteract.setupCoreImports(mod);
 	pProcess.setupCoreImports(mod);
 
-	/* setup the shared components */
-	uint32_t mpages = env::detail::ProcessAccess::ManagementPages(), ppages = env::detail::ProcessAccess::PhysicalPages();
-	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ ppages }, wasm::Export{});
-	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ mpages, mpages }, wasm::Export{});
-
 	/* setup the core-bodies */
+	wasm::Memory physical, management;
+	_core.setupCoreBody(mod, physical, management);
 	_memory.setupCoreBody(mod, management, physical);
 	_mapping.setupCoreBody(mod, management);
 	_context.setupCoreBody(mod, management);
