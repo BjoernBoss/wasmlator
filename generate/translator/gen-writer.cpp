@@ -5,8 +5,8 @@ gen::Writer::Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::M
 wasm::Sink& gen::Writer::sink() const {
 	return pSink;
 }
-const wasm::Target* gen::Writer::hasTarget(env::guest_t address) const {
-	return pSuperBlock.lookup(address);
+const wasm::Target* gen::Writer::hasTarget(const gen::Instruction& inst) const {
+	return pSuperBlock.lookup(inst);
 }
 void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type) const {
 	pMemory.makeRead(cacheIndex, type);

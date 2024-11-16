@@ -48,7 +48,7 @@ public:
 	void coreLoaded() override {
 		host::Log(u8"Test: ", env::Instance()->interact().call(u8"test", 63));
 
-		writer::TextWriter _writer;
+		writer::TextWriter _writer{ u8"  " };
 		{
 			wasm::Module _module{ &_writer };
 			gen::Translator _translator{ _module };
@@ -82,7 +82,15 @@ public:
 			return gen::Instruction{ 0, address, 0, 2, gen::InstType::endOfBlock };
 
 		if (address == 0x5678)
-			return gen::Instruction{ 3, address, 0, 2, gen::InstType::endOfBlock };
+			return gen::Instruction{ 2, address, 0x567c, 1, gen::InstType::conditionalDirect };
+		if (address == 0x5679 || address == 0x567a || address == 0x567b || address == 0x567c)
+			return gen::Instruction{ 4, address, 0, 1, gen::InstType::primitive };
+		if (address == 0x567d)
+			return gen::Instruction{ 2, address, 0x567a, 1, gen::InstType::conditionalDirect };
+		if (address == 0x567e)
+			return gen::Instruction{ 2, address, 0x567b, 1, gen::InstType::conditionalDirect };
+		if (address == 0x567f)
+			return gen::Instruction{ 3, address, 0, 1, gen::InstType::endOfBlock };
 
 		return gen::Instruction{ 0, 0, 0, 0, gen::InstType::invalid };
 	}
@@ -99,12 +107,15 @@ public:
 				writer.call(0x5678, data[i]);
 				break;
 			case 2:
-				writer.sink()[wasm::inst::U32::Const(1)];
-				writer.sink()[wasm::inst::Branch::If(*writer.hasTarget(data[i].address))];
+				//writer.sink()[wasm::inst::U32::Const(1)];
+				writer.sink()[wasm::inst::Branch::Direct(*writer.hasTarget(data[i]))];
 				break;
 			case 3:
 				writer.sink()[wasm::inst::U64::Const(0x9abc)];
 				writer.ret();
+				break;
+			case 4:
+				writer.sink()[wasm::inst::Nop()];
 				break;
 			}
 		}

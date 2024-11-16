@@ -6,7 +6,7 @@ gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, d
 
 void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const {
 	if (!pTempAddress.valid())
-		pTempAddress = pSink.local(wasm::Type::i64, u8"temp_continuation_address");
+		pTempAddress = pSink.local(wasm::Type::i64, u8"_continuation_address");
 
 	/* validate the addresses match */
 	pSink[I::Local::Tee(pTempAddress)];

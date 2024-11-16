@@ -31,9 +31,8 @@ namespace gen {
 		/* sink of the current function representing the given super-block */
 		wasm::Sink& sink() const;
 
-		/* check if the jumpDirect/conditionalDirect instruction at the given address can be locally referenced via a label
-		*	Note: Must only be used for the instruction previously decoded for the given address */
-		const wasm::Target* hasTarget(env::guest_t address) const;
+		/* check if the given jumpDirect/conditionalDirect instruction target can be locally referenced via a label */
+		const wasm::Target* hasTarget(const gen::Instruction& inst) const;
 
 		/* expects [i64] address on top of stack and writes value to stack */
 		void read(uint32_t cacheIndex, gen::MemoryType type) const;

@@ -16,7 +16,7 @@ void host_print_u8(const char8_t* data, uint32_t size) {
 	str::BuildTo(std::cout, std::u8string_view{ data, size }, '\n');
 }
 void host_fatal_u8 [[noreturn]] (const char8_t* data, uint32_t size) {
-	str::BuildTo(std::cerr, std::u8string_view{ data, size }, '\n');
+	str::BuildTo(std::cerr, u8"Fatal Exception: ", std::u8string_view{ data, size }, '\n');
 	exit(1);
 }
 uint32_t glue_setup_core_map() { return 1; }
