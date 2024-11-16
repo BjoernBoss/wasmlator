@@ -56,8 +56,7 @@ namespace gen::detail {
 		void pushRoot(env::guest_t address);
 
 	public:
-		void setup();
-		const wasm::Prototype& blockPrototype();
+		void setup(const wasm::Prototype& blockPrototype);
 		const wasm::Table& addresses();
 		bool empty() const;
 		detail::OpenAddress start();

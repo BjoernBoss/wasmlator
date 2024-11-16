@@ -10,18 +10,11 @@
 #include <bit>
 #include <memory>
 #include <limits>
+#include <exception>
 
 #include "../interface/host.h"
 
 namespace env {
-	enum class ExecState : uint32_t {
-		/* used internally for returns and such, may or may not have been translated yet, payload: next-address-to-execute */
-		_execute,
-
-		/* custom exec-states, payload: none */
-		_custom
-	};
-
 	static constexpr uint64_t VirtPageSize = 0x1000;
 	static constexpr uint32_t VirtPageOffset(uint64_t address) {
 		return uint32_t(address & (env::VirtPageSize - 1));

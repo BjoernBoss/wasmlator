@@ -6,6 +6,7 @@
 #include "../memory/memory-builder.h"
 #include "../mapping/mapping-builder.h"
 #include "../context/context-builder.h"
+#include "../core/core-builder.h"
 #include "../address/gen-address.h"
 
 namespace gen {

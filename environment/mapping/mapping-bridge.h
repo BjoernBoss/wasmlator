@@ -12,6 +12,6 @@ namespace env::detail {
 		static bool Reserve(size_t exports);
 		static uint32_t Define(const char8_t* name, size_t size, env::guest_t address);
 		static void Flush();
-		static uint32_t Execute(env::guest_t address);
+		static void Execute(env::guest_t address);
 	};
 }

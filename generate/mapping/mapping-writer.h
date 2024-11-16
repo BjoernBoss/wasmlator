@@ -16,5 +16,6 @@ namespace gen::detail {
 		void makeGetFunction() const;
 		void makeDirectInvoke() const;
 		void makeTailInvoke() const;
+		const wasm::Prototype& blockPrototype() const;
 	};
 }

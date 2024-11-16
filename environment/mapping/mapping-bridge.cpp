@@ -17,6 +17,6 @@ uint32_t env::detail::MappingBridge::Define(const char8_t* name, size_t size, en
 void env::detail::MappingBridge::Flush() {
 	map_flush_blocks();
 }
-uint32_t env::detail::MappingBridge::Execute(env::guest_t address) {
-	return map_execute(address);
+void env::detail::MappingBridge::Execute(env::guest_t address) {
+	map_execute(address);
 }

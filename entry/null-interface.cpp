@@ -33,7 +33,7 @@ void ctx_write(uint32_t offset, uint32_t size, uint64_t value) {}
 
 uint32_t map_reserve(uint32_t exports) { return 1; }
 uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address) { return {}; }
-uint32_t map_execute(uint64_t address) { return {}; }
+void map_execute(uint64_t address) {}
 void map_flush_blocks() {}
 
 void mem_flush_caches() {}

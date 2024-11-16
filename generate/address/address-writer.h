@@ -10,8 +10,7 @@ namespace gen::detail {
 		detail::MappingWriter pMapping;
 		detail::Addresses& pHost;
 		wasm::Sink& pSink;
-		mutable wasm::Variable pTempRetState;
-		mutable wasm::Variable pTempRetAddress;
+		mutable wasm::Variable pTempAddress;
 
 	public:
 		AddressWriter(const detail::MappingState& mapping, detail::Addresses& host, wasm::Sink& sink);

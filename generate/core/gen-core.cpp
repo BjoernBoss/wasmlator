@@ -27,8 +27,6 @@ gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	pProcess.setupCoreBody(mod);
 }
 gen::Core::~Core() noexcept(false) {
-	/* as closing may throw exceptions, only perform automated
-	*	closing, if no exception is currently being handled */
 	if (std::uncaught_exceptions() == 0)
 		fClose();
 }

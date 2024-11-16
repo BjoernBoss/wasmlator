@@ -10,9 +10,12 @@ void gen::detail::MappingWriter::makeGetFunction() const {
 }
 void gen::detail::MappingWriter::makeDirectInvoke() const {
 	pSink[I::Call::Direct(pState.lookup)];
-	pSink[I::Call::Indirect(pState.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
+	pSink[I::Call::Indirect(pState.functions, pState.blockPrototype)];
 }
 void gen::detail::MappingWriter::makeTailInvoke() const {
 	pSink[I::Call::Direct(pState.lookup)];
-	pSink[I::Call::IndirectTail(pState.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
+	pSink[I::Call::IndirectTail(pState.functions, pState.blockPrototype)];
+}
+const wasm::Prototype& gen::detail::MappingWriter::blockPrototype() const {
+	return pState.blockPrototype;
 }

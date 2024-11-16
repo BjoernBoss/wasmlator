@@ -10,6 +10,7 @@ namespace gen::detail {
 	struct MappingState {
 		wasm::Function lookup;
 		wasm::Table functions;
+		wasm::Prototype blockPrototype;
 	};
 
 	/*
@@ -22,7 +23,7 @@ namespace gen::detail {
 	*		i32 map_reserve(i32 exports);
 	*		i32 map_define(i32 name, i32 size, i64 address);
 	*		void map_flush_blocks();
-	*		i32 map_execute(i64 address);
+	*		void map_execute(i64 address);
 	*
 	*	Core-Exports to Body:
 	*		ext_func map_functions[...];
@@ -38,11 +39,12 @@ namespace gen::detail {
 		wasm::Function pResolve;
 		wasm::Function pFlushed;
 		wasm::Function pGetFunction;
+		wasm::Prototype pBlockPrototype;
 
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
 		void setupCoreImports(wasm::Module& mod);
 		void setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const;
-		void setupBlockImports(wasm::Module& mod, detail::MappingState& state) const;
+		void setupBlockImports(wasm::Module& mod, wasm::Prototype& blockPrototype, detail::MappingState& state) const;
 	};
 }

@@ -12,5 +12,6 @@ namespace gen::detail {
 	class CoreBuilder {
 	public:
 		void setupCoreBody(wasm::Module& mod, wasm::Memory& physical, wasm::Memory& management) const;
+		void setupBlockImports(wasm::Module& mod, wasm::Memory& physical, wasm::Memory& management) const;
 	};
 }

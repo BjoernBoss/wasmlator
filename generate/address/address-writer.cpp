@@ -5,31 +5,18 @@ namespace I = wasm::inst;
 gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host, wasm::Sink& sink) : pMapping{ mapping, sink }, pHost{ host }, pSink{ sink } {}
 
 void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const {
-	if (!pTempRetState.valid())
-		pTempRetState = pSink.local(wasm::Type::i32, u8"address_temp_state");
-	if (!pTempRetAddress.valid())
-		pTempRetAddress = pSink.local(wasm::Type::i64, u8"address_temp_address");
-
-	/* check for the mode not matching */
-	pSink[I::Local::Tee(pTempRetState)];
-	pSink[I::U32::Const(env::ExecState::_execute)];
-	pSink[I::U32::NotEqual()];
-	{
-		/* simply fully return the paramter to the caller */
-		wasm::IfThen _if{ pSink, u8"", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		pSink[I::Local::Get(pTempRetState)];
-		pSink[I::Return()];
-	}
+	if (!pTempAddress.valid())
+		pTempAddress = pSink.local(wasm::Type::i64, u8"temp_continuation_address");
 
 	/* validate the addresses match */
-	pSink[I::Local::Tee(pTempRetAddress)];
+	pSink[I::Local::Tee(pTempAddress)];
 	pSink[I::U64::Const(nextAddress)];
 	pSink[I::U64::NotEqual()];
 	{
-		/* trigger an execution of the target address */
+		/* return the target-address until someone can execute it
+		*	(currently unknown whether or not it has been translated yet) */
 		wasm::IfThen _if{ pSink };
-		pSink[I::Local::Get(pTempRetAddress)];
-		pSink[I::U32::Const(env::ExecState::_execute)];
+		pSink[I::Local::Get(pTempAddress)];
 		pSink[I::Return()];
 	}
 }
@@ -67,7 +54,7 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 
 		/* perform the call */
 		pSink[I::U32::Const(target.index)];
-		pSink[I::Call::Indirect(pHost.addresses(), pHost.blockPrototype())];
+		pSink[I::Call::Indirect(pHost.addresses(), pMapping.blockPrototype())];
 	}
 
 	fCallLandingPad(nextAddress);
@@ -109,13 +96,11 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 
 	/* perform the 'jump' to the address */
 	pSink[I::U32::Const(target.index)];
-	pSink[I::Call::IndirectTail(pHost.addresses(), pHost.blockPrototype())];
+	pSink[I::Call::IndirectTail(pHost.addresses(), pMapping.blockPrototype())];
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
 	pMapping.makeDirectInvoke();
 }
 void gen::detail::AddressWriter::makeReturn() const {
-	/* write the execute-state onto the stack and simply return fully */
-	pSink[I::U32::Const(env::ExecState::_execute)];
 	pSink[I::Return()];
 }

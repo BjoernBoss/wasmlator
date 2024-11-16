@@ -38,8 +38,8 @@ void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 	}
 }
 
-env::ExecState env::Mapping::execute(env::guest_t address) {
-	return static_cast<env::ExecState>(detail::MappingBridge::Execute(address));
+void env::Mapping::execute(env::guest_t address) {
+	detail::MappingBridge::Execute(address);
 }
 bool env::Mapping::contains(env::guest_t address) const {
 	return (pMapping.find(address) != pMapping.end());

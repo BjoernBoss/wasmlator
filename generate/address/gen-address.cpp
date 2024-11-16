@@ -42,11 +42,8 @@ void gen::detail::Addresses::pushRoot(env::guest_t address) {
 	fPush(address, 0);
 }
 
-void gen::detail::Addresses::setup() {
-	pBlockPrototype = pModule.prototype(u8"block_type", {}, { wasm::Type::i64, wasm::Type::i32 });
-}
-const wasm::Prototype& gen::detail::Addresses::blockPrototype() {
-	return pBlockPrototype;
+void gen::detail::Addresses::setup(const wasm::Prototype& blockPrototype) {
+	pBlockPrototype = blockPrototype;
 }
 const wasm::Table& gen::detail::Addresses::addresses() {
 	return pAddresses;

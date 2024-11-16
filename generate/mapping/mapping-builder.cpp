@@ -1,5 +1,4 @@
 #include "mapping-builder.h"
-#include "mapping-writer.h"
 #include "../environment/mapping/env-mapping.h"
 #include "../environment/process/process-access.h"
 
@@ -9,7 +8,7 @@ void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 	glue.define(u8"map_flush_blocks", {}, {});
-	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
+	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, {});
 }
 void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	/* add the import to the lookup function */
@@ -27,6 +26,9 @@ void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	/* define the bindings passed to the blocks */
 	env::detail::ProcessAccess::AddCoreBinding(u8"map", u8"map_functions");
 	env::detail::ProcessAccess::AddCoreBinding(u8"map", u8"map_lookup");
+
+	/* setup the block-type for the core */
+	pBlockPrototype = mod.prototype(u8"block_prototype", {}, { wasm::Type::i64 });
 }
 void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
 	detail::MappingState state;
@@ -180,32 +182,22 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 	/* add the blocks-execute function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
+		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, {});
 		wasm::Sink sink{ mod.function(u8"map_execute", prototype, wasm::Export{}) };
-		wasm::Variable result = sink.local(wasm::Type::i32, u8"result");
 
 		sink[I::Param::Get(0)];
 
-		/* simply perform the lookup and execution until the result-code is not execute anymore */
+		/* simply perform the lookup and execution until until an exception automatically exists the loop */
 		wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
 
 		/* perform the lookup of the address (will either find the index, or throw an exception) */
 		sink[I::Call::Direct(state.lookup)];
 
 		/* execute the address */
-		sink[I::Call::Indirect(state.functions, {}, { wasm::Type::i64, wasm::Type::i32 })];
-		sink[I::Local::Tee(result)];
+		sink[I::Call::Indirect(state.functions, pBlockPrototype)];
 
-		/* check if another execute has been encountered */
-		sink[I::U32::Const(env::ExecState::_execute)];
-		sink[I::U32::Equal()];
-		sink[I::Branch::If(_loop)];
-
-		/* return the exec-state */
-		sink[I::Local::Get(result)];
-		sink[I::Return()];
-		_loop.close();
-		sink[I::Unreachable()];
+		/* loop back to the start of the loop */
+		sink[I::Branch::Direct(_loop)];
 	}
 
 	/* add the blocks-flushing function */
@@ -232,11 +224,14 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::Call::Direct(pFlushed)];
 	}
 }
-void gen::detail::MappingBuilder::setupBlockImports(wasm::Module& mod, detail::MappingState& state) const {
+void gen::detail::MappingBuilder::setupBlockImports(wasm::Module& mod, wasm::Prototype& blockPrototype, detail::MappingState& state) const {
 	/* add the function-table import */
 	state.functions = mod.table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Import{ u8"map" });
 
 	/* add the function-import for the block-lookup */
 	wasm::Prototype prototype = mod.prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 	state.lookup = mod.function(u8"map_lookup", prototype, wasm::Import{ u8"map" });
+
+	/* setup the general block-type */
+	state.blockPrototype = (blockPrototype = mod.prototype(u8"block_prototype", {}, { wasm::Type::i64 }));
 }

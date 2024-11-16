@@ -6,20 +6,19 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
 	detail::InteractBuilder _interact;
-
-	/* setup the shared components */
-	uint32_t mpages = env::detail::ProcessAccess::ManagementPages(), ppages = env::detail::ProcessAccess::PhysicalPages();
-	wasm::Memory physical = mod.memory(u8"memory_physical", wasm::Limit{ ppages }, wasm::Import{ u8"core" });
-	wasm::Memory management = mod.memory(u8"memory_management", wasm::Limit{ mpages, mpages }, wasm::Import{ u8"core" });
+	detail::CoreBuilder _core;
 
 	/* initialize the block-imports */
+	wasm::Prototype blockPrototype;
+	wasm::Memory physical, management;
+	_core.setupBlockImports(mod, physical, management);
 	_memory.setupBlockImports(mod, management, physical, pMemory);
-	_mapping.setupBlockImports(mod, pMapping);
+	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
 	_context.setupBlockImports(mod, management, pContext);
 	_interact.setupBlockImports(mod, pInteract);
 
 	/* setup the components of the translator-members */
-	pAddresses.setup();
+	pAddresses.setup(blockPrototype);
 }
 
 void gen::Translator::fProcess(const detail::OpenAddress& next) {

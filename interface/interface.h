@@ -52,8 +52,8 @@ extern "C" {
 	/* imports */
 	uint32_t map_reserve(uint32_t exports);
 	uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address);
+	void map_execute(uint64_t address);
 	void map_flush_blocks();
-	uint32_t map_execute(uint64_t address);
 }
 
 /* environment/memory/memory-bridge interactions */
