@@ -9,6 +9,7 @@ let _state = {
 		memory: null,
 		exports: {}
 	},
+	failed: false
 };
 
 /* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
@@ -17,8 +18,12 @@ class FatalError extends Error { };
 class UnknownExitError extends Error { };
 _state.controlled = function (fn) {
 	try {
-		fn();
+		/* skip the function call if the state is considered failed */
+		if (!_state.failed)
+			fn();
 	} catch (e) {
+		/* mark the wasmlator as failed and log the error */
+		_state.failed = true;
 		if (e instanceof Error)
 			console.error(e);
 		else

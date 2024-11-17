@@ -13,7 +13,7 @@ namespace env::detail {
 		/* imports */
 		static void FlushCaches();
 		static bool ExpandPhysical(uint32_t pages);
-		static void MovePhysical(env::physical_t dest, env::physical_t source, uint32_t size);
+		static void MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size);
 
 		static uint64_t Read(env::guest_t address, uint32_t size);
 		static void Write(env::guest_t address, uint32_t size, uint64_t value);

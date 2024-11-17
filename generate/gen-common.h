@@ -41,10 +41,16 @@ namespace gen {
 	};
 
 	struct Instruction {
+	public:
 		uintptr_t data = 0;
-		env::guest_t address = 0;
 		env::guest_t target = 0;
+		env::guest_t address = 0;
 		size_t size = 0;
 		gen::InstType type = gen::InstType::primitive;
+
+	public:
+		constexpr Instruction() = default;
+		constexpr Instruction(gen::InstType type, size_t size, uintptr_t data) : type{ type }, size{ size }, data{ data } {}
+		constexpr Instruction(gen::InstType type, env::guest_t target, size_t size, uintptr_t data) : type{ type }, target{ target }, size{ size }, data{ data } {}
 	};
 }

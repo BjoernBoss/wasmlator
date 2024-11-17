@@ -16,7 +16,7 @@ void WriteAll(uint32_t offset, const uint8_t* data, uint32_t size, uint32_t& i) 
 }
 
 void env::Context::fRead(uint32_t offset, uint8_t* data, uint32_t size) const {
-	if (offset + size >= pSize)
+	if (offset + size > pSize)
 		host::Fatal(u8"Cannot read [", offset + size, u8"] bytes from context of size [", pSize, u8']');
 
 	uint32_t i = 0;
@@ -26,8 +26,8 @@ void env::Context::fRead(uint32_t offset, uint8_t* data, uint32_t size) const {
 	ReadAll<uint8_t>(offset, data, size, i);
 }
 void env::Context::fWrite(uint32_t offset, const uint8_t* data, uint32_t size) const {
-	if (offset + size >= pSize)
-		host::Fatal(u8"Cannot write [", offset + size, u8"] bytes from context of size [", pSize, u8']');
+	if (offset + size > pSize)
+		host::Fatal(u8"Cannot write [", offset + size, u8"] bytes to context of size [", pSize, u8']');
 
 	uint32_t i = 0;
 	WriteAll<uint64_t>(offset, data, size, i);

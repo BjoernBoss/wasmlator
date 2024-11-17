@@ -17,7 +17,7 @@ uint32_t env::detail::MemoryBridge::LookupPhysical() {
 bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
 	return (mem_expand_physical(pages) == 0);
 }
-void env::detail::MemoryBridge::MovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) {
+void env::detail::MemoryBridge::MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) {
 	mem_move_physical(dest, source, size);
 }
 void env::detail::MemoryBridge::FlushCaches() {

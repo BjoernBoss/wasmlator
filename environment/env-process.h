@@ -10,6 +10,8 @@
 #include "../system/sys-specification.h"
 
 namespace env {
+	/* Note: many operations on a process must first be called after the core has been loaded, as they might internally
+	*	interact with the core, which will otherwise result in a null-function execution within the glue-module */
 	env::Process* Instance();
 
 	class Process {

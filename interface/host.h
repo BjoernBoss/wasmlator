@@ -9,6 +9,7 @@ namespace host {
 		debug
 	};
 	void SetLogLevel(host::LogLevel level);
+	host::LogLevel GetLogLevel();
 
 	/* write message as [log] out */
 	void Log(const std::u8string_view& msg);
@@ -22,15 +23,21 @@ namespace host {
 	/* build the message and log it using host::Log */
 	template <class... Args>
 	void Log(const Args&... args) {
-		std::u8string str = str::Build<std::u8string>(args...);
-		host::Log(std::u8string_view{ str });
+		/* only build the string if it will be printed */
+		if (host::GetLogLevel() >= host::LogLevel::log) {
+			std::u8string str = str::Build<std::u8string>(args...);
+			host::Log(std::u8string_view{ str });
+		}
 	}
 
 	/* build the message and log it using host::Debug */
 	template <class... Args>
 	void Debug(const Args&... args) {
-		std::u8string str = str::Build<std::u8string>(args...);
-		host::Debug(std::u8string_view{ str });
+		/* only build the string if it will be printed */
+		if (host::GetLogLevel() >= host::LogLevel::debug) {
+			std::u8string str = str::Build<std::u8string>(args...);
+			host::Debug(std::u8string_view{ str });
+		}
 	}
 
 	/* build the message and log it using host::Fatal */

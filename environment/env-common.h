@@ -2,7 +2,6 @@
 
 #include <ustring/ustring.h>
 #include <cinttypes>
-#include <string>
 #include <type_traits>
 #include <functional>
 #include <unordered_map>
@@ -15,44 +14,50 @@
 #include "../interface/host.h"
 
 namespace env {
-	static constexpr uint64_t VirtPageSize = 0x1000;
-	static constexpr uint32_t VirtPageOffset(uint64_t address) {
-		return uint32_t(address & (env::VirtPageSize - 1));
-	}
-	static constexpr uint64_t VirtPageIndex(uint64_t address) {
-		return (address / env::VirtPageSize);
-	}
-	static constexpr uint32_t VirtPageCount(uint64_t bytes) {
-		return uint32_t((bytes + env::VirtPageSize - 1) / env::VirtPageSize);
-	}
-	static constexpr uint64_t VirtPageAligned(uint64_t bytes) {
-		return env::VirtPageSize * ((bytes + env::VirtPageSize - 1) / env::VirtPageSize);
-	}
+	class Process;
 
-	static constexpr uint64_t PhysPageSize = 0x10000;
-	static constexpr uint32_t PhysPageOffset(uint64_t address) {
-		return uint32_t(address & (env::PhysPageSize - 1));
-	}
-	static constexpr uint64_t PhysPageIndex(uint64_t address) {
-		return (address / env::PhysPageSize);
-	}
-	static constexpr uint32_t PhysPageCount(uint64_t bytes) {
-		return uint32_t((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
-	}
-	static constexpr uint64_t PhysPageAligned(uint64_t bytes) {
-		return env::PhysPageSize * ((bytes + env::PhysPageSize - 1) / env::PhysPageSize);
+	namespace detail {
+		using physical_t = uint32_t;
+
+		static constexpr uint64_t PhysPageSize = 0x10000;
+		static constexpr uint32_t PhysPageOffset(uint64_t address) {
+			return uint32_t(address & (detail::PhysPageSize - 1));
+		}
+		static constexpr uint64_t PhysPageIndex(uint64_t address) {
+			return (address / detail::PhysPageSize);
+		}
+		static constexpr uint32_t PhysPageCount(uint64_t bytes) {
+			return uint32_t((bytes + detail::PhysPageSize - 1) / detail::PhysPageSize);
+		}
+		static constexpr uint64_t PhysPageAligned(uint64_t bytes) {
+			return detail::PhysPageSize * ((bytes + detail::PhysPageSize - 1) / detail::PhysPageSize);
+		}
 	}
 
 	using guest_t = uint64_t;
-	using physical_t = uint32_t;
 
-	class Process;
+	static constexpr uint64_t PageSize = 0x1000;
+	static constexpr uint32_t PageOffset(uint64_t address) {
+		return uint32_t(address & (env::PageSize - 1));
+	}
+	static constexpr uint64_t VirtPageIndex(uint64_t address) {
+		return (address / env::PageSize);
+	}
+	static constexpr uint32_t VirtPageCount(uint64_t bytes) {
+		return uint32_t((bytes + env::PageSize - 1) / env::PageSize);
+	}
+	static constexpr uint64_t VirtPageAligned(uint64_t bytes) {
+		return env::PageSize * ((bytes + env::PageSize - 1) / env::PageSize);
+	}
 
 	/* memory page usage flags */
 	struct MemoryUsage {
 		static constexpr uint32_t Read = 0x01;
 		static constexpr uint32_t Write = 0x02;
 		static constexpr uint32_t Execute = 0x04;
+		static constexpr uint32_t ReadWrite = MemoryUsage::Read | MemoryUsage::Write;
+		static constexpr uint32_t ReadExecute = MemoryUsage::Read | MemoryUsage::Execute;
+		static constexpr uint32_t All = MemoryUsage::Read | MemoryUsage::Write | MemoryUsage::Execute;
 	};
 
 	/* block exported function entry */

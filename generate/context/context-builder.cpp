@@ -26,10 +26,10 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		wasm::Sink sink{ mod.function(u8"ctx_read", prototype, wasm::Export{}) };
 
 		sink[I::Param::Get(0)];
-		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i32 }, { wasm::Type::i32 } };
-		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i32 }, { wasm::Type::i32 } };
-		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i32 }, { wasm::Type::i32 } };
 		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i32 }, { wasm::Type::i32 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i32 }, { wasm::Type::i32 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i32 }, { wasm::Type::i32 } };
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i32 }, { wasm::Type::i32 } };
 		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
@@ -57,10 +57,10 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 		sink[I::Param::Get(0)];
 		sink[I::Param::Get(2)];
-		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
-		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
-		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
 		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
 		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];

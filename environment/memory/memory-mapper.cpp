@@ -11,7 +11,7 @@ size_t env::detail::MemoryMapper::fLookupVirtual(env::guest_t address) const {
 	}
 	return begin;
 }
-size_t env::detail::MemoryMapper::fLookupPhysical(env::physical_t physical) const {
+size_t env::detail::MemoryMapper::fLookupPhysical(env::detail::physical_t physical) const {
 	size_t begin = 0, end = pPhysical.size();
 	while ((end - begin) > 1) {
 		size_t index = (begin + end + 1) / 2;
@@ -25,15 +25,15 @@ size_t env::detail::MemoryMapper::fLookupPhysical(env::physical_t physical) cons
 
 uint32_t env::detail::MemoryMapper::fExpandPhysical(uint32_t size, uint32_t growth) const {
 	/* allocate a little bit more to reduce the number of growings */
-	uint32_t pages = env::PhysPageCount(std::max<uint32_t>(detail::MinGrowthBytes, size + growth));
+	uint32_t pages = detail::PhysPageCount(std::max<uint32_t>(detail::MinGrowthBytes, size + growth));
 	if (detail::MemoryBridge::ExpandPhysical(pages))
-		return uint32_t(pages * env::PhysPageSize);
-	size = env::PhysPageCount(size);
+		return uint32_t(pages * detail::PhysPageSize);
+	size = detail::PhysPageCount(size);
 	if (size < pages && detail::MemoryBridge::ExpandPhysical(size))
-		return uint32_t(size * env::PhysPageSize);
+		return uint32_t(size * detail::PhysPageSize);
 	return 0;
 }
-void env::detail::MemoryMapper::fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const {
+void env::detail::MemoryMapper::fMovePhysical(env::detail::physical_t dest, env::detail::physical_t source, uint32_t size) const {
 	detail::MemoryBridge::MovePhysical(dest, source, size);
 }
 void env::detail::MemoryMapper::fFlushCaches() const {
@@ -50,7 +50,7 @@ void env::detail::MemoryMapper::fCheckConsistency() const {
 
 		if (fLookupPhysical(pPhysical[i].physical) != i)
 			host::Fatal(u8"Physical slot [", i, u8"] lookup failed");
-		if (pPhysical[i].size == 0 || env::VirtPageOffset(pPhysical[i].size) != 0)
+		if (pPhysical[i].size == 0 || env::PageOffset(pPhysical[i].size) != 0)
 			host::Fatal(u8"Physical slot [", i, u8"] size is invalid");
 
 		if ((i > 0 ? (pPhysical[i - 1].physical + pPhysical[i - 1].size) : 0) != pPhysical[i].physical)
@@ -70,7 +70,7 @@ void env::detail::MemoryMapper::fCheckConsistency() const {
 			pVirtual[i].physical + pVirtual[i].size > pPhysical[phys].physical + pPhysical[phys].size)
 			host::Fatal(u8"Virtual slot [", i, u8"] physical is invalid");
 
-		if (pVirtual[i].size == 0 || env::VirtPageOffset(pVirtual[i].size) != 0)
+		if (pVirtual[i].size == 0 || env::PageOffset(pVirtual[i].size) != 0)
 			host::Fatal(u8"Virtual slot [", i, u8"] size is invalid");
 		if (i == 0)
 			continue;
@@ -143,7 +143,7 @@ bool env::detail::MemoryMapper::fMemExpandPrevious(size_t virt, env::guest_t add
 	if (pVirtual[virt].usage == usage)
 		pVirtual[virt].size += size;
 	else {
-		env::physical_t actual = pVirtual[virt].physical + pVirtual[virt].size;
+		detail::physical_t actual = pVirtual[virt].physical + pVirtual[virt].size;
 		pVirtual.insert(pVirtual.begin() + virt + 1, MemoryMapper::MemVirtual{ address, actual, size, usage });
 	}
 	return true;
@@ -206,7 +206,7 @@ bool env::detail::MemoryMapper::fMemAllocateIntermediate(size_t virt, uint32_t s
 	pVirtual.insert(pVirtual.begin() + virt + 1, MemoryMapper::MemVirtual{ pVirtual[virt].address + pVirtual[virt].size, pVirtual[virt].physical + pVirtual[virt].size, size, usage });
 	return true;
 }
-env::physical_t env::detail::MemoryMapper::fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext) {
+env::detail::physical_t env::detail::MemoryMapper::fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext) {
 	uint32_t capacity = pPhysical[phys].size;
 
 	/* check which sides exist */
@@ -218,7 +218,7 @@ env::physical_t env::detail::MemoryMapper::fMemMergePhysical(size_t virt, size_t
 	pPhysical[phys].used = true;
 
 	/* move the original regions into place */
-	env::physical_t actual = pPhysical[phys].physical;
+	detail::physical_t actual = pPhysical[phys].physical;
 	if (hasPrev) {
 		/* move the memory into place and patch the old and new physical slot */
 		fMovePhysical(actual, pPhysical[physPrev].physical, pPhysical[physPrev].size);
@@ -250,7 +250,7 @@ env::physical_t env::detail::MemoryMapper::fMemMergePhysical(size_t virt, size_t
 	/* check if capacity remains, which needs to be written to a new slot */
 	capacity -= pPhysical[phys].size;
 	if (capacity > 0) {
-		env::physical_t end = pPhysical[phys].physical + pPhysical[phys].size;
+		detail::physical_t end = pPhysical[phys].physical + pPhysical[phys].size;
 
 		/* check if an existing slot can be expanded */
 		if (phys + 1 < pPhysical.size() && !pPhysical[phys + 1].used)
@@ -489,7 +489,7 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::gues
 	uint32_t shift = 0;
 
 	/* check if the first slot needs to be split up or if it can be used directly */
-	env::physical_t start = pVirtual[virt].physical;
+	detail::physical_t start = pVirtual[virt].physical;
 	if (pVirtual[virt].address < address) {
 		if (pVirtual[virt].usage != usage) {
 			shift = uint32_t(pVirtual[virt].address + pVirtual[virt].size - address);
@@ -575,14 +575,14 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::gues
 
 void env::detail::MemoryMapper::configure(uint32_t initialPageCount) {
 	/* setup the physical mapping */
-	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, uint32_t(env::PhysPageSize * initialPageCount), false });
+	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, uint32_t(detail::PhysPageSize * initialPageCount), false });
 }
 
 void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint32_t usage) const {
 	host::Debug(str::Format<std::u8string>(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
-		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
+		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
 	));
 
 	/* lookup the virtual mapping containing the corresponding address */
@@ -624,11 +624,11 @@ bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32
 	host::Debug(str::Format<std::u8string>(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
-		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
+		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
 	));
 
 	/* check if the address and size are aligned properly and validate the usage */
-	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
+	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
 		host::Fatal(u8"Mapping requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
 		host::Fatal(u8"Memory-usage must only consist of read/write/execute usage");
@@ -671,7 +671,7 @@ bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32
 	}
 
 	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
-	env::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
+	detail::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
 
 	/* check if the virtual entry can be merged with the next entry */
 	size_t applied = 0;
@@ -718,7 +718,7 @@ void env::detail::MemoryMapper::munmap(env::guest_t address, uint32_t size) {
 	host::Debug(str::Format<std::u8string>(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
 
 	/* check if the address and size are aligned properly */
-	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
+	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
 		host::Fatal(u8"Unmapping requires address and size to be page-aligned");
 
 	/* check if the given start is valid and lies within a mapped region */
@@ -749,11 +749,11 @@ void env::detail::MemoryMapper::mprotect(env::guest_t address, uint32_t size, ui
 	host::Debug(str::Format<std::u8string>(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
-		(usage & env::MemoryUsage::Execute ? u8'e' : u8'-')
+		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
 	));
 
 	/* check if the address and size are aligned properly and validate the usage */
-	if (env::VirtPageOffset(address) != 0 || env::VirtPageOffset(size) != 0)
+	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
 		host::Fatal(u8"Changing requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
 		host::Fatal(u8"Memory-usage must only consist of read/write/execute usage");

@@ -3,25 +3,25 @@
 #include "../env-common.h"
 
 namespace env::detail {
-	static constexpr uint32_t MinGrowthBytes = 32 * env::VirtPageSize;
+	static constexpr uint32_t MinGrowthBytes = 32 * env::PageSize;
 	static constexpr uint32_t ShiftMemoryFactor = 3;
 
 	class MemoryMapper {
-		static_assert(env::PhysPageSize >= env::VirtPageSize && (env::PhysPageSize % env::VirtPageSize) == 0, "The physical page size must a multiple of virtual page size");
+		static_assert(detail::PhysPageSize >= env::PageSize && (detail::PhysPageSize % env::PageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:
 		struct MemLookup {
 			env::guest_t address = 0;
-			env::physical_t physical = 0;
+			detail::physical_t physical = 0;
 			uint32_t size = 0;
 		};
 		struct MemPhysical {
-			env::physical_t physical = 0;
+			detail::physical_t physical = 0;
 			uint32_t size = 0;
 			bool used = false;
 		};
 		struct MemVirtual {
 			env::guest_t address = 0;
-			env::physical_t physical = 0;
+			detail::physical_t physical = 0;
 			uint32_t size = 0;
 			uint32_t usage = 0;
 		};
@@ -38,11 +38,11 @@ namespace env::detail {
 
 	private:
 		size_t fLookupVirtual(env::guest_t address) const;
-		size_t fLookupPhysical(env::physical_t physical) const;
+		size_t fLookupPhysical(detail::physical_t physical) const;
 
 	private:
 		uint32_t fExpandPhysical(uint32_t size, uint32_t growth) const;
-		void fMovePhysical(env::physical_t dest, env::physical_t source, uint32_t size) const;
+		void fMovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) const;
 		void fFlushCaches() const;
 		void fCheckConsistency() const;
 
@@ -50,7 +50,7 @@ namespace env::detail {
 		bool fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage);
 		size_t fMemAllocatePhysical(uint32_t size, uint32_t growth);
 		bool fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t usage);
-		env::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext);
+		detail::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext);
 
 	private:
 		void fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size);

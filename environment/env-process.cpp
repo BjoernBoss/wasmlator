@@ -19,12 +19,12 @@ void env::Process::Create(std::unique_ptr<sys::Specification>&& specification) {
 	ProcessInstance = new env::Process{ std::move(specification) };
 
 	/* initialize the components */
-	ProcessInstance->pPhysicalPages = env::PhysPageCount(env::detail::InitAllocBytes);
+	ProcessInstance->pPhysicalPages = detail::PhysPageCount(env::detail::InitAllocBytes);
 	uint32_t endOfManagement = 0;
 	endOfManagement += detail::ContextAccess::ConfigureAndAllocate(endOfManagement);
 	endOfManagement += detail::MappingAccess::AllocateFromManagement(endOfManagement);
 	endOfManagement += detail::MemoryAccess::ConfigureAndAllocate(endOfManagement, ProcessInstance->pPhysicalPages);
-	ProcessInstance->pManagementPages = env::PhysPageCount(endOfManagement);
+	ProcessInstance->pManagementPages = detail::PhysPageCount(endOfManagement);
 
 	/* allocate the next process-id */
 	host::Log(u8"Process created with id [", ++ProcessId, u8"]");

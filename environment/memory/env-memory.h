@@ -7,12 +7,12 @@
 
 namespace env {
 	namespace detail {
-		static constexpr uint32_t InitAllocBytes = 64 * env::VirtPageSize;
+		static constexpr uint32_t InitAllocBytes = 64 * env::PageSize;
 		static constexpr uint32_t InternalCaches = 3;
 
 		struct MemoryCache {
 			env::guest_t address{ 0 };
-			env::physical_t physical{ 0 };
+			detail::physical_t physical{ 0 };
 			uint32_t size1{ 0 };
 			uint32_t size2{ 0 };
 			uint32_t size4{ 0 };
@@ -71,10 +71,10 @@ namespace env {
 			static_assert(std::is_arithmetic_v<Type>, "Can only code-read arithmetic types");
 
 			if constexpr (std::is_same_v<Type, float>)
-				return std::bit_cast<float, uint32_t>(fRead(address, 4));
+				return std::bit_cast<float, uint32_t>(fCode(address, 4));
 			else if constexpr (std::is_same_v<Type, double>)
-				return std::bit_cast<double, uint64_t>(fRead(address, 8));
-			return Type(fRead(address, sizeof(Type)));
+				return std::bit_cast<double, uint64_t>(fCode(address, 8));
+			return Type(fCode(address, sizeof(Type)));
 		};
 	};
 }

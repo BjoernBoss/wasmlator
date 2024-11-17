@@ -7,7 +7,7 @@
 #include "../generate/translator/gen-writer.h"
 
 namespace sys {
-	/* wasm should only be created within setupCore/setupBlock,
+	/* wasm should only be generated within setupCore/setupBlock,
 	*	as they are wrapped to catch any potential wasm-issues */
 	class Specification {
 	private:
