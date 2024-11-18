@@ -69,6 +69,8 @@ void gen::detail::MemoryBuilder::fMakeLookup(const wasm::Memory& management, con
 
 void gen::detail::MemoryBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"mem_flush_caches", {}, {});
+	glue.define(u8"mem_write_to_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+	glue.define(u8"mem_read_from_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_expand_physical", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"mem_move_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_read", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
@@ -86,6 +88,9 @@ void gen::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod) {
 	prototype = mod.prototype(u8"main_lookup_i32_type", {}, { wasm::Type::i32 });
 	pGetPhysical = mod.function(u8"main_result_physical", prototype, wasm::Import{ u8"main" });
 	pGetSize = mod.function(u8"main_result_size", prototype, wasm::Import{ u8"main" });
+
+	/* add the import to the memory of the main application */
+	pMainMemory = mod.memory(u8"memory", wasm::Limit{ 0 }, wasm::Import{ u8"main" });
 
 	/* define the bindings passed to the blocks */
 	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_read");
@@ -110,24 +115,44 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 
 	/* add the cache-flushing function */
 	{
-		wasm::Sink sink{ mod.function(u8"mem_flush_caches", {}, {}, wasm::Export{}) };
+		prototype = mod.prototype(u8"mem_flush_caches_type", {}, {});
+		wasm::Sink sink{ mod.function(u8"mem_flush_caches", prototype, wasm::Export{}) };
 
-		/* destination-address */
+		/* perform the flush of the management memory */
 		sink[I::U32::Const(cacheAddress)];
-
-		/* value */
 		sink[I::U32::Const(0)];
-
-		/* size */
 		sink[I::U32::Const(uint64_t(caches + env::detail::InternalCaches) * sizeof(env::detail::MemoryCache))];
-
 		sink[I::Memory::Fill(management)];
+	}
+
+	/* add the write-to-physical function */
+	{
+		prototype = mod.prototype(u8"mem_write_to_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+		wasm::Sink sink{ mod.function(u8"mem_write_to_physical", prototype, wasm::Export{}) };
+
+		/* setup the copy operation and perform it */
+		sink[I::Param::Get(0)];
+		sink[I::Param::Get(1)];
+		sink[I::Param::Get(2)];
+		sink[I::Memory::Copy(physical, pMainMemory)];
+	}
+
+	/* add the read-from-physical function */
+	{
+		prototype = mod.prototype(u8"mem_read_from_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+		wasm::Sink sink{ mod.function(u8"mem_read_from_physical", prototype, wasm::Export{}) };
+
+		/* setup the copy operation and perform it */
+		sink[I::Param::Get(0)];
+		sink[I::Param::Get(1)];
+		sink[I::Param::Get(2)];
+		sink[I::Memory::Copy(pMainMemory, physical)];
 	}
 
 	/* add the memory-expansion function */
 	{
-		wasm::Prototype expandPhysicalType = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
-		wasm::Sink sink{ mod.function(u8"mem_expand_physical", expandPhysicalType, wasm::Export{}) };
+		prototype = mod.prototype(u8"mem_expand_physical_type", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
+		wasm::Sink sink{ mod.function(u8"mem_expand_physical", prototype, wasm::Export{}) };
 
 		/* number of pages to grow by */
 		sink[I::Param::Get(0)];
@@ -147,8 +172,8 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 
 	/* add the memory-move function */
 	{
-		wasm::Prototype movePhysicalType = mod.prototype(u8"mem_move_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
-		wasm::Sink sink{ mod.function(u8"mem_move_physical", movePhysicalType, wasm::Export{}) };
+		wasm::Prototype prototype = mod.prototype(u8"mem_move_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+		wasm::Sink sink{ mod.function(u8"mem_move_physical", prototype, wasm::Export{}) };
 
 		/* destination-address */
 		sink[I::Param::Get(0)];

@@ -64,6 +64,4 @@ namespace rv64 {
 	};
 
 	rv64::Instruction Decode(uint32_t data);
-
-	std::u8string ToString(const rv64::Instruction& inst);
 }

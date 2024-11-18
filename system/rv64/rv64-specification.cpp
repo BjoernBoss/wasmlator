@@ -1,5 +1,6 @@
 #include "rv64-specification.h"
 
+#include "rv64-print.h"
 #include "../../environment/env-process.h"
 #include "../../generate/core/gen-core.h"
 #include "../../generate/translator/gen-translator.h"
@@ -24,8 +25,17 @@ std::vector<env::BlockExport> rv64::Specification::setupBlock(wasm::Module& mod)
 	return translator.close();
 }
 void rv64::Specification::coreLoaded() {
+	const uint8_t buffer[] = {
+		/* addi a0, a0, 12 */
+		0x13, 0x05, 0xc5, 0x00,
+
+		/* jalr zero, 0(ra) => return */
+		0x67, 0x80, 0x00, 0x00,
+	};
+
 	/* setup test-memory */
 	env::Instance()->memory().mmap(0x0000, 8 * env::PageSize, env::MemoryUsage::All);
+	env::Instance()->memory().mwrite(pNextAddress, buffer, sizeof(buffer), 0);
 
 	/* initialize the context */
 	rv64::Context context{};

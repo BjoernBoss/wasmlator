@@ -19,3 +19,9 @@ void env::Memory::munmap(env::guest_t address, uint32_t size) {
 void env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
 	return pMapper.mprotect(address, size, usage);
 }
+void env::Memory::mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
+	pMapper.mread(dest, source, size, usage);
+}
+void env::Memory::mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage) {
+	pMapper.mwrite(dest, source, size, usage);
+}

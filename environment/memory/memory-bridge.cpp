@@ -23,7 +23,12 @@ void env::detail::MemoryBridge::MovePhysical(detail::physical_t dest, detail::ph
 void env::detail::MemoryBridge::FlushCaches() {
 	mem_flush_caches();
 }
-
+void env::detail::MemoryBridge::WriteToPhysical(detail::physical_t dest, const uint8_t* source, uint32_t size) {
+	mem_write_to_physical(dest, source, size);
+}
+void env::detail::MemoryBridge::ReadFromPhysical(uint8_t* dest, detail::physical_t source, uint32_t size) {
+	mem_read_from_physical(dest, source, size);
+}
 uint64_t env::detail::MemoryBridge::Read(env::guest_t address, uint32_t size) {
 	return mem_read(address, size);
 }

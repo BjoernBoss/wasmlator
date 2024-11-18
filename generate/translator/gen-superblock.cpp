@@ -221,9 +221,21 @@ const wasm::Target* gen::detail::SuperBlock::lookup(const gen::Instruction& inst
 	return 0;
 }
 gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
-	/* check if the end has been reached */
-	if (pIndex >= pList.size()) {
+	/* check if the end has been reached (either because only one remaining un-decodable instruction has been encountered or because
+	*	all chunks have been processed; block cannot be empty, as at least one push will occur before any chunks are fetched) */
+	bool lastAndInvalid = (pIndex < pList.size() && pList[pIndex].type == gen::InstType::invalid);
+	if (lastAndInvalid || pIndex >= pList.size()) {
 		pStack.clear();
+
+		/* check if the not-decodable stub needs to be added */
+		if (lastAndInvalid) {
+			sink[I::U64::Const(pList.back().address)];
+			sink[I::Call::Direct(pNotDecodable)];
+		}
+
+		/* add the unreachable stub, as this address should never be reached as the super-block
+		*	would otherwise have been continued, but wasm otherwise detects no return-value */
+		sink[I::Unreachable()];
 		return { 0, 0 };
 	}
 
@@ -280,17 +292,10 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 	if (pIt != pRanges.end() && pIt->first <= last)
 		last = pIt->first - 1;
 
-	/* check if the last instruction could not be decoded, in which case the failure-stub needs to
-	*	be inserted (only if this is the last empty chunk, otherwise remove it from the chunk) */
-	if (last + 1 == pList.size() && pList.back().type == gen::InstType::invalid) {
-		if (pIndex == last) {
-			sink[I::U64::Const(pList.back().address)];
-			sink[I::Call::Direct(pNotDecodable)];
-			sink[I::Unreachable()];
-			return { 0, 0 };
-		}
+	/* check if the chunk contains a potential last un-decodable instruction, and remove it from this chunk (cannot
+	*	be the only instruction, as the header-guard of this function would otherwise already have caught it) */
+	if (last + 1 == pList.size() && pList.back().type == gen::InstType::invalid)
 		--last;
-	}
 
 	/* setup the chunk and advance the index */
 	detail::InstChunk chunk{ pList.data() + pIndex, (last - pIndex) + 1 };

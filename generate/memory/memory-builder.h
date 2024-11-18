@@ -18,9 +18,12 @@ namespace gen::detail {
 	*		i64 main.main_result_address();
 	*		i32 main.main_result_physical();
 	*		i32 main.main_result_size();
+	*		uint8_t main.memory[...];
 	*
 	*	Core-Exports to Main:
 	*		void mem_flush_caches();
+	*		void mem_write_to_physical(i32 dest, i32 source, i32 size);
+	*		void mem_read_from_physical(i32 dest, i32 source, i32 size);
 	*		i32 mem_expand_physical(i32 pages);
 	*		void mem_move_physical(i32 dest, i32 source, i32 size);
 	*		i64 mem_read(i64 address, i32 size);
@@ -44,6 +47,7 @@ namespace gen::detail {
 		wasm::Function pGetAddress;
 		wasm::Function pGetPhysical;
 		wasm::Function pGetSize;
+		wasm::Memory pMainMemory;
 
 	private:
 		void fMakeLookup(const wasm::Memory& management, const wasm::Function& function, uint32_t usage) const;

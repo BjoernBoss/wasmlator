@@ -45,6 +45,8 @@ namespace env {
 		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);
 		void munmap(env::guest_t address, uint32_t size);
 		void mprotect(env::guest_t address, uint32_t size, uint32_t usage);
+		void mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const;
+		void mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage);
 		template <class Type>
 		Type read(env::guest_t address) const {
 			static_assert(std::is_arithmetic_v<Type>, "Can only read arithmetic types");

@@ -39,6 +39,7 @@ namespace env::detail {
 	private:
 		size_t fLookupVirtual(env::guest_t address) const;
 		size_t fLookupPhysical(detail::physical_t physical) const;
+		void fLookup(env::guest_t address, uint32_t size, uint32_t usage) const;
 
 	private:
 		uint32_t fExpandPhysical(uint32_t size, uint32_t growth) const;
@@ -70,5 +71,9 @@ namespace env::detail {
 		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);
 		void munmap(env::guest_t address, uint32_t size);
 		void mprotect(env::guest_t address, uint32_t size, uint32_t usage);
+
+	public:
+		void mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const;
+		void mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage);
 	};
 }
