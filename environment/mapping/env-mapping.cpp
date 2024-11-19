@@ -4,11 +4,11 @@ uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	/* check if the address has already been translated */
 	auto it = pMapping.find(address);
 	if (it == pMapping.end()) {
-		host::Debug(str::Format<std::u8string>(u8"Lookup block: [{:#018x}] resulted in: None", address));
+		host::Debug(str::u8::Format(u8"Lookup block: [{:#018x}] resulted in: None", address));
 		throw env::Translate{ address };
 	}
 
-	host::Debug(str::Format<std::u8string>(u8"Lookup block: [{:#018x}] resulted in: [{}]", address, it->second));
+	host::Debug(str::u8::Format(u8"Lookup block: [{:#018x}] resulted in: [{}]", address, it->second));
 	return it->second;
 }
 void env::Mapping::fFlushed() {
@@ -20,7 +20,7 @@ bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) 
 	std::unordered_set<env::guest_t> added;
 	for (const env::BlockExport& block : exports) {
 		if (pMapping.contains(block.address) || added.contains(block.address))
-			host::Fatal(str::Format<std::u8string>(u8"Block for [{:#018x}] has already been defined", block.address));
+			host::Fatal(str::u8::Format(u8"Block for [{:#018x}] has already been defined", block.address));
 		added.insert(block.address);
 	}
 
@@ -30,7 +30,7 @@ bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) 
 void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 	/* validate all indices and write them to the map */
 	for (size_t i = 0; i < exports.size(); ++i) {
-		host::Debug(str::Format<std::u8string>(u8"Associating [{}] to [{:#018x}]", exports[i].name, exports[i].address));
+		host::Debug(str::u8::Format(u8"Associating [{}] to [{:#018x}]", exports[i].name, exports[i].address));
 		uint32_t index = detail::MappingBridge::Define(exports[i].name.c_str(), exports[i].name.size(), exports[i].address);
 		if (index == detail::InvalidMapping)
 			host::Fatal(u8"Failed to load [", exports[i].name, u8"] from block");

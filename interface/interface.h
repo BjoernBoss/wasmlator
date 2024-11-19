@@ -42,6 +42,7 @@ extern "C" {
 	/* exports */
 	void main_terminate(int32_t code);
 	void main_not_decodable(uint64_t address);
+	void main_not_reachable(uint64_t address);
 
 	/* imports */
 	uint64_t ctx_read(uint32_t offset, uint32_t size);

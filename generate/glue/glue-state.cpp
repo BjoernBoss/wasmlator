@@ -25,7 +25,7 @@ void gen::detail::GlueState::setup() {
 	pMemory = pModule.memory(u8"memory", {}, wasm::Export{});
 }
 void gen::detail::GlueState::define(std::u8string_view name, std::initializer_list<wasm::Param> params, std::initializer_list<wasm::Type> result) {
-	wasm::Prototype prototype = pModule.prototype(str::Build<std::u8string>(name, u8"_type"), params, result);
+	wasm::Prototype prototype = pModule.prototype(str::u8::Build(name, u8"_type"), params, result);
 
 	/* define the temporary function */
 	wasm::Sink sink{ pModule.function(name, prototype, wasm::Export{}) };

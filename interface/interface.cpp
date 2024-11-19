@@ -38,6 +38,9 @@ void main_terminate(int32_t code) {
 void main_not_decodable(uint64_t address) {
 	env::detail::ContextBridge::NotDecodable(address);
 }
+void main_not_reachable(uint64_t address) {
+	env::detail::ContextBridge::NotReachable(address);
+}
 
 uint32_t main_resolve(uint64_t address) {
 	return env::detail::MappingBridge::Resolve(address);

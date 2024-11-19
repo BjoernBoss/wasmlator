@@ -2,7 +2,7 @@
 
 namespace I = wasm::inst;
 
-gen::detail::SuperBlock::SuperBlock(const wasm::Function& notDecodable) : pNotDecodable{ notDecodable } {}
+gen::detail::SuperBlock::SuperBlock(const detail::ContextShared& contextShared) : pContextShared{ contextShared } {}
 
 size_t gen::detail::SuperBlock::fLookup(env::guest_t address) const {
 	size_t first = 0, last = pList.size() - 1;
@@ -146,7 +146,7 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst, env::guest_t& a
 
 	/* check if its an invalid instruction, in which case the block will be ended and the extent will be set to null */
 	if (inst.type == gen::InstType::invalid) {
-		host::Debug(str::Format<std::u8string>(u8"Unable to decode instruction [{:#018x}]", address));
+		host::Debug(str::u8::Format(u8"Unable to decode instruction [{:#018x}]", address));
 		pList.back().size = 0;
 		return false;
 	}
@@ -227,14 +227,19 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 	if (lastAndInvalid || pIndex >= pList.size()) {
 		pStack.clear();
 
-		/* check if the not-decodable stub needs to be added */
+		/* check if the not-decodable stub needs to be added and otherwise add the not-reachable stub, as
+		*	this address should never be reached as the super-block would otherwise have been continued */
 		if (lastAndInvalid) {
 			sink[I::U64::Const(pList.back().address)];
-			sink[I::Call::Direct(pNotDecodable)];
+			sink[I::Call::Direct(pContextShared.notDecodable)];
+		}
+		else {
+			sink[I::U64::Const(pList.back().address + pList.back().size)];
+			sink[I::Call::Direct(pContextShared.notReachable)];
 		}
 
-		/* add the unreachable stub, as this address should never be reached as the super-block
-		*	would otherwise have been continued, but wasm otherwise detects no return-value */
+		/* add the unreachable instruction as the last instruction will not match
+		*	the return typ and wasm therefore detects an invalid return type */
 		sink[I::Unreachable()];
 		return { 0, 0 };
 	}
@@ -251,7 +256,7 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 		if (target.irreducible && pIt->backwards) {
 			/* allocate the state variable */
 			if (!target.cfg.valid())
-				target.cfg = sink.local(wasm::Type::i32, str::BuildTo<std::u8string>(u8"_cfg_", pIt->target));
+				target.cfg = sink.local(wasm::Type::i32, str::u8::Build(u8"_cfg_", pIt->target));
 
 			/* add the code to reset the variable upon entry of the loop backwards */
 			sink[I::U32::Const(0)];

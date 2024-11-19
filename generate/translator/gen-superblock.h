@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../gen-common.h"
+#include "../context/context-builder.h"
 
 namespace gen::detail {
 	struct InstChunk {
@@ -48,12 +49,12 @@ namespace gen::detail {
 		std::vector<Target> pTargets;
 		std::vector<gen::Instruction> pList;
 		std::set<detail::InstRange> pRanges;
-		wasm::Function pNotDecodable;
+		detail::ContextShared pContextShared;
 		detail::RangeIt pIt;
 		size_t pIndex = 0;
 
 	public:
-		SuperBlock(const wasm::Function& notDecodable);
+		SuperBlock(const detail::ContextShared& contextShared);
 
 	private:
 		size_t fLookup(env::guest_t address) const;

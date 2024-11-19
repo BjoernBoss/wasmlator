@@ -18,6 +18,11 @@ void gen::detail::ContextBuilder::setupCoreImports(wasm::Module& mod) const {
 	prototype = mod.prototype(u8"main_not_decodable_type", { { u8"address", wasm::Type::i64 } }, {});
 	mod.function(u8"main_not_decodable", prototype, wasm::Transport{ u8"main" });
 	env::detail::ProcessAccess::AddCoreBinding(u8"ctx", u8"main_not_decodable");
+
+	/* import the main not reachable method and pass it through as binding to the blocks */
+	prototype = mod.prototype(u8"main_not_reachable_type", { { u8"address", wasm::Type::i64 } }, {});
+	mod.function(u8"main_not_reachable", prototype, wasm::Transport{ u8"main" });
+	env::detail::ProcessAccess::AddCoreBinding(u8"ctx", u8"main_not_reachable");
 }
 void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
 	/* add the context-read function */
@@ -80,7 +85,7 @@ void gen::detail::ContextBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::U64::Store(management, env::detail::ContextAccess::ContextAddress())];
 	}
 }
-void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, wasm::Function& notDecodable, detail::ContextState& state) const {
+void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, detail::ContextShared& shared, detail::ContextState& state) const {
 	state.management = management;
 
 	/* add the function-import for the terminate function */
@@ -89,5 +94,9 @@ void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const was
 
 	/* add the function-import for the not decodable function */
 	prototype = mod.prototype(u8"main_not_decodable_type", { { u8"address", wasm::Type::i64 } }, {});
-	notDecodable = mod.function(u8"main_not_decodable", prototype, wasm::Import{ u8"ctx" });
+	shared.notDecodable = mod.function(u8"main_not_decodable", prototype, wasm::Import{ u8"ctx" });
+
+	/* add the function-import for the not reachable function */
+	prototype = mod.prototype(u8"main_not_reachable_type", { { u8"address", wasm::Type::i64 } }, {});
+	shared.notReachable = mod.function(u8"main_not_reachable", prototype, wasm::Import{ u8"ctx" });
 }

@@ -29,7 +29,7 @@ gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t ad
 	/* allocate the address to this module */
 	entry.thisModule = true;
 	entry.incomplete = true;
-	entry.function = pModule.function(str::Format<str::LocalU8<128>>(u8"addr_{:#018x}", address), pBlockPrototype, wasm::Export{});
+	entry.function = pModule.function(str::Format<str::u8::Local<128>>(u8"addr_{:#018x}", address), pBlockPrototype, wasm::Export{});
 	pQueue.push({ address, depth });
 	return entry;
 }

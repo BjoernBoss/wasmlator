@@ -14,7 +14,7 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	_core.setupBlockImports(mod, physical, management);
 	_memory.setupBlockImports(mod, management, physical, pMemory);
 	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
-	_context.setupBlockImports(mod, management, pNotDecodable, pContext);
+	_context.setupBlockImports(mod, management, pContextShared, pContext);
 	_interact.setupBlockImports(mod, pInteract);
 
 	/* setup the components of the translator-members */
@@ -22,7 +22,7 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 }
 
 void gen::Translator::fProcess(const detail::OpenAddress& next) {
-	detail::SuperBlock block{ pNotDecodable };
+	detail::SuperBlock block{ pContextShared };
 
 	/* notify the interface about the newly starting block */
 	env::Instance()->specification().translationStarted();

@@ -51,12 +51,12 @@ void rv64::Specification::blockLoaded() {
 		env::Instance()->mapping().execute(env::Instance()->context().read<rv64::Context>().pc);
 	}
 	catch (const env::Translate& e) {
-		host::Debug(str::Format<std::u8string>(u8"Translate caught: {:#018x}", e.address));
+		host::Debug(str::u8::Format(u8"Translate caught: {:#018x}", e.address));
 		pNextAddress = e.address;
 		env::Instance()->startNewBlock();
 	}
 	catch (const env::NotDecodable& e) {
-		host::Debug(str::Format<std::u8string>(u8"NotDecodable caught: {:#018x}", e.address));
+		host::Debug(str::u8::Format(u8"NotDecodable caught: {:#018x}", e.address));
 	}
 }
 
@@ -73,7 +73,7 @@ gen::Instruction rv64::Specification::fetchInstruction(env::guest_t address) {
 
 	/* decode the next instruction */
 	const rv64::Instruction& inst = pDecoded.emplace_back() = rv64::Decode(env::Instance()->memory().code<uint32_t>(address));
-	host::Debug(str::Format<std::u8string>(u8"RV64: {:#018x} {}", address, rv64::ToString(inst)));
+	host::Debug(str::u8::Format(u8"RV64: {:#018x} {}", address, rv64::ToString(inst)));
 
 	/* translate the instruction to the generated instruction-type */
 	gen::InstType type = gen::InstType::primitive;

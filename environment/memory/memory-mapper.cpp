@@ -612,7 +612,7 @@ void env::detail::MemoryMapper::configure(uint32_t initialPageCount) {
 }
 
 void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint32_t usage) const {
-	host::Debug(str::Format<std::u8string>(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
+	host::Debug(str::u8::Format(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
@@ -623,7 +623,7 @@ const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLooku
 	return pLastLookup;
 }
 bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
-	host::Debug(str::Format<std::u8string>(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
+	host::Debug(str::u8::Format(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
@@ -717,7 +717,7 @@ bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32
 	return true;
 }
 void env::detail::MemoryMapper::munmap(env::guest_t address, uint32_t size) {
-	host::Debug(str::Format<std::u8string>(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
+	host::Debug(str::u8::Format(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
 
 	/* check if the address and size are aligned properly */
 	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
@@ -748,7 +748,7 @@ void env::detail::MemoryMapper::munmap(env::guest_t address, uint32_t size) {
 	fFlushCaches();
 }
 void env::detail::MemoryMapper::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
-	host::Debug(str::Format<std::u8string>(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
+	host::Debug(str::u8::Format(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
@@ -781,7 +781,7 @@ void env::detail::MemoryMapper::mprotect(env::guest_t address, uint32_t size, ui
 }
 
 void env::detail::MemoryMapper::mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
-	host::Debug(str::Format<std::u8string>(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
+	host::Debug(str::u8::Format(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
@@ -792,7 +792,7 @@ void env::detail::MemoryMapper::mread(uint8_t* dest, env::guest_t source, uint32
 	detail::MemoryBridge::ReadFromPhysical(dest, pLastLookup.physical + detail::physical_t(source - pLastLookup.address), size);
 }
 void env::detail::MemoryMapper::mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage) {
-	host::Debug(str::Format<std::u8string>(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
+	host::Debug(str::u8::Format(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
