@@ -48,46 +48,46 @@ void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type)
 	/* read the value onto the stack */
 	switch (type) {
 	case gen::MemoryType::u8To32:
-		pSink[I::U32::Load8(pState.management)];
+		pSink[I::U32::Load8(pState.memory)];
 		break;
 	case gen::MemoryType::u16To32:
-		pSink[I::U32::Load16(pState.management)];
+		pSink[I::U32::Load16(pState.memory)];
 		break;
 	case gen::MemoryType::u8To64:
-		pSink[I::U64::Load8(pState.management)];
+		pSink[I::U64::Load8(pState.memory)];
 		break;
 	case gen::MemoryType::u16To64:
-		pSink[I::U64::Load16(pState.management)];
+		pSink[I::U64::Load16(pState.memory)];
 		break;
 	case gen::MemoryType::u32To64:
-		pSink[I::U64::Load32(pState.management)];
+		pSink[I::U64::Load32(pState.memory)];
 		break;
 	case gen::MemoryType::i8To32:
-		pSink[I::I32::Load8(pState.management)];
+		pSink[I::I32::Load8(pState.memory)];
 		break;
 	case gen::MemoryType::i16To32:
-		pSink[I::I32::Load16(pState.management)];
+		pSink[I::I32::Load16(pState.memory)];
 		break;
 	case gen::MemoryType::i8To64:
-		pSink[I::I64::Load8(pState.management)];
+		pSink[I::I64::Load8(pState.memory)];
 		break;
 	case gen::MemoryType::i16To64:
-		pSink[I::I64::Load16(pState.management)];
+		pSink[I::I64::Load16(pState.memory)];
 		break;
 	case gen::MemoryType::i32To64:
-		pSink[I::I64::Load32(pState.management)];
+		pSink[I::I64::Load32(pState.memory)];
 		break;
 	case gen::MemoryType::i32:
-		pSink[I::U32::Load(pState.management)];
+		pSink[I::U32::Load(pState.memory)];
 		break;
 	case gen::MemoryType::i64:
-		pSink[I::U64::Load(pState.management)];
+		pSink[I::U64::Load(pState.memory)];
 		break;
 	case gen::MemoryType::f32:
-		pSink[I::F32::Load(pState.management)];
+		pSink[I::F32::Load(pState.memory)];
 		break;
 	case gen::MemoryType::f64:
-		pSink[I::F64::Load(pState.management)];
+		pSink[I::F64::Load(pState.memory)];
 		break;
 	}
 }
@@ -102,35 +102,35 @@ void gen::detail::ContextWriter::makeWrite(const wasm::Variable& value, uint32_t
 	switch (type) {
 	case gen::MemoryType::u8To32:
 	case gen::MemoryType::i8To32:
-		pSink[I::U32::Store8(pState.management)];
+		pSink[I::U32::Store8(pState.memory)];
 		break;
 	case gen::MemoryType::u16To32:
 	case gen::MemoryType::i16To32:
-		pSink[I::U32::Store16(pState.management)];
+		pSink[I::U32::Store16(pState.memory)];
 		break;
 	case gen::MemoryType::u8To64:
 	case gen::MemoryType::i8To64:
-		pSink[I::U64::Store8(pState.management)];
+		pSink[I::U64::Store8(pState.memory)];
 		break;
 	case gen::MemoryType::u16To64:
 	case gen::MemoryType::i16To64:
-		pSink[I::U64::Store16(pState.management)];
+		pSink[I::U64::Store16(pState.memory)];
 		break;
 	case gen::MemoryType::u32To64:
 	case gen::MemoryType::i32To64:
-		pSink[I::U64::Store32(pState.management)];
+		pSink[I::U64::Store32(pState.memory)];
 		break;
 	case gen::MemoryType::i32:
-		pSink[I::U32::Store(pState.management)];
+		pSink[I::U32::Store(pState.memory)];
 		break;
 	case gen::MemoryType::i64:
-		pSink[I::U64::Store(pState.management)];
+		pSink[I::U64::Store(pState.memory)];
 		break;
 	case gen::MemoryType::f32:
-		pSink[I::F32::Store(pState.management)];
+		pSink[I::F32::Store(pState.memory)];
 		break;
 	case gen::MemoryType::f64:
-		pSink[I::F64::Store(pState.management)];
+		pSink[I::F64::Store(pState.memory)];
 		break;
 	}
 }

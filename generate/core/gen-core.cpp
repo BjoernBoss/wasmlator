@@ -10,6 +10,7 @@ gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	detail::ContextBuilder _context;
 	detail::CoreBuilder _core;
 	wasm::Global lastInstance;
+	wasm::Memory memory, physical;
 
 	/* initialize the core-imports */
 	_memory.setupCoreImports(mod);
@@ -17,13 +18,12 @@ gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	_context.setupCoreImports(mod);
 	pInteract.setupCoreImports(mod);
 	pProcess.setupCoreImports(mod);
+	_core.setupCoreImports(mod, memory);
 
 	/* setup the core-bodies */
-	wasm::Memory physical, management;
-	_core.setupCoreBody(mod, physical, management);
-	_memory.setupCoreBody(mod, management, physical);
-	_mapping.setupCoreBody(mod, management);
-	_context.setupCoreBody(mod, management);
+	_core.setupCoreBody(mod, physical);
+	_memory.setupCoreBody(mod, memory, physical);
+	_mapping.setupCoreBody(mod, memory);
 	pProcess.setupCoreBody(mod);
 }
 gen::Core::~Core() noexcept(false) {

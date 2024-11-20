@@ -7,6 +7,7 @@
 namespace env {
 	namespace detail {
 		static constexpr uint32_t BlockLookupCacheBits = 10;
+		static constexpr uint32_t BlockCacheCount = (1 << detail::BlockLookupCacheBits);
 
 		struct MappingCache {
 			env::guest_t address = 0;
@@ -22,7 +23,7 @@ namespace env {
 		friend struct detail::MappingAccess;
 	private:
 		std::unordered_map<env::guest_t, uint32_t> pMapping;
-		uint32_t pCacheAddress = 0;
+		detail::MappingCache pCaches[detail::BlockCacheCount];
 
 	public:
 		Mapping() = default;
@@ -31,7 +32,6 @@ namespace env {
 
 	private:
 		uint32_t fResolve(env::guest_t address) const;
-		void fFlushed();
 		bool fCheckLoadable(const std::vector<env::BlockExport>& exports);
 		void fBlockExports(const std::vector<env::BlockExport>& exports);
 

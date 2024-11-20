@@ -11,10 +11,6 @@ uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	host::Debug(str::u8::Format(u8"Lookup block: [{:#018x}] resulted in: [{}]", address, it->second));
 	return it->second;
 }
-void env::Mapping::fFlushed() {
-	host::Debug(u8"Flushed blocks");
-	pMapping.clear();
-}
 bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
 	/* validate the uniqueness of all blocks to be loaded */
 	std::unordered_set<env::guest_t> added;
@@ -45,5 +41,7 @@ bool env::Mapping::contains(env::guest_t address) const {
 	return (pMapping.find(address) != pMapping.end());
 }
 void env::Mapping::flush() {
-	detail::MappingBridge::Flush();
+	host::Debug(u8"Flushing blocks");
+	pMapping.clear();
+	std::memset(pCaches, 0, sizeof(detail::MappingCache) * detail::BlockCacheCount);
 }

@@ -9,15 +9,6 @@ namespace env {
 	namespace detail {
 		static constexpr uint32_t InitAllocBytes = 64 * env::PageSize;
 		static constexpr uint32_t InternalCaches = 3;
-
-		struct MemoryCache {
-			env::guest_t address{ 0 };
-			detail::physical_t physical{ 0 };
-			uint32_t size1{ 0 };
-			uint32_t size2{ 0 };
-			uint32_t size4{ 0 };
-			uint32_t size8{ 0 };
-		};
 	}
 
 	class Memory {
@@ -25,11 +16,9 @@ namespace env {
 		friend struct detail::MemoryAccess;
 	private:
 		detail::MemoryMapper pMapper;
-		uint32_t pCacheCount = 0;
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
 		uint32_t pCodeCache = 0;
-		uint32_t pCacheAddress = 0;
 
 	public:
 		Memory() = default;

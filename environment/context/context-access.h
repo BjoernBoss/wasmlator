@@ -4,8 +4,8 @@
 
 namespace env::detail {
 	struct ContextAccess {
-		static uint32_t ConfigureAndAllocate(uint32_t address);
-		static uint32_t ContextAddress();
-		static uint32_t ContextSize();
+		static uintptr_t Configure();
+		static uintptr_t ContextAddress();
+		static size_t ContextSize();
 	};
 }

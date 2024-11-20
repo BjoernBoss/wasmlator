@@ -1,23 +1,19 @@
 #include "../env-process.h"
 
-uint32_t env::detail::MemoryAccess::ConfigureAndAllocate(uint32_t address, uint32_t initialPageCount) {
-	env::Instance()->memory().pMapper.configure(initialPageCount);
+uintptr_t env::detail::MemoryAccess::Configure(uint32_t initialPageCount) {
+	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up */
+	env::Instance()->memory().pReadCache = env::Instance()->specification().memoryCaches() + 0;
+	env::Instance()->memory().pWriteCache = env::Instance()->specification().memoryCaches() + 1;
+	env::Instance()->memory().pCodeCache = env::Instance()->specification().memoryCaches() + 2;
 
-	/* setup the cache-indices for both the guest-application and the internal read/write/code caches */
-	env::Instance()->memory().pCacheCount = env::Instance()->specification().memoryCaches();
-	env::Instance()->memory().pReadCache = env::Instance()->memory().pCacheCount + 0;
-	env::Instance()->memory().pWriteCache = env::Instance()->memory().pCacheCount + 1;
-	env::Instance()->memory().pCodeCache = env::Instance()->memory().pCacheCount + 2;
-
-	/* allocate the cache-entries from the management memory */
-	env::Instance()->memory().pCacheAddress = address;
-	return (env::Instance()->memory().pCacheCount + detail::InternalCaches) * uint32_t(sizeof(detail::MemoryCache));
+	/* setup the mapper and return the highest accessed address used by the memory */
+	return env::Instance()->memory().pMapper.configure(initialPageCount, env::Instance()->specification().memoryCaches() + detail::InternalCaches);
 }
-uint32_t env::detail::MemoryAccess::Caches() {
-	return env::Instance()->memory().pCacheCount;
+uintptr_t env::detail::MemoryAccess::CacheAddress() {
+	return uintptr_t(env::Instance()->memory().pMapper.pCaches.data());
 }
-uint32_t env::detail::MemoryAccess::CacheAddress() {
-	return env::Instance()->memory().pCacheAddress;
+size_t env::detail::MemoryAccess::CacheCount() {
+	return env::Instance()->memory().pMapper.pCaches.size();
 }
 uint32_t env::detail::MemoryAccess::ReadCache() {
 	return env::Instance()->memory().pReadCache;

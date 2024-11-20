@@ -8,17 +8,13 @@ namespace gen::detail {
 		wasm::Function read;
 		wasm::Function code;
 		wasm::Function write;
-		wasm::Memory management;
+		wasm::Memory memory;
 		wasm::Memory physical;
 	};
 
 	/*
 	*	Core-Imports:
-	*		void main.main_lookup(i64 address, i32 size, i32 usage);
-	*		i64 main.main_result_address();
-	*		i32 main.main_result_physical();
-	*		i32 main.main_result_size();
-	*		uint8_t main.memory[...];
+	*		void main.main_lookup(i64 address, i32 size, i32 usage, i32 cache);
 	*
 	*	Core-Exports to Main:
 	*		void mem_flush_caches();
@@ -44,18 +40,14 @@ namespace gen::detail {
 	class MemoryBuilder {
 	private:
 		wasm::Function pLookup;
-		wasm::Function pGetAddress;
-		wasm::Function pGetPhysical;
-		wasm::Function pGetSize;
-		wasm::Memory pMainMemory;
 
 	private:
-		void fMakeLookup(const wasm::Memory& management, const wasm::Function& function, uint32_t usage) const;
+		void fMakeLookup(const wasm::Memory& memory, const wasm::Function& function, uint32_t usage) const;
 
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
 		void setupCoreImports(wasm::Module& mod);
-		void setupCoreBody(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical) const;
-		void setupBlockImports(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical, detail::MemoryState& state) const;
+		void setupCoreBody(wasm::Module& mod, const wasm::Memory& memory, const wasm::Memory& physical) const;
+		void setupBlockImports(wasm::Module& mod, const wasm::Memory& memory, const wasm::Memory& physical, detail::MemoryState& state) const;
 	};
 }

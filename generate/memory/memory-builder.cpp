@@ -5,70 +5,34 @@
 
 namespace I = wasm::inst;
 
-void gen::detail::MemoryBuilder::fMakeLookup(const wasm::Memory& management, const wasm::Function& function, uint32_t usage) const {
+void gen::detail::MemoryBuilder::fMakeLookup(const wasm::Memory& memory, const wasm::Function& function, uint32_t usage) const {
 	wasm::Sink sink{ function };
-	wasm::Variable address = sink.param(0), size = sink.param(1), cacheAddress = sink.param(2);
+	wasm::Variable cacheOffset = sink.local(wasm::Type::i32, u8"mem_lookup_cache");
 
-	/* allocate the local variables necessary to write the temporary result back */
-	wasm::Variable outAddr = sink.local(wasm::Type::i64, u8"out_address");
-	wasm::Variable outPhys = sink.local(wasm::Type::i32, u8"out_physical");
-	wasm::Variable outSize = sink.local(wasm::Type::i32, u8"out_size");
-
-	/* perform the call */
-	sink[I::Local::Get(address)];
-	sink[I::Local::Get(size)];
+	/* perform the call (will automatically populate the cache properly) */
+	sink[I::Param::Get(0)];
+	sink[I::Param::Get(1)];
 	sink[I::U32::Const(usage)];
+	sink[I::Param::Get(2)];
 	sink[I::Call::Direct(pLookup)];
 
-	/* fetch the result */
-	sink[I::Call::Direct(pGetAddress)];
-	sink[I::Local::Set(outAddr)];
-	sink[I::Call::Direct(pGetPhysical)];
-	sink[I::Local::Set(outPhys)];
-	sink[I::Call::Direct(pGetSize)];
-	sink[I::Local::Set(outSize)];
-
-	/* write the address and physical offset back */
-	sink[I::Local::Get(cacheAddress)];
-	sink[I::Local::Get(outAddr)];
-	sink[I::U64::Store(management, offsetof(env::detail::MemoryCache, address))];
-	sink[I::Local::Get(cacheAddress)];
-	sink[I::Local::Get(outPhys)];
-	sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, physical))];
-
-	/* write the different sizes back */
-	for (uint32_t i = 1; i <= 8; i *= 2) {
-		sink[I::Local::Get(cacheAddress)];
-		sink[I::Local::Get(outSize)];
-		sink[I::U32::Const(i)];
-		sink[I::U32::Sub()];
-		switch (i) {
-		case 1:
-			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size1))];
-			break;
-		case 2:
-			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size2))];
-			break;
-		case 4:
-			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size4))];
-			break;
-		case 8:
-			sink[I::U32::Store(management, offsetof(env::detail::MemoryCache, size8))];
-			break;
-		}
-	}
-
-	/* compute the final actual offset */
-	sink[I::Local::Get(address)];
-	sink[I::Local::Get(outAddr)];
+	/* compute the offset into the current cache-slot */
+	sink[I::Param::Get(0)];
+	sink[I::Param::Get(2)];
+	sink[I::U32::Const(sizeof(env::detail::MemoryCache))];
+	sink[I::U32::Mul()];
+	sink[I::Local::Tee(cacheOffset)];
+	sink[I::U64::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, address))];
 	sink[I::U64::Sub()];
+
+	/* add it to the actual physical address */
 	sink[I::U64::Shrink()];
-	sink[I::Local::Get(outPhys)];
+	sink[I::Local::Get(cacheOffset)];
+	sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, physical))];
 	sink[I::U32::Add()];
 }
 
 void gen::detail::MemoryBuilder::setupGlueMappings(detail::GlueState& glue) {
-	glue.define(u8"mem_flush_caches", {}, {});
 	glue.define(u8"mem_write_to_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_read_from_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_expand_physical", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
@@ -79,28 +43,16 @@ void gen::detail::MemoryBuilder::setupGlueMappings(detail::GlueState& glue) {
 }
 void gen::detail::MemoryBuilder::setupCoreImports(wasm::Module& mod) {
 	/* add the import to the lookup-function */
-	wasm::Prototype prototype = mod.prototype(u8"main_lookup_type", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 } }, {});
+	wasm::Prototype prototype = mod.prototype(u8"main_lookup_type", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, {});
 	pLookup = mod.function(u8"main_lookup", prototype, wasm::Import{ u8"main" });
-
-	prototype = mod.prototype(u8"main_lookup_i64_type", {}, { wasm::Type::i64 });
-	pGetAddress = mod.function(u8"main_result_address", prototype, wasm::Import{ u8"main" });
-
-	prototype = mod.prototype(u8"main_lookup_i32_type", {}, { wasm::Type::i32 });
-	pGetPhysical = mod.function(u8"main_result_physical", prototype, wasm::Import{ u8"main" });
-	pGetSize = mod.function(u8"main_result_size", prototype, wasm::Import{ u8"main" });
-
-	/* add the import to the memory of the main application */
-	pMainMemory = mod.memory(u8"memory", wasm::Limit{ 0 }, wasm::Import{ u8"main" });
 
 	/* define the bindings passed to the blocks */
 	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_read");
 	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_write");
 	env::detail::ProcessAccess::AddCoreBinding(u8"mem", u8"mem_lookup_code");
 }
-void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical) const {
-	uint32_t caches = env::detail::MemoryAccess::Caches();
-	uint32_t cacheAddress = env::detail::MemoryAccess::CacheAddress();
-	detail::MemoryState state{ {}, {}, {}, management, physical };
+void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& memory, const wasm::Memory& physical) const {
+	detail::MemoryState state{ {}, {}, {}, memory, physical };
 
 	/* add the functions for the page-patching (receive the address as parameter and return the new absolute address) */
 	wasm::Prototype prototype = mod.prototype(u8"mem_lookup_usage_type", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, { wasm::Type::i32 });
@@ -109,21 +61,9 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 	state.code = mod.function(u8"mem_lookup_code", prototype, wasm::Export{});
 
 	/* add the actual implementations */
-	fMakeLookup(management, state.read, env::MemoryUsage::Read);
-	fMakeLookup(management, state.write, env::MemoryUsage::Write);
-	fMakeLookup(management, state.code, env::MemoryUsage::Execute);
-
-	/* add the cache-flushing function */
-	{
-		prototype = mod.prototype(u8"mem_flush_caches_type", {}, {});
-		wasm::Sink sink{ mod.function(u8"mem_flush_caches", prototype, wasm::Export{}) };
-
-		/* perform the flush of the management memory */
-		sink[I::U32::Const(cacheAddress)];
-		sink[I::U32::Const(0)];
-		sink[I::U32::Const(uint64_t(caches + env::detail::InternalCaches) * sizeof(env::detail::MemoryCache))];
-		sink[I::Memory::Fill(management)];
-	}
+	fMakeLookup(memory, state.read, env::MemoryUsage::Read);
+	fMakeLookup(memory, state.write, env::MemoryUsage::Write);
+	fMakeLookup(memory, state.code, env::MemoryUsage::Execute);
 
 	/* add the write-to-physical function */
 	{
@@ -134,7 +74,7 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::Param::Get(0)];
 		sink[I::Param::Get(1)];
 		sink[I::Param::Get(2)];
-		sink[I::Memory::Copy(physical, pMainMemory)];
+		sink[I::Memory::Copy(physical, memory)];
 	}
 
 	/* add the read-from-physical function */
@@ -146,7 +86,7 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::Param::Get(0)];
 		sink[I::Param::Get(1)];
 		sink[I::Param::Get(2)];
-		sink[I::Memory::Copy(pMainMemory, physical)];
+		sink[I::Memory::Copy(memory, physical)];
 	}
 
 	/* add the memory-expansion function */
@@ -277,8 +217,8 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		_writer.fMakeCode(env::detail::MemoryAccess::CodeCache(), gen::MemoryType::i64);
 	}
 }
-void gen::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& management, const wasm::Memory& physical, detail::MemoryState& state) const {
-	state.management = management;
+void gen::detail::MemoryBuilder::setupBlockImports(wasm::Module& mod, const wasm::Memory& memory, const wasm::Memory& physical, detail::MemoryState& state) const {
+	state.memory = memory;
 	state.physical = physical;
 
 	/* add the function-imports for the page-lookup */

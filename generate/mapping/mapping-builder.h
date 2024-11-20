@@ -16,13 +16,11 @@ namespace gen::detail {
 	/*
 	*	Core-Imports:
 	*		i32 main.map_resolve(i64 address);
-	*		void main.map_flushed();
 	*		ext_func glue.glue_get_function(i32 name, i32 size);
 	*
 	*	Core-Exports to Main:
 	*		i32 map_reserve(i32 exports);
 	*		i32 map_define(i32 name, i32 size, i64 address);
-	*		void map_flush_blocks();
 	*		void map_execute(i64 address);
 	*
 	*	Core-Exports to Body:
@@ -37,14 +35,13 @@ namespace gen::detail {
 	class MappingBuilder {
 	private:
 		wasm::Function pResolve;
-		wasm::Function pFlushed;
 		wasm::Function pGetFunction;
 		wasm::Prototype pBlockPrototype;
 
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
 		void setupCoreImports(wasm::Module& mod);
-		void setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const;
+		void setupCoreBody(wasm::Module& mod, const wasm::Memory& memory) const;
 		void setupBlockImports(wasm::Module& mod, wasm::Prototype& blockPrototype, detail::MappingState& state) const;
 	};
 }

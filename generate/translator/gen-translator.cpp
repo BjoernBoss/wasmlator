@@ -10,11 +10,11 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 
 	/* initialize the block-imports */
 	wasm::Prototype blockPrototype;
-	wasm::Memory physical, management;
-	_core.setupBlockImports(mod, physical, management);
-	_memory.setupBlockImports(mod, management, physical, pMemory);
+	wasm::Memory physical, memory;
+	_core.setupBlockImports(mod, physical, memory);
+	_memory.setupBlockImports(mod, memory, physical, pMemory);
 	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
-	_context.setupBlockImports(mod, management, pContextShared, pContext);
+	_context.setupBlockImports(mod, memory, pContextShared, pContext);
 	_interact.setupBlockImports(mod, pInteract);
 
 	/* setup the components of the translator-members */

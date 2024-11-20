@@ -7,17 +7,12 @@ namespace I = wasm::inst;
 void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	glue.define(u8"map_flush_blocks", {}, {});
 	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, {});
 }
 void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	/* add the import to the lookup function */
 	wasm::Prototype prototype = mod.prototype(u8"main_resolve_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 	pResolve = mod.function(u8"main_resolve", prototype, wasm::Import{ u8"main" });
-
-	/* add the import to the flush function */
-	prototype = mod.prototype(u8"main_flushed_type", {}, {});
-	pFlushed = mod.function(u8"main_flushed", prototype, wasm::Import{ u8"main" });
 
 	/* add the import to the get-export function */
 	prototype = mod.prototype(u8"glue_get_function_type", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
@@ -30,7 +25,7 @@ void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	/* setup the block-type for the core */
 	pBlockPrototype = mod.prototype(u8"block_prototype", {}, { wasm::Type::i64 });
 }
-void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& management) const {
+void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& memory) const {
 	detail::MappingState state;
 
 	/* add the function-table and total-count (first slot is always null-slot to allow lookup-failure to be indicated by zero-return) */
@@ -58,22 +53,19 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		sink[I::U32::And()];
 		sink[I::U32::Const(sizeof(env::detail::MappingCache))];
 		sink[I::U32::Mul()];
-		uint32_t cacheAddress = env::detail::MappingAccess::CacheAddress();
-		if (cacheAddress > 0) {
-			sink[I::U32::Const(cacheAddress)];
-			sink[I::U32::Add()];
-		}
+		sink[I::U32::Const(env::detail::MappingAccess::CacheAddress())];
+		sink[I::U32::Add()];
 		sink[I::Local::Tee(hashAddress)];
 
 		/* check if this is a cache-hit */
-		sink[I::U64::Load(management, offsetof(env::detail::MappingCache, address))];
+		sink[I::U64::Load(memory, offsetof(env::detail::MappingCache, address))];
 		sink[I::Local::Get(address)];
 		sink[I::U64::Equal()];
 		{
 			/* fetch the current index and check if its actually valid */
 			wasm::IfThen _if{ sink };
 			sink[I::Local::Get(hashAddress)];
-			sink[I::U32::Load(management, offsetof(env::detail::MappingCache, index))];
+			sink[I::U32::Load(memory, offsetof(env::detail::MappingCache, index))];
 			sink[I::Local::Tee(index)];
 			sink[I::U32::EqualZero()];
 			sink[I::Branch::If(_if)];
@@ -91,10 +83,10 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		/* write the index to the cache */
 		sink[I::Local::Get(hashAddress)];
 		sink[I::Local::Get(address)];
-		sink[I::U64::Store(management, offsetof(env::detail::MappingCache, address))];
+		sink[I::U64::Store(memory, offsetof(env::detail::MappingCache, address))];
 		sink[I::Local::Get(hashAddress)];
 		sink[I::Local::Get(index)];
-		sink[I::U32::Store(management, offsetof(env::detail::MappingCache, index))];
+		sink[I::U32::Store(memory, offsetof(env::detail::MappingCache, index))];
 
 		/* return the function-index */
 		sink[I::Local::Get(index)];
@@ -198,30 +190,6 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 		/* loop back to the start of the loop */
 		sink[I::Branch::Direct(_loop)];
-	}
-
-	/* add the blocks-flushing function */
-	{
-		wasm::Sink sink{ mod.function(u8"map_flush_blocks", {}, {}, wasm::Export{}) };
-
-		/* clear the caches */
-		sink[I::U32::Const(env::detail::MappingAccess::CacheAddress())];
-		sink[I::U32::Const(0)];
-		sink[I::U32::Const(uint64_t(1 << env::detail::BlockLookupCacheBits) * sizeof(env::detail::MappingCache))];
-		sink[I::Memory::Fill(management)];
-
-		/* null the function-table (to ensure all references are dropped) */
-		sink[I::U32::Const(0)];
-		sink[I::Ref::NullFunction()];
-		sink[I::Global::Get(functionCount)];
-		sink[I::Table::Fill(state.functions)];
-
-		/* reset the function-counter */
-		sink[I::U32::Const(1)];
-		sink[I::Global::Set(functionCount)];
-
-		/* notify the main application about the flushing */
-		sink[I::Call::Direct(pFlushed)];
 	}
 }
 void gen::detail::MappingBuilder::setupBlockImports(wasm::Module& mod, wasm::Prototype& blockPrototype, detail::MappingState& state) const {

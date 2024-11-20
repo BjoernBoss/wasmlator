@@ -1,12 +1,23 @@
 #pragma once
 
 #include "../env-common.h"
+#include "memory-access.h"
 
 namespace env::detail {
 	static constexpr uint32_t MinGrowthBytes = 32 * env::PageSize;
 	static constexpr uint32_t ShiftMemoryFactor = 3;
 
+	struct MemoryCache {
+		env::guest_t address{ 0 };
+		detail::physical_t physical{ 0 };
+		uint32_t size1{ 0 };
+		uint32_t size2{ 0 };
+		uint32_t size4{ 0 };
+		uint32_t size8{ 0 };
+	};
+
 	class MemoryMapper {
+		friend struct detail::MemoryAccess;
 		static_assert(detail::PhysPageSize >= env::PageSize && (detail::PhysPageSize % env::PageSize) == 0, "The physical page size must a multiple of virtual page size");
 	private:
 		struct MemLookup {
@@ -27,9 +38,9 @@ namespace env::detail {
 		};
 
 	private:
+		mutable std::vector<detail::MemoryCache> pCaches;
 		std::vector<MemPhysical> pPhysical;
 		std::vector<MemVirtual> pVirtual;
-		mutable MemLookup pLastLookup;
 
 	public:
 		MemoryMapper() = default;
@@ -39,7 +50,7 @@ namespace env::detail {
 	private:
 		size_t fLookupVirtual(env::guest_t address) const;
 		size_t fLookupPhysical(detail::physical_t physical) const;
-		void fLookup(env::guest_t address, uint32_t size, uint32_t usage) const;
+		MemLookup fLookup(env::guest_t address, uint32_t size, uint32_t usage) const;
 
 	private:
 		uint32_t fExpandPhysical(uint32_t size, uint32_t growth) const;
@@ -63,11 +74,10 @@ namespace env::detail {
 		void fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage);
 
 	public:
-		void configure(uint32_t initialPageCount);
+		uintptr_t configure(uint32_t initialPageCount, uint32_t caches);
 
 	public:
-		void lookup(env::guest_t address, uint32_t size, uint32_t usage) const;
-		const MemLookup& lastLookup() const;
+		void lookup(env::guest_t address, uint32_t size, uint32_t usage, uint32_t cache) const;
 		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);
 		void munmap(env::guest_t address, uint32_t size);
 		void mprotect(env::guest_t address, uint32_t size, uint32_t usage);

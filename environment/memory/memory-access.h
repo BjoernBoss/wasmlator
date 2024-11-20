@@ -3,10 +3,12 @@
 #include "../env-common.h"
 
 namespace env::detail {
+	struct MemoryCache;
+
 	struct MemoryAccess {
-		static uint32_t ConfigureAndAllocate(uint32_t address, uint32_t initialPageCount);
-		static uint32_t Caches();
-		static uint32_t CacheAddress();
+		static uintptr_t Configure(uint32_t initialPageCount);
+		static uintptr_t CacheAddress();
+		static size_t CacheCount();
 		static uint32_t ReadCache();
 		static uint32_t WriteCache();
 		static uint32_t CodeCache();

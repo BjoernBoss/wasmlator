@@ -1,14 +1,13 @@
 #include "../env-process.h"
 
-uint32_t env::detail::ContextAccess::ConfigureAndAllocate(uint32_t address) {
-	/* allocate the cache-entries from the management memory */
-	env::Instance()->context().pAddress = address;
-	env::Instance()->context().pSize = env::Instance()->specification().contextSize();
-	return env::Instance()->context().pSize;
+uintptr_t env::detail::ContextAccess::Configure() {
+	/* allocate the buffer and return the highest address */
+	env::Instance()->context().pBuffer.resize(env::Instance()->specification().contextSize());
+	return uintptr_t(env::Instance()->context().pBuffer.data() + env::Instance()->context().pBuffer.size());
 }
-uint32_t env::detail::ContextAccess::ContextAddress() {
-	return env::Instance()->context().pAddress;
+uintptr_t env::detail::ContextAccess::ContextAddress() {
+	return uintptr_t(env::Instance()->context().pBuffer.data());
 }
-uint32_t env::detail::ContextAccess::ContextSize() {
-	return env::Instance()->context().pSize;
+size_t env::detail::ContextAccess::ContextSize() {
+	return env::Instance()->context().pBuffer.size();
 }

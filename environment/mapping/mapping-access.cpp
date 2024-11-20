@@ -6,11 +6,10 @@ bool env::detail::MappingAccess::CheckLoadable(const std::vector<env::BlockExpor
 void env::detail::MappingAccess::BlockLoaded(const std::vector<env::BlockExport>& exports) {
 	env::Instance()->mapping().fBlockExports(exports);
 }
-uint32_t env::detail::MappingAccess::AllocateFromManagement(uint32_t address) {
-	/* allocate the cache-entries from the management memory */
-	env::Instance()->mapping().pCacheAddress = address;
-	return (1 << detail::BlockLookupCacheBits) * uint32_t(sizeof(detail::MappingCache));
+uintptr_t env::detail::MappingAccess::Configure() {
+	/* return the highest accessed address used by the mapper */
+	return uintptr_t(env::Instance()->mapping().pCaches + detail::BlockCacheCount);
 }
-uint32_t env::detail::MappingAccess::CacheAddress() {
-	return env::Instance()->mapping().pCacheAddress;
+uintptr_t env::detail::MappingAccess::CacheAddress() {
+	return uintptr_t(env::Instance()->mapping().pCaches);
 }

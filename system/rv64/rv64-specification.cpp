@@ -38,9 +38,7 @@ void rv64::Specification::coreLoaded() {
 	env::Instance()->memory().mwrite(pNextAddress, buffer, sizeof(buffer), 0);
 
 	/* initialize the context */
-	rv64::Context context{};
-	context.pc = pNextAddress;
-	env::Instance()->context().write(context);
+	env::Instance()->context().get<rv64::Context>().pc = pNextAddress;
 
 	/* request the translation of the first block */
 	env::Instance()->startNewBlock();
@@ -48,7 +46,7 @@ void rv64::Specification::coreLoaded() {
 void rv64::Specification::blockLoaded() {
 	/* start execution of the next process-address */
 	try {
-		env::Instance()->mapping().execute(env::Instance()->context().read<rv64::Context>().pc);
+		env::Instance()->mapping().execute(env::Instance()->context().get<rv64::Context>().pc);
 	}
 	catch (const env::Translate& e) {
 		host::Debug(str::u8::Format(u8"Translate caught: {:#018x}", e.address));

@@ -6,47 +6,47 @@ namespace I = wasm::inst;
 gen::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
 
 void gen::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
-	uint32_t caches = env::detail::MemoryAccess::CacheAddress();
+	uint32_t caches = uint32_t(env::detail::MemoryAccess::CacheCount());
 	if (cache >= caches)
 		host::Fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
 void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type) const {
-	uint32_t cacheAddress = env::detail::MemoryAccess::CacheAddress();
+	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
 
 	/* check if the temporary variable needs to be initialized */
 	if (!pTempAddress.valid())
 		pTempAddress = pSink.local(wasm::Type::i64, u8"mem_temp_address");
 
 	/* compute the offset into the current cached region */
-	pSink[I::U32::Const(cacheAddress + cache * sizeof(env::detail::MemoryCache))];
-	pSink[I::U64::Load(pState.management, offsetof(env::detail::MemoryCache, address))];
+	pSink[I::U32::Const(cacheAddress)];
+	pSink[I::U64::Load(pState.memory, offsetof(env::detail::MemoryCache, address))];
 	pSink[I::U64::Sub()];
 	pSink[I::Local::Tee(pTempAddress)];
 
 	/* check if the address lies in the range */
-	pSink[I::U32::Const(cacheAddress + cache * sizeof(env::detail::MemoryCache))];
+	pSink[I::U32::Const(cacheAddress)];
 	switch (type) {
 	case gen::MemoryType::u8To32:
 	case gen::MemoryType::u8To64:
 	case gen::MemoryType::i8To32:
 	case gen::MemoryType::i8To64:
-		pSink[I::U64::Load32(pState.management, offsetof(env::detail::MemoryCache, size1))];
+		pSink[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size1))];
 		break;
 	case gen::MemoryType::u16To32:
 	case gen::MemoryType::u16To64:
 	case gen::MemoryType::i16To32:
 	case gen::MemoryType::i16To64:
-		pSink[I::U64::Load32(pState.management, offsetof(env::detail::MemoryCache, size2))];
+		pSink[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size2))];
 		break;
 	case gen::MemoryType::i32:
 	case gen::MemoryType::f32:
 	case gen::MemoryType::u32To64:
 	case gen::MemoryType::i32To64:
-		pSink[I::U64::Load32(pState.management, offsetof(env::detail::MemoryCache, size4))];
+		pSink[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size4))];
 		break;
 	case gen::MemoryType::i64:
 	case gen::MemoryType::f64:
-		pSink[I::U64::Load32(pState.management, offsetof(env::detail::MemoryCache, size8))];
+		pSink[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size8))];
 		break;
 	}
 	pSink[I::U64::GreaterEqual()];
@@ -57,8 +57,8 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 
 		/* recover the original address */
 		pSink[I::Local::Get(pTempAddress)];
-		pSink[I::U32::Const(cacheAddress + cache * sizeof(env::detail::MemoryCache))];
-		pSink[I::U64::Load(pState.management, offsetof(env::detail::MemoryCache, address))];
+		pSink[I::U32::Const(cacheAddress)];
+		pSink[I::U64::Load(pState.memory, offsetof(env::detail::MemoryCache, address))];
 		pSink[I::U64::Add()];
 
 		/* write the current size to the stack */
@@ -88,15 +88,15 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 		}
 
 		/* perform the call to patch the cache (leaves the new absolute address as i32 on the stack) */
-		pSink[I::U32::Const(cacheAddress + cache * sizeof(env::detail::MemoryCache))];
+		pSink[I::U32::Const(cache)];
 		pSink[I::Call::Direct(lookup)];
 
 		/* less-equal, compute the final absolute address */
 		_if.otherwise();
 		pSink[I::Local::Get(pTempAddress)];
 		pSink[I::U64::Shrink()];
-		pSink[I::U32::Const(cacheAddress + cache * sizeof(env::detail::MemoryCache))];
-		pSink[I::U32::Load(pState.management, offsetof(env::detail::MemoryCache, physical))];
+		pSink[I::U32::Const(cacheAddress)];
+		pSink[I::U32::Load(pState.memory, offsetof(env::detail::MemoryCache, physical))];
 		pSink[I::U32::Add()];
 	}
 }

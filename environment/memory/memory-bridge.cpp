@@ -1,17 +1,8 @@
 #include "../env-process.h"
 #include "../../interface/interface.h"
 
-void env::detail::MemoryBridge::Lookup(uint64_t address, uint32_t size, uint32_t usage) {
-	env::Instance()->memory().pMapper.lookup(address, size, usage);
-}
-uint64_t env::detail::MemoryBridge::LookupAddress() {
-	return env::Instance()->memory().pMapper.lastLookup().address;
-}
-uint32_t env::detail::MemoryBridge::LookupSize() {
-	return env::Instance()->memory().pMapper.lastLookup().size;
-}
-uint32_t env::detail::MemoryBridge::LookupPhysical() {
-	return env::Instance()->memory().pMapper.lastLookup().physical;
+void env::detail::MemoryBridge::Lookup(uint64_t address, uint32_t size, uint32_t usage, uint32_t cache) {
+	env::Instance()->memory().pMapper.lookup(address, size, usage, cache);
 }
 
 bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
@@ -19,9 +10,6 @@ bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
 }
 void env::detail::MemoryBridge::MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) {
 	mem_move_physical(dest, source, size);
-}
-void env::detail::MemoryBridge::FlushCaches() {
-	mem_flush_caches();
 }
 void env::detail::MemoryBridge::WriteToPhysical(detail::physical_t dest, const uint8_t* source, uint32_t size) {
 	mem_write_to_physical(dest, source, size);

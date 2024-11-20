@@ -20,11 +20,11 @@ void env::Process::Create(std::unique_ptr<sys::Specification>&& specification) {
 
 	/* initialize the components */
 	ProcessInstance->pPhysicalPages = detail::PhysPageCount(env::detail::InitAllocBytes);
-	uint32_t endOfManagement = 0;
-	endOfManagement += detail::ContextAccess::ConfigureAndAllocate(endOfManagement);
-	endOfManagement += detail::MappingAccess::AllocateFromManagement(endOfManagement);
-	endOfManagement += detail::MemoryAccess::ConfigureAndAllocate(endOfManagement, ProcessInstance->pPhysicalPages);
-	ProcessInstance->pManagementPages = detail::PhysPageCount(endOfManagement);
+	uintptr_t endOfMemory = 0;
+	endOfMemory = std::max(endOfMemory, detail::ContextAccess::Configure());
+	endOfMemory = std::max(endOfMemory, detail::MappingAccess::Configure());
+	endOfMemory = std::max(endOfMemory, detail::MemoryAccess::Configure(ProcessInstance->pPhysicalPages));
+	ProcessInstance->pMemoryPages = detail::PhysPageCount(endOfMemory);
 
 	/* allocate the next process-id */
 	host::Log(u8"Process created with id [", ++ProcessId, u8"]");
@@ -117,7 +117,8 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	detail::InteractAccess::CoreLoaded();
 	pState = State::coreLoaded;
 
-	/* notify the the specification about the loaded core */
+	/* notify the the specification about the loaded core (do not perform
+	*	any other operations, as the process might have be destroyed) */
 	pSpecification->coreLoaded();
 	return true;
 
@@ -136,7 +137,8 @@ bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 	pState = State::coreLoaded;
 	pExports.clear();
 
-	/* notify the the specification about the loaded core */
+	/* notify the the specification about the loaded core (do not perform
+	*	any other operations, as the process might have be destroyed) */
 	pSpecification->blockLoaded();
 	return true;
 }

@@ -4,14 +4,17 @@
 
 namespace gen::detail {
 	/*
+	*	Core-Imports:
+	*		uint8_t main.memory[...];
+	*
 	*	Core-Exports to Body:
 	*		uint8_t memory_physical[...];
-	*		uint8_t memory_management[...];
 	*/
 
 	class CoreBuilder {
 	public:
-		void setupCoreBody(wasm::Module& mod, wasm::Memory& physical, wasm::Memory& management) const;
-		void setupBlockImports(wasm::Module& mod, wasm::Memory& physical, wasm::Memory& management) const;
+		void setupCoreImports(wasm::Module& mod, wasm::Memory& memory) const;
+		void setupCoreBody(wasm::Module& mod, wasm::Memory& physical) const;
+		void setupBlockImports(wasm::Module& mod, wasm::Memory& physical, wasm::Memory& memory) const;
 	};
 }

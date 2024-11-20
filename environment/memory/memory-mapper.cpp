@@ -22,7 +22,7 @@ size_t env::detail::MemoryMapper::fLookupPhysical(env::detail::physical_t physic
 	}
 	return begin;
 }
-void env::detail::MemoryMapper::fLookup(env::guest_t address, uint32_t size, uint32_t usage) const {
+env::detail::MemoryMapper::MemLookup env::detail::MemoryMapper::fLookup(env::guest_t address, uint32_t size, uint32_t usage) const {
 	/* lookup the virtual mapping containing the corresponding address */
 	size_t index = fLookupVirtual(address);
 
@@ -35,25 +35,26 @@ void env::detail::MemoryMapper::fLookup(env::guest_t address, uint32_t size, uin
 		throw env::MemoryFault{ address, size, usage, pVirtual[index].usage };
 
 	/* collect all previous and upcoming regions of the same usage */
-	pLastLookup = MemoryMapper::MemLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
+	MemLookup lookup = MemoryMapper::MemLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
 	for (size_t i = index; i > 0; --i) {
 		if (pVirtual[i - 1].address + pVirtual[i - 1].size != pVirtual[i].address)
 			break;
 		if ((pVirtual[i - 1].usage & usage) != usage)
 			break;
-		pLastLookup = { pVirtual[i - 1].address, pVirtual[i - 1].physical, pVirtual[index].size + pLastLookup.size };
+		lookup = { pVirtual[i - 1].address, pVirtual[i - 1].physical, pVirtual[index].size + lookup.size };
 	}
 	for (size_t i = index + 1; i < pVirtual.size(); ++i) {
-		if (pLastLookup.address + pLastLookup.size != pVirtual[i].address)
+		if (lookup.address + lookup.size != pVirtual[i].address)
 			break;
 		if ((pVirtual[i].usage & usage) != usage)
 			break;
-		pLastLookup.size += pVirtual[i].size;
+		lookup.size += pVirtual[i].size;
 	}
 
 	/* check if the access-size is valid */
-	if (pLastLookup.address + pLastLookup.size < address + size)
+	if (lookup.address + lookup.size < address + size)
 		throw env::MemoryFault{ address, size, usage, 0 };
+	return lookup;
 }
 
 uint32_t env::detail::MemoryMapper::fExpandPhysical(uint32_t size, uint32_t growth) const {
@@ -71,7 +72,9 @@ void env::detail::MemoryMapper::fMovePhysical(env::detail::physical_t dest, env:
 }
 void env::detail::MemoryMapper::fFlushCaches() const {
 	fCheckConsistency();
-	detail::MemoryBridge::FlushCaches();
+
+	host::Debug(u8"Flushing caches");
+	std::memset(pCaches.data(), 0, sizeof(detail::MemoryCache) * pCaches.size());
 }
 void env::detail::MemoryMapper::fCheckConsistency() const {
 	if (pPhysical.empty())
@@ -606,21 +609,34 @@ void env::detail::MemoryMapper::fMemProtectMultipleBlocks(size_t virt, env::gues
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 }
 
-void env::detail::MemoryMapper::configure(uint32_t initialPageCount) {
+uintptr_t env::detail::MemoryMapper::configure(uint32_t initialPageCount, uint32_t caches) {
 	/* setup the physical mapping */
 	pPhysical.push_back(MemoryMapper::MemPhysical{ 0, uint32_t(detail::PhysPageSize * initialPageCount), false });
+
+	/* setup the caches */
+	pCaches.resize(caches);
+
+	/* return the highest accessed address */
+	return uintptr_t(pCaches.data() + pCaches.size());
 }
 
-void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint32_t usage) const {
+void env::detail::MemoryMapper::lookup(env::guest_t address, uint32_t size, uint32_t usage, uint32_t cache) const {
 	host::Debug(str::u8::Format(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
 	));
-	fLookup(address, size, usage);
-}
-const env::detail::MemoryMapper::MemLookup& env::detail::MemoryMapper::lastLookup() const {
-	return pLastLookup;
+	MemLookup lookup = fLookup(address, size, usage);
+
+	/* write the lookup back to the cache */
+	pCaches[cache] = {
+		lookup.address,
+		lookup.physical,
+		lookup.size - 1,
+		lookup.size - 2,
+		lookup.size - 4,
+		lookup.size - 8
+	};
 }
 bool env::detail::MemoryMapper::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	host::Debug(str::u8::Format(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
@@ -788,8 +804,8 @@ void env::detail::MemoryMapper::mread(uint8_t* dest, env::guest_t source, uint32
 	));
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
-	fLookup(source, size, usage);
-	detail::MemoryBridge::ReadFromPhysical(dest, pLastLookup.physical + detail::physical_t(source - pLastLookup.address), size);
+	MemLookup lookup = fLookup(source, size, usage);
+	detail::MemoryBridge::ReadFromPhysical(dest, lookup.physical + detail::physical_t(source - lookup.address), size);
 }
 void env::detail::MemoryMapper::mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage) {
 	host::Debug(str::u8::Format(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
@@ -799,6 +815,6 @@ void env::detail::MemoryMapper::mwrite(env::guest_t dest, const uint8_t* source,
 	));
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
-	fLookup(dest, size, usage);
-	detail::MemoryBridge::WriteToPhysical(pLastLookup.physical + detail::physical_t(dest - pLastLookup.address), source, size);
+	MemLookup lookup = fLookup(dest, size, usage);
+	detail::MemoryBridge::WriteToPhysical(lookup.physical + detail::physical_t(dest - lookup.address), source, size);
 }

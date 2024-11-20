@@ -29,15 +29,10 @@ void proc_block_imports_next_member(const char8_t* name, uint32_t size) {}
 void proc_block_imports_set_value(const char8_t* name, uint32_t size, uint32_t index) {}
 void proc_block_imports_commit(uint32_t null) {}
 
-uint64_t ctx_read(uint32_t offset, uint32_t size) { return{}; }
-void ctx_write(uint32_t offset, uint32_t size, uint64_t value) {}
-
 uint32_t map_reserve(uint32_t exports) { return 1; }
 uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address) { return {}; }
 void map_execute(uint64_t address) {}
-void map_flush_blocks() {}
 
-void mem_flush_caches() {}
 void mem_write_to_physical(uint32_t dest, const uint8_t* source, uint32_t size) {}
 void mem_read_from_physical(uint8_t* dest, uint32_t source, uint32_t size) {}
 uint32_t mem_expand_physical(uint32_t pages) { return{}; }

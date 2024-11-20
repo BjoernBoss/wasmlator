@@ -43,35 +43,25 @@ extern "C" {
 	void main_terminate(int32_t code);
 	void main_not_decodable(uint64_t address);
 	void main_not_reachable(uint64_t address);
-
-	/* imports */
-	uint64_t ctx_read(uint32_t offset, uint32_t size);
-	void ctx_write(uint32_t offset, uint32_t size, uint64_t value);
 }
 
 /* environment/mapping/mapping-bridge interactions */
 extern "C" {
 	/* exports */
 	uint32_t main_resolve(uint64_t address);
-	void main_flushed();
 
 	/* imports */
 	uint32_t map_reserve(uint32_t exports);
 	uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address);
 	void map_execute(uint64_t address);
-	void map_flush_blocks();
 }
 
 /* environment/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_lookup(uint64_t address, uint32_t size, uint32_t usage);
-	uint64_t main_result_address();
-	uint32_t main_result_physical();
-	uint32_t main_result_size();
+	void main_lookup(uint64_t address, uint32_t size, uint32_t usage, uint32_t cache);
 
 	/* imports */
-	void mem_flush_caches();
 	void mem_write_to_physical(uint32_t dest, const uint8_t* source, uint32_t size);
 	void mem_read_from_physical(uint8_t* dest, uint32_t source, uint32_t size);
 	uint32_t mem_expand_physical(uint32_t pages);

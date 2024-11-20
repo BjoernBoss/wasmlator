@@ -10,10 +10,3 @@ void env::detail::ContextBridge::NotDecodable(uint64_t address) {
 void env::detail::ContextBridge::NotReachable(uint64_t address) {
 	env::Instance()->context().fNotReachable(address);
 }
-
-uint64_t env::detail::ContextBridge::Read(uint32_t offset, uint32_t size) {
-	return ctx_read(offset, size);
-}
-void env::detail::ContextBridge::Write(uint32_t offset, uint32_t size, uint64_t value) {
-	ctx_write(offset, size, value);
-}

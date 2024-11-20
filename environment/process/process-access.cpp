@@ -3,8 +3,8 @@
 uint32_t env::detail::ProcessAccess::PhysicalPages() {
 	return env::Instance()->pPhysicalPages;
 }
-uint32_t env::detail::ProcessAccess::ManagementPages() {
-	return env::Instance()->pManagementPages;
+uint32_t env::detail::ProcessAccess::MemoryPages() {
+	return env::Instance()->pMemoryPages;
 }
 void env::detail::ProcessAccess::AddCoreBinding(const std::u8string& mod, const std::u8string& name) {
 	env::Instance()->fAddBinding(mod, name);

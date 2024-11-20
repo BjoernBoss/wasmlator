@@ -10,8 +10,10 @@
 #include "../system/sys-specification.h"
 
 namespace env {
-	/* Note: many operations on a process must first be called after the core has been loaded, as they might internally
-	*	interact with the core, which will otherwise result in a null-function execution within the glue-module */
+	/*
+	*	Note: many operations on a process must first be called after the core has been loaded, as they might internally
+	*		interact with the core, which will otherwise result in a null-function execution within the glue-module
+	*	Note: must only be destroyed form within coreLoaded/blockLoaded or the main startup */
 	env::Process* Instance();
 
 	class Process {
@@ -37,8 +39,8 @@ namespace env {
 		env::Memory pMemory;
 		env::Mapping pMapping;
 		env::Interact pInteract;
-		uint32_t pManagementPages = 0;
 		uint32_t pPhysicalPages = 0;
+		uint32_t pMemoryPages = 0;
 		State pState = State::none;
 
 	private:
