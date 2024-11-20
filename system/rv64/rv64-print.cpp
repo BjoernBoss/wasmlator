@@ -88,19 +88,19 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 	std::u8string out = opcodeStrings[size_t(inst.opcode)];
 	switch (inst.format) {
 	case rv64::Format::dst_src1:
-		str::BuildTo(out, u8' ', registerStrings[inst.regDest], u8", ", registerStrings[inst.regSrc1]);
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", registerStrings[inst.src1]);
 		break;
 	case rv64::Format::dst_src1_imm:
-		str::BuildTo(out, u8' ', registerStrings[inst.regDest], u8", ", registerStrings[inst.regSrc1], u8", ", inst.immediate);
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", registerStrings[inst.src1], u8", ", inst.imm);
 		break;
 	case rv64::Format::dst_src1_src2:
-		str::BuildTo(out, u8' ', registerStrings[inst.regDest], u8", ", registerStrings[inst.regSrc1], u8", ", registerStrings[inst.regSrc2]);
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", registerStrings[inst.src1], u8", ", registerStrings[inst.src2]);
 		break;
 	case rv64::Format::dst_imm:
-		str::BuildTo(out, u8' ', registerStrings[inst.regDest], u8", ", inst.immediate);
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", inst.imm);
 		break;
 	case rv64::Format::src1_src2:
-		str::BuildTo(out, u8' ', registerStrings[inst.regSrc1], u8", ", registerStrings[inst.regSrc2]);
+		str::BuildTo(out, u8' ', registerStrings[inst.src1], u8", ", registerStrings[inst.src2]);
 		break;
 	default:
 		break;

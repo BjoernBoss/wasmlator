@@ -77,7 +77,7 @@ namespace gen {
 		/* fetch the next instruction at the given address (address of instruction will automatically be set) */
 		virtual gen::Instruction fetch(env::guest_t address) = 0;
 
-		/* produce the wasm-code for the given chunk of fetched instructions */
+		/* produce the wasm-code for the given chunk of fetched instructions (guaranteed to not be jumped into) */
 		virtual void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) = 0;
 
 	public:

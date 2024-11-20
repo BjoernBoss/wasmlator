@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+#include "../interface/host.h"
+
 /* riscv 64-bit */
 namespace rv64 {
 	/* throw exception if jump-target is not 4-byte aligned */
@@ -140,4 +142,71 @@ namespace rv64 {
 		};
 		uint64_t pc = 0;
 	};
+
+	enum class Opcode : uint16_t {
+		load_upper_imm,
+		add_upper_imm_pc,
+		jump_and_link_imm,
+		jump_and_link_reg,
+		branch_eq,
+		branch_ne,
+		branch_lt_s,
+		branch_ge_s,
+		branch_lt_u,
+		branch_ge_u,
+		add_imm,
+		set_less_than_s_imm,
+		set_less_than_u_imm,
+		xor_imm,
+		or_imm,
+		and_imm,
+		shift_left_logic_imm,
+		shift_right_logic_imm,
+		shift_right_arith_imm,
+		add_reg,
+		sub_reg,
+		mul_reg,
+		mul_high_s_reg,
+		mul_high_s_u_reg,
+		mul_high_u_reg,
+		div_s_reg,
+		div_u_reg,
+		rem_s_reg,
+		rem_u_reg,
+		set_less_than_s_reg,
+		set_less_than_u_reg,
+		xor_reg,
+		or_reg,
+		and_reg,
+		shift_left_logic_reg,
+		shift_right_logic_reg,
+		shift_right_arith_reg,
+		no_op,
+		move,
+		_invalid
+	};
+	enum class Format : uint8_t {
+		none,
+		dst_src1,
+		dst_src1_imm,
+		dst_src1_src2,
+		dst_imm,
+		src1_src2
+	};
+
+	struct Instruction {
+		rv64::Opcode opcode = rv64::Opcode::_invalid;
+		rv64::Format format = Format::none;
+		uint8_t dest = 0;
+		uint8_t src1 = 0;
+		uint8_t src2 = 0;
+		int64_t imm = 0;
+	};
+
+	namespace reg {
+		static constexpr uint8_t Zero = 0;
+		static constexpr uint8_t X1 = 1;
+		static constexpr uint8_t X5 = 5;
+		static constexpr uint8_t PC = 32;
+	}
 }

@@ -1,5 +1,7 @@
 #include "rv64-specification.h"
 #include "rv64-print.h"
+#include "rv64-decoder.h"
+#include "rv64-translation.h"
 
 rv64::System::System() : env::System{ 0x400, 4, sizeof(rv64::Context) } {
 	pTranslator = rv64::Translator::New();
@@ -65,6 +67,7 @@ std::unique_ptr<gen::Translator> rv64::Translator::New() {
 
 void rv64::Translator::started(const gen::Writer& writer) {
 	pDecoded.clear();
+	pTempI64 = writer.sink().local(wasm::Type::i64, u8"temp_i64");
 }
 void rv64::Translator::completed(const gen::Writer& writer) {
 	pDecoded.clear();
@@ -92,14 +95,23 @@ gen::Instruction  rv64::Translator::fetch(env::guest_t address) {
 	case rv64::Opcode::branch_lt_u:
 	case rv64::Opcode::branch_ge_u:
 		type = gen::InstType::conditionalDirect;
-		target = address + inst.immediate;
+		target = address + inst.imm;
 		break;
 	case rv64::Opcode::jump_and_link_imm:
-		type = gen::InstType::jumpDirect;
-		target = address + inst.immediate;
+		/* check if it might be a call */
+		if (inst.dest == reg::X1 || inst.dest == reg::X5)
+			type = gen::InstType::primitive;
+		else {
+			type = gen::InstType::jumpDirect;
+			target = address + inst.imm;
+		}
 		break;
 	case rv64::Opcode::jump_and_link_reg:
-		type = gen::InstType::endOfBlock;
+		/* check if it might be a call */
+		if ((inst.dest == reg::X1 || inst.dest == reg::X5) && ((inst.src1 != reg::X1 && inst.src1 != reg::X5) || inst.src1 == inst.dest))
+			type = gen::InstType::primitive;
+		else
+			type = gen::InstType::endOfBlock;
 		break;
 	default:
 		break;
@@ -109,5 +121,6 @@ gen::Instruction  rv64::Translator::fetch(env::guest_t address) {
 	return gen::Instruction{ type, target, 4, pDecoded.size() - 1 };
 }
 void rv64::Translator::produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) {
-
+	for (size_t i = 0; i < count; ++i)
+		rv64::Translate(data[i], pDecoded[data[i].data], writer, pTempI64);
 }

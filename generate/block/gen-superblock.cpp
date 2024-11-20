@@ -54,6 +54,10 @@ size_t gen::detail::SuperBlock::fIrreducibleConflicts(detail::RangeIt test, deta
 	return count;
 }
 gen::detail::RangeIt gen::detail::SuperBlock::fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last) {
+	/* the expansion-modes will also remove any duplicate ranges, which are potentially shorter, but jump
+	*	to the same address - this has to be done before adding the irreducible-conflict resolving ranges,
+	*	as they add logic to the header of the corresponding loops, which can therefore not be used as a
+	*	replacement path for other jumps, as they must not interact with the given logic */
 	enum class Mode : uint8_t {
 		none,
 		expandForwards,

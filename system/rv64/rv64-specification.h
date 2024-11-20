@@ -4,14 +4,12 @@
 #include "../generate/generate.h"
 
 #include "rv64-common.h"
-#include "rv64-decoder.h"
 
 namespace rv64 {
 	/* riscv 64-bit */
 	class System final : public env::System {
 	private:
 		env::guest_t pNextAddress = 0;
-		std::vector<rv64::Instruction> pDecoded;
 		std::unique_ptr<gen::Translator> pTranslator;
 
 	private:
@@ -30,6 +28,7 @@ namespace rv64 {
 	class Translator final : public gen::Translator {
 	private:
 		std::vector<rv64::Instruction> pDecoded;
+		wasm::Variable pTempI64;
 
 	private:
 		Translator();
