@@ -89,9 +89,16 @@ namespace env {
 		virtual ~System() = default;
 
 	public:
+		/* invoked once when the core module is supposed to be configured */
 		virtual void setupCore(wasm::Module& mod) = 0;
+
+		/* invoked for every new block module to be configured, after being triggered to be created */
 		virtual std::vector<env::BlockExport> setupBlock(wasm::Module& mod) = 0;
+
+		/* invoked when the configured core module has been loaded */
 		virtual void coreLoaded() = 0;
+
+		/* invoked when the last configured block has been loaded */
 		virtual void blockLoaded() = 0;
 
 	public:

@@ -5,12 +5,13 @@
 #include "../interface/host.h"
 #include "../environment/environment.h"
 #include "../generate/generate.h"
-#include "null-specification.h"
+#include "null-interface.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
-		gen::Translator _translator{ mod };
+		NullTranslator _null;
+		gen::Block _block{ mod, &_null };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());
@@ -21,7 +22,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 int main(int argc, char** argv) {
 	host::SetLogLevel(host::LogLevel::none);
-	env::Process::Create(std::make_unique<NullSpecification>());
+	env::Process::Create(std::make_unique<NullSystem>());
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };
