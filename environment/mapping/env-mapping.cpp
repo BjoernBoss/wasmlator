@@ -1,4 +1,4 @@
-#include "../env-process.h"
+#include "env-mapping.h"
 
 uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	/* check if the address has already been translated */

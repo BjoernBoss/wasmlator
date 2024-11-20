@@ -1,4 +1,4 @@
-#include "../env-process.h"
+#include "env-memory.h"
 
 size_t env::Memory::fLookupVirtual(env::guest_t address) const {
 	size_t begin = 0, end = pVirtual.size();

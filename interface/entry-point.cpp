@@ -1,6 +1,6 @@
 #include "interface.h"
 #include "../interface/host.h"
-#include "../environment/env-process.h"
+#include "../environment/environment.h"
 #include "../system/rv64/rv64-specification.h"
 
 void StartupProcess() {

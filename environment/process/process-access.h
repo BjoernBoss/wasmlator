@@ -7,6 +7,7 @@ namespace env::detail {
 		static uint32_t PhysicalPages();
 		static uint32_t MemoryPages();
 		static void AddCoreBinding(const std::u8string& mod, const std::u8string& name);
+		static void LockBindings();
 		static size_t BindingCount();
 	};
 }

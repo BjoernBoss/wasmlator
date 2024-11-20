@@ -1,4 +1,4 @@
-#include "../env-process.h"
+#include "../environment.h"
 
 uintptr_t env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();

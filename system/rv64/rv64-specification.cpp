@@ -1,9 +1,5 @@
 #include "rv64-specification.h"
-
 #include "rv64-print.h"
-#include "../../environment/env-process.h"
-#include "../../generate/core/gen-core.h"
-#include "../../generate/block/gen-block.h"
 
 rv64::System::System() : env::System{ 0x400, 4, sizeof(rv64::Context) } {
 	pTranslator = rv64::Translator::New();

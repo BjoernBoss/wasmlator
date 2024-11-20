@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../environment/env-process.h"
-#include "../generate/gen-common.h"
+#include "../environment/environment.h"
+#include "../generate/generate.h"
+
 #include "rv64-common.h"
 #include "rv64-decoder.h"
 

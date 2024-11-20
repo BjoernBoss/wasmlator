@@ -132,6 +132,9 @@ void gen::detail::ProcessBuilder::setupCoreBody(wasm::Module& mod) {
 	}
 }
 void gen::detail::ProcessBuilder::finalizeCoreBody(wasm::Module& mod) const {
+	/* lock the bindings to prevent further bindings from being added */
+	env::detail::ProcessAccess::LockBindings();
+
 	/* finalize the limit of the bindings-table */
 	uint32_t count = uint32_t(env::detail::ProcessAccess::BindingCount());
 	mod.limit(pBindings, wasm::Limit{ count , count });

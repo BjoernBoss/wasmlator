@@ -3,8 +3,8 @@
 #include <fstream>
 
 #include "../interface/host.h"
-#include "../environment/env-process.h"
-#include "../generate/translator/gen-translator.h"
+#include "../environment/environment.h"
+#include "../generate/generate.h"
 #include "null-specification.h"
 
 static bool SetupModule(wasm::ModuleInterface* writer) {

@@ -1,4 +1,4 @@
-#include "../env-process.h"
+#include "../environment.h"
 
 bool env::detail::MappingAccess::CheckLoadable(const std::vector<env::BlockExport>& exports) {
 	return env::Instance()->mapping().fCheckLoadable(exports);

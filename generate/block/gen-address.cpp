@@ -1,5 +1,5 @@
 #include "gen-address.h"
-#include "../environment/env-process.h"
+#include "../environment/environment.h"
 
 namespace I = wasm::inst;
 

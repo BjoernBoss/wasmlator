@@ -1,19 +1,14 @@
 #pragma once
 
-#include "env-common.h"
-#include "context/env-context.h"
-#include "mapping/env-mapping.h"
-#include "memory/env-memory.h"
-#include "interact/env-interact.h"
-#include "process/process-bridge.h"
-#include "process/process-access.h"
+#include "../env-common.h"
+#include "process-bridge.h"
+#include "process-access.h"
+#include "../context/env-context.h"
+#include "../mapping/env-mapping.h"
+#include "../memory/env-memory.h"
+#include "../interact/env-interact.h"
 
 namespace env {
-	/* Many operations on a process must first be called after the core has been loaded, as they might internally
-	*		interact with the core, which will otherwise result in a null-function execution within the glue-module
-	*	Note: must only be destroyed form within coreLoaded/blockLoaded or the main startup */
-	env::Process* Instance();
-
 	class Process {
 		friend struct detail::ProcessBridge;
 		friend struct detail::ProcessAccess;
@@ -37,9 +32,11 @@ namespace env {
 		env::Memory pMemory;
 		env::Mapping pMapping;
 		env::Interact pInteract;
+		std::u8string pBlockImportName;
 		uint32_t pPhysicalPages = 0;
 		uint32_t pMemoryPages = 0;
 		State pState = State::none;
+		bool pBindingsClosed = false;
 
 	private:
 		Process(std::unique_ptr<env::System>&& system);
@@ -58,6 +55,8 @@ namespace env {
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 
 	public:
+		const std::u8string& blockImportModule() const;
+		void bindExport(std::u8string_view name);
 		void startNewBlock();
 		void release();
 

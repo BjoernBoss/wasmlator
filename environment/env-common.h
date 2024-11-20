@@ -15,8 +15,6 @@
 #include "../interface/host.h"
 
 namespace env {
-	class Process;
-
 	namespace detail {
 		using physical_t = uint32_t;
 

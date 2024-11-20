@@ -1,8 +1,6 @@
 #include "../interface/interface.h"
-#include "../environment/env-process.h"
 
 #include <ustring/ustring.h>
-#include <vector>
 
 uint32_t host_load_core(const uint8_t* data, uint32_t size, uint32_t process) {
 	main_core_loaded(process, 1);

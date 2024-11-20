@@ -1,6 +1,6 @@
 #include "interact-builder.h"
-#include "../environment/interact/interact-access.h"
 #include "../environment/process/process-access.h"
+#include "../environment/interact/interact-access.h"
 
 namespace I = wasm::inst;
 
@@ -20,9 +20,6 @@ void gen::detail::InteractBuilder::setupCoreImports(wasm::Module& mod) const {
 	env::detail::ProcessAccess::AddCoreBinding(u8"int", u8"main_invoke_param");
 }
 void gen::detail::InteractBuilder::finalizeCoreBody(wasm::Module& mod) const {
-	/* mark the core as being finalized in order to prevent further functions to be defined */
-	env::detail::InteractAccess::FinalizingCore();
-
 	/* add the exported function-table */
 	wasm::Table exported = mod.table(u8"call_list", true);
 	std::vector<wasm::Value> list;

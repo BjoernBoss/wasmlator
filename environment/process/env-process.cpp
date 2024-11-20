@@ -1,10 +1,12 @@
-#include "env-process.h"
+#include "../environment.h"
 
-static env::Process* ProcessInstance = 0;
-static uint32_t ProcessId = 0;
+namespace global {
+	static env::Process* Instance = 0;
+	static uint32_t ProcId = 0;
+}
 
 env::Process* env::Instance() {
-	return ProcessInstance;
+	return global::Instance;
 }
 
 env::Process::Process(std::unique_ptr<env::System>&& system) : pSystem{ std::move(system) } {}
@@ -12,26 +14,26 @@ env::Process::Process(std::unique_ptr<env::System>&& system) : pSystem{ std::mov
 void env::Process::Create(std::unique_ptr<env::System>&& system) {
 	/* try to setup the process */
 	host::Log(u8"Creating new process...");
-	if (ProcessInstance != 0)
+	if (global::Instance != 0)
 		host::Fatal(u8"Process creation failed as only one process can exist at a time");
-	ProcessInstance = new env::Process{ std::move(system) };
+	global::Instance = new env::Process{ std::move(system) };
 
 	/* initialize the components */
 	uintptr_t endOfMemory = 0;
 	endOfMemory = std::max(endOfMemory, detail::ContextAccess::Configure());
 	endOfMemory = std::max(endOfMemory, detail::MappingAccess::Configure());
-	endOfMemory = std::max(endOfMemory, detail::MemoryAccess::Configure(ProcessInstance->pPhysicalPages));
-	ProcessInstance->pMemoryPages = detail::PhysPageCount(endOfMemory);
+	endOfMemory = std::max(endOfMemory, detail::MemoryAccess::Configure(global::Instance->pPhysicalPages));
+	global::Instance->pMemoryPages = detail::PhysPageCount(endOfMemory);
 
 	/* allocate the next process-id */
-	host::Log(u8"Process created with id [", ++ProcessId, u8"]");
+	host::Log(u8"Process created with id [", ++global::ProcId, u8"]");
 
 	/* setup the core module */
-	ProcessInstance->fLoadCore();
+	global::Instance->fLoadCore();
 }
 
 void env::Process::fLoadCore() {
-	host::Debug(u8"Loading core for [", ProcessId, u8"]...");
+	host::Debug(u8"Loading core for [", global::ProcId, u8"]...");
 	writer::BinaryWriter writer;
 
 	pState = State::loadingCore;
@@ -45,11 +47,11 @@ void env::Process::fLoadCore() {
 	}
 
 	/* setup the core loading */
-	if (!detail::ProcessBridge::LoadCore(writer.output(), ProcessId))
-		host::Fatal(u8"Failed initiating loading of core for [", ProcessId, u8']');
+	if (!detail::ProcessBridge::LoadCore(writer.output(), global::ProcId))
+		host::Fatal(u8"Failed initiating loading of core for [", global::ProcId, u8']');
 }
 void env::Process::fLoadBlock() {
-	host::Debug(u8"Loading block for [", ProcessId, u8"]...");
+	host::Debug(u8"Loading block for [", global::ProcId, u8"]...");
 	writer::BinaryWriter writer;
 
 	/* check if a loading is currently in progress */
@@ -80,21 +82,21 @@ void env::Process::fLoadBlock() {
 		detail::ProcessBridge::BlockImportsCommit(false);
 
 		/* try to load the actual block and clear the imports-reference (to allow garbage collection to occur) */
-		bool loading = detail::ProcessBridge::LoadBlock(writer.output(), ProcessId);
+		bool loading = detail::ProcessBridge::LoadBlock(writer.output(), global::ProcId);
 		detail::ProcessBridge::BlockImportsCommit(true);
 		if (loading)
 			return;
 	}
-	host::Fatal(u8"Failed initiating loading of block for [", ProcessId, u8']');
+	host::Fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
 }
 bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
 	*	the loading-state, as it will not be affected by a process of a different id) */
-	if (process != ProcessId)
+	if (process != global::ProcId)
 		return false;
 	if (!succeeded)
-		host::Fatal(u8"Failed loading core for [", ProcessId, u8']');
-	host::Debug(u8"Core loading succeeded for [", ProcessId, u8']');
+		host::Fatal(u8"Failed loading core for [", global::ProcId, u8']');
+	host::Debug(u8"Core loading succeeded for [", global::ProcId, u8']');
 
 	/* setup the core-function mappings */
 	if (!detail::ProcessBridge::SetupCoreMap())
@@ -123,11 +125,11 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
 	*	the loading-state, as it will not be affected by a process of a different id) */
-	if (process != ProcessId)
+	if (process != global::ProcId)
 		return false;
 	if (!succeeded)
-		host::Fatal(u8"Failed loading block for [", ProcessId, u8']');
-	host::Debug(u8"Block loading succeeded for [", ProcessId, u8']');
+		host::Fatal(u8"Failed loading block for [", global::ProcId, u8']');
+	host::Debug(u8"Block loading succeeded for [", global::ProcId, u8']');
 
 	/* register all exports and update the loading-state */
 	detail::MappingAccess::BlockLoaded(pExports);
@@ -140,18 +142,26 @@ bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 	return true;
 }
 void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& name) {
+	if (pBindingsClosed)
+		host::Fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
 	pBindings[mod].push_back({ name, 0 });
 }
 
+const std::u8string& env::Process::blockImportModule() const {
+	return pBlockImportName;
+}
+void env::Process::bindExport(std::u8string_view name) {
+	fAddBinding(pBlockImportName, std::u8string{ name });
+}
 void env::Process::startNewBlock() {
 	fLoadBlock();
 }
 void env::Process::release() {
-	host::Log(u8"Destroying process with id [", ProcessId, u8"]...");
+	host::Log(u8"Destroying process with id [", global::ProcId, u8"]...");
 
 	/* reset all mapped core-functions and release the current instance */
 	detail::ProcessBridge::ResetCoreMap();
-	ProcessInstance = 0;
+	global::Instance = 0;
 	delete this;
 	host::Log(u8"Process destroyed");
 }
