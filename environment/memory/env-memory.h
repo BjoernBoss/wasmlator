@@ -6,9 +6,9 @@
 
 namespace env {
 	namespace detail {
-		static constexpr uint32_t InitAllocBytes = 64 * env::PageSize;
+		static constexpr uint32_t InitAllocPages = 64;
 		static constexpr uint32_t InternalCaches = 3;
-		static constexpr uint32_t MinGrowthBytes = 32 * env::PageSize;
+		static constexpr uint32_t MinGrowthPages = 32;
 		static constexpr uint32_t ShiftMemoryFactor = 3;
 
 		struct MemoryCache {
@@ -38,7 +38,6 @@ namespace env {
 	}
 
 	class Memory {
-		static_assert(detail::PhysPageSize >= env::PageSize && (detail::PhysPageSize % env::PageSize) == 0, "The physical page size must a multiple of virtual page size");
 		friend struct detail::MemoryBridge;
 		friend struct detail::MemoryAccess;
 	private:
@@ -50,6 +49,7 @@ namespace env {
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
 		uint32_t pCodeCache = 0;
+		uint32_t pPageSize = 0;
 
 	public:
 		Memory() = default;
@@ -62,6 +62,7 @@ namespace env {
 		detail::MemoryLookup fLookup(env::guest_t address, uint32_t size, uint32_t usage) const;
 
 	private:
+		uint32_t fPageOffset(env::guest_t address) const;
 		uint32_t fExpandPhysical(uint32_t size, uint32_t growth) const;
 		void fMovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) const;
 		void fFlushCaches() const;

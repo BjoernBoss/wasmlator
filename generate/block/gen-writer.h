@@ -1,17 +1,17 @@
 #pragma once
 
 #include "../gen-common.h"
+#include "address-writer.h"
 #include "gen-superblock.h"
 #include "../memory/memory-writer.h"
 #include "../context/context-writer.h"
-#include "../address/address-writer.h"
 #include "../interact/interact-writer.h"
 
 namespace gen {
-	class Translator;
+	class Block;
 
 	class Writer {
-		friend class gen::Translator;
+		friend class gen::Block;
 	private:
 		wasm::Sink& pSink;
 		detail::SuperBlock& pSuperBlock;

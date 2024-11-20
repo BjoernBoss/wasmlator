@@ -1,19 +1,20 @@
 #pragma once
 
 #include "../gen-common.h"
-#include "../translator/gen-writer.h"
-#include "../translator/gen-superblock.h"
+#include "gen-writer.h"
+#include "gen-superblock.h"
+#include "gen-address.h"
 #include "../memory/memory-builder.h"
 #include "../mapping/mapping-builder.h"
 #include "../context/context-builder.h"
 #include "../core/core-builder.h"
-#include "../address/gen-address.h"
 
 namespace gen {
 	/* env::Process instance must be created
 	*	Note: blocks must not be flushed mid block-creation */
-	class Translator {
+	class Block {
 	private:
+		gen::Translator* pTranslator = 0;
 		detail::Addresses pAddresses;
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
@@ -22,9 +23,9 @@ namespace gen {
 		detail::ContextShared pContextShared;
 
 	public:
-		Translator(wasm::Module& mod);
-		Translator(gen::Translator&&) = delete;
-		Translator(const gen::Translator&) = delete;
+		Block(wasm::Module& mod, gen::Translator* translator);
+		Block(gen::Block&&) = delete;
+		Block(const gen::Block&) = delete;
 
 	private:
 		void fProcess(const detail::OpenAddress& next);

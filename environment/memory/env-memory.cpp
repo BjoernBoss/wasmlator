@@ -37,7 +37,7 @@ env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, uint32_t si
 	/* collect all previous and upcoming regions of the same usage */
 	detail::MemoryLookup lookup = detail::MemoryLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
 	for (size_t i = index; i > 0; --i) {
-		if (pVirtual[i - 1].address + pVirtual[i - 1].size != pVirtual[i].address)
+		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) != pVirtual[i].address)
 			break;
 		if ((pVirtual[i - 1].usage & usage) != usage)
 			break;
@@ -57,9 +57,12 @@ env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, uint32_t si
 	return lookup;
 }
 
+uint32_t env::Memory::fPageOffset(env::guest_t address) const {
+	return uint32_t(address & uint64_t(pPageSize - 1));
+}
 uint32_t env::Memory::fExpandPhysical(uint32_t size, uint32_t growth) const {
 	/* allocate a little bit more to reduce the number of growings */
-	uint32_t pages = detail::PhysPageCount(std::max<uint32_t>(detail::MinGrowthBytes, size + growth));
+	uint32_t pages = detail::PhysPageCount(std::max<uint32_t>(detail::MinGrowthPages * pPageSize, size + growth));
 	if (detail::MemoryBridge::ExpandPhysical(pages))
 		return uint32_t(pages * detail::PhysPageSize);
 	size = detail::PhysPageCount(size);
@@ -86,7 +89,7 @@ void env::Memory::fCheckConsistency() const {
 
 		if (fLookupPhysical(pPhysical[i].physical) != i)
 			host::Fatal(u8"Physical slot [", i, u8"] lookup failed");
-		if (pPhysical[i].size == 0 || env::PageOffset(pPhysical[i].size) != 0)
+		if (pPhysical[i].size == 0 || fPageOffset(pPhysical[i].size) != 0)
 			host::Fatal(u8"Physical slot [", i, u8"] size is invalid");
 
 		if ((i > 0 ? (pPhysical[i - 1].physical + pPhysical[i - 1].size) : 0) != pPhysical[i].physical)
@@ -106,14 +109,14 @@ void env::Memory::fCheckConsistency() const {
 			pVirtual[i].physical + pVirtual[i].size > pPhysical[phys].physical + pPhysical[phys].size)
 			host::Fatal(u8"Virtual slot [", i, u8"] physical is invalid");
 
-		if (pVirtual[i].size == 0 || env::PageOffset(pVirtual[i].size) != 0)
+		if (pVirtual[i].size == 0 || fPageOffset(pVirtual[i].size) != 0)
 			host::Fatal(u8"Virtual slot [", i, u8"] size is invalid");
 		if (i == 0)
 			continue;
 
-		if (pVirtual[i - 1].address + pVirtual[i - 1].size > pVirtual[i].address)
+		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) > pVirtual[i].address)
 			host::Fatal(u8"Virtual slot [", i, u8"] address is invalid");
-		if (pVirtual[i - 1].address + pVirtual[i - 1].size < pVirtual[i].address)
+		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) < pVirtual[i].address)
 			continue;
 
 		if (pVirtual[i - 1].physical + pVirtual[i - 1].size != pVirtual[i].physical)
@@ -456,7 +459,7 @@ bool env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 		return false;
 
 	/* check if a previous or next block exists */
-	bool hasPrev = (virt > 0 && pVirtual[virt - 1].address + pVirtual[virt - 1].size == entry.address);
+	bool hasPrev = (virt > 0 && pVirtual[virt - 1].address + uint64_t(pVirtual[virt - 1].size) == entry.address);
 	bool hasNext = (virt + 1 < pVirtual.size() && entry.address + entry.size == pVirtual[virt + 1].address);
 
 	/* check if the regions align perfectly */
@@ -541,7 +544,7 @@ void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	}
 
 	/* check if the previous block already matches the type */
-	else if (virt > 0 && pVirtual[virt - 1].address + pVirtual[virt - 1].size == address && pVirtual[virt - 1].usage == usage)
+	else if (virt > 0 && pVirtual[virt - 1].address + uint64_t(pVirtual[virt - 1].size) == address && pVirtual[virt - 1].usage == usage)
 		hasValue = true;
 
 	/* convert all remaining blocks until the end has been reached */
@@ -645,7 +648,7 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	));
 
 	/* check if the address and size are aligned properly and validate the usage */
-	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
 		host::Fatal(u8"Mapping requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
 		host::Fatal(u8"Memory-usage must only consist of read/write/execute usage");
@@ -735,7 +738,7 @@ void env::Memory::munmap(env::guest_t address, uint32_t size) {
 	host::Debug(str::u8::Format(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
 
 	/* check if the address and size are aligned properly */
-	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
 		host::Fatal(u8"Unmapping requires address and size to be page-aligned");
 
 	/* check if the given start is valid and lies within a mapped region */
@@ -770,7 +773,7 @@ void env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) 
 	));
 
 	/* check if the address and size are aligned properly and validate the usage */
-	if (env::PageOffset(address) != 0 || env::PageOffset(size) != 0)
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
 		host::Fatal(u8"Changing requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
 		host::Fatal(u8"Memory-usage must only consist of read/write/execute usage");

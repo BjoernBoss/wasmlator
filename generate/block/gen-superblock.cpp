@@ -279,7 +279,7 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 
 			/* mark the loop as now being entered in a valid fashion (no need to ensure this is added
 			*	immediately after the loop-header, as they will both have the same first-address, and
-			*	therefore it will be executed before any specification-generated code will be executed) */
+			*	therefore it will be executed before any translator-generated code will be executed) */
 			sink[I::U32::Const(1)];
 			sink[I::Local::Set(target.cfg)];
 

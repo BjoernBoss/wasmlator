@@ -5,7 +5,7 @@
 
 void StartupProcess() {
 	host::Log(u8"Main: Application startup entered");
-	env::Process::Create(rv64::Specification::New(0x1234));
+	env::Process::Create(rv64::System::New(0x1234));
 
 	host::Log(u8"Main: Application startup exited");
 }

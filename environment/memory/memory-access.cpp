@@ -1,19 +1,25 @@
 #include "../env-process.h"
 
-uintptr_t env::detail::MemoryAccess::Configure(uint32_t initialPageCount) {
+uintptr_t env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();
-	uint32_t caches = env::Instance()->specification().memoryCaches();
+	uint32_t caches = env::Instance()->system().memoryCaches();
+	self.pPageSize = env::Instance()->system().pageSize();
+
+	/* ensure the page-size is valid */
+	if (detail::PhysPageSize < self.pPageSize || (detail::PhysPageSize % self.pPageSize) != 0)
+		host::Fatal(u8"The physical page size [", detail::PhysPageSize, u8"] must a multiple of virtual page size [", self.pPageSize, u8']');
 
 	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up */
 	self.pReadCache = caches + 0;
 	self.pWriteCache = caches + 1;
 	self.pCodeCache = caches + 2;
 
-	/* setup the physical mapping */
+	/* setup the initial physical page-count and physical mapping */
+	initialPageCount = detail::PhysPageCount(uint64_t(detail::InitAllocPages * self.pPageSize));
 	self.pPhysical.push_back(detail::MemoryPhysical{ 0, uint32_t(detail::PhysPageSize * initialPageCount), false });
 
 	/* setup the caches */
-	self.pCaches.resize(caches + detail::InternalCaches);
+	self.pCaches.resize(size_t(caches) + detail::InternalCaches);
 
 	/* return the highest accessed address */
 	return uintptr_t(self.pCaches.data() + self.pCaches.size());

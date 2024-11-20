@@ -1,7 +1,5 @@
 #include "env-process.h"
 
-#include <wasgen/wasm.h>
-
 static env::Process* ProcessInstance = 0;
 static uint32_t ProcessId = 0;
 
@@ -9,17 +7,16 @@ env::Process* env::Instance() {
 	return ProcessInstance;
 }
 
-env::Process::Process(std::unique_ptr<sys::Specification>&& specification) : pSpecification{ std::move(specification) } {}
+env::Process::Process(std::unique_ptr<env::System>&& system) : pSystem{ std::move(system) } {}
 
-void env::Process::Create(std::unique_ptr<sys::Specification>&& specification) {
+void env::Process::Create(std::unique_ptr<env::System>&& system) {
 	/* try to setup the process */
 	host::Log(u8"Creating new process...");
 	if (ProcessInstance != 0)
 		host::Fatal(u8"Process creation failed as only one process can exist at a time");
-	ProcessInstance = new env::Process{ std::move(specification) };
+	ProcessInstance = new env::Process{ std::move(system) };
 
 	/* initialize the components */
-	ProcessInstance->pPhysicalPages = detail::PhysPageCount(env::detail::InitAllocBytes);
 	uintptr_t endOfMemory = 0;
 	endOfMemory = std::max(endOfMemory, detail::ContextAccess::Configure());
 	endOfMemory = std::max(endOfMemory, detail::MappingAccess::Configure());
@@ -41,7 +38,7 @@ void env::Process::fLoadCore() {
 	try {
 		/* setup the core module to be loaded */
 		wasm::Module mod{ &writer };
-		pSpecification->setupCore(mod);
+		pSystem->setupCore(mod);
 	}
 	catch (const wasm::Exception& e) {
 		host::Fatal(u8"WASM exception occurred while creating the core module: ", e.what());
@@ -65,7 +62,7 @@ void env::Process::fLoadBlock() {
 	try {
 		/* setup the block module to be loaded */
 		wasm::Module mod{ &writer };
-		pExports = pSpecification->setupBlock(mod);
+		pExports = pSystem->setupBlock(mod);
 	}
 	catch (const wasm::Exception& e) {
 		host::Fatal(u8"WASM exception occurred while creating the block module: ", e.what());
@@ -117,9 +114,9 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	detail::InteractAccess::CoreLoaded();
 	pState = State::coreLoaded;
 
-	/* notify the the specification about the loaded core (do not perform
+	/* notify the the system about the loaded core (do not perform
 	*	any other operations, as the process might have be destroyed) */
-	pSpecification->coreLoaded();
+	pSystem->coreLoaded();
 	return true;
 
 }
@@ -137,9 +134,9 @@ bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 	pState = State::coreLoaded;
 	pExports.clear();
 
-	/* notify the the specification about the loaded core (do not perform
+	/* notify the the system about the loaded core (do not perform
 	*	any other operations, as the process might have be destroyed) */
-	pSpecification->blockLoaded();
+	pSystem->blockLoaded();
 	return true;
 }
 void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& name) {
@@ -159,11 +156,11 @@ void env::Process::release() {
 	host::Log(u8"Process destroyed");
 }
 
-const sys::Specification& env::Process::specification() const {
-	return *pSpecification.get();
+const env::System& env::Process::system() const {
+	return *pSystem.get();
 }
-sys::Specification& env::Process::specification() {
-	return *pSpecification.get();
+env::System& env::Process::system() {
+	return *pSystem.get();
 }
 const env::Context& env::Process::context() const {
 	return pContext;

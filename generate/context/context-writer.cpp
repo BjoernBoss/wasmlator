@@ -31,7 +31,7 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 		break;
 	}
 
-	uint32_t size = env::detail::ContextAccess::ContextSize();
+	uint32_t size = uint32_t(env::detail::ContextAccess::ContextSize());
 	if (offset > size)
 		host::Fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }

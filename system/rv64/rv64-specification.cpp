@@ -3,28 +3,30 @@
 #include "rv64-print.h"
 #include "../../environment/env-process.h"
 #include "../../generate/core/gen-core.h"
-#include "../../generate/translator/gen-translator.h"
+#include "../../generate/block/gen-block.h"
 
-rv64::Specification::Specification() : sys::Specification{ 4, 4, sizeof(rv64::Context) }{}
+rv64::System::System() : env::System{ 0x400, 4, sizeof(rv64::Context) } {
+	pTranslator = rv64::Translator::New();
+}
 
-std::unique_ptr<sys::Specification> rv64::Specification::New(env::guest_t startup) {
-	std::unique_ptr<rv64::Specification> spec = std::unique_ptr<rv64::Specification>{ new rv64::Specification{} };
+std::unique_ptr<env::System> rv64::System::New(env::guest_t startup) {
+	std::unique_ptr<rv64::System> spec = std::unique_ptr<rv64::System>{ new rv64::System{} };
 	spec->pNextAddress = startup;
 	return spec;
 }
 
-void rv64::Specification::setupCore(wasm::Module& mod) {
+void rv64::System::setupCore(wasm::Module& mod) {
 	gen::Core core{ mod };
 }
-std::vector<env::BlockExport> rv64::Specification::setupBlock(wasm::Module& mod) {
-	gen::Translator translator{ mod };
+std::vector<env::BlockExport> rv64::System::setupBlock(wasm::Module& mod) {
+	gen::Block translator{ mod, pTranslator.get() };
 
 	/* translate the next requested address */
 	translator.run(pNextAddress);
 
 	return translator.close();
 }
-void rv64::Specification::coreLoaded() {
+void rv64::System::coreLoaded() {
 	const uint8_t buffer[] = {
 		/* addi a0, a0, 12 */
 		0x13, 0x05, 0xc5, 0x00,
@@ -34,7 +36,7 @@ void rv64::Specification::coreLoaded() {
 	};
 
 	/* setup test-memory */
-	env::Instance()->memory().mmap(0x0000, 8 * env::PageSize, env::MemoryUsage::All);
+	env::Instance()->memory().mmap(0x0000, 0x8000, env::MemoryUsage::All);
 	env::Instance()->memory().mwrite(pNextAddress, buffer, sizeof(buffer), 0);
 
 	/* initialize the context */
@@ -43,7 +45,7 @@ void rv64::Specification::coreLoaded() {
 	/* request the translation of the first block */
 	env::Instance()->startNewBlock();
 }
-void rv64::Specification::blockLoaded() {
+void rv64::System::blockLoaded() {
 	/* start execution of the next process-address */
 	try {
 		env::Instance()->mapping().execute(env::Instance()->context().get<rv64::Context>().pc);
@@ -58,13 +60,20 @@ void rv64::Specification::blockLoaded() {
 	}
 }
 
-void rv64::Specification::translationStarted() {
+
+rv64::Translator::Translator() : gen::Translator{ 4 } {}
+
+std::unique_ptr<gen::Translator> rv64::Translator::New() {
+	return std::unique_ptr<gen::Translator>{ new rv64::Translator{} };
+}
+
+void rv64::Translator::started(const gen::Writer& writer) {
 	pDecoded.clear();
 }
-void rv64::Specification::translationCompleted() {
+void rv64::Translator::completed(const gen::Writer& writer) {
 	pDecoded.clear();
 }
-gen::Instruction rv64::Specification::fetchInstruction(env::guest_t address) {
+gen::Instruction  rv64::Translator::fetch(env::guest_t address) {
 	/* check that the address is 4-byte aligned */
 	if ((address & 0x03) != 0)
 		return gen::Instruction{};
@@ -103,4 +112,6 @@ gen::Instruction rv64::Specification::fetchInstruction(env::guest_t address) {
 	/* construct the output-instruction format */
 	return gen::Instruction{ type, target, 4, pDecoded.size() - 1 };
 }
-void rv64::Specification::produceInstructions(const gen::Writer& writer, const gen::Instruction* data, size_t count) {}
+void rv64::Translator::produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) {
+
+}

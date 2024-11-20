@@ -7,11 +7,9 @@
 #include "interact/env-interact.h"
 #include "process/process-bridge.h"
 #include "process/process-access.h"
-#include "../system/sys-specification.h"
 
 namespace env {
-	/*
-	*	Note: many operations on a process must first be called after the core has been loaded, as they might internally
+	/* Many operations on a process must first be called after the core has been loaded, as they might internally
 	*		interact with the core, which will otherwise result in a null-function execution within the glue-module
 	*	Note: must only be destroyed form within coreLoaded/blockLoaded or the main startup */
 	env::Process* Instance();
@@ -32,7 +30,7 @@ namespace env {
 		};
 
 	private:
-		std::unique_ptr<sys::Specification> pSpecification;
+		std::unique_ptr<env::System> pSystem;
 		std::vector<env::BlockExport> pExports;
 		std::unordered_map<std::u8string, std::vector<Binding>> pBindings;
 		env::Context pContext;
@@ -44,13 +42,13 @@ namespace env {
 		State pState = State::none;
 
 	private:
-		Process(std::unique_ptr<sys::Specification>&& specification);
+		Process(std::unique_ptr<env::System>&& system);
 		Process(env::Process&&) = delete;
 		Process(const env::Process&) = delete;
 		~Process() = default;
 
 	public:
-		static void Create(std::unique_ptr<sys::Specification>&& specification);
+		static void Create(std::unique_ptr<env::System>&& system);
 
 	private:
 		void fLoadCore();
@@ -64,8 +62,8 @@ namespace env {
 		void release();
 
 	public:
-		const sys::Specification& specification() const;
-		sys::Specification& specification();
+		const env::System& system() const;
+		env::System& system();
 		const env::Context& context() const;
 		env::Context& context();
 		const env::Memory& memory() const;

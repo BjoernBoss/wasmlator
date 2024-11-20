@@ -1,7 +1,6 @@
-#include "gen-translator.h"
-#include "../environment/env-process.h"
+#include "gen-block.h"
 
-gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
+gen::Block::Block(wasm::Module& mod, gen::Translator* translator) : pAddresses{ mod, translator->maxDepth() }, pTranslator{ translator } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;
@@ -21,11 +20,15 @@ gen::Translator::Translator(wasm::Module& mod) : pAddresses{ mod } {
 	pAddresses.setup(blockPrototype);
 }
 
-void gen::Translator::fProcess(const detail::OpenAddress& next) {
+void gen::Block::fProcess(const detail::OpenAddress& next) {
 	detail::SuperBlock block{ pContextShared };
 
+	/* setup the actual sink to the super-block and instruction-writer */
+	wasm::Sink sink{ next.function };
+	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
+
 	/* notify the interface about the newly starting block */
-	env::Instance()->specification().translationStarted();
+	pTranslator->started(writer);
 
 	/* construct the current super-block */
 	env::guest_t address = next.address;
@@ -33,7 +36,7 @@ void gen::Translator::fProcess(const detail::OpenAddress& next) {
 		/* iterate over the instruction stream and look for the end of the current strand */
 		gen::Instruction inst{};
 		do {
-			inst = env::Instance()->specification().fetchInstruction(address);
+			inst = pTranslator->fetch(address);
 		} while (block.push(inst, address));
 
 		/* check if the overall super-block can be continued */
@@ -42,27 +45,23 @@ void gen::Translator::fProcess(const detail::OpenAddress& next) {
 	/* setup the ranges of the super-block */
 	block.setupRanges();
 
-	/* setup the actual sink to the super-block and instruction-writer */
-	wasm::Sink sink{ next.function };
-	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
-
 	/* iterate over the chunks of the super-block and produce them */
 	while (true) {
 		detail::InstChunk chunk = block.next(sink);
 		if (chunk.count == 0)
 			break;
-		env::Instance()->specification().produceInstructions(writer, chunk.inst, chunk.count);
+		pTranslator->produce(writer, chunk.inst, chunk.count);
 	}
 
 	/* notify the interface about the completed block */
-	env::Instance()->specification().translationCompleted();
+	pTranslator->completed(writer);
 }
 
-void gen::Translator::run(env::guest_t address) {
+void gen::Block::run(env::guest_t address) {
 	pAddresses.pushRoot(address);
 	while (!pAddresses.empty())
 		fProcess(pAddresses.start());
 }
-std::vector<env::BlockExport> gen::Translator::close() {
+std::vector<env::BlockExport> gen::Block::close() {
 	return pAddresses.close(pMapping);
 }

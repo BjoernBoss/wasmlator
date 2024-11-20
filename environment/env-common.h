@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ustring/ustring.h>
+#include <wasgen/wasm.h>
 #include <cinttypes>
 #include <type_traits>
 #include <functional>
@@ -35,20 +36,6 @@ namespace env {
 	}
 
 	using guest_t = uint64_t;
-
-	static constexpr uint64_t PageSize = 0x1000;
-	static constexpr uint32_t PageOffset(uint64_t address) {
-		return uint32_t(address & (env::PageSize - 1));
-	}
-	static constexpr uint64_t VirtPageIndex(uint64_t address) {
-		return (address / env::PageSize);
-	}
-	static constexpr uint32_t VirtPageCount(uint64_t bytes) {
-		return uint32_t((bytes + env::PageSize - 1) / env::PageSize);
-	}
-	static constexpr uint64_t VirtPageAligned(uint64_t bytes) {
-		return env::PageSize * ((bytes + env::PageSize - 1) / env::PageSize);
-	}
 
 	/* memory page usage flags */
 	struct MemoryUsage {
@@ -87,5 +74,37 @@ namespace env {
 	/* thrown whenever an undecodable instruction is to be executed */
 	struct NotDecodable {
 		env::guest_t address = 0;
+	};
+
+	/* system interface is used to setup and configure the environment accordingly and interact with it
+	*	Note: wasm should only be generated within setupCore/setupBlock, as they are wrapped to catch any potential wasm-issues */
+	class System {
+	private:
+		uint32_t pPageSize = 0;
+		uint32_t pMemoryCaches = 0;
+		uint32_t pContextSize = 0;
+
+	protected:
+		constexpr System(uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize) : pPageSize{ pageSize }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {}
+
+	public:
+		virtual ~System() = default;
+
+	public:
+		virtual void setupCore(wasm::Module& mod) = 0;
+		virtual std::vector<env::BlockExport> setupBlock(wasm::Module& mod) = 0;
+		virtual void coreLoaded() = 0;
+		virtual void blockLoaded() = 0;
+
+	public:
+		constexpr uint32_t pageSize() const {
+			return pPageSize;
+		}
+		constexpr uint32_t memoryCaches() const {
+			return pMemoryCaches;
+		}
+		constexpr uint32_t contextSize() const {
+			return pContextSize;
+		}
 	};
 }
