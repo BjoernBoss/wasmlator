@@ -1,19 +1,28 @@
 #include "../env-process.h"
 
 uintptr_t env::detail::MemoryAccess::Configure(uint32_t initialPageCount) {
-	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up */
-	env::Instance()->memory().pReadCache = env::Instance()->specification().memoryCaches() + 0;
-	env::Instance()->memory().pWriteCache = env::Instance()->specification().memoryCaches() + 1;
-	env::Instance()->memory().pCodeCache = env::Instance()->specification().memoryCaches() + 2;
+	env::Memory& self = env::Instance()->memory();
+	uint32_t caches = env::Instance()->specification().memoryCaches();
 
-	/* setup the mapper and return the highest accessed address used by the memory */
-	return env::Instance()->memory().pMapper.configure(initialPageCount, env::Instance()->specification().memoryCaches() + detail::InternalCaches);
+	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up */
+	self.pReadCache = caches + 0;
+	self.pWriteCache = caches + 1;
+	self.pCodeCache = caches + 2;
+
+	/* setup the physical mapping */
+	self.pPhysical.push_back(detail::MemoryPhysical{ 0, uint32_t(detail::PhysPageSize * initialPageCount), false });
+
+	/* setup the caches */
+	self.pCaches.resize(caches + detail::InternalCaches);
+
+	/* return the highest accessed address */
+	return uintptr_t(self.pCaches.data() + self.pCaches.size());
 }
 uintptr_t env::detail::MemoryAccess::CacheAddress() {
-	return uintptr_t(env::Instance()->memory().pMapper.pCaches.data());
+	return uintptr_t(env::Instance()->memory().pCaches.data());
 }
 size_t env::detail::MemoryAccess::CacheCount() {
-	return env::Instance()->memory().pMapper.pCaches.size();
+	return env::Instance()->memory().pCaches.size();
 }
 uint32_t env::detail::MemoryAccess::ReadCache() {
 	return env::Instance()->memory().pReadCache;

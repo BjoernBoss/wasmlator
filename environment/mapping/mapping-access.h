@@ -3,8 +3,6 @@
 #include "../env-common.h"
 
 namespace env::detail {
-	struct MappingCache;
-
 	struct MappingAccess {
 		static bool CheckLoadable(const std::vector<env::BlockExport>& exports);
 		static void BlockLoaded(const std::vector<env::BlockExport>& exports);

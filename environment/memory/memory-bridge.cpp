@@ -2,7 +2,7 @@
 #include "../../interface/interface.h"
 
 void env::detail::MemoryBridge::Lookup(uint64_t address, uint32_t size, uint32_t usage, uint32_t cache) {
-	env::Instance()->memory().pMapper.lookup(address, size, usage, cache);
+	env::Instance()->memory().fCacheLookup(address, size, usage, cache);
 }
 
 bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
