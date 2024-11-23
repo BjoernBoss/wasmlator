@@ -5,7 +5,7 @@
 namespace env::detail {
 	struct MemoryBridge {
 		/* exports */
-		static void Lookup(uint64_t address, uint32_t size, uint32_t usage, uint32_t cache);
+		static void Lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache);
 
 		/* imports */
 		static bool ExpandPhysical(uint32_t pages);

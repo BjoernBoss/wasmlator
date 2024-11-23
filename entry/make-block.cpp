@@ -11,7 +11,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
 		NullTranslator _null;
-		gen::Block _block{ mod, &_null };
+		gen::Block _block{ mod, &_null, 2 };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());

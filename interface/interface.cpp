@@ -32,8 +32,8 @@ void main_block_loaded(uint32_t process, uint32_t succeeded) {
 	}
 }
 
-void main_terminate(int32_t code) {
-	env::detail::ContextBridge::Terminate(code);
+void main_terminate(int32_t code, uint64_t address) {
+	env::detail::ContextBridge::Terminate(code, address);
 }
 void main_not_decodable(uint64_t address) {
 	env::detail::ContextBridge::NotDecodable(address);
@@ -46,8 +46,8 @@ uint32_t main_resolve(uint64_t address) {
 	return env::detail::MappingBridge::Resolve(address);
 }
 
-void main_lookup(uint64_t address, uint32_t size, uint32_t usage, uint32_t cache) {
-	env::detail::MemoryBridge::Lookup(address, size, usage, cache);
+void main_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache) {
+	env::detail::MemoryBridge::Lookup(address, access, size, usage, cache);
 }
 
 void main_invoke_void(uint32_t index) {

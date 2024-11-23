@@ -6,7 +6,7 @@ namespace I = wasm::inst;
 
 void gen::detail::ContextBuilder::setupCoreImports(wasm::Module& mod) const {
 	/* import the main terminate method and pass it through as binding to the blocks */
-	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 } }, {});
+	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, {});
 	mod.function(u8"main_terminate", prototype, wasm::Transport{ u8"main" });
 	env::detail::ProcessAccess::AddCoreBinding(u8"ctx", u8"main_terminate");
 
@@ -24,7 +24,7 @@ void gen::detail::ContextBuilder::setupBlockImports(wasm::Module& mod, const was
 	state.memory = memory;
 
 	/* add the function-import for the terminate function */
-	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 } }, {});
+	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, {});
 	state.terminate = mod.function(u8"main_terminate", prototype, wasm::Import{ u8"ctx" });
 
 	/* add the function-import for the not decodable function */

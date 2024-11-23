@@ -51,29 +51,6 @@ namespace env {
 		env::guest_t address = 0;
 	};
 
-	/* thrown the guest terminates */
-	struct Termianted {
-		int32_t code = 0;
-	};
-
-	/* thrown on memory exceptions (both when accessed by main or guest) */
-	struct MemoryFault {
-		env::guest_t address = 0;
-		uint32_t size = 0;
-		uint32_t usedUsage = 0;
-		uint32_t actualUsage = 0;
-	};
-
-	/* thrown whenever an unknown address is to be executed */
-	struct Translate {
-		env::guest_t address = 0;
-	};
-
-	/* thrown whenever an undecodable instruction is to be executed */
-	struct NotDecodable {
-		env::guest_t address = 0;
-	};
-
 	/* system interface is used to setup and configure the environment accordingly and interact with it
 	*	Note: wasm should only be generated within setupCore/setupBlock, as they are wrapped to catch any potential wasm-issues */
 	class System {
@@ -111,5 +88,48 @@ namespace env {
 		constexpr uint32_t contextSize() const {
 			return pContextSize;
 		}
+	};
+
+	/* base of exceptions thrown by the execution environment */
+	struct Exception {
+	public:
+		env::guest_t address = 0;
+
+	protected:
+		Exception(env::guest_t address) : address{ address } {}
+	};
+
+	/* thrown the guest terminates */
+	struct Terminated : public env::Exception {
+	public:
+		int32_t code = 0;
+
+	public:
+		Terminated(env::guest_t address, int32_t code) : env::Exception{ address }, code{ code } {}
+	};
+
+	/* thrown on memory exceptions (both when accessed by main or guest) */
+	struct MemoryFault : public env::Exception {
+	public:
+		env::guest_t accessed = 0;
+		uint32_t size = 0;
+		uint32_t usedUsage = 0;
+		uint32_t actualUsage = 0;
+
+	public:
+		MemoryFault(env::guest_t address, env::guest_t accessed, uint32_t size, uint32_t usedUsage, uint32_t actualUsage) :
+			env::Exception{ address }, accessed{ accessed }, size{ size }, usedUsage{ usedUsage }, actualUsage{ actualUsage } {}
+	};
+
+	/* thrown whenever an unknown address is to be executed */
+	struct Translate : public env::Exception {
+	public:
+		Translate(env::guest_t address) : env::Exception{ address }{}
+	};
+
+	/* thrown whenever an undecodable instruction is to be executed */
+	struct NotDecodable : public env::Exception {
+	public:
+		NotDecodable(env::guest_t address) : env::Exception{ address }{}
 	};
 }

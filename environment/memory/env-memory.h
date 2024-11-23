@@ -11,6 +11,8 @@ namespace env {
 		static constexpr uint32_t MinGrowthPages = 32;
 		static constexpr uint32_t ShiftMemoryFactor = 3;
 
+		static constexpr env::guest_t MainAccessAddress = std::numeric_limits<env::guest_t>::max();
+
 		struct MemoryCache {
 			env::guest_t address{ 0 };
 			detail::physical_t physical{ 0 };
@@ -59,7 +61,7 @@ namespace env {
 	private:
 		size_t fLookupVirtual(env::guest_t address) const;
 		size_t fLookupPhysical(detail::physical_t physical) const;
-		detail::MemoryLookup fLookup(env::guest_t address, uint32_t size, uint32_t usage) const;
+		detail::MemoryLookup fLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage) const;
 
 	private:
 		uint32_t fPageOffset(env::guest_t address) const;
@@ -84,7 +86,7 @@ namespace env {
 		void fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage);
 
 	private:
-		void fCacheLookup(env::guest_t address, uint32_t size, uint32_t usage, uint32_t cache) const;
+		void fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const;
 		uint64_t fRead(env::guest_t address, uint32_t size) const;
 		void fWrite(env::guest_t address, uint32_t size, uint64_t value) const;
 		uint64_t fCode(env::guest_t address, uint32_t size) const;

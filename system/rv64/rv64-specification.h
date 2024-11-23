@@ -31,7 +31,7 @@ namespace rv64 {
 		wasm::Variable pTempI64;
 
 	private:
-		Translator();
+		Translator() = default;
 
 	public:
 		static std::unique_ptr<gen::Translator> New();

@@ -12,7 +12,7 @@ struct NullSystem final : public env::System {
 };
 
 struct NullTranslator final : public gen::Translator {
-	NullTranslator() : gen::Translator{ 2 } {}
+	NullTranslator() = default;
 	void started(const gen::Writer& writer) override {}
 	void completed(const gen::Writer& writer) override {}
 	gen::Instruction fetch(env::guest_t address) override { return {}; }

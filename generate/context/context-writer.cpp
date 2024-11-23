@@ -36,7 +36,8 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 		host::Fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }
 
-void gen::detail::ContextWriter::makeTerminate() const {
+void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {
+	pSink[I::U32::Const(address)];
 	pSink[I::Call::Direct(pState.terminate)];
 }
 void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type) const {
@@ -91,10 +92,47 @@ void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type)
 		break;
 	}
 }
-void gen::detail::ContextWriter::makeWrite(const wasm::Variable& value, uint32_t offset, gen::MemoryType type) const {
+void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type) const {
 	fCheckRange(offset, type);
 
-	/* write the address and value to the stack */
+	wasm::Variable value;
+
+	/* fetch the variable to be used for caching */
+	switch (type) {
+	case gen::MemoryType::u8To32:
+	case gen::MemoryType::i8To32:
+	case gen::MemoryType::u16To32:
+	case gen::MemoryType::i16To32:
+	case gen::MemoryType::i32:
+		if (!pValuei32.valid())
+			pValuei32 = pSink.local(wasm::Type::i32, u8"_ctx_i32");
+		value = pValuei32;
+		break;
+	case gen::MemoryType::u8To64:
+	case gen::MemoryType::i8To64:
+	case gen::MemoryType::u16To64:
+	case gen::MemoryType::i16To64:
+	case gen::MemoryType::u32To64:
+	case gen::MemoryType::i32To64:
+	case gen::MemoryType::i64:
+		if (!pValuei64.valid())
+			pValuei64 = pSink.local(wasm::Type::i64, u8"_ctx_i64");
+		value = pValuei64;
+		break;
+	case gen::MemoryType::f32:
+		if (!pValuef32.valid())
+			pValuef32 = pSink.local(wasm::Type::f32, u8"_ctx_f32");
+		value = pValuef32;
+		break;
+	case gen::MemoryType::f64:
+		if (!pValuef64.valid())
+			pValuef64 = pSink.local(wasm::Type::f64, u8"_ctx_f64");
+		value = pValuef64;
+		break;
+	}
+
+	/* cache the value (as it must be placed after the address) and prepare the stack */
+	pSink[I::Local::Set(value)];
 	pSink[I::U32::Const(env::detail::ContextAccess::ContextAddress() + offset)];
 	pSink[I::Local::Get(value)];
 

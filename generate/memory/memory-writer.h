@@ -9,21 +9,25 @@ namespace gen::detail {
 	private:
 		const detail::MemoryState& pState;
 		wasm::Sink& pSink;
-		mutable wasm::Variable pTempAddress;
+		mutable wasm::Variable pAccess;
+		mutable wasm::Variable pValuei32;
+		mutable wasm::Variable pValuei64;
+		mutable wasm::Variable pValuef32;
+		mutable wasm::Variable pValuef64;
 
 	public:
 		MemoryWriter(const detail::MemoryState& state, wasm::Sink& sink);
 
 	private:
 		void fCheckCache(uint32_t cache) const;
-		void fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type) const;
-		void fMakeRead(uint32_t cache, gen::MemoryType type) const;
-		void fMakeCode(uint32_t cache, gen::MemoryType type) const;
-		void fMakeWrite(const wasm::Variable& value, uint32_t cache, gen::MemoryType type) const;
+		void fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type, env::guest_t address) const;
+		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
+		void fMakeCode(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
+		void fMakeWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
 
 	public:
-		void makeRead(uint32_t cacheIndex, gen::MemoryType type) const;
-		void makeCode(uint32_t cacheIndex, gen::MemoryType type) const;
-		void makeWrite(const wasm::Variable& value, uint32_t cacheIndex, gen::MemoryType type) const;
+		void makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
+		void makeCode(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
+		void makeWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
 	};
 }

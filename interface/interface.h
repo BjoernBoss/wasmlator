@@ -40,7 +40,7 @@ extern "C" {
 /* environment/context/context-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_terminate(int32_t code);
+	void main_terminate(int32_t code, uint64_t address);
 	void main_not_decodable(uint64_t address);
 	void main_not_reachable(uint64_t address);
 }
@@ -59,7 +59,7 @@ extern "C" {
 /* environment/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_lookup(uint64_t address, uint32_t size, uint32_t usage, uint32_t cache);
+	void main_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache);
 
 	/* imports */
 	void mem_write_to_physical(uint32_t dest, const uint8_t* source, uint32_t size);

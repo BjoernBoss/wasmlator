@@ -34,24 +34,27 @@ namespace gen {
 		/* check if the given jumpDirect/conditionalDirect instruction target can be locally referenced via a label */
 		const wasm::Target* hasTarget(const gen::Instruction& inst) const;
 
-		/* expects [i64] address on top of stack and writes value to stack */
-		void read(uint32_t cacheIndex, gen::MemoryType type) const;
+		/* expects [i64] address on top of stack and writes value to stack
+		*	Note: generated code may abort the control-flow */
+		void read(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const;
 
-		/* expects [i64] address on top of stack and writes value to stack */
-		void code(uint32_t cacheIndex, gen::MemoryType type) const;
+		/* expects [i64] address on top of stack and writes value to stack
+		*	Note: generated code may abort the control-flow */
+		void code(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const;
 
-		/* expects [i64] address on top of stack and value in variable */
-		void write(const wasm::Variable& value, uint32_t cacheIndex, gen::MemoryType type) const;
-
-		/* expects [i32] result-code on top of stack
-		*	Note: generated code will abort the control-flow */
-		void terminate() const;
+		/* expects [i64] address and value on top of stack
+		*	Note: generated code may abort the control-flow */
+		void write(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const;
 
 		/* writes value from context to stack */
 		void ctxRead(uint32_t offset, gen::MemoryType type) const;
 
-		/* writes variable to the context */
-		void ctxWrite(const wasm::Variable& value, uint32_t offset, gen::MemoryType type) const;
+		/* expectes value on top of stack and writes it to the context */
+		void ctxWrite(uint32_t offset, gen::MemoryType type) const;
+
+		/* expects [i32] result-code on top of stack
+		*	Note: generated code will abort the control-flow */
+		void terminate(const gen::Instruction& inst) const;
 
 		/* no expectations
 		*	Note: generated code may abort the control-flow */
@@ -62,13 +65,11 @@ namespace gen {
 		void call(const gen::Instruction& inst) const;
 
 		/* no expectations
-		*	Note: generated code will contain a tail-call
-		*	Note: generated code may abort the control-flow */
+		*	Note: generated code will contain a tail-call */
 		void jump(env::guest_t address) const;
 
 		/* expects guest target-address on top of stack
-		*	Note: generated code will contain a tail-call
-		*	Note: generated code may abort the control-flow */
+		*	Note: generated code will contain a tail-call */
 		void jump() const;
 
 		/* expects guest return-address on top of stack

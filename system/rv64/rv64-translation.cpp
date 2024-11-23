@@ -9,12 +9,12 @@ void rv64::detail::LoadRegister(uint8_t reg, const gen::Writer& writer) {
 	else
 		writer.ctxRead(reg * sizeof(uint64_t), gen::MemoryType::i64);
 }
-void rv64::detail::StoreRegister(uint8_t reg, const gen::Writer& writer, const wasm::Variable& tempI64) {
-	/* check if its the zero-register and ignore the operation, otherwise write the value to the temporary and out to the context */
-	if (reg != reg::Zero) {
-		writer.sink()[I::Local::Set(tempI64)];
-		writer.ctxWrite(tempI64, reg * sizeof(uint64_t), gen::MemoryType::i64);
-	}
+void rv64::detail::StoreRegister(uint8_t reg, const gen::Writer& writer) {
+	/* check if its the zero-register and ignore the operation */
+	if (reg != reg::Zero)
+		writer.ctxWrite(reg * sizeof(uint64_t), gen::MemoryType::i64);
+	else
+		writer.sink()[I::Drop()];
 }
 void rv64::detail::TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer, const wasm::Variable& tempI64) {
 	wasm::Sink& sink = writer.sink();
@@ -24,7 +24,7 @@ void rv64::detail::TranslateJAL(const gen::Instruction& gen, const rv64::Instruc
 		LoadRegister(reg::PC, writer);
 		sink[I::U64::Const(4)];
 		sink[I::U64::Add()];
-		StoreRegister(inst.dest, writer, tempI64);
+		StoreRegister(inst.dest, writer);
 	}
 
 	/* perform the operations on the pc */
@@ -34,7 +34,8 @@ void rv64::detail::TranslateJAL(const gen::Instruction& gen, const rv64::Instruc
 		LoadRegister(inst.src1, writer);
 	sink[I::I64::Const(inst.imm)];
 	sink[I::I64::Add()];
-	StoreRegister(reg::PC, writer, tempI64);
+	sink[I::Local::Tee(tempI64)];
+	StoreRegister(reg::PC, writer);
 
 	/* check if the indirect jump can be predicted somehow (based on the riscv specification) */
 	bool rdIsLink = (inst.dest == reg::X1 || inst.dest == reg::X5);
@@ -77,7 +78,7 @@ void rv64::Translate(const gen::Instruction& gen, const rv64::Instruction& inst,
 	case rv64::Opcode::load_upper_imm:
 		if (inst.dest != reg::Zero) {
 			sink[I::U64::Const(inst.imm)];
-			detail::StoreRegister(inst.dest, writer, tempI64);
+			detail::StoreRegister(inst.dest, writer);
 		}
 		break;
 	case rv64::Opcode::add_imm:
@@ -85,7 +86,7 @@ void rv64::Translate(const gen::Instruction& gen, const rv64::Instruction& inst,
 			detail::LoadRegister(inst.src1, writer);
 			sink[I::I64::Const(inst.imm)];
 			sink[I::I64::Add()];
-			detail::StoreRegister(inst.dest, writer, tempI64);
+			detail::StoreRegister(inst.dest, writer);
 		}
 		break;
 	case rv64::Opcode::jump_and_link_imm:

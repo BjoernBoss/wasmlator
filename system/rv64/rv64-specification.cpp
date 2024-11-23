@@ -17,7 +17,7 @@ void rv64::System::setupCore(wasm::Module& mod) {
 	gen::Core core{ mod };
 }
 std::vector<env::BlockExport> rv64::System::setupBlock(wasm::Module& mod) {
-	gen::Block translator{ mod, pTranslator.get() };
+	gen::Block translator{ mod, pTranslator.get(), 1 };
 
 	/* translate the next requested address */
 	translator.run(pNextAddress);
@@ -58,8 +58,6 @@ void rv64::System::blockLoaded() {
 	}
 }
 
-
-rv64::Translator::Translator() : gen::Translator{ 4 } {}
 
 std::unique_ptr<gen::Translator> rv64::Translator::New() {
 	return std::unique_ptr<gen::Translator>{ new rv64::Translator{} };

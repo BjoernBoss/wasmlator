@@ -14,7 +14,7 @@ namespace gen::detail {
 
 	/*
 	*	Core-Imports:
-	*		void main.main_lookup(i64 address, i32 size, i32 usage, i32 cache);
+	*		void main.main_lookup(i64 address, i64 access, i32 size, i32 usage, i32 cache);
 	*
 	*	Core-Exports to Main:
 	*		void mem_flush_caches();
@@ -27,14 +27,14 @@ namespace gen::detail {
 	*		i64 mem_code(i64 address, i32 size);
 	*
 	*	Core-Exports to Body:
-	*		i32 mem_lookup_read(i64 address, i32 size, i32 cache);
-	*		i32 mem_lookup_write(i64 address, i32 size, i32 cache);
-	*		i32 mem_lookup_code(i64 address, i32 size, i32 cache);
+	*		i32 mem_lookup_read(i64 address, i64 access, i32 size, i32 cache);
+	*		i32 mem_lookup_write(i64 address, i64 access, i32 size, i32 cache);
+	*		i32 mem_lookup_code(i64 address, i64 access, i32 size, i32 cache);
 	*
 	*	Body-Imports:
-	*		i32 mem.mem_lookup_read(i64 address, i32 size, i32 cache);
-	*		i32 mem.mem_lookup_write(i64 address, i32 size, i32 cache);
-	*		i32 mem.mem_lookup_code(i64 address, i32 size, i32 cache);
+	*		i32 mem.mem_lookup_read(i64 address, i64 access, i32 size, i32 cache);
+	*		i32 mem.mem_lookup_write(i64 address, i64 access, i32 size, i32 cache);
+	*		i32 mem.mem_lookup_code(i64 address, i64 access, i32 size, i32 cache);
 	*/
 
 	class MemoryBuilder {

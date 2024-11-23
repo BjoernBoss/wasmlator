@@ -15,12 +15,12 @@ namespace gen::detail {
 
 	/*
 	*	Core-Imports:
-	*		void main.main_terminate(i32 code);
+	*		void main.main_terminate(i32 code, i64 address);
 	*		void main.main_not_decodable(i64 address);
 	*		void main.main_unreachable(i64 address);
 	*
 	*	Body-Imports:
-	*		void ctx.main_terminate(i32 code);
+	*		void ctx.main_terminate(i32 code, i64 address);
 	*		void ctx.main_not_decodable(i64 address);
 	*		void ctx.main_unreachable(i64 address);
 	*/

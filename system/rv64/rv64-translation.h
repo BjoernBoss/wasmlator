@@ -10,7 +10,7 @@ namespace rv64 {
 		void LoadRegister(uint8_t reg, const gen::Writer& writer);
 
 		/* expects value on stack but leaves it as a copy in the temporary variable */
-		void StoreRegister(uint8_t reg, const gen::Writer& writer, const wasm::Variable& tempI64);
+		void StoreRegister(uint8_t reg, const gen::Writer& writer);
 
 		void TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer, const wasm::Variable& tempI64);
 	}

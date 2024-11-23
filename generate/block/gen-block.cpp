@@ -1,6 +1,6 @@
 #include "gen-block.h"
 
-gen::Block::Block(wasm::Module& mod, gen::Translator* translator) : pAddresses{ mod, translator->maxDepth() }, pTranslator{ translator } {
+gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDepth) : pAddresses{ mod, maxDepth }, pTranslator{ translator } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ContextBuilder _context;

@@ -58,11 +58,8 @@ namespace gen {
 
 	/* translator interface is used to perform the actual translation of super-blocks automatically */
 	class Translator {
-	private:
-		size_t pMaxDepth = 0;
-
 	protected:
-		constexpr Translator(size_t maxTranslationDepth) : pMaxDepth{ maxTranslationDepth } {}
+		constexpr Translator() = default;
 
 	public:
 		virtual ~Translator() = default;
@@ -79,10 +76,5 @@ namespace gen {
 
 		/* produce the wasm-code for the given chunk of fetched instructions (guaranteed to not be jumped into) */
 		virtual void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) = 0;
-
-	public:
-		constexpr size_t maxDepth() const {
-			return pMaxDepth;
-		}
 	};
 }

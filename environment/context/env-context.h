@@ -18,7 +18,7 @@ namespace env {
 
 	private:
 		void fCheck(uint32_t size) const;
-		void fTerminate(int32_t code);
+		void fTerminate(int32_t code, env::guest_t address);
 		void fNotDecodable(env::guest_t address);
 		void fNotReachable(env::guest_t address);
 

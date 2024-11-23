@@ -23,7 +23,7 @@ namespace gen {
 		detail::ContextShared pContextShared;
 
 	public:
-		Block(wasm::Module& mod, gen::Translator* translator);
+		Block(wasm::Module& mod, gen::Translator* translator, size_t maxDepth);
 		Block(gen::Block&&) = delete;
 		Block(const gen::Block&) = delete;
 
