@@ -12,9 +12,9 @@ namespace rv64 {
 		/* expects value on stack but leaves it as a copy in the temporary variable */
 		void StoreRegister(uint8_t reg, const gen::Writer& writer);
 
-		void TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer, const wasm::Variable& tempI64);
+		void TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer);
 	}
 
 	/* performs primitive macro-expansion-like translation */
-	void Translate(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer, const wasm::Variable& tempI64);
+	void Translate(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer);
 }

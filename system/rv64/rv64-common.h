@@ -140,7 +140,6 @@ namespace rv64 {
 			uint64_t x31 = 0;
 			uint64_t t6;
 		};
-		uint64_t pc = 0;
 	};
 
 	enum class Opcode : uint16_t {
@@ -194,19 +193,45 @@ namespace rv64 {
 		src1_src2
 	};
 
+	namespace reg {
+		static constexpr uint8_t Zero = 0;
+		static constexpr uint8_t X1 = 1;
+		static constexpr uint8_t X5 = 5;
+	}
+
 	struct Instruction {
+	public:
 		rv64::Opcode opcode = rv64::Opcode::_invalid;
 		rv64::Format format = Format::none;
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
 		int64_t imm = 0;
-	};
 
-	namespace reg {
-		static constexpr uint8_t Zero = 0;
-		static constexpr uint8_t X1 = 1;
-		static constexpr uint8_t X5 = 5;
-		static constexpr uint8_t PC = 32;
-	}
+	public:
+		constexpr bool isCall() const {
+			/* for jal-s with immediate, check for write to x1/x5 */
+			if (opcode == rv64::Opcode::jump_and_link_imm)
+				return (dest == reg::X1 || dest == reg::X5);
+
+			/* for jal-s with register, check for write to x1/x5 and
+			*	either no read from x1/x5 or identical read/write */
+			else if (opcode == rv64::Opcode::jump_and_link_reg) {
+				if (dest != reg::X1 && dest != reg::X5)
+					return false;
+				if (src1 != reg::X1 && src1 != reg::X5)
+					return true;
+				return (src1 == dest);
+			}
+			return false;
+		}
+		constexpr bool isRet() const {
+			/* for jal-s with register, check for no write to x1/x5 and read from x1/x5 */
+			if (opcode != rv64::Opcode::jump_and_link_reg)
+				return false;
+			if (dest == reg::X1 || dest == reg::X5)
+				return false;
+			return (src1 == reg::X1 || src1 == reg::X5);
+		}
+	};
 }

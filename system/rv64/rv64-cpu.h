@@ -11,7 +11,6 @@ namespace rv64 {
 	class Cpu final : public sys::Cpu {
 	private:
 		std::vector<rv64::Instruction> pDecoded;
-		wasm::Variable pTempI64;
 
 	private:
 		Cpu();

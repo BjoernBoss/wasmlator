@@ -16,62 +16,49 @@ void rv64::detail::StoreRegister(uint8_t reg, const gen::Writer& writer) {
 	else
 		writer.sink()[I::Drop()];
 }
-void rv64::detail::TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer, const wasm::Variable& tempI64) {
+void rv64::detail::TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer) {
 	wasm::Sink& sink = writer.sink();
 
 	/* write the next pc to the destination register */
 	if (inst.dest != reg::Zero) {
-		LoadRegister(reg::PC, writer);
-		sink[I::U64::Const(4)];
-		sink[I::U64::Add()];
+		sink[I::U64::Const(gen.address + gen.size)];
 		StoreRegister(inst.dest, writer);
 	}
 
-	/* perform the operations on the pc */
-	if (inst.opcode == rv64::Opcode::jump_and_link_imm)
-		LoadRegister(reg::PC, writer);
-	else
-		LoadRegister(inst.src1, writer);
-	sink[I::I64::Const(inst.imm)];
-	sink[I::I64::Add()];
-	sink[I::Local::Tee(tempI64)];
-	StoreRegister(reg::PC, writer);
-
-	/* check if the indirect jump can be predicted somehow (based on the riscv specification) */
-	bool rdIsLink = (inst.dest == reg::X1 || inst.dest == reg::X5);
+	/* check if its an indirect jump and if it can be predicted somehow (based on the riscv specification) */
 	if (inst.opcode == rv64::Opcode::jump_and_link_reg) {
-		bool rs1IsLink = (inst.src1 == reg::X1 || inst.src1 == reg::X5);
+		/* write the target pc to the stack */
+		sink[I::I64::Const(inst.imm)];
+		if (inst.src1 != reg::Zero) {
+			LoadRegister(inst.src1, writer);
+			sink[I::I64::Add()];
+		}
 
 		/* check if the instruction can be considered a return */
-		if (!rdIsLink && rs1IsLink) {
-			sink[I::Local::Get(tempI64)];
+		if (inst.isRet())
 			writer.ret();
-		}
 
 		/* check if the instruction can be considered a call */
-		else if (rdIsLink && (!rs1IsLink || inst.dest == inst.src1)) {
-			sink[I::Local::Get(tempI64)];
+		else if (inst.isCall())
 			writer.call(gen);
-		}
 
 		/* translate the instruction as normal jump */
-		else {
-			sink[I::Local::Get(tempI64)];
+		else
 			writer.jump();
-		}
 		return;
 	}
 
-	/* add the instruction as normal direct call or jump (assumption that jump with rd = link implies call) */
-	if (rdIsLink)
-		writer.call(gen.address + inst.imm, gen);
+	/* add the instruction as normal direct call or jump */
+	env::guest_t address = (gen.address + inst.imm);
+	if (inst.isCall())
+		writer.call(address, gen);
 	else if (const wasm::Target* target = writer.hasTarget(gen); target != 0)
 		sink[I::Branch::Direct(*target)];
 	else
-		writer.jump(gen.address + inst.imm);
+		writer.jump(address);
 }
 
-void rv64::Translate(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer, const wasm::Variable& tempI64) {
+void rv64::Translate(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer) {
 	wasm::Sink& sink = writer.sink();
 
 	switch (inst.opcode) {
@@ -81,17 +68,25 @@ void rv64::Translate(const gen::Instruction& gen, const rv64::Instruction& inst,
 			detail::StoreRegister(inst.dest, writer);
 		}
 		break;
+	case rv64::Opcode::add_upper_imm_pc:
+		if (inst.dest != reg::Zero) {
+			sink[I::U64::Const(inst.imm + gen.address + gen.size)];
+			detail::StoreRegister(inst.dest, writer);
+		}
+		break;
 	case rv64::Opcode::add_imm:
 		if (inst.dest != reg::Zero) {
-			detail::LoadRegister(inst.src1, writer);
 			sink[I::I64::Const(inst.imm)];
-			sink[I::I64::Add()];
+			if (inst.src1 != reg::Zero) {
+				detail::LoadRegister(inst.src1, writer);
+				sink[I::I64::Add()];
+			}
 			detail::StoreRegister(inst.dest, writer);
 		}
 		break;
 	case rv64::Opcode::jump_and_link_imm:
 	case rv64::Opcode::jump_and_link_reg:
-		detail::TranslateJAL(gen, inst, writer, tempI64);
+		detail::TranslateJAL(gen, inst, writer);
 		break;
 	default:
 		host::Fatal(u8"Instruction [", size_t(inst.opcode), u8"] currently not implemented");
