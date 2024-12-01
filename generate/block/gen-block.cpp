@@ -21,7 +21,7 @@ gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDept
 }
 
 void gen::Block::fProcess(const detail::OpenAddress& next) {
-	detail::SuperBlock block{ pContextShared };
+	detail::SuperBlock block{ pContextShared, next.address };
 
 	/* setup the actual sink to the super-block and instruction-writer */
 	wasm::Sink sink{ next.function };
@@ -30,27 +30,20 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	/* notify the interface about the newly starting block */
 	pTranslator->started(writer);
 
-	/* construct the current super-block */
-	env::guest_t address = next.address;
+	/* iterate over the instruction stream and look for the end of the current strand */
+	gen::Instruction inst{};
 	do {
-		/* iterate over the instruction stream and look for the end of the current strand */
-		gen::Instruction inst{};
-		do {
-			inst = pTranslator->fetch(address);
-		} while (block.push(inst, address));
-
-		/* check if the overall super-block can be continued */
-	} while (block.incomplete());
+		inst = pTranslator->fetch(block.nextFetch());
+	} while (block.push(inst));
 
 	/* setup the ranges of the super-block */
 	block.setupRanges();
 
 	/* iterate over the chunks of the super-block and produce them */
-	while (true) {
-		detail::InstChunk chunk = block.next(sink);
-		if (chunk.count == 0)
-			break;
-		pTranslator->produce(writer, chunk.inst, chunk.count);
+	while (block.next(sink)) {
+		env::guest_t address = block.chunkStart();
+		const std::vector<uintptr_t>& chunk = block.chunk();
+		pTranslator->produce(writer, address, chunk.data(), chunk.size());
 	}
 
 	/* notify the interface about the completed block */

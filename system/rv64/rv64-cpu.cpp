@@ -23,7 +23,7 @@ gen::Instruction  rv64::Cpu::fetch(env::guest_t address) {
 		return gen::Instruction{};
 
 	/* decode the next instruction */
-	const rv64::Instruction& inst = pDecoded.emplace_back() = rv64::Decode(env::Instance()->memory().code<uint32_t>(address));
+	rv64::Instruction& inst = (pDecoded.emplace_back() = rv64::Decode(env::Instance()->memory().code<uint32_t>(address)));
 	host::Debug(str::u8::Format(u8"RV64: {:#018x} {}", address, rv64::ToString(inst)));
 
 	/* translate the instruction to the generated instruction-type */
@@ -65,7 +65,8 @@ gen::Instruction  rv64::Cpu::fetch(env::guest_t address) {
 	/* construct the output-instruction format */
 	return gen::Instruction{ type, target, 4, pDecoded.size() - 1 };
 }
-void rv64::Cpu::produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) {
+void rv64::Cpu::produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) {
+	rv64::Translate translate{ writer, address };
 	for (size_t i = 0; i < count; ++i)
-		rv64::Translate(data[i], pDecoded[data[i].data], writer);
+		translate.next(pDecoded[self[i]]);
 }

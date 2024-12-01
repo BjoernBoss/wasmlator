@@ -32,19 +32,19 @@ namespace gen {
 		wasm::Sink& sink() const;
 
 		/* check if the given jumpDirect/conditionalDirect instruction target can be locally referenced via a label */
-		const wasm::Target* hasTarget(const gen::Instruction& inst) const;
+		const wasm::Target* hasTarget(env::guest_t target) const;
 
 		/* expects [i64] address on top of stack and writes value to stack
 		*	Note: generated code may abort the control-flow */
-		void read(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const;
+		void read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
 		/* expects [i64] address on top of stack and writes value to stack
 		*	Note: generated code may abort the control-flow */
-		void code(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const;
+		void code(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
 		/* expects [i64] address and value on top of stack
 		*	Note: generated code may abort the control-flow */
-		void write(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const;
+		void write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
 		/* writes value from context to stack */
 		void ctxRead(uint32_t offset, gen::MemoryType type) const;
@@ -54,19 +54,19 @@ namespace gen {
 
 		/* expects [i32] result-code on top of stack
 		*	Note: generated code will abort the control-flow */
-		void terminate(const gen::Instruction& inst) const;
+		void terminate(env::guest_t instAddress) const;
 
 		/* no expectations
 		*	Note: generated code may abort the control-flow */
-		void call(env::guest_t address, const gen::Instruction& inst) const;
+		void call(env::guest_t target, env::guest_t nextAddress) const;
 
 		/* expects guest target-address on top of stack
 		*	Note: generated code may abort the control-flow */
-		void call(const gen::Instruction& inst) const;
+		void call(env::guest_t nextAddress) const;
 
 		/* no expectations
 		*	Note: generated code will contain a tail-call */
-		void jump(env::guest_t address) const;
+		void jump(env::guest_t target) const;
 
 		/* expects guest target-address on top of stack
 		*	Note: generated code will contain a tail-call */

@@ -4,11 +4,6 @@
 #include "../context/context-builder.h"
 
 namespace gen::detail {
-	struct InstChunk {
-		const gen::Instruction* inst = 0;
-		size_t count = 0;
-	};
-
 	struct InstRange {
 	public:
 		size_t first = 0;
@@ -43,18 +38,28 @@ namespace gen::detail {
 			env::guest_t address = 0;
 			bool irreducible = false;
 		};
+		struct Entry {
+			uintptr_t self = 0;
+			env::guest_t address = 0;
+			env::guest_t target = 0;
+			bool branches = false;
+			bool invalid = false;
+		};
 
 	private:
 		std::vector<Stack> pStack;
 		std::vector<Target> pTargets;
-		std::vector<gen::Instruction> pList;
+		std::vector<Entry> pList;
+		std::vector<uintptr_t> pChunk;
 		std::set<detail::InstRange> pRanges;
 		detail::ContextShared pContextShared;
 		detail::RangeIt pIt;
+		env::guest_t pNextAddress = 0;
+		env::guest_t pCurrentChunk = 0;
 		size_t pIndex = 0;
 
 	public:
-		SuperBlock(const detail::ContextShared& contextShared);
+		SuperBlock(const detail::ContextShared& contextShared, env::guest_t address);
 
 	private:
 		size_t fLookup(env::guest_t address) const;
@@ -63,12 +68,14 @@ namespace gen::detail {
 		detail::RangeIt fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last);
 
 	public:
-		bool push(const gen::Instruction& inst, env::guest_t& address);
-		bool incomplete() const;
+		bool push(const gen::Instruction& inst);
 		void setupRanges();
+		env::guest_t nextFetch() const;
 
 	public:
-		const wasm::Target* lookup(const gen::Instruction& inst) const;
-		detail::InstChunk next(wasm::Sink& sink);
+		const wasm::Target* lookup(env::guest_t target) const;
+		bool next(wasm::Sink& sink);
+		const std::vector<uintptr_t>& chunk() const;
+		env::guest_t chunkStart() const;
 	};
 }

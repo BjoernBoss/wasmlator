@@ -2,91 +2,96 @@
 
 namespace I = wasm::inst;
 
-void rv64::detail::LoadRegister(uint8_t reg, const gen::Writer& writer) {
-	/* check if its the zero-register and simply load zero, otherwise read the value from the context */
-	if (reg == reg::Zero)
-		writer.sink()[I::U64::Const(0)];
-	else
-		writer.ctxRead(reg * sizeof(uint64_t), gen::MemoryType::i64);
+rv64::Translate::Translate(const gen::Writer& writer, env::guest_t address) : pWriter{ writer }, pAddress{ address - 4 }, pNextAddress{ address } {}
+
+bool rv64::Translate::fLoadSrc1() const {
+	if (pInst->src1 == reg::Zero)
+		return false;
+	pWriter.ctxRead(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i64);
+	return true;
 }
-void rv64::detail::StoreRegister(uint8_t reg, const gen::Writer& writer) {
-	/* check if its the zero-register and ignore the operation */
-	if (reg != reg::Zero)
-		writer.ctxWrite(reg * sizeof(uint64_t), gen::MemoryType::i64);
-	else
-		writer.sink()[I::Drop()];
+bool rv64::Translate::fLoadSrc2() const {
+	if (pInst->src2 == reg::Zero)
+		return false;
+	pWriter.ctxRead(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i64);
+	return true;
 }
-void rv64::detail::TranslateJAL(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer) {
-	wasm::Sink& sink = writer.sink();
+void rv64::Translate::fStoreDest() const {
+	pWriter.ctxWrite(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
+}
+
+void rv64::Translate::fMakeJAL() const {
+	wasm::Sink& sink = pWriter.sink();
 
 	/* write the next pc to the destination register */
-	if (inst.dest != reg::Zero) {
-		sink[I::U64::Const(gen.address + gen.size)];
-		StoreRegister(inst.dest, writer);
+	if (pInst->dest != reg::Zero) {
+		sink[I::U64::Const(pNextAddress)];
+		fStoreDest();
 	}
 
 	/* check if its an indirect jump and if it can be predicted somehow (based on the riscv specification) */
-	if (inst.opcode == rv64::Opcode::jump_and_link_reg) {
+	if (pInst->opcode == rv64::Opcode::jump_and_link_reg) {
 		/* write the target pc to the stack */
-		sink[I::I64::Const(inst.imm)];
-		if (inst.src1 != reg::Zero) {
-			LoadRegister(inst.src1, writer);
+		sink[I::I64::Const(pInst->imm)];
+		if (fLoadSrc1())
 			sink[I::I64::Add()];
-		}
 
 		/* check if the instruction can be considered a return */
-		if (inst.isRet())
-			writer.ret();
+		if (pInst->isRet())
+			pWriter.ret();
 
 		/* check if the instruction can be considered a call */
-		else if (inst.isCall())
-			writer.call(gen);
+		else if (pInst->isCall())
+			pWriter.call(pNextAddress);
 
 		/* translate the instruction as normal jump */
 		else
-			writer.jump();
+			pWriter.jump();
 		return;
 	}
 
 	/* add the instruction as normal direct call or jump */
-	env::guest_t address = (gen.address + inst.imm);
-	if (inst.isCall())
-		writer.call(address, gen);
-	else if (const wasm::Target* target = writer.hasTarget(gen); target != 0)
+	env::guest_t address = (pAddress + pInst->imm);
+	if (pInst->isCall())
+		pWriter.call(address, pNextAddress);
+	else if (const wasm::Target* target = pWriter.hasTarget(address); target != 0)
 		sink[I::Branch::Direct(*target)];
 	else
-		writer.jump(address);
+		pWriter.jump(address);
 }
 
-void rv64::Translate(const gen::Instruction& gen, const rv64::Instruction& inst, const gen::Writer& writer) {
-	wasm::Sink& sink = writer.sink();
+void rv64::Translate::next(const rv64::Instruction& inst) {
+	/* setup the state for the upcoming instruction */
+	pAddress = pNextAddress;
+	pNextAddress += 4;
+	pInst = &inst;
 
+	/* perform the actual translation */
+	wasm::Sink& sink = pWriter.sink();
 	switch (inst.opcode) {
 	case rv64::Opcode::load_upper_imm:
 		if (inst.dest != reg::Zero) {
 			sink[I::U64::Const(inst.imm)];
-			detail::StoreRegister(inst.dest, writer);
+			fStoreDest();
 		}
 		break;
 	case rv64::Opcode::add_upper_imm_pc:
 		if (inst.dest != reg::Zero) {
-			sink[I::U64::Const(inst.imm + gen.address + gen.size)];
-			detail::StoreRegister(inst.dest, writer);
+			sink[I::U64::Const(pAddress + inst.imm)];
+			fStoreDest();
 		}
 		break;
 	case rv64::Opcode::add_imm:
 		if (inst.dest != reg::Zero) {
 			sink[I::I64::Const(inst.imm)];
-			if (inst.src1 != reg::Zero) {
-				detail::LoadRegister(inst.src1, writer);
+			if (fLoadSrc1())
 				sink[I::I64::Add()];
-			}
-			detail::StoreRegister(inst.dest, writer);
+			fStoreDest();
 		}
 		break;
 	case rv64::Opcode::jump_and_link_imm:
 	case rv64::Opcode::jump_and_link_reg:
-		detail::TranslateJAL(gen, inst, writer);
+		fMakeJAL();
 		break;
 	default:
 		host::Fatal(u8"Instruction [", size_t(inst.opcode), u8"] currently not implemented");

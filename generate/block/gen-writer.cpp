@@ -5,17 +5,17 @@ gen::Writer::Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::M
 wasm::Sink& gen::Writer::sink() const {
 	return pSink;
 }
-const wasm::Target* gen::Writer::hasTarget(const gen::Instruction& inst) const {
-	return pSuperBlock.lookup(inst);
+const wasm::Target* gen::Writer::hasTarget(env::guest_t target) const {
+	return pSuperBlock.lookup(target);
 }
-void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const {
-	pMemory.makeRead(cacheIndex, type, inst.address);
+void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
+	pMemory.makeRead(cacheIndex, type, instAddress);
 }
-void gen::Writer::code(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const {
-	pMemory.makeCode(cacheIndex, type, inst.address);
+void gen::Writer::code(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
+	pMemory.makeCode(cacheIndex, type, instAddress);
 }
-void gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, const gen::Instruction& inst) const {
-	pMemory.makeWrite(cacheIndex, type, inst.address);
+void gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
+	pMemory.makeWrite(cacheIndex, type, instAddress);
 }
 void gen::Writer::ctxRead(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeRead(offset, type);
@@ -23,17 +23,17 @@ void gen::Writer::ctxRead(uint32_t offset, gen::MemoryType type) const {
 void gen::Writer::ctxWrite(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeWrite(offset, type);
 }
-void gen::Writer::terminate(const gen::Instruction& inst) const {
-	pContext.makeTerminate(inst.address);
+void gen::Writer::terminate(env::guest_t instAddress) const {
+	pContext.makeTerminate(instAddress);
 }
-void gen::Writer::call(env::guest_t address, const gen::Instruction& inst) const {
-	pAddress.makeCall(address, inst.address + inst.size);
+void gen::Writer::call(env::guest_t target, env::guest_t nextAddress) const {
+	pAddress.makeCall(target, nextAddress);
 }
-void gen::Writer::call(const gen::Instruction& inst) const {
-	pAddress.makeCallIndirect(inst.address + inst.size);
+void gen::Writer::call(env::guest_t nextAddress) const {
+	pAddress.makeCallIndirect(nextAddress);
 }
-void gen::Writer::jump(env::guest_t address) const {
-	pAddress.makeJump(address);
+void gen::Writer::jump(env::guest_t target) const {
+	pAddress.makeJump(target);
 }
 void gen::Writer::jump() const {
 	pAddress.makeJumpIndirect();

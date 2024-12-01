@@ -44,16 +44,15 @@ namespace gen {
 	*	required for the super-block algorithm to setup the blocks properly */
 	struct Instruction {
 	public:
-		uintptr_t data = 0;
+		uintptr_t self = 0;
 		env::guest_t target = 0;
-		env::guest_t address = 0;
-		size_t size = 0;
 		gen::InstType type = gen::InstType::primitive;
+		uint8_t size = 0;
 
 	public:
 		constexpr Instruction() = default;
-		constexpr Instruction(gen::InstType type, size_t size, uintptr_t data) : type{ type }, size{ size }, data{ data } {}
-		constexpr Instruction(gen::InstType type, env::guest_t target, size_t size, uintptr_t data) : type{ type }, target{ target }, size{ size }, data{ data } {}
+		constexpr Instruction(gen::InstType type, uint8_t size, uintptr_t self) : type{ type }, size{ size }, self{ self } {}
+		constexpr Instruction(gen::InstType type, env::guest_t target, uint8_t size, uintptr_t self) : type{ type }, target{ target }, size{ size }, self{ self } {}
 	};
 
 	/* translator interface is used to perform the actual translation of super-blocks automatically */
@@ -71,10 +70,10 @@ namespace gen {
 		/* super-block translation has been completed */
 		virtual void completed(const gen::Writer& writer) = 0;
 
-		/* fetch the next instruction at the given address (address of instruction will automatically be set) */
+		/* fetch the next instruction at the given address */
 		virtual gen::Instruction fetch(env::guest_t address) = 0;
 
 		/* produce the wasm-code for the given chunk of fetched instructions (guaranteed to not be jumped into) */
-		virtual void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) = 0;
+		virtual void produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) = 0;
 	};
 }

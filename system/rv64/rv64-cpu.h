@@ -24,6 +24,6 @@ namespace rv64 {
 		void started(const gen::Writer& writer) override;
 		void completed(const gen::Writer& writer) override;
 		gen::Instruction fetch(env::guest_t address) override;
-		void produce(const gen::Writer& writer, const gen::Instruction* data, size_t count) override;
+		void produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) override;
 	};
 }

@@ -2,7 +2,7 @@
 
 namespace I = wasm::inst;
 
-gen::detail::SuperBlock::SuperBlock(const detail::ContextShared& contextShared) : pContextShared{ contextShared } {}
+gen::detail::SuperBlock::SuperBlock(const detail::ContextShared& contextShared, env::guest_t address) : pContextShared{ contextShared }, pNextAddress{ address } {}
 
 size_t gen::detail::SuperBlock::fLookup(env::guest_t address) const {
 	size_t first = 0, last = pList.size() - 1;
@@ -23,7 +23,7 @@ std::set<gen::detail::InstRange> gen::detail::SuperBlock::fSetupRanges() const {
 	/* collect all ranges in the instructions */
 	for (size_t i = 0; i < pList.size(); ++i) {
 		const auto& inst = pList[i];
-		if (inst.type != gen::InstType::jumpDirect && inst.type != gen::InstType::conditionalDirect)
+		if (!inst.branches)
 			continue;
 
 		/* resolve the jump-target and check if it lies in the current super-block */
@@ -145,25 +145,31 @@ gen::detail::RangeIt gen::detail::SuperBlock::fConflictCluster(std::set<detail::
 	return begin;
 }
 
-bool gen::detail::SuperBlock::push(const gen::Instruction& inst, env::guest_t& address) {
-	pList.emplace_back(inst).address = address;
+bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
+	/* configure the new instruction-entry */
+	Entry& entry = pList.emplace_back();
+	entry.self = inst.self;
+	entry.address = pNextAddress;
+	entry.target = inst.target;
+	entry.branches = (inst.type == gen::InstType::conditionalDirect || inst.type == gen::InstType::jumpDirect);
+	entry.invalid = (inst.type == gen::InstType::invalid);
 
-	/* check if its an invalid instruction, in which case the block will be ended and the extent will be set to null */
+	/* check if its an invalid instruction, in which case the block will be ended */
 	if (inst.type == gen::InstType::invalid) {
-		host::Debug(str::u8::Format(u8"Unable to decode instruction [{:#018x}]", address));
-		pList.back().size = 0;
+		host::Debug(str::u8::Format(u8"Unable to decode instruction [{:#018x}]", pNextAddress));
 		return false;
 	}
 
-	/* advance the address and check if the current strand can be continued */
-	address += inst.size;
-	return (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect);
-}
-bool gen::detail::SuperBlock::incomplete() const {
-	/* check if the block ends on an invalid instruction of unknown extent and otherwise compute the current next address */
-	if (pList.back().type == gen::InstType::invalid)
+	/* validate the extent and advance the address */
+	if (inst.size == 0)
+		host::Fatal(str::u8::Format(u8"Instruction at [{:#018x}] cannot have a size of 0", pNextAddress));
+	pNextAddress += inst.size;
+
+	/* check if the current strand can be continued or if the overall super-block is considered closed */
+	if (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect)
+		return true;
+	if (inst.type == gen::InstType::invalid)
 		return false;
-	env::guest_t address = pList.back().address + pList.back().size;
 
 	/* iterate over the instructions and check if any of the jumps jump to the current next
 	*	address, in which case the block can be continued (iterate over all instructions again,
@@ -171,11 +177,11 @@ bool gen::detail::SuperBlock::incomplete() const {
 	*
 	*	Note: Ignore the case of a jump into an instruction, as it needs to be translated as a new super-block anyways */
 	for (size_t i = 0; i < pList.size(); ++i) {
-		if (pList[i].type != gen::InstType::jumpDirect && pList[i].type != gen::InstType::conditionalDirect)
+		if (!pList[i].branches)
 			continue;
 
 		/* check if the instruction jumps to the current end */
-		if (pList[i].target == address)
+		if (pList[i].target == pNextAddress)
 			return true;
 	}
 	return false;
@@ -211,23 +217,24 @@ void gen::detail::SuperBlock::setupRanges() {
 	pIndex = 0;
 	pIt = pRanges.begin();
 }
+env::guest_t gen::detail::SuperBlock::nextFetch() const {
+	return pNextAddress;
+}
 
-const wasm::Target* gen::detail::SuperBlock::lookup(const gen::Instruction& inst) const {
-	/* check if the instruciton is a valid jump-instruction */
-	if (inst.type != gen::InstType::jumpDirect && inst.type != gen::InstType::conditionalDirect)
-		return 0;
-
+const wasm::Target* gen::detail::SuperBlock::lookup(env::guest_t target) const {
 	/* linear lookup as stack should never become really large */
 	for (size_t i = 0; i < pStack.size(); ++i) {
-		if (pStack[i].address == inst.target && !pStack[i].internal)
+		if (pStack[i].address == target && !pStack[i].internal)
 			return &pStack[i].target;
 	}
 	return 0;
 }
-gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
+bool gen::detail::SuperBlock::next(wasm::Sink& sink) {
+	pChunk.clear();
+
 	/* check if the end has been reached (either because only one remaining un-decodable instruction has been encountered or because
 	*	all chunks have been processed; block cannot be empty, as at least one push will occur before any chunks are fetched) */
-	bool lastAndInvalid = (pIndex < pList.size() && pList[pIndex].type == gen::InstType::invalid);
+	bool lastAndInvalid = (pIndex < pList.size() && pList[pIndex].invalid);
 	if (lastAndInvalid || pIndex >= pList.size()) {
 		pStack.clear();
 
@@ -238,14 +245,14 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 			sink[I::Call::Direct(pContextShared.notDecodable)];
 		}
 		else {
-			sink[I::U64::Const(pList.back().address + pList.back().size)];
+			sink[I::U64::Const(pNextAddress)];
 			sink[I::Call::Direct(pContextShared.notReachable)];
 		}
 
 		/* add the unreachable instruction as the last instruction will not match
 		*	the return typ and wasm therefore detects an invalid return type */
 		sink[I::Unreachable()];
-		return { 0, 0 };
+		return false;
 	}
 
 	/* pop all closed ranges */
@@ -303,11 +310,18 @@ gen::detail::InstChunk gen::detail::SuperBlock::next(wasm::Sink& sink) {
 
 	/* check if the chunk contains a potential last un-decodable instruction, and remove it from this chunk (cannot
 	*	be the only instruction, as the header-guard of this function would otherwise already have caught it) */
-	if (last + 1 == pList.size() && pList.back().type == gen::InstType::invalid)
+	if (last + 1 == pList.size() && pList.back().invalid)
 		--last;
 
-	/* setup the chunk and advance the index */
-	detail::InstChunk chunk{ pList.data() + pIndex, (last - pIndex) + 1 };
-	pIndex = last + 1;
-	return chunk;
+	/* setup the start-address of the chunk and write the chunk-self values out */
+	pCurrentChunk = pList[pIndex].address;
+	for (; pIndex < last + 1; ++pIndex)
+		pChunk.push_back(pList[pIndex].self);
+	return true;
+}
+const std::vector<uintptr_t>& gen::detail::SuperBlock::chunk() const {
+	return pChunk;
+}
+env::guest_t gen::detail::SuperBlock::chunkStart() const {
+	return pCurrentChunk;
 }

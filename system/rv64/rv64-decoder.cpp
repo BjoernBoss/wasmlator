@@ -233,5 +233,5 @@ rv64::Instruction rv64::Decode(uint32_t data) {
 	default:
 		break;
 	}
-	return rv64::Instruction{ rv64::Opcode::_invalid, rv64::Format::none, 0, 0, 0, 0 };
+	return rv64::Instruction{};
 }
