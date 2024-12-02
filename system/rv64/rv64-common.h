@@ -9,6 +9,9 @@
 
 /* riscv 64-bit */
 namespace rv64 {
+	/* one cache per register, used for both reading and writing */
+	static constexpr uint32_t MemoryCaches = 32;
+
 	/* throw exception if jump-target is not 4-byte aligned */
 	struct Context {
 		union {
@@ -143,6 +146,7 @@ namespace rv64 {
 	};
 
 	enum class Opcode : uint16_t {
+		/* rv32i */
 		load_upper_imm,
 		add_upper_imm_pc,
 		jump_and_link_imm,
@@ -153,17 +157,37 @@ namespace rv64 {
 		branch_ge_s,
 		branch_lt_u,
 		branch_ge_u,
+
+		load_byte_s,
+		load_half_s,
+		load_word_s,
+		load_byte_u,
+		load_half_u,
+		store_byte,
+		store_half,
+		store_word,
+
 		add_imm,
-		set_less_than_s_imm,
-		set_less_than_u_imm,
 		xor_imm,
 		or_imm,
 		and_imm,
 		shift_left_logic_imm,
 		shift_right_logic_imm,
 		shift_right_arith_imm,
+		set_less_than_s_imm,
+		set_less_than_u_imm,
 		add_reg,
 		sub_reg,
+		xor_reg,
+		or_reg,
+		and_reg,
+		shift_left_logic_reg,
+		shift_right_logic_reg,
+		shift_right_arith_reg,
+		set_less_than_s_reg,
+		set_less_than_u_reg,
+
+		/* rv32m */
 		mul_reg,
 		mul_high_s_reg,
 		mul_high_s_u_reg,
@@ -172,25 +196,22 @@ namespace rv64 {
 		div_u_reg,
 		rem_s_reg,
 		rem_u_reg,
-		set_less_than_s_reg,
-		set_less_than_u_reg,
-		xor_reg,
-		or_reg,
-		and_reg,
-		shift_left_logic_reg,
-		shift_right_logic_reg,
-		shift_right_arith_reg,
+
 		no_op,
 		move,
 		_invalid
 	};
 	enum class Format : uint8_t {
 		none,
+		dst_imm,
 		dst_src1,
 		dst_src1_imm,
 		dst_src1_src2,
-		dst_imm,
-		src1_src2
+		load,
+		store,
+		branch,
+		jal,
+		jalr
 	};
 
 	namespace reg {

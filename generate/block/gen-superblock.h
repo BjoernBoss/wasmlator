@@ -23,6 +23,11 @@ namespace gen::detail {
 			return (!l.backwards && r.backwards);
 		}
 	};
+	struct InstTarget {
+		const wasm::Target* target = 0;
+		bool directJump = false;
+	};
+
 	using RangeIt = std::set<detail::InstRange>::iterator;
 
 	class SuperBlock {
@@ -73,7 +78,7 @@ namespace gen::detail {
 		env::guest_t nextFetch() const;
 
 	public:
-		const wasm::Target* lookup(env::guest_t target) const;
+		detail::InstTarget lookup(env::guest_t target) const;
 		bool next(wasm::Sink& sink);
 		const std::vector<uintptr_t>& chunk() const;
 		env::guest_t chunkStart() const;

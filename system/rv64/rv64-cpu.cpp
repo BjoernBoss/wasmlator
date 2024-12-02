@@ -3,7 +3,7 @@
 #include "rv64-decoder.h"
 #include "rv64-translation.h"
 
-rv64::Cpu::Cpu() : sys::Cpu{ 1, sizeof(rv64::Context) } {}
+rv64::Cpu::Cpu() : sys::Cpu{ rv64::MemoryCaches, sizeof(rv64::Context) } {}
 
 std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
 	return std::unique_ptr<rv64::Cpu>{ new rv64::Cpu{} };

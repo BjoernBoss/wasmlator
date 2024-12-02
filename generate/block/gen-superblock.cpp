@@ -221,13 +221,13 @@ env::guest_t gen::detail::SuperBlock::nextFetch() const {
 	return pNextAddress;
 }
 
-const wasm::Target* gen::detail::SuperBlock::lookup(env::guest_t target) const {
+gen::detail::InstTarget gen::detail::SuperBlock::lookup(env::guest_t target) const {
 	/* linear lookup as stack should never become really large */
 	for (size_t i = 0; i < pStack.size(); ++i) {
 		if (pStack[i].address == target && !pStack[i].internal)
-			return &pStack[i].target;
+			return { &pStack[i].target, true };
 	}
-	return 0;
+	return { 0, false };
 }
 bool gen::detail::SuperBlock::next(wasm::Sink& sink) {
 	pChunk.clear();

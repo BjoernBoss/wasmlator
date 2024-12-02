@@ -35,6 +35,7 @@ void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 }
 
 void env::Mapping::execute(env::guest_t address) {
+	host::Debug(str::u8::Format(u8"Executing [{:#018x}]", address));
 	detail::MappingBridge::Execute(address);
 }
 bool env::Mapping::contains(env::guest_t address) const {

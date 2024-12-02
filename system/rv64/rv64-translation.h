@@ -17,12 +17,17 @@ namespace rv64 {
 		Translate(const gen::Writer& writer, env::guest_t address);
 
 	private:
-		bool fLoadSrc1() const;
-		bool fLoadSrc2() const;
+		bool fLoadSrc1(bool forceNull) const;
+		bool fLoadSrc2(bool forceNull) const;
 		void fStoreDest() const;
 
 	private:
 		void fMakeJAL() const;
+		void fMakeBranch() const;
+		void fMakeALUImm() const;
+		void fMakeALUReg() const;
+		void fMakeLoad() const;
+		void fMakeStore() const;
 
 	public:
 		void next(const rv64::Instruction& inst);

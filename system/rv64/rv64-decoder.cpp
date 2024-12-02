@@ -1,5 +1,33 @@
 #include "rv64-decoder.h"
 
+rv64::Instruction rv64::detail::Opcode03(uint32_t data) {
+	rv64::Instruction out;
+
+	out.format = rv64::Format::load;
+	out.dest = detail::GetU<7, 11>(data);
+	out.src1 = detail::GetU<15, 19>(data);
+	out.imm = detail::GetS<20, 31>(data);
+
+	switch (detail::GetU<12, 14>(data)) {
+	case 0x00:
+		out.opcode = rv64::Opcode::load_byte_s;
+		break;
+	case 0x01:
+		out.opcode = rv64::Opcode::load_half_s;
+		break;
+	case 0x02:
+		out.opcode = rv64::Opcode::load_word_s;
+		break;
+	case 0x04:
+		out.opcode = rv64::Opcode::load_byte_u;
+		break;
+	case 0x05:
+		out.opcode = rv64::Opcode::load_half_u;
+		break;
+	}
+
+	return out;
+}
 rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 	rv64::Instruction out;
 
@@ -8,8 +36,8 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = detail::GetS<20, 31>(data);
 
-	/* RV64I */
-	uint32_t funct6 = detail::GetU<26, 31>(data);
+	/* upper 7 bits (without the lowest bit, as it will be used for shifts due to rv64i) */
+	uint32_t funct7 = (detail::GetU<26, 31>(data) << 1);
 
 	switch (detail::GetU<12, 14>(data)) {
 	case 0x00:
@@ -28,10 +56,8 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 		}
 		break;
 	case 0x01:
-		if (funct6 == 0x00) {
+		if (funct7 == 0x00)
 			out.opcode = rv64::Opcode::shift_left_logic_imm;
-			out.imm &= 0x3f;
-		}
 		break;
 	case 0x02:
 		out.opcode = rv64::Opcode::set_less_than_s_imm;
@@ -43,11 +69,9 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 		out.opcode = rv64::Opcode::xor_imm;
 		break;
 	case 0x05:
-		if (funct6 == 0x00) {
+		if (funct7 == 0x00)
 			out.opcode = rv64::Opcode::shift_right_logic_imm;
-			out.imm &= 0x3f;
-		}
-		else if (funct6 == 0x10) {
+		else if (funct7 == 0x20) {
 			out.opcode = rv64::Opcode::shift_right_arith_imm;
 			out.imm &= 0x3f;
 		}
@@ -70,6 +94,29 @@ rv64::Instruction rv64::detail::Opcode17(uint32_t data) {
 	out.imm = int32_t(data & ~0x0fff);
 
 	out.opcode = rv64::Opcode::add_upper_imm_pc;
+
+	return out;
+}
+rv64::Instruction rv64::detail::Opcode23(uint32_t data) {
+	rv64::Instruction out;
+
+	out.format = rv64::Format::store;
+	out.src1 = detail::GetU<15, 19>(data);
+	out.src2 = detail::GetU<20, 24>(data);
+	out.imm = (int64_t(detail::GetS<25, 31>(data)) << 5)
+		| uint64_t(detail::GetU<7, 11>(data));
+
+	switch (detail::GetU<12, 14>(data)) {
+	case 0x00:
+		out.opcode = rv64::Opcode::store_byte;
+		break;
+	case 0x01:
+		out.opcode = rv64::Opcode::store_half;
+		break;
+	case 0x02:
+		out.opcode = rv64::Opcode::store_word;
+		break;
+	}
 
 	return out;
 }
@@ -154,7 +201,7 @@ rv64::Instruction rv64::detail::Opcode37(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode63(uint32_t data) {
 	rv64::Instruction out;
 
-	out.format = rv64::Format::src1_src2;
+	out.format = rv64::Format::branch;
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
 	out.imm = (int64_t(detail::GetS<31, 31>(data)) << 12)
@@ -188,7 +235,7 @@ rv64::Instruction rv64::detail::Opcode63(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode67(uint32_t data) {
 	rv64::Instruction out;
 
-	out.format = rv64::Format::dst_src1_imm;
+	out.format = rv64::Format::jalr;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = detail::GetS<20, 31>(data);
@@ -201,7 +248,7 @@ rv64::Instruction rv64::detail::Opcode67(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode6f(uint32_t data) {
 	rv64::Instruction out;
 
-	out.format = rv64::Format::dst_imm;
+	out.format = rv64::Format::jal;
 	out.dest = detail::GetU<7, 11>(data);
 	out.imm = (int64_t(detail::GetS<31, 31>(data)) << 20)
 		| (uint64_t(detail::GetU<12, 19>(data)) << 12)
@@ -216,10 +263,14 @@ rv64::Instruction rv64::detail::Opcode6f(uint32_t data) {
 rv64::Instruction rv64::Decode(uint32_t data) {
 	/* handle the separate opcodes and decode the corresponding instruction format */
 	switch (detail::GetU<0, 6>(data)) {
+	case 0x03:
+		return detail::Opcode03(data);
 	case 0x13:
 		return detail::Opcode13(data);
 	case 0x17:
-		return detail::Opcode13(data);
+		return detail::Opcode17(data);
+	case 0x23:
+		return detail::Opcode23(data);
 	case 0x33:
 		return detail::Opcode33(data);
 	case 0x37:

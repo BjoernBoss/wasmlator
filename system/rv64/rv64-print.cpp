@@ -5,23 +5,43 @@ static constexpr const char8_t* opcodeStrings[] = {
 	u8"auipc",
 	u8"jal",
 	u8"jalr",
+
 	u8"beq",
 	u8"bne",
 	u8"blt",
 	u8"bge",
 	u8"bltu",
 	u8"bgeu",
+
+	u8"lb",
+	u8"lh",
+	u8"lw",
+	u8"lbu",
+	u8"lhu",
+	u8"sb",
+	u8"sh",
+	u8"sw",
+
 	u8"addi",
-	u8"slti",
-	u8"sltiu",
 	u8"xori",
 	u8"ori",
 	u8"andi",
 	u8"slli",
 	u8"srli",
 	u8"srai",
+	u8"slti",
+	u8"sltiu",
 	u8"add",
 	u8"sub",
+	u8"xor",
+	u8"or",
+	u8"and",
+	u8"sll",
+	u8"srl",
+	u8"sra",
+	u8"slt",
+	u8"sltu",
+
 	u8"mul",
 	u8"mulh",
 	u8"mulhsu",
@@ -30,14 +50,7 @@ static constexpr const char8_t* opcodeStrings[] = {
 	u8"divu",
 	u8"rem",
 	u8"remu",
-	u8"slt",
-	u8"sltu",
-	u8"xor",
-	u8"or",
-	u8"and",
-	u8"sll",
-	u8"srl",
-	u8"sra",
+
 	u8"nop",
 	u8"mv",
 };
@@ -99,8 +112,20 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 	case rv64::Format::dst_imm:
 		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", inst.imm);
 		break;
-	case rv64::Format::src1_src2:
-		str::BuildTo(out, u8' ', registerStrings[inst.src1], u8", ", registerStrings[inst.src2]);
+	case rv64::Format::load:
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", [", registerStrings[inst.src1], u8" + ", inst.imm, u8']');
+		break;
+	case rv64::Format::store:
+		str::BuildTo(out, u8" [", registerStrings[inst.src1], u8" + ", inst.imm, u8"], ", registerStrings[inst.src2]);
+		break;
+	case rv64::Format::branch:
+		str::BuildTo(out, u8' ', registerStrings[inst.src1], u8", ", registerStrings[inst.src2], u8", $(pc + ", inst.imm, u8')');
+		break;
+	case rv64::Format::jal:
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", $(pc + ", inst.imm, u8')');
+		break;
+	case rv64::Format::jalr:
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", $(", registerStrings[inst.src1], u8" + ", inst.imm, u8')');
 		break;
 	default:
 		break;
