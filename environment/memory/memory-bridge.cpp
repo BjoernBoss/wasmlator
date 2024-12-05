@@ -6,7 +6,7 @@ void env::detail::MemoryBridge::Lookup(uint64_t address, uint64_t access, uint32
 }
 
 bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
-	return (mem_expand_physical(pages) == 0);
+	return (mem_expand_physical(pages) > 0);
 }
 void env::detail::MemoryBridge::MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) {
 	mem_move_physical(dest, source, size);

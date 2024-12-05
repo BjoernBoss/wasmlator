@@ -6,7 +6,7 @@
 #include "sys-cpu.h"
 
 namespace sys {
-	/* primitive system, which set up an environment, loads the code to
+	/* primitive system, which set up an environment, loads a static-elf file to
 	*	be executed, and passes the calls to the cpu implementation */
 	class Primitive final : public env::System {
 	private:

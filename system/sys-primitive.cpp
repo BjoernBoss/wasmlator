@@ -1,5 +1,8 @@
 #include "sys-primitive.h"
 
+#include "elf/elf-static.h"
+#include "riscv-buffer.h"
+
 sys::Primitive::Primitive(std::unique_ptr<sys::Cpu>&& cpu, uint32_t memoryCaches, uint32_t contextSize) : env::System{ PageSize, memoryCaches, contextSize }, pCpu{ std::move(cpu) } {}
 
 std::unique_ptr<env::System> sys::Primitive::New(std::unique_ptr<sys::Cpu>&& cpu) {
@@ -30,21 +33,13 @@ std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
 	return translator.close();
 }
 void sys::Primitive::coreLoaded() {
-	/* configure the startup-address */
-	pAddress = 0x1000;
-
-	/* write out the initial code */
-	const uint8_t buffer[] = {
-		/* addi a0, a0, 12 */
-		0x13, 0x05, 0xc5, 0x00,
-
-		/* jalr zero, 0(ra) => return */
-		0x67, 0x80, 0x00, 0x00,
-	};
-
-	/* setup memory */
-	env::Instance()->memory().mmap(0x0000, 0x8000, env::MemoryUsage::All);
-	env::Instance()->memory().mwrite(pAddress, buffer, sizeof(buffer), 0);
+	/* load the static elf-image and configure the startup-address */
+	try {
+		pAddress = elf::LoadStatic(fileBuffer, sizeof(fileBuffer));
+	}
+	catch (const elf::Exception& e) {
+		host::Fatal(u8"Failed to load static elf: ", e.what());
+	}
 
 	/* initialize the context */
 	pCpu->setupContext(pAddress);
