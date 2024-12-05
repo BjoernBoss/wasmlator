@@ -52,7 +52,8 @@ namespace env {
 	};
 
 	/* system interface is used to setup and configure the environment accordingly and interact with it
-	*	Note: wasm should only be generated within setupCore/setupBlock, as they are wrapped to catch any potential wasm-issues */
+	*	Note: wasm should only be generated within setupCore/setupBlock, as they are wrapped to catch any potential wasm-issues
+	*	Note: PageSize must be greater than zero and a power of two */
 	class System {
 	private:
 		uint32_t pPageSize = 0;
@@ -60,7 +61,10 @@ namespace env {
 		uint32_t pContextSize = 0;
 
 	protected:
-		constexpr System(uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize) : pPageSize{ pageSize }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {}
+		constexpr System(uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize) : pPageSize{ pageSize }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {
+			if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0)
+				host::Fatal(u8"PageSize must be greater than zero and a power of two");
+		}
 
 	public:
 		virtual ~System() = default;

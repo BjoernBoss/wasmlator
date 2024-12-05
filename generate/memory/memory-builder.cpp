@@ -36,6 +36,7 @@ void gen::detail::MemoryBuilder::fMakeLookup(const wasm::Memory& memory, const w
 void gen::detail::MemoryBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"mem_write_to_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_read_from_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+	glue.define(u8"mem_clear_physical", { { u8"dest", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_expand_physical", { { u8"pages", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"mem_move_physical", { { u8"dest", wasm::Type::i32 }, { u8"source", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
 	glue.define(u8"mem_read", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
@@ -88,6 +89,18 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::Param::Get(1)];
 		sink[I::Param::Get(2)];
 		sink[I::Memory::Copy(memory, physical)];
+	}
+
+	/* add the clear-physical function */
+	{
+		prototype = mod.prototype(u8"mem_clear_physical_type", { { u8"dest", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, {});
+		wasm::Sink sink{ mod.function(u8"mem_clear_physical", prototype, wasm::Export{}) };
+
+		/* setup the clear operation and perform it */
+		sink[I::Param::Get(0)];
+		sink[I::U32::Const(0)];
+		sink[I::Param::Get(1)];
+		sink[I::Memory::Fill(physical)];
 	}
 
 	/* add the memory-expansion function */

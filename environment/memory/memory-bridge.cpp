@@ -17,6 +17,9 @@ void env::detail::MemoryBridge::WriteToPhysical(detail::physical_t dest, const u
 void env::detail::MemoryBridge::ReadFromPhysical(uint8_t* dest, detail::physical_t source, uint32_t size) {
 	mem_read_from_physical(dest, source, size);
 }
+void env::detail::MemoryBridge::ClearPhysical(detail::physical_t dest, uint32_t size) {
+	mem_clear_physical(dest, size);
+}
 uint64_t env::detail::MemoryBridge::Read(env::guest_t address, uint32_t size) {
 	return mem_read(address, size);
 }

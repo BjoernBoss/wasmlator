@@ -820,3 +820,14 @@ void env::Memory::mwrite(env::guest_t dest, const uint8_t* source, uint32_t size
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
 	detail::MemoryBridge::WriteToPhysical(lookup.physical + detail::physical_t(dest - lookup.address), source, size);
 }
+void env::Memory::mclear(env::guest_t dest, uint32_t size, uint32_t usage) {
+	host::Debug(str::u8::Format(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
+		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
+		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
+		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
+	));
+
+	/* lookup the address to ensure it is mapped and to fetch the physical address */
+	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
+	detail::MemoryBridge::ClearPhysical(lookup.physical + detail::physical_t(dest - lookup.address), size);
+}

@@ -12,6 +12,7 @@ namespace env::detail {
 		static void MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size);
 		static void WriteToPhysical(detail::physical_t dest, const uint8_t* source, uint32_t size);
 		static void ReadFromPhysical(uint8_t* dest, detail::physical_t source, uint32_t size);
+		static void ClearPhysical(detail::physical_t dest, uint32_t size);
 		static uint64_t Read(env::guest_t address, uint32_t size);
 		static void Write(env::guest_t address, uint32_t size, uint64_t value);
 		static uint64_t Code(env::guest_t address, uint32_t size);

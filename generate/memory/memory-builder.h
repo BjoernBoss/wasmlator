@@ -20,6 +20,7 @@ namespace gen::detail {
 	*		void mem_flush_caches();
 	*		void mem_write_to_physical(i32 dest, i32 source, i32 size);
 	*		void mem_read_from_physical(i32 dest, i32 source, i32 size);
+	*		void mem_clear_physical(i32 dest, i32 size);
 	*		i32 mem_expand_physical(i32 pages);
 	*		void mem_move_physical(i32 dest, i32 source, i32 size);
 	*		i64 mem_read(i64 address, i32 size);
