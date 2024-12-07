@@ -52,37 +52,6 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		programHeaderCount = reader.get<SecType>(header->shOffset)->info;
 	const ProType* programs = reader.base<ProType>(header->phOffset, programHeaderCount);
 
-	/* fetch the number of section-headers */
-	size_t sectionHeaderCount = header->shCount;
-	if (sectionHeaderCount == elf::consts::maxShCount)
-		sectionHeaderCount = reader.get<SecType>(header->shOffset)->size;
-	const SecType* sections = reader.base<SecType>(header->shOffset, sectionHeaderCount);
-
-	/* fetch the index of the string-section */
-	size_t stringIndex = header->shStringIndex;
-	if (stringIndex == elf::consts::maxStrIndex)
-		stringIndex = reader.get<SecType>(header->shOffset)->link;
-	if (stringIndex != elf::consts::noStrIndex && stringIndex >= sectionHeaderCount)
-		throw elf::Exception{ L"String section index [", stringIndex, L"] out of bounds [", sectionHeaderCount, L"]" };
-
-	/* lookup the bss-section in in the list of sections */
-	const SecType* bssSection = 0;
-	if (stringIndex != elf::consts::noStrIndex) {
-		const SecType* strings = sections + stringIndex;
-		const char* base = reader.base<char>(strings->offset, strings->size);
-
-		/* iterate over the sections and lookup the section with the given name */
-		for (size_t i = 0; i < sectionHeaderCount; ++i) {
-			const SecType* section = sections + i;
-			if (section->name + 5 > strings->size)
-				continue;
-			if (std::string_view{ ".bss" }.compare(base + section->name) != 0)
-				continue;
-			bssSection = section;
-			break;
-		}
-	}
-
 	/* check if the binary requires an interpreter, in which case it is not considered static */
 	for (size_t i = 0; i < programHeaderCount; ++i) {
 		if (programs[i].type == elf::ProgramType::interpreter)
@@ -111,7 +80,8 @@ static void UnpackElfFile(const elf::Reader& reader) {
 			throw elf::Exception{ L"Program header contains larger file-size than memory-size" };
 
 		/* allocate the memory (start it out as writable) */
-		host::Debug(str::u8::Format(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] with usage [{}{}{}]", i, address, size,
+		host::Debug(str::u8::Format(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] (actual: [{:#018x}] with size [{:#018x}]) with usage [{}{}{}]",
+			i, address, size, programs[i].vAddress, programs[i].memSize,
 			(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 			(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 			(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')));
@@ -121,22 +91,10 @@ static void UnpackElfFile(const elf::Reader& reader) {
 
 		/* write the actual data to the section */
 		const uint8_t* data = reader.base<uint8_t>(programs[i].offset, programs[i].fileSize);
-		env::Instance()->memory().mwrite(address, data, uint32_t(programs[i].fileSize), env::MemoryUsage::Write);
+		env::Instance()->memory().mwrite(programs[i].vAddress, data, uint32_t(programs[i].fileSize), env::MemoryUsage::Write);
 
 		/* update the protection flags to match the actual flags */
 		env::Instance()->memory().mprotect(address, size, usage);
-	}
-
-	/* setup the bss section */
-	if (bssSection != 0) {
-		/* allocate the page-aligned bss-section data */
-		env::guest_t address = (bssSection->address & ~(pageSize - 1));
-		uint32_t size = uint32_t(((bssSection->address + bssSection->size + pageSize - 1) & ~(pageSize - 1)) - address);
-		if (!env::Instance()->memory().mmap(address, size, env::MemoryUsage::ReadWrite))
-			throw elf::Exception{ L"Failed to allocate memory for [.bss] section" };
-
-		/* clear the bss-section memory */
-		env::Instance()->memory().mclear(address, size, env::MemoryUsage::Write);
 	}
 }
 

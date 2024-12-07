@@ -17,14 +17,20 @@ void rv64::Cpu::started(const gen::Writer& writer) {
 void rv64::Cpu::completed(const gen::Writer& writer) {
 	pDecoded.clear();
 }
-gen::Instruction  rv64::Cpu::fetch(env::guest_t address) {
-	/* check that the address is 4-byte aligned */
-	if ((address & 0x03) != 0)
+gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
+	/* check that the address is 2-byte aligned */
+	if ((address & 0x01) != 0)
 		return gen::Instruction{};
 
-	/* decode the next instruction */
-	rv64::Instruction& inst = (pDecoded.emplace_back() = rv64::Decode(env::Instance()->memory().code<uint32_t>(address)));
-	host::Debug(str::u8::Format(u8"RV64: {:#018x} {}", address, rv64::ToString(inst)));
+	/* decode the next instruction (first as compressed, and afterwards as
+	*	large, in order to prevent potential memory-alignment issues) */
+	uint32_t code = env::Instance()->memory().code<uint16_t>(address);
+	rv64::Instruction& inst = (pDecoded.emplace_back() = rv64::Decode16(code));
+	if (inst.opcode == rv64::Opcode::_invalid) {
+		code |= (env::Instance()->memory().code<uint16_t>(address + 2) << 16);
+		inst = rv64::Decode32(code);
+	}
+	host::Debug(str::u8::Format(u8"RV64: {:#018x}:{:#010x} {}", address, code, rv64::ToString(inst)));
 
 	/* translate the instruction to the generated instruction-type */
 	gen::InstType type = gen::InstType::primitive;
@@ -63,7 +69,7 @@ gen::Instruction  rv64::Cpu::fetch(env::guest_t address) {
 	}
 
 	/* construct the output-instruction format */
-	return gen::Instruction{ type, target, 4, pDecoded.size() - 1 };
+	return gen::Instruction{ type, target, uint8_t(inst.compressed ? 2 : 4), pDecoded.size() - 1 };
 }
 void rv64::Cpu::produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) {
 	rv64::Translate translate{ writer, address };

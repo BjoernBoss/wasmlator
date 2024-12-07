@@ -201,32 +201,21 @@ namespace rv64 {
 		move,
 		_invalid
 	};
-	enum class Format : uint8_t {
-		none,
-		dst_imm,
-		dst_src1,
-		dst_src1_imm,
-		dst_src1_src2,
-		load,
-		store,
-		branch,
-		jal,
-		jalr
-	};
 
 	namespace reg {
 		static constexpr uint8_t Zero = 0;
 		static constexpr uint8_t X1 = 1;
+		static constexpr uint8_t X2 = 2;
 		static constexpr uint8_t X5 = 5;
 	}
 
 	struct Instruction {
 	public:
 		rv64::Opcode opcode = rv64::Opcode::_invalid;
-		rv64::Format format = Format::none;
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
+		bool compressed = false;
 		int64_t imm = 0;
 
 	public:

@@ -33,11 +33,11 @@ namespace gen {
 	};
 
 	enum class InstType : uint8_t {
+		invalid,
 		primitive,
 		jumpDirect,
 		conditionalDirect,
-		endOfBlock,
-		invalid
+		endOfBlock
 	};
 
 	/* instruction is an abstract description of an instruction with all the paramter
@@ -46,7 +46,7 @@ namespace gen {
 	public:
 		uintptr_t self = 0;
 		env::guest_t target = 0;
-		gen::InstType type = gen::InstType::primitive;
+		gen::InstType type = gen::InstType::invalid;
 		uint8_t size = 0;
 
 	public:

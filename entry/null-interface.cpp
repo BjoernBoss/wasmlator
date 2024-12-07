@@ -34,11 +34,15 @@ void map_execute(uint64_t address) {}
 void mem_write_to_physical(uint32_t dest, const uint8_t* source, uint32_t size) {}
 void mem_read_from_physical(uint8_t* dest, uint32_t source, uint32_t size) {}
 void mem_clear_physical(uint32_t dest, uint32_t size) {}
-uint32_t mem_expand_physical(uint32_t pages) { return{}; }
+uint32_t mem_expand_physical(uint32_t pages) { return 1; }
 void mem_move_physical(uint32_t dest, uint32_t source, uint32_t size) {}
 uint64_t mem_read(uint64_t address, uint32_t size) { return{}; }
 void mem_write(uint64_t address, uint32_t size, uint64_t value) {}
-uint64_t mem_code(uint64_t address, uint32_t size) { return{}; }
+uint64_t mem_code(uint64_t address, uint32_t size) {
+	if (address == 0x10c80)
+		return 0x02e000ef;
+	return{};
+}
 
 void int_call_void(uint32_t index) {}
 uint64_t int_call_param(uint64_t param, uint32_t index) { return{}; }

@@ -11,6 +11,7 @@ namespace rv64 {
 		const gen::Writer& pWriter;
 		env::guest_t pAddress = 0;
 		env::guest_t pNextAddress = 0;
+		size_t pSize = 0;
 		const rv64::Instruction* pInst = 0;
 
 	public:

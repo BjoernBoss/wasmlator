@@ -2,7 +2,7 @@
 
 namespace I = wasm::inst;
 
-rv64::Translate::Translate(const gen::Writer& writer, env::guest_t address) : pWriter{ writer }, pAddress{ address - 4 }, pNextAddress{ address } {}
+rv64::Translate::Translate(const gen::Writer& writer, env::guest_t address) : pWriter{ writer }, pAddress{ address }, pNextAddress{ address }, pSize{ 0 } {}
 
 bool rv64::Translate::fLoadSrc1(bool forceNull) const {
 	if (pInst->src1 != reg::Zero) {
@@ -338,8 +338,9 @@ void rv64::Translate::fMakeStore() const {
 void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* setup the state for the upcoming instruction */
 	pAddress = pNextAddress;
-	pNextAddress += 4;
+	pNextAddress += pSize;
 	pInst = &inst;
+	pSize = (inst.compressed ? 4 : 2);
 
 	/* perform the actual translation */
 	wasm::Sink& sink = pWriter.sink();

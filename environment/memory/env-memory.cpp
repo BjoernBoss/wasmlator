@@ -202,8 +202,11 @@ size_t env::Memory::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
 		if (allocate == 0)
 			return phys;
 
-		/* add the physical slot */
-		pPhysical.push_back(detail::MemoryPhysical{ pPhysical.back().physical + pPhysical.back().size, allocate, false });
+		/* add the newly allocated physical memory/slot */
+		if (!pPhysical[phys - 1].used)
+			pPhysical[--phys].size += allocate;
+		else
+			pPhysical.push_back(detail::MemoryPhysical{ pPhysical.back().physical + pPhysical.back().size, allocate, false });
 	}
 	return phys;
 }
@@ -690,6 +693,12 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 		host::Debug(u8"Allocation failed");
 		return false;
 	}
+
+	/* patch the phys-prev/phys-next indices (as the allocation might have changed the overall count) */
+	if (!hasPrev)
+		physPrev = pPhysical.size();
+	if (!hasNext)
+		physNext = pPhysical.size();
 
 	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
 	detail::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);

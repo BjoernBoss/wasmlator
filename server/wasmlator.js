@@ -22,13 +22,25 @@ _state.controlled = function (fn) {
 		if (!_state.failed)
 			fn();
 	} catch (e) {
-		/* mark the wasmlator as failed and log the error */
+		/* check if this is the first exception and log it and mark the wasmlator as failed */
+		if(_state.failed)
+			return;
 		_state.failed = true;
+
+		/* log the actual error (only if this is the first exception) */
 		if (e instanceof Error)
 			console.error(e);
 		else
 			console.error(`Unhandled exception occurred: ${e.stack}`)
 	}
+}
+_state.throwException = function(e) {
+	/* log the error immediately, as the error handling of the main-application could trigger
+	*	a wasm-trap, in which case the original exception will not be logged anymore */
+	if (!_state.failed)
+		console.error(e);
+	_state.failed = true;
+	throw e;
 }
 
 /* create a string from the utf-8 encoded data at ptr in the main application or the glue-module */
@@ -103,7 +115,7 @@ _state.load_main = function () {
 	/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 	imports.env.emscripten_notify_memory_growth = function () { };
 	imports.wasi_snapshot_preview1.proc_exit = function (code) {
-		throw new UnknownExitError(`WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`);
+		_state.throwException(new UnknownExitError(`WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`));
 	};
 
 	/* setup the remaining host-imports */
@@ -111,7 +123,7 @@ _state.load_main = function () {
 		console.log(_state.load_string(ptr, size, true));
 	};
 	imports.env.host_fatal_u8 = function (ptr, size) {
-		throw new FatalError(`Wasmlator.js: ${_state.load_string(ptr, size, true)}`);
+		_state.throwException(new FatalError(`Wasmlator.js: ${_state.load_string(ptr, size, true)}`));
 	};
 	imports.env.host_load_core = function (ptr, size, process) {
 		return _state.load_core(_state.make_buffer(ptr, size), process);
