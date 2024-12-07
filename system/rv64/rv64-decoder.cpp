@@ -17,12 +17,30 @@ rv64::Instruction rv64::detail::Opcode03(uint32_t data) {
 	case 0x02:
 		out.opcode = rv64::Opcode::load_word_s;
 		break;
+	case 0x03:
+		out.opcode = rv64::Opcode::load_dword;
+		break;
 	case 0x04:
 		out.opcode = rv64::Opcode::load_byte_u;
 		break;
 	case 0x05:
 		out.opcode = rv64::Opcode::load_half_u;
 		break;
+	case 0x06:
+		out.opcode = rv64::Opcode::load_word_u;
+		break;
+	}
+
+	return out;
+}
+rv64::Instruction rv64::detail::Opcode0f(uint32_t data) {
+	rv64::Instruction out;
+
+	if (detail::GetU<7, 31>(data) == 0x20)
+		out.opcode = rv64::Opcode::fence_inst;
+	else if (detail::GetU<7, 19>(data) == 0x00 && detail::GetU<28, 31>(data) == 0x00) {
+		out.opcode = rv64::Opcode::fence;
+		out.fence = detail::GetU<20, 27>(data);
 	}
 
 	return out;
@@ -40,14 +58,6 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 	switch (detail::GetU<12, 14>(data)) {
 	case 0x00:
 		out.opcode = rv64::Opcode::add_imm;
-
-		/* special-case */
-		if (out.imm == 0) {
-			if (out.dest == 0 && out.src1 == 0)
-				out.opcode = rv64::Opcode::no_op;
-			else
-				out.opcode = rv64::Opcode::move;
-		}
 		break;
 	case 0x01:
 		if (funct7 == 0x00)
@@ -80,6 +90,35 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 
 	return out;
 }
+rv64::Instruction rv64::detail::Opcode1b(uint32_t data) {
+	rv64::Instruction out;
+
+	out.dest = detail::GetU<7, 11>(data);
+	out.src1 = detail::GetU<15, 19>(data);
+	out.imm = detail::GetS<20, 31>(data);
+
+	uint32_t funct7 = detail::GetU<25, 31>(data);
+
+	switch (detail::GetU<12, 14>(data)) {
+	case 0x00:
+		out.opcode = rv64::Opcode::add_imm_half;
+		break;
+	case 0x01:
+		if (funct7 == 0x00)
+			out.opcode = rv64::Opcode::shift_left_logic_imm_half;
+		break;
+	case 0x05:
+		if (funct7 == 0x00)
+			out.opcode = rv64::Opcode::shift_right_logic_imm_half;
+		else if (funct7 == 0x20) {
+			out.opcode = rv64::Opcode::shift_right_arith_imm_half;
+			out.imm &= 0x1f;
+		}
+		break;
+	}
+
+	return out;
+}
 rv64::Instruction rv64::detail::Opcode17(uint32_t data) {
 	rv64::Instruction out;
 
@@ -107,6 +146,9 @@ rv64::Instruction rv64::detail::Opcode23(uint32_t data) {
 		break;
 	case 0x02:
 		out.opcode = rv64::Opcode::store_word;
+		break;
+	case 0x03:
+		out.opcode = rv64::Opcode::store_dword;
 		break;
 	}
 
@@ -188,6 +230,52 @@ rv64::Instruction rv64::detail::Opcode37(uint32_t data) {
 
 	return out;
 }
+rv64::Instruction rv64::detail::Opcode3b(uint32_t data) {
+	rv64::Instruction out;
+
+	out.dest = detail::GetU<7, 11>(data);
+	out.src1 = detail::GetU<15, 19>(data);
+	out.src2 = detail::GetU<20, 24>(data);
+
+	uint32_t funct7 = detail::GetU<25, 31>(data);
+
+	switch (detail::GetU<12, 14>(data)) {
+	case 0x00:
+		if (funct7 == 0x00)
+			out.opcode = rv64::Opcode::add_reg_half;
+		else if (funct7 == 0x01)
+			out.opcode = rv64::Opcode::mul_reg_half;
+		else if (funct7 == 0x20)
+			out.opcode = rv64::Opcode::sub_reg_half;
+		break;
+	case 0x01:
+		if (funct7 == 0x00)
+			out.opcode = rv64::Opcode::shift_left_logic_reg_half;
+		break;
+	case 0x04:
+		if (funct7 == 0x01)
+			out.opcode = rv64::Opcode::div_s_reg_half;
+		break;
+	case 0x05:
+		if (funct7 == 0x00)
+			out.opcode = rv64::Opcode::shift_right_logic_reg_half;
+		else if (funct7 == 0x20)
+			out.opcode = rv64::Opcode::shift_right_arith_reg_half;
+		else if (funct7 == 0x01)
+			out.opcode = rv64::Opcode::div_u_reg_half;
+		break;
+	case 0x06:
+		if (funct7 == 0x01)
+			out.opcode = rv64::Opcode::rem_s_reg_half;
+		break;
+	case 0x07:
+		if (funct7 == 0x01)
+			out.opcode = rv64::Opcode::rem_u_reg_half;
+		break;
+	}
+
+	return out;
+}
 rv64::Instruction rv64::detail::Opcode63(uint32_t data) {
 	rv64::Instruction out;
 
@@ -246,6 +334,43 @@ rv64::Instruction rv64::detail::Opcode6f(uint32_t data) {
 
 	return out;
 }
+rv64::Instruction rv64::detail::Opcode73(uint32_t data) {
+	rv64::Instruction out;
+
+	out.src1 = detail::GetU<15, 19>(data);
+	out.imm = out.src1;
+	out.dest = detail::GetU<7, 11>(data);
+
+	out.csr = detail::GetU<20, 31>(data);
+	switch (detail::GetU<12, 14>(data)) {
+	case 0x00:
+		if (out.csr == 0 && out.src1 == 0 && out.dest == 0)
+			out.opcode = rv64::Opcode::ecall;
+		else if (out.csr == 1 && out.src1 == 0 && out.dest == 0)
+			out.opcode = rv64::Opcode::ebreak;
+		break;
+	case 0x01:
+		out.opcode = rv64::Opcode::csr_read_write;
+		break;
+	case 0x02:
+		out.opcode = rv64::Opcode::csr_read_and_set;
+		break;
+	case 0x03:
+		out.opcode = rv64::Opcode::csr_read_and_clear;
+		break;
+	case 0x05:
+		out.opcode = rv64::Opcode::csr_read_write_imm;
+		break;
+	case 0x06:
+		out.opcode = rv64::Opcode::csr_read_and_set_imm;
+		break;
+	case 0x07:
+		out.opcode = rv64::Opcode::csr_read_and_clear_imm;
+		break;
+	}
+
+	return out;
+}
 
 rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 	rv64::Instruction out;
@@ -274,6 +399,14 @@ rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 			| (uint64_t(detail::GetU<10, 12>(data)) << 3)
 			| (uint64_t(detail::GetU<6, 6>(data)) << 2);
 		break;
+	case 0x03:
+		/* c.ld */
+		out.opcode = rv64::Opcode::load_dword;
+		out.src1 = detail::RVCRegisters[detail::GetU<7, 9>(data)];
+		out.dest = detail::RVCRegisters[detail::GetU<2, 4>(data)];
+		out.imm = (uint64_t(detail::GetU<5, 6>(data)) << 6)
+			| (uint64_t(detail::GetU<10, 12>(data)) << 3);
+		break;
 	case 0x06:
 		/* c.sw */
 		out.opcode = rv64::Opcode::store_word;
@@ -282,6 +415,14 @@ rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 		out.imm = (uint64_t(detail::GetU<5, 5>(data)) << 6)
 			| (uint64_t(detail::GetU<10, 12>(data)) << 3)
 			| (uint64_t(detail::GetU<6, 6>(data)) << 2);
+		break;
+	case 0x07:
+		/* c.sd */
+		out.opcode = rv64::Opcode::store_word;
+		out.src1 = detail::RVCRegisters[detail::GetU<7, 9>(data)];
+		out.src2 = detail::RVCRegisters[detail::GetU<2, 4>(data)];
+		out.imm = (uint64_t(detail::GetU<5, 6>(data)) << 6)
+			| (uint64_t(detail::GetU<10, 12>(data)) << 3);
 		break;
 	}
 
@@ -295,19 +436,22 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 	uint8_t code = detail::GetU<13, 15>(data);
 	switch (code) {
 	case 0x00:
-		/* c.nop */
-		if (data == 1)
-			out.opcode = rv64::Opcode::no_op;
-
-		/* c.addi */
-		else {
-			out.src1 = detail::GetU<7, 11>(data);
-			out.dest = out.src1;
-			out.imm = (int64_t(detail::GetS<12, 12>(data)) << 5)
-				| (uint64_t(detail::GetU<2, 6>(data)) << 0);
-			if (out.src1 != 0 && out.imm != 0)
-				out.opcode = rv64::Opcode::add_imm;
-		}
+		/* c.nop / c.addi */
+		out.src1 = detail::GetU<7, 11>(data);
+		out.dest = out.src1;
+		out.imm = (int64_t(detail::GetS<12, 12>(data)) << 5)
+			| (uint64_t(detail::GetU<2, 6>(data)) << 0);
+		if ((out.dest != 0) == (out.imm != 0))
+			out.opcode = rv64::Opcode::add_imm;
+		break;
+	case 0x01:
+		/* c.addiw */
+		out.src1 = detail::GetU<7, 11>(data);
+		out.dest = out.src1;
+		out.imm = (int64_t(detail::GetS<12, 12>(data)) << 5)
+			| (uint64_t(detail::GetU<2, 6>(data)) << 0);
+		if (out.dest != 0 && out.imm != 0)
+			out.opcode = rv64::Opcode::add_imm_half;
 		break;
 	case 0x02:
 		/* c.li */
@@ -370,20 +514,22 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 
 			switch (detail::GetU<5, 6>(data)) {
 			case 0x00:
-				/* c.sub */
-				out.opcode = rv64::Opcode::sub_reg;
+				/* c.sub/c.subw */
+				out.opcode = (detail::GetU<12, 12>(data) == 0 ? rv64::Opcode::sub_reg : rv64::Opcode::sub_reg_half);
 				break;
 			case 0x01:
-				/* c.xor */
-				out.opcode = rv64::Opcode::xor_reg;
+				/* c.xor/c.addw */
+				out.opcode = (detail::GetU<12, 12>(data) == 0 ? rv64::Opcode::xor_reg : rv64::Opcode::add_reg_half);
 				break;
 			case 0x02:
 				/* c.or */
-				out.opcode = rv64::Opcode::or_reg;
+				if (detail::GetU<12, 12>(data) == 0)
+					out.opcode = rv64::Opcode::or_reg;
 				break;
 			case 0x03:
 				/* c.and */
-				out.opcode = rv64::Opcode::and_reg;
+				if (detail::GetU<12, 12>(data) == 0)
+					out.opcode = rv64::Opcode::and_reg;
 				break;
 			}
 			break;
@@ -453,6 +599,16 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 		if (out.dest != 0)
 			out.opcode = rv64::Opcode::load_word_s;
 		break;
+	case 0x03:
+		/* c.ldsp */
+		out.src1 = rv64::reg::X2;
+		out.dest = detail::GetU<7, 11>(data);
+		out.imm = (uint64_t(detail::GetU<2, 4>(data)) << 6)
+			| (uint64_t(detail::GetU<12, 12>(data)) << 5)
+			| (uint64_t(detail::GetU<5, 6>(data)) << 3);
+		if (out.dest != 0)
+			out.opcode = rv64::Opcode::load_dword;
+		break;
 	case 0x04:
 		out.src1 = detail::GetU<7, 11>(data);
 		out.src2 = detail::GetU<2, 6>(data);
@@ -466,7 +622,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 
 			/* c.mv */
 			else if (out.src1 != 0 && out.src2 != 0) {
-				out.opcode = rv64::Opcode::move;
+				out.opcode = rv64::Opcode::add_imm;
 				out.dest = out.src1;
 				out.src1 = out.src2;
 			}
@@ -484,6 +640,10 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 				out.dest = out.src1;
 			}
 		}
+
+		/* c.ebreak */
+		else if (out.src2 == 0)
+			out.opcode = rv64::Opcode::ebreak;
 		break;
 	case 0x06:
 		/* c.swsp */
@@ -492,6 +652,14 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 		out.imm = (uint64_t(detail::GetU<7, 8>(data)) << 6)
 			| (uint64_t(detail::GetU<9, 12>(data)) << 2);
 		out.opcode = rv64::Opcode::store_word;
+		break;
+	case 0x07:
+		/* c.sdsp */
+		out.src1 = rv64::reg::X2;
+		out.src2 = detail::GetU<2, 6>(data);
+		out.imm = (uint64_t(detail::GetU<7, 9>(data)) << 6)
+			| (uint64_t(detail::GetU<10, 12>(data)) << 3);
+		out.opcode = rv64::Opcode::store_dword;
 		break;
 	}
 
@@ -503,22 +671,30 @@ rv64::Instruction rv64::Decode32(uint32_t data) {
 	switch (detail::GetU<0, 6>(data)) {
 	case 0x03:
 		return detail::Opcode03(data);
+	case 0x0f:
+		return detail::Opcode0f(data);
 	case 0x13:
 		return detail::Opcode13(data);
 	case 0x17:
 		return detail::Opcode17(data);
+	case 0x1b:
+		return detail::Opcode1b(data);
 	case 0x23:
 		return detail::Opcode23(data);
 	case 0x33:
 		return detail::Opcode33(data);
 	case 0x37:
 		return detail::Opcode37(data);
+	case 0x3b:
+		return detail::Opcode3b(data);
 	case 0x63:
 		return detail::Opcode63(data);
 	case 0x67:
 		return detail::Opcode67(data);
 	case 0x6f:
 		return detail::Opcode6f(data);
+	case 0x73:
+		return detail::Opcode73(data);
 	default:
 		break;
 	}

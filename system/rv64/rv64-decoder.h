@@ -23,14 +23,18 @@ namespace rv64 {
 		}
 
 		rv64::Instruction Opcode03(uint32_t data);
+		rv64::Instruction Opcode0f(uint32_t data);
 		rv64::Instruction Opcode13(uint32_t data);
 		rv64::Instruction Opcode17(uint32_t data);
+		rv64::Instruction Opcode1b(uint32_t data);
 		rv64::Instruction Opcode23(uint32_t data);
 		rv64::Instruction Opcode33(uint32_t data);
 		rv64::Instruction Opcode37(uint32_t data);
+		rv64::Instruction Opcode3b(uint32_t data);
 		rv64::Instruction Opcode63(uint32_t data);
 		rv64::Instruction Opcode67(uint32_t data);
 		rv64::Instruction Opcode6f(uint32_t data);
+		rv64::Instruction Opcode73(uint32_t data);
 
 		rv64::Instruction Quadrant0(uint16_t data);
 		rv64::Instruction Quadrant1(uint16_t data);
@@ -38,12 +42,12 @@ namespace rv64 {
 	}
 
 	/*
-	*	Decodes: rv32i, rv32m, rv64i
+	*	Decodes: rv32i, rv32m, rv64i, rv64m
 	*/
 	rv64::Instruction Decode32(uint32_t data);
 
 	/*
-	*	Decodes: rvc with rv64 configuration
+	*	Decodes: rvc with rv64 configuration (excluding floating point operations)
 	*/
 	rv64::Instruction Decode16(uint16_t data);
 }

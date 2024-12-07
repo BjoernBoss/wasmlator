@@ -9,7 +9,12 @@ std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
 	return std::unique_ptr<rv64::Cpu>{ new rv64::Cpu{} };
 }
 
-void rv64::Cpu::setupCore(wasm::Module& mod) {}
+void rv64::Cpu::setupCore(wasm::Module& mod) {
+	/* register the functions for the e-break exceptions */
+	pEBreakId = env::Instance()->interact().defineCallback([]() {
+		host::Fatal(u8"[ebreak] instruction executed");
+		});
+}
 void rv64::Cpu::setupContext(env::guest_t address) {}
 void rv64::Cpu::started(const gen::Writer& writer) {
 	pDecoded.clear();
@@ -72,7 +77,7 @@ gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	return gen::Instruction{ type, target, uint8_t(inst.compressed ? 2 : 4), pDecoded.size() - 1 };
 }
 void rv64::Cpu::produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) {
-	rv64::Translate translate{ writer, address };
+	rv64::Translate translate{ writer, address, pEBreakId };
 	for (size_t i = 0; i < count; ++i)
 		translate.next(pDecoded[self[i]]);
 }

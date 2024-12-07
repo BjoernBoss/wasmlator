@@ -11,6 +11,7 @@ namespace rv64 {
 	class Cpu final : public sys::Cpu {
 	private:
 		std::vector<rv64::Instruction> pDecoded;
+		uint32_t pEBreakId = 0;
 
 	private:
 		Cpu();

@@ -21,6 +21,7 @@ gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDept
 }
 
 void gen::Block::fProcess(const detail::OpenAddress& next) {
+	host::Debug(str::u8::Format(u8"Processing block at [{:#018x}]", next.address));
 	detail::SuperBlock block{ pContextShared, next.address };
 
 	/* setup the actual sink to the super-block and instruction-writer */
@@ -48,6 +49,7 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 
 	/* notify the interface about the completed block */
 	pTranslator->completed(writer);
+	host::Debug(str::u8::Format(u8"Block at [{:#018x}] completed", next.address));
 }
 
 void gen::Block::run(env::guest_t address) {

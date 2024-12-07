@@ -146,7 +146,6 @@ namespace rv64 {
 	};
 
 	enum class Opcode : uint16_t {
-		/* rv32i */
 		load_upper_imm,
 		add_upper_imm_pc,
 		jump_and_link_imm,
@@ -163,42 +162,68 @@ namespace rv64 {
 		load_word_s,
 		load_byte_u,
 		load_half_u,
+		load_word_u,
+		load_dword,
 		store_byte,
 		store_half,
 		store_word,
+		store_dword,
 
 		add_imm,
+		add_imm_half,
 		xor_imm,
 		or_imm,
 		and_imm,
 		shift_left_logic_imm,
+		shift_left_logic_imm_half,
 		shift_right_logic_imm,
+		shift_right_logic_imm_half,
 		shift_right_arith_imm,
+		shift_right_arith_imm_half,
 		set_less_than_s_imm,
 		set_less_than_u_imm,
+
 		add_reg,
+		add_reg_half,
 		sub_reg,
+		sub_reg_half,
 		xor_reg,
 		or_reg,
 		and_reg,
 		shift_left_logic_reg,
+		shift_left_logic_reg_half,
 		shift_right_logic_reg,
+		shift_right_logic_reg_half,
 		shift_right_arith_reg,
+		shift_right_arith_reg_half,
 		set_less_than_s_reg,
 		set_less_than_u_reg,
 
-		/* rv32m */
+		fence,
+		fence_inst,
+		ebreak,
+		ecall,
+		csr_read_write,
+		csr_read_and_set,
+		csr_read_and_clear,
+		csr_read_write_imm,
+		csr_read_and_set_imm,
+		csr_read_and_clear_imm,
+
 		mul_reg,
+		mul_reg_half,
 		mul_high_s_reg,
 		mul_high_s_u_reg,
 		mul_high_u_reg,
 		div_s_reg,
+		div_s_reg_half,
 		div_u_reg,
+		div_u_reg_half,
 		rem_s_reg,
+		rem_s_reg_half,
 		rem_u_reg,
+		rem_u_reg_half,
 
-		no_op,
-		move,
 		_invalid
 	};
 
@@ -212,9 +237,11 @@ namespace rv64 {
 	struct Instruction {
 	public:
 		rv64::Opcode opcode = rv64::Opcode::_invalid;
+		uint16_t csr = 0;
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
+		uint8_t fence = 0;
 		bool compressed = false;
 		int64_t imm = 0;
 
