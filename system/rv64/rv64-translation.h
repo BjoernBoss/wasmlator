@@ -9,6 +9,8 @@ namespace rv64 {
 	class Translate {
 	private:
 		const gen::Writer& pWriter;
+		wasm::Variable pDivisionTemp32;
+		wasm::Variable pDivisionTemp64;
 		env::guest_t pAddress = 0;
 		env::guest_t pNextAddress = 0;
 		const rv64::Instruction* pInst = 0;
@@ -32,6 +34,8 @@ namespace rv64 {
 		void fMakeALUReg() const;
 		void fMakeLoad() const;
 		void fMakeStore() const;
+		void fMakeMul() const;
+		void fMakeDivRem();
 
 	public:
 		void next(const rv64::Instruction& inst);

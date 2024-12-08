@@ -260,11 +260,13 @@ void rv64::Translate::fMakeALUReg() const {
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::add_reg:
-		if (fLoadSrc1(false) && fLoadSrc2(false))
+		fLoadSrc1(false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false))
 			sink[I::U64::Add()];
 		break;
 	case rv64::Opcode::add_reg_half:
-		if (fLoadSrc1Half(false) && fLoadSrc2Half(false))
+		fLoadSrc1Half(false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2Half(false))
 			sink[I::U32::Add()];
 		sink[I::I32::Expand()];
 		break;
@@ -273,16 +275,18 @@ void rv64::Translate::fMakeALUReg() const {
 			sink[I::U64::Sub()];
 		break;
 	case rv64::Opcode::sub_reg_half:
-		if (fLoadSrc1Half(false) && fLoadSrc2Half(false))
+		if (fLoadSrc1Half(true) && fLoadSrc2Half(false))
 			sink[I::U32::Sub()];
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_reg:
-		if (fLoadSrc1(false) && fLoadSrc2(false))
+		fLoadSrc1(false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false))
 			sink[I::U64::XOr()];
 		break;
 	case rv64::Opcode::or_reg:
-		if (fLoadSrc1(false) && fLoadSrc2(false))
+		fLoadSrc1(false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false))
 			sink[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_reg:
@@ -420,6 +424,171 @@ void rv64::Translate::fMakeStore() const {
 		break;
 	}
 }
+void rv64::Translate::fMakeMul() const {
+	wasm::Sink& sink = pWriter.sink();
+
+	/* check if the operation can be discarded */
+	if (pInst->dest == reg::Zero)
+		return;
+	if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) {
+		sink[I::U64::Const(0)];
+		fStoreDest();
+		return;
+	}
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::mul_reg:
+		fLoadSrc1(false);
+		fLoadSrc2(false);
+		sink[I::I64::Mul()];
+		break;
+	case rv64::Opcode::mul_reg_half:
+		fLoadSrc1Half(false);
+		fLoadSrc2Half(false);
+		sink[I::U32::Mul()];
+		sink[I::I32::Expand()];
+		break;
+	default:
+		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		break;
+	}
+
+	/* write the result to the register */
+	fStoreDest();
+}
+void rv64::Translate::fMakeDivRem() {
+	wasm::Sink& sink = pWriter.sink();
+
+	/* operation-checks to simplify the logic */
+	bool half = (pInst->opcode == rv64::Opcode::div_s_reg_half || pInst->opcode == rv64::Opcode::div_u_reg_half ||
+		pInst->opcode == rv64::Opcode::rem_s_reg_half || pInst->opcode == rv64::Opcode::rem_u_reg_half);
+	bool div = (pInst->opcode == rv64::Opcode::div_s_reg_half || pInst->opcode == rv64::Opcode::div_u_reg_half ||
+		pInst->opcode == rv64::Opcode::div_s_reg || pInst->opcode == rv64::Opcode::div_u_reg);
+	bool sign = (pInst->opcode == rv64::Opcode::div_s_reg || pInst->opcode == rv64::Opcode::div_s_reg_half ||
+		pInst->opcode == rv64::Opcode::rem_s_reg || pInst->opcode == rv64::Opcode::rem_s_reg_half);
+	wasm::Type type = (half ? wasm::Type::i32 : wasm::Type::i64);
+
+	/* check if the operation can be discarded, as it is a division by zero */
+	if (pInst->dest == reg::Zero)
+		return;
+	if (pInst->src2 == reg::Zero) {
+		if (div) {
+			sink[I::I64::Const(-1)];
+			fStoreDest();
+		}
+		else if (pInst->src1 != pInst->dest) {
+			fLoadSrc1(true);
+			fStoreDest();
+		}
+		return;
+	}
+
+	/* allocate the temporary variables and write the operands to the stack */
+	wasm::Variable temp;
+	if (half) {
+		if (!pDivisionTemp32.valid())
+			pDivisionTemp32 = sink.local(type, u8"_div_temp_i32");
+		temp = pDivisionTemp32;
+		fLoadSrc1Half(true);
+		fLoadSrc2Half(true);
+	}
+	else {
+		if (!pDivisionTemp64.valid())
+			pDivisionTemp64 = sink.local(type, u8"_div_temp_i64");
+		temp = pDivisionTemp64;
+		fLoadSrc1(true);
+		fLoadSrc2(true);
+	}
+
+	/* check if a division-by-zero will occur */
+	sink[I::Local::Tee(temp)];
+	sink[half ? I::U32::EqualZero() : I::U64::EqualZero()];
+	wasm::IfThen zero{ sink, u8"", { type }, {} };
+
+	/* write the division-by-zero result to the stack (for remainder, its just the first operand) */
+	if (div) {
+		sink[I::Drop()];
+		sink[I::I64::Const(-1)];
+	}
+	fStoreDest();
+
+	/* restore the second operand */
+	zero.otherwise();
+	sink[I::Local::Get(temp)];
+
+	/* check if a division overflow may occur */
+	wasm::Block overflown;
+	if (sign) {
+		overflown = std::move(wasm::Block{ sink, u8"", { type, type }, {} });
+		sink[half ? I::I32::Const(-1) : I::I64::Const(-1)];
+		sink[half ? I::U32::Equal() : I::U64::Equal()];
+		wasm::IfThen mayOverflow{ sink, u8"", { type }, { type, type } };
+
+		/* check the second operand (temp can be overwritten, as the divisor is now known) */
+		sink[I::Local::Tee(temp)];
+		sink[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
+		sink[half ? I::U32::Equal() : I::U64::Equal()];
+		{
+			wasm::IfThen isOverflow{ sink, u8"", {}, { type, type } };
+
+			/* write the overflow result to the destination */
+			if (div)
+				sink[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
+			else
+				sink[half ? I::I32::Const(0) : I::I64::Const(0)];
+			fStoreDest();
+			sink[I::Branch::Direct(overflown)];
+
+			/* restore the operands for the operation */
+			isOverflow.otherwise();
+			sink[I::Local::Get(temp)];
+			sink[half ? I::I32::Const(-1) : I::I64::Const(-1)];
+		}
+
+		/* restore the first operand */
+		mayOverflow.otherwise();
+		sink[I::Local::Get(temp)];
+	}
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::div_s_reg:
+		sink[I::I64::Div()];
+		break;
+	case rv64::Opcode::div_s_reg_half:
+		sink[I::I32::Div()];
+		sink[I::I32::Expand()];
+		break;
+	case rv64::Opcode::div_u_reg:
+		sink[I::U64::Div()];
+		break;
+	case rv64::Opcode::div_u_reg_half:
+		sink[I::U32::Div()];
+		sink[I::I32::Expand()];
+		break;
+	case rv64::Opcode::rem_s_reg:
+		sink[I::I64::Mod()];
+		break;
+	case rv64::Opcode::rem_s_reg_half:
+		sink[I::I32::Mod()];
+		sink[I::I32::Expand()];
+		break;
+	case rv64::Opcode::rem_u_reg:
+		sink[I::U64::Mod()];
+		break;
+	case rv64::Opcode::rem_u_reg_half:
+		sink[I::U32::Mod()];
+		sink[I::I32::Expand()];
+		break;
+	default:
+		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		break;
+	}
+
+	/* write the result to the register */
+	fStoreDest();
+}
 
 void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* setup the state for the upcoming instruction */
@@ -507,20 +676,10 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::ebreak:
 		pWriter.invokeVoid(pEBreakId);
 		break;
-
-	case rv64::Opcode::fence:
-	case rv64::Opcode::fence_inst:
-	case rv64::Opcode::csr_read_write:
-	case rv64::Opcode::csr_read_and_set:
-	case rv64::Opcode::csr_read_and_clear:
-	case rv64::Opcode::csr_read_write_imm:
-	case rv64::Opcode::csr_read_and_set_imm:
-	case rv64::Opcode::csr_read_and_clear_imm:
 	case rv64::Opcode::mul_reg:
 	case rv64::Opcode::mul_reg_half:
-	case rv64::Opcode::mul_high_s_reg:
-	case rv64::Opcode::mul_high_s_u_reg:
-	case rv64::Opcode::mul_high_u_reg:
+		fMakeMul();
+		break;
 	case rv64::Opcode::div_s_reg:
 	case rv64::Opcode::div_s_reg_half:
 	case rv64::Opcode::div_u_reg:
@@ -529,6 +688,20 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::rem_s_reg_half:
 	case rv64::Opcode::rem_u_reg:
 	case rv64::Opcode::rem_u_reg_half:
+		fMakeDivRem();
+		break;
+
+	case rv64::Opcode::mul_high_s_reg:
+	case rv64::Opcode::mul_high_s_u_reg:
+	case rv64::Opcode::mul_high_u_reg:
+	case rv64::Opcode::fence:
+	case rv64::Opcode::fence_inst:
+	case rv64::Opcode::csr_read_write:
+	case rv64::Opcode::csr_read_and_set:
+	case rv64::Opcode::csr_read_and_clear:
+	case rv64::Opcode::csr_read_write_imm:
+	case rv64::Opcode::csr_read_and_set_imm:
+	case rv64::Opcode::csr_read_and_clear_imm:
 	case rv64::Opcode::_invalid:
 		host::Fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
 	}

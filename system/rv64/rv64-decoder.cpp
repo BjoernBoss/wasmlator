@@ -382,7 +382,7 @@ rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 		/* c.addi4spn */
 		if (data != 0) {
 			out.opcode = rv64::Opcode::add_imm;
-			out.src1 = rv64::reg::X2;
+			out.src1 = reg::X2;
 			out.dest = detail::RVCRegisters[detail::GetU<2, 4>(data)];
 			out.imm = (uint64_t(detail::GetU<7, 10>(data)) << 6)
 				| (uint64_t(detail::GetU<11, 12>(data)) << 4)
@@ -455,7 +455,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 		break;
 	case 0x02:
 		/* c.li */
-		out.src1 = rv64::reg::Zero;
+		out.src1 = reg::Zero;
 		out.dest = detail::GetU<7, 11>(data);
 		out.imm = (int64_t(detail::GetS<12, 12>(data)) << 5)
 			| (uint64_t(detail::GetU<2, 6>(data)) << 0);
@@ -467,7 +467,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 
 		/* c.addi16sp */
 		if (out.dest == 2) {
-			out.src1 = rv64::reg::X2;
+			out.src1 = reg::X2;
 			out.imm = (int64_t(detail::GetS<12, 12>(data)) << 9)
 				| (uint64_t(detail::GetU<3, 4>(data)) << 7)
 				| (uint64_t(detail::GetU<5, 5>(data)) << 6)
@@ -546,7 +546,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 			| (uint64_t(detail::GetU<11, 11>(data)) << 4)
 			| (uint64_t(detail::GetU<3, 5>(data)) << 1);
 		out.opcode = rv64::Opcode::jump_and_link_reg;
-		out.dest = rv64::reg::Zero;
+		out.dest = reg::Zero;
 		break;
 	case 0x06:
 	case 0x07:
@@ -559,13 +559,13 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 
 		/* c.beqz */
 		if (code) {
-			out.src2 = rv64::reg::Zero;
+			out.src2 = reg::Zero;
 			out.opcode = rv64::Opcode::branch_eq;
 		}
 
 		/* c.bnez */
 		else {
-			out.src2 = rv64::reg::Zero;
+			out.src2 = reg::Zero;
 			out.opcode = rv64::Opcode::branch_ne;
 		}
 		break;
@@ -591,7 +591,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 		break;
 	case 0x02:
 		/* c.lwsp */
-		out.src1 = rv64::reg::X2;
+		out.src1 = reg::X2;
 		out.dest = detail::GetU<7, 11>(data);
 		out.imm = (uint64_t(detail::GetU<2, 3>(data)) << 6)
 			| (uint64_t(detail::GetU<12, 12>(data)) << 5)
@@ -601,7 +601,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 		break;
 	case 0x03:
 		/* c.ldsp */
-		out.src1 = rv64::reg::X2;
+		out.src1 = reg::X2;
 		out.dest = detail::GetU<7, 11>(data);
 		out.imm = (uint64_t(detail::GetU<2, 4>(data)) << 6)
 			| (uint64_t(detail::GetU<12, 12>(data)) << 5)
@@ -617,7 +617,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 			/* c.jr */
 			if (out.src1 != 0 && out.src2 == 0) {
 				out.opcode = rv64::Opcode::jump_and_link_reg;
-				out.dest = rv64::reg::Zero;
+				out.dest = reg::Zero;
 			}
 
 			/* c.mv */
@@ -631,7 +631,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 			/* c.jalr */
 			if (out.src2 == 0) {
 				out.opcode = rv64::Opcode::jump_and_link_reg;
-				out.dest = rv64::reg::X1;
+				out.dest = reg::X1;
 			}
 
 			/* c.add */
@@ -647,7 +647,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 		break;
 	case 0x06:
 		/* c.swsp */
-		out.src1 = rv64::reg::X2;
+		out.src1 = reg::X2;
 		out.src2 = detail::GetU<2, 6>(data);
 		out.imm = (uint64_t(detail::GetU<7, 8>(data)) << 6)
 			| (uint64_t(detail::GetU<9, 12>(data)) << 2);
@@ -655,7 +655,7 @@ rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 		break;
 	case 0x07:
 		/* c.sdsp */
-		out.src1 = rv64::reg::X2;
+		out.src1 = reg::X2;
 		out.src2 = detail::GetU<2, 6>(data);
 		out.imm = (uint64_t(detail::GetU<7, 9>(data)) << 6)
 			| (uint64_t(detail::GetU<10, 12>(data)) << 3);

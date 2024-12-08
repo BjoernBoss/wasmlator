@@ -117,7 +117,7 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 		sink[I::I32::Const(0)];
 		sink[I::I32::Less()];
 		{
-			wasm::IfThen _if{ sink, {}, {}, {wasm::Type::i32 } };
+			wasm::IfThen _if{ sink, u8"", {}, {wasm::Type::i32 } };
 			sink[I::U32::Const(0)];
 			_if.otherwise();
 			sink[I::U32::Const(1)];
