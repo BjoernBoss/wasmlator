@@ -13,7 +13,8 @@ enum class FormatType : uint8_t {
 	jalr,
 	fence,
 	dst_src1_csr,
-	dst_imm_csr
+	dst_imm_csr,
+	dst_src1_src2_amo
 };
 struct PrintOpcode {
 	const char8_t* string = 0;
@@ -97,6 +98,29 @@ static constexpr PrintOpcode opcodeStrings[] = {
 	PrintOpcode{ u8"remw", FormatType::dst_src1_src2 },
 	PrintOpcode{ u8"remu", FormatType::dst_src1_src2 },
 	PrintOpcode{ u8"remuw", FormatType::dst_src1_src2 },
+
+	PrintOpcode{ u8"lr.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"sc.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoswap.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoadd.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoxor.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoand.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoor.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amomin.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amomax.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amominu.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amomaxu.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"lr.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"sc.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoswap.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoadd.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoxor.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoand.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amoor.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amomin.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amomax.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amominu.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"amomaxu.d", FormatType::dst_src1_src2_amo },
 };
 static constexpr const char8_t* registerStrings[] = {
 	u8"zero",
@@ -173,13 +197,17 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", $(", registerStrings[inst.src1], u8" + ", inst.imm, u8')');
 		break;
 	case FormatType::fence:
-		str::FormatTo(out, u8" (pred: {:04b} | succ: {:04b})", (inst.fence >> 4) & 0x0f, inst.fence & 0x0f);
+		str::FormatTo(out, u8" (pred: {:04b} | succ: {:04b})", (inst.misc >> 4) & 0x0f, inst.misc & 0x0f);
 		break;
 	case FormatType::dst_src1_csr:
-		str::FormatTo(out, u8" {}, {} csr:{:#014x}", registerStrings[inst.dest], registerStrings[inst.src1], inst.csr);
+		str::FormatTo(out, u8" {}, {} csr:{:#05x}", registerStrings[inst.dest], registerStrings[inst.src1], inst.misc);
 		break;
 	case FormatType::dst_imm_csr:
-		str::FormatTo(out, u8" {}, {} csr:{:#014x}", registerStrings[inst.dest], inst.imm, inst.csr);
+		str::FormatTo(out, u8" {}, {} csr:{:#05x}", registerStrings[inst.dest], inst.imm, inst.misc);
+		break;
+	case FormatType::dst_src1_src2_amo:
+		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", registerStrings[inst.src1], u8", ", registerStrings[inst.src2],
+			u8" (aq: ", ((inst.misc & 0x02) != 0 ? u8'1' : u8'0'), u8" | rl: ", ((inst.misc & 0x01) != 0 ? u8'1' : u8'0'), u8')');
 		break;
 	default:
 		break;

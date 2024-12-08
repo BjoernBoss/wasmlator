@@ -40,7 +40,7 @@ rv64::Instruction rv64::detail::Opcode0f(uint32_t data) {
 		out.opcode = rv64::Opcode::fence_inst;
 	else if (detail::GetU<7, 19>(data) == 0x00 && detail::GetU<28, 31>(data) == 0x00) {
 		out.opcode = rv64::Opcode::fence;
-		out.fence = detail::GetU<20, 27>(data);
+		out.misc = detail::GetU<20, 27>(data);
 	}
 
 	return out;
@@ -149,6 +149,59 @@ rv64::Instruction rv64::detail::Opcode23(uint32_t data) {
 		break;
 	case 0x03:
 		out.opcode = rv64::Opcode::store_dword;
+		break;
+	}
+
+	return out;
+}
+rv64::Instruction rv64::detail::Opcode2f(uint32_t data) {
+	rv64::Instruction out;
+
+	out.src1 = detail::GetU<15, 19>(data);
+	out.src2 = detail::GetU<20, 24>(data);
+	out.dest = detail::GetU<7, 11>(data);
+	out.misc = detail::GetU<25, 26>(data);
+
+	/* validate the width-attribute */
+	uint8_t width = detail::GetU<12, 14>(data);
+	if (width != 0x02 && width != 0x03)
+		return out;
+	bool wide = (width == 0x03);
+
+	/* extract the actual instruction opcode */
+	switch (detail::GetU<27, 31>(data)) {
+	case 0x00:
+		out.opcode = (wide ? rv64::Opcode::amo_add_d : rv64::Opcode::amo_add_w);
+		break;
+	case 0x01:
+		out.opcode = (wide ? rv64::Opcode::amo_swap_d : rv64::Opcode::amo_swap_w);
+		break;
+	case 0x02:
+		out.opcode = (wide ? rv64::Opcode::load_reserved_d : rv64::Opcode::load_reserved_w);
+		break;
+	case 0x03:
+		out.opcode = (wide ? rv64::Opcode::store_conditional_d : rv64::Opcode::store_conditional_w);
+		break;
+	case 0x04:
+		out.opcode = (wide ? rv64::Opcode::amo_xor_d : rv64::Opcode::amo_xor_w);
+		break;
+	case 0x08:
+		out.opcode = (wide ? rv64::Opcode::amo_or_d : rv64::Opcode::amo_or_w);
+		break;
+	case 0x0c:
+		out.opcode = (wide ? rv64::Opcode::amo_and_d : rv64::Opcode::amo_and_w);
+		break;
+	case 0x10:
+		out.opcode = (wide ? rv64::Opcode::amo_min_s_d : rv64::Opcode::amo_min_s_w);
+		break;
+	case 0x14:
+		out.opcode = (wide ? rv64::Opcode::amo_max_s_d : rv64::Opcode::amo_max_s_w);
+		break;
+	case 0x18:
+		out.opcode = (wide ? rv64::Opcode::amo_min_u_d : rv64::Opcode::amo_min_u_w);
+		break;
+	case 0x1c:
+		out.opcode = (wide ? rv64::Opcode::amo_max_u_d : rv64::Opcode::amo_max_u_w);
 		break;
 	}
 
@@ -341,12 +394,12 @@ rv64::Instruction rv64::detail::Opcode73(uint32_t data) {
 	out.imm = out.src1;
 	out.dest = detail::GetU<7, 11>(data);
 
-	out.csr = detail::GetU<20, 31>(data);
+	out.misc = detail::GetU<20, 31>(data);
 	switch (detail::GetU<12, 14>(data)) {
 	case 0x00:
-		if (out.csr == 0 && out.src1 == 0 && out.dest == 0)
+		if (out.misc == 0 && out.src1 == 0 && out.dest == 0)
 			out.opcode = rv64::Opcode::ecall;
-		else if (out.csr == 1 && out.src1 == 0 && out.dest == 0)
+		else if (out.misc == 1 && out.src1 == 0 && out.dest == 0)
 			out.opcode = rv64::Opcode::ebreak;
 		break;
 	case 0x01:
@@ -450,7 +503,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 		out.dest = out.src1;
 		out.imm = (int64_t(detail::GetS<12, 12>(data)) << 5)
 			| (uint64_t(detail::GetU<2, 6>(data)) << 0);
-		if (out.dest != 0 && out.imm != 0)
+		if (out.dest != 0)
 			out.opcode = rv64::Opcode::add_imm_half;
 		break;
 	case 0x02:
@@ -681,6 +734,8 @@ rv64::Instruction rv64::Decode32(uint32_t data) {
 		return detail::Opcode1b(data);
 	case 0x23:
 		return detail::Opcode23(data);
+	case 0x2f:
+		return detail::Opcode2f(data);
 	case 0x33:
 		return detail::Opcode33(data);
 	case 0x37:

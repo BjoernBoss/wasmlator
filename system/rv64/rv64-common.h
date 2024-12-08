@@ -224,6 +224,29 @@ namespace rv64 {
 		rem_u_reg,
 		rem_u_reg_half,
 
+		load_reserved_w,
+		store_conditional_w,
+		amo_swap_w,
+		amo_add_w,
+		amo_xor_w,
+		amo_and_w,
+		amo_or_w,
+		amo_min_s_w,
+		amo_max_s_w,
+		amo_min_u_w,
+		amo_max_u_w,
+		load_reserved_d,
+		store_conditional_d,
+		amo_swap_d,
+		amo_add_d,
+		amo_xor_d,
+		amo_and_d,
+		amo_or_d,
+		amo_min_s_d,
+		amo_max_s_d,
+		amo_min_u_d,
+		amo_max_u_d,
+
 		_invalid
 	};
 
@@ -237,11 +260,10 @@ namespace rv64 {
 	struct Instruction {
 	public:
 		rv64::Opcode opcode = rv64::Opcode::_invalid;
-		uint16_t csr = 0;
+		uint16_t misc = 0;
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
-		uint8_t fence = 0;
 		bool compressed = false;
 		int64_t imm = 0;
 

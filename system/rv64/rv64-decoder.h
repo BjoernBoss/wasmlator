@@ -28,6 +28,7 @@ namespace rv64 {
 		rv64::Instruction Opcode17(uint32_t data);
 		rv64::Instruction Opcode1b(uint32_t data);
 		rv64::Instruction Opcode23(uint32_t data);
+		rv64::Instruction Opcode2f(uint32_t data);
 		rv64::Instruction Opcode33(uint32_t data);
 		rv64::Instruction Opcode37(uint32_t data);
 		rv64::Instruction Opcode3b(uint32_t data);
@@ -42,7 +43,7 @@ namespace rv64 {
 	}
 
 	/*
-	*	Decodes: rv32i, rv32m, rv64i, rv64m
+	*	Decodes: rv32i, rv32m, rv64i, rv64m, rv32a, rv64a
 	*/
 	rv64::Instruction Decode32(uint32_t data);
 

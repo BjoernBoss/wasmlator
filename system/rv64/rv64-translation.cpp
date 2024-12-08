@@ -146,14 +146,22 @@ void rv64::Translate::fMakeALUImm() const {
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::add_imm:
-		sink[I::I64::Const(pInst->imm)];
-		if (fLoadSrc1(false))
-			sink[I::U64::Add()];
+		if (pInst->imm == 0)
+			fLoadSrc1(true);
+		else {
+			sink[I::I64::Const(pInst->imm)];
+			if (fLoadSrc1(false))
+				sink[I::U64::Add()];
+		}
 		break;
 	case rv64::Opcode::add_imm_half:
-		sink[I::I32::Const(pInst->imm)];
-		if (fLoadSrc1Half(false))
-			sink[I::U32::Add()];
+		if (pInst->imm == 0)
+			fLoadSrc1Half(true);
+		else {
+			sink[I::I32::Const(pInst->imm)];
+			if (fLoadSrc1Half(false))
+				sink[I::U32::Add()];
+		}
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_imm:
@@ -702,6 +710,28 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::csr_read_write_imm:
 	case rv64::Opcode::csr_read_and_set_imm:
 	case rv64::Opcode::csr_read_and_clear_imm:
+	case rv64::Opcode::load_reserved_w:
+	case rv64::Opcode::store_conditional_w:
+	case rv64::Opcode::amo_swap_w:
+	case rv64::Opcode::amo_add_w:
+	case rv64::Opcode::amo_xor_w:
+	case rv64::Opcode::amo_and_w:
+	case rv64::Opcode::amo_or_w:
+	case rv64::Opcode::amo_min_s_w:
+	case rv64::Opcode::amo_max_s_w:
+	case rv64::Opcode::amo_min_u_w:
+	case rv64::Opcode::amo_max_u_w:
+	case rv64::Opcode::load_reserved_d:
+	case rv64::Opcode::store_conditional_d:
+	case rv64::Opcode::amo_swap_d:
+	case rv64::Opcode::amo_add_d:
+	case rv64::Opcode::amo_xor_d:
+	case rv64::Opcode::amo_and_d:
+	case rv64::Opcode::amo_or_d:
+	case rv64::Opcode::amo_min_s_d:
+	case rv64::Opcode::amo_max_s_d:
+	case rv64::Opcode::amo_min_u_d:
+	case rv64::Opcode::amo_max_u_d:
 	case rv64::Opcode::_invalid:
 		host::Fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
 	}
