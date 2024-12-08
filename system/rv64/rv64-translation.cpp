@@ -2,7 +2,8 @@
 
 namespace I = wasm::inst;
 
-rv64::Translate::Translate(const gen::Writer& writer, env::guest_t address, uint32_t ebreak) : pWriter{ writer }, pAddress{ address }, pNextAddress{ address }, pEBreakId{ ebreak } {}
+rv64::Translate::Translate(const gen::Writer& writer, env::guest_t address, uint32_t ecall, uint32_t ebreak) :
+	pWriter{ writer }, pAddress{ address }, pNextAddress{ address }, pECallId{ ecall }, pEBreakId{ ebreak } {}
 
 bool rv64::Translate::fLoadSrc1(bool forceNull) const {
 	if (pInst->src1 != reg::Zero) {
@@ -406,13 +407,13 @@ void rv64::Translate::fMakeStore() const {
 		pWriter.write(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::store_half:
-		pWriter.read(pInst->src1, gen::MemoryType::u16To64, pAddress);
+		pWriter.write(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::store_word:
-		pWriter.read(pInst->src1, gen::MemoryType::u32To64, pAddress);
+		pWriter.write(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
-		pWriter.read(pInst->src1, gen::MemoryType::i64, pAddress);
+		pWriter.write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -500,13 +501,15 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::store_dword:
 		fMakeStore();
 		break;
+	case rv64::Opcode::ecall:
+		pWriter.invokeVoid(pECallId);
+		break;
 	case rv64::Opcode::ebreak:
 		pWriter.invokeVoid(pEBreakId);
 		break;
 
 	case rv64::Opcode::fence:
 	case rv64::Opcode::fence_inst:
-	case rv64::Opcode::ecall:
 	case rv64::Opcode::csr_read_write:
 	case rv64::Opcode::csr_read_and_set:
 	case rv64::Opcode::csr_read_and_clear:

@@ -99,7 +99,7 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 	pSink[I::Call::IndirectTail(pHost.addresses(), pMapping.blockPrototype())];
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
-	pMapping.makeDirectInvoke();
+	pMapping.makeTailInvoke();
 }
 void gen::detail::AddressWriter::makeReturn() const {
 	pSink[I::Return()];

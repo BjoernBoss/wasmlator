@@ -12,10 +12,11 @@ namespace rv64 {
 		env::guest_t pAddress = 0;
 		env::guest_t pNextAddress = 0;
 		const rv64::Instruction* pInst = 0;
+		uint32_t pECallId = 0;
 		uint32_t pEBreakId = 0;
 
 	public:
-		Translate(const gen::Writer& writer, env::guest_t address, uint32_t ebreak);
+		Translate(const gen::Writer& writer, env::guest_t address, uint32_t ecall, uint32_t ebreak);
 
 	private:
 		bool fLoadSrc1(bool forceNull) const;
