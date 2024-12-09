@@ -2,51 +2,48 @@
 
 namespace I = wasm::inst;
 
-rv64::Translate::Translate(const gen::Writer& writer, env::guest_t address, uint32_t ecall, uint32_t ebreak) :
-	pWriter{ writer }, pAddress{ address }, pNextAddress{ address }, pECallId{ ecall }, pEBreakId{ ebreak } {}
-
 bool rv64::Translate::fLoadSrc1(bool forceNull) const {
 	if (pInst->src1 != reg::Zero) {
-		pWriter.get(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i64);
+		pWriter->get(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
-		pWriter.sink()[I::U64::Const(0)];
+		pWriter->sink()[I::U64::Const(0)];
 	return false;
 }
 bool rv64::Translate::fLoadSrc1Half(bool forceNull) const {
 	if (pInst->src1 != reg::Zero) {
-		pWriter.get(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i32);
+		pWriter->get(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i32);
 		return true;
 	}
 	else if (forceNull)
-		pWriter.sink()[I::U32::Const(0)];
+		pWriter->sink()[I::U32::Const(0)];
 	return false;
 }
 bool rv64::Translate::fLoadSrc2(bool forceNull) const {
 	if (pInst->src2 != reg::Zero) {
-		pWriter.get(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i64);
+		pWriter->get(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
-		pWriter.sink()[I::U64::Const(0)];
+		pWriter->sink()[I::U64::Const(0)];
 	return false;
 }
 bool rv64::Translate::fLoadSrc2Half(bool forceNull) const {
 	if (pInst->src2 != reg::Zero) {
-		pWriter.get(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i32);
+		pWriter->get(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i32);
 		return true;
 	}
 	else if (forceNull)
-		pWriter.sink()[I::U32::Const(0)];
+		pWriter->sink()[I::U32::Const(0)];
 	return false;
 }
 void rv64::Translate::fStoreDest() const {
-	pWriter.set(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
+	pWriter->set(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
 }
 
 void rv64::Translate::fMakeJAL() const {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* write the next pc to the destination register */
 	if (pInst->dest != reg::Zero) {
@@ -63,33 +60,33 @@ void rv64::Translate::fMakeJAL() const {
 
 		/* check if the instruction can be considered a return */
 		if (pInst->isRet())
-			pWriter.ret();
+			pWriter->ret();
 
 		/* check if the instruction can be considered a call */
 		else if (pInst->isCall())
-			pWriter.call(pNextAddress);
+			pWriter->call(pNextAddress);
 
 		/* translate the instruction as normal jump */
 		else
-			pWriter.jump();
+			pWriter->jump();
 		return;
 	}
 
 	/* add the instruction as normal direct call or jump */
 	env::guest_t address = (pAddress + pInst->imm);
 	if (pInst->isCall())
-		pWriter.call(address, pNextAddress);
+		pWriter->call(address, pNextAddress);
 	else
-		pWriter.jump(address);
+		pWriter->jump(address);
 }
 void rv64::Translate::fMakeBranch() const {
 	env::guest_t address = pAddress + pInst->imm;
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* check if the condition can be discarded */
 	if (pInst->src1 == pInst->src2) {
 		if (pInst->opcode == rv64::Opcode::branch_eq || pInst->opcode == rv64::Opcode::branch_ge_s || pInst->opcode == rv64::Opcode::branch_ge_u)
-			pWriter.jump(address);
+			pWriter->jump(address);
 		return;
 	}
 
@@ -126,7 +123,7 @@ void rv64::Translate::fMakeBranch() const {
 	}
 
 	/* check if the target can directly be branched to */
-	const wasm::Target* target = pWriter.hasTarget(address);
+	const wasm::Target* target = pWriter->hasTarget(address);
 	if (target != 0) {
 		sink[I::Branch::If(*target)];
 		return;
@@ -134,10 +131,10 @@ void rv64::Translate::fMakeBranch() const {
 
 	/* add the optional jump to the target */
 	wasm::IfThen _if{ sink };
-	pWriter.jump(address);
+	pWriter->jump(address);
 }
 void rv64::Translate::fMakeALUImm() const {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
@@ -252,7 +249,7 @@ void rv64::Translate::fMakeALUImm() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeALUReg() const {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
@@ -360,7 +357,7 @@ void rv64::Translate::fMakeALUReg() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeLoad() const {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
@@ -374,25 +371,25 @@ void rv64::Translate::fMakeLoad() const {
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_byte_s:
-		pWriter.read(pInst->src1, gen::MemoryType::i8To64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::i8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_s:
-		pWriter.read(pInst->src1, gen::MemoryType::i16To64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::i16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_s:
-		pWriter.read(pInst->src1, gen::MemoryType::i32To64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::i32To64, pAddress);
 		break;
 	case rv64::Opcode::load_byte_u:
-		pWriter.read(pInst->src1, gen::MemoryType::u8To64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_u:
-		pWriter.read(pInst->src1, gen::MemoryType::u16To64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_u:
-		pWriter.read(pInst->src1, gen::MemoryType::u32To64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::load_dword:
-		pWriter.read(pInst->src1, gen::MemoryType::i64, pAddress);
+		pWriter->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -403,7 +400,7 @@ void rv64::Translate::fMakeLoad() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeStore() const {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* compute the destination address and write it to the stack */
 	sink[I::I64::Const(pInst->imm)];
@@ -416,16 +413,16 @@ void rv64::Translate::fMakeStore() const {
 	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
-		pWriter.write(pInst->src1, gen::MemoryType::u8To64, pAddress);
+		pWriter->write(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::store_half:
-		pWriter.write(pInst->src1, gen::MemoryType::u16To64, pAddress);
+		pWriter->write(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::store_word:
-		pWriter.write(pInst->src1, gen::MemoryType::u32To64, pAddress);
+		pWriter->write(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
-		pWriter.write(pInst->src1, gen::MemoryType::i64, pAddress);
+		pWriter->write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -433,7 +430,7 @@ void rv64::Translate::fMakeStore() const {
 	}
 }
 void rv64::Translate::fMakeMul() const {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
@@ -466,7 +463,7 @@ void rv64::Translate::fMakeMul() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeDivRem() {
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 
 	/* operation-checks to simplify the logic */
 	bool half = (pInst->opcode == rv64::Opcode::div_s_reg_half || pInst->opcode == rv64::Opcode::div_u_reg_half ||
@@ -597,7 +594,20 @@ void rv64::Translate::fMakeDivRem() {
 	/* write the result to the register */
 	fStoreDest();
 }
+void rv64::Translate::fMakeAMO() const {
 
+}
+
+void rv64::Translate::resetAll(sys::ExecContext* context, const gen::Writer* writer) {
+	pDivisionTemp32 = wasm::Variable{};
+	pDivisionTemp64 = wasm::Variable{};
+	pContext = context;
+	pWriter = writer;
+}
+void rv64::Translate::start(env::guest_t address) {
+	pAddress = address;
+	pNextAddress = address;
+}
 void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* setup the state for the upcoming instruction */
 	pAddress = pNextAddress;
@@ -605,7 +615,7 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	pInst = &inst;
 
 	/* perform the actual translation */
-	wasm::Sink& sink = pWriter.sink();
+	wasm::Sink& sink = pWriter->sink();
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_upper_imm:
 		if (pInst->dest != reg::Zero) {
@@ -679,10 +689,16 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeStore();
 		break;
 	case rv64::Opcode::ecall:
-		pWriter.invokeVoid(pECallId);
+		pContext->syscall(*pWriter);
 		break;
 	case rv64::Opcode::ebreak:
-		pWriter.invokeVoid(pEBreakId);
+		pContext->debugBreak(*pWriter);
+		break;
+	case rv64::Opcode::fence:
+		pContext->flushMemCache(*pWriter);
+		break;
+	case rv64::Opcode::fence_inst:
+		pContext->flushInstCache(*pWriter);
 		break;
 	case rv64::Opcode::mul_reg:
 	case rv64::Opcode::mul_reg_half:
@@ -699,17 +715,6 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeDivRem();
 		break;
 
-	case rv64::Opcode::mul_high_s_reg:
-	case rv64::Opcode::mul_high_s_u_reg:
-	case rv64::Opcode::mul_high_u_reg:
-	case rv64::Opcode::fence:
-	case rv64::Opcode::fence_inst:
-	case rv64::Opcode::csr_read_write:
-	case rv64::Opcode::csr_read_and_set:
-	case rv64::Opcode::csr_read_and_clear:
-	case rv64::Opcode::csr_read_write_imm:
-	case rv64::Opcode::csr_read_and_set_imm:
-	case rv64::Opcode::csr_read_and_clear_imm:
 	case rv64::Opcode::load_reserved_w:
 	case rv64::Opcode::store_conditional_w:
 	case rv64::Opcode::amo_swap_w:
@@ -732,6 +737,15 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::amo_max_s_d:
 	case rv64::Opcode::amo_min_u_d:
 	case rv64::Opcode::amo_max_u_d:
+	case rv64::Opcode::mul_high_s_reg:
+	case rv64::Opcode::mul_high_s_u_reg:
+	case rv64::Opcode::mul_high_u_reg:
+	case rv64::Opcode::csr_read_write:
+	case rv64::Opcode::csr_read_and_set:
+	case rv64::Opcode::csr_read_and_clear:
+	case rv64::Opcode::csr_read_write_imm:
+	case rv64::Opcode::csr_read_and_set_imm:
+	case rv64::Opcode::csr_read_and_clear_imm:
 	case rv64::Opcode::_invalid:
 		host::Fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
 	}

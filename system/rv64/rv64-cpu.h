@@ -1,18 +1,17 @@
 #pragma once
 
-#include "../../environment/environment.h"
-#include "../../generate/generate.h"
-#include "../sys-cpu.h"
-
 #include "rv64-common.h"
+#include "rv64-translation.h"
+#include "rv64-print.h"
+#include "rv64-decoder.h"
 
 namespace rv64 {
 	/* riscv 64-bit */
 	class Cpu final : public sys::Cpu {
 	private:
 		std::vector<rv64::Instruction> pDecoded;
-		uint32_t pECallId = 0;
-		uint32_t pEBreakId = 0;
+		std::unique_ptr<sys::ExecContext> pContext;
+		rv64::Translate pTranslator;
 
 	private:
 		Cpu();
@@ -21,6 +20,7 @@ namespace rv64 {
 		static std::unique_ptr<sys::Cpu> New();
 
 	public:
+		void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) override;
 		void setupCore(wasm::Module& mod) override;
 		void setupContext(env::guest_t address) override;
 		void started(const gen::Writer& writer) override;

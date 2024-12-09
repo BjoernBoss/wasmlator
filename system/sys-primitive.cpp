@@ -3,15 +3,30 @@
 #include "elf/elf-static.h"
 #include "riscv-buffer.h"
 
-sys::Primitive::Primitive(std::unique_ptr<sys::Cpu>&& cpu, uint32_t memoryCaches, uint32_t contextSize) : env::System{ PageSize, memoryCaches, contextSize }, pCpu{ std::move(cpu) } {}
+sys::detail::PrimitiveExecContext::PrimitiveExecContext() : sys::ExecContext{ false, true } {}
+std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New() {
+	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{});
+}
+void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer) {
+}
+void sys::detail::PrimitiveExecContext::debugBreak(const gen::Writer& writer) {
+}
+void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer) {
+}
+void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer) {
+}
 
+
+sys::Primitive::Primitive(std::unique_ptr<sys::Cpu>&& cpu, uint32_t memoryCaches, uint32_t contextSize) : env::System{ PageSize, memoryCaches, contextSize }, pCpu{ std::move(cpu) } {}
 std::unique_ptr<env::System> sys::Primitive::New(std::unique_ptr<sys::Cpu>&& cpu) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
+
+	/* configure the cpu itself */
+	cpu->setupCpu(std::move(detail::PrimitiveExecContext::New()));
 
 	/* construct the primitive env-system object */
 	return std::unique_ptr<sys::Primitive>(new sys::Primitive{ std::move(cpu), caches, context });
 }
-
 void sys::Primitive::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
 	gen::Core core{ mod };

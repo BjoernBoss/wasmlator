@@ -1,24 +1,21 @@
 #pragma once
 
-#include "../generate/generate.h"
-
 #include "rv64-common.h"
 
 namespace rv64 {
-	/* performs primitive macro-expansion-like translation */
+	/* performs primitive macro-expansion-like translation currently for single-threaded userspace processes */
 	class Translate {
 	private:
-		const gen::Writer& pWriter;
 		wasm::Variable pDivisionTemp32;
 		wasm::Variable pDivisionTemp64;
+		sys::ExecContext* pContext = 0;
+		const gen::Writer* pWriter = 0;
+		const rv64::Instruction* pInst = 0;
 		env::guest_t pAddress = 0;
 		env::guest_t pNextAddress = 0;
-		const rv64::Instruction* pInst = 0;
-		uint32_t pECallId = 0;
-		uint32_t pEBreakId = 0;
 
 	public:
-		Translate(const gen::Writer& writer, env::guest_t address, uint32_t ecall, uint32_t ebreak);
+		Translate() = default;
 
 	private:
 		bool fLoadSrc1(bool forceNull) const;
@@ -36,8 +33,11 @@ namespace rv64 {
 		void fMakeStore() const;
 		void fMakeMul() const;
 		void fMakeDivRem();
+		void fMakeAMO() const;
 
 	public:
+		void resetAll(sys::ExecContext* context, const gen::Writer* writer);
+		void start(env::guest_t address);
 		void next(const rv64::Instruction& inst);
 	};
 }

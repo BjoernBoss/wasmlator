@@ -4,10 +4,27 @@
 #include "../generate/generate.h"
 
 #include "sys-cpu.h"
+#include "sys-execcontext.h"
 
 namespace sys {
-	/* primitive system, which set up an environment, loads a static-elf file to
-	*	be executed, and passes the calls to the cpu implementation */
+	namespace detail {
+		class PrimitiveExecContext final : public sys::ExecContext {
+		private:
+			PrimitiveExecContext();
+
+		public:
+			static std::unique_ptr<sys::ExecContext> New();
+
+		public:
+			void syscall(const gen::Writer& writer) final;
+			void debugBreak(const gen::Writer& writer) final;
+			void flushMemCache(const gen::Writer& writer) final;
+			void flushInstCache(const gen::Writer& writer) final;
+		};
+	}
+
+	/* primitive single-threaded system, which set up an environment, loads a static-elf
+	*	file to be executed, and passes the calls to the cpu implementation */
 	class Primitive final : public env::System {
 	private:
 		static constexpr uint32_t TranslationDepth = 4;

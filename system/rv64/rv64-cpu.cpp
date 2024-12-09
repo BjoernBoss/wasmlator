@@ -1,7 +1,4 @@
 #include "rv64-cpu.h"
-#include "rv64-print.h"
-#include "rv64-decoder.h"
-#include "rv64-translation.h"
 
 rv64::Cpu::Cpu() : sys::Cpu{ rv64::MemoryCaches, sizeof(rv64::Context) } {}
 
@@ -9,21 +6,24 @@ std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
 	return std::unique_ptr<rv64::Cpu>{ new rv64::Cpu{} };
 }
 
-void rv64::Cpu::setupCore(wasm::Module& mod) {
-	/* register the functions for the special instructions */
-	pECallId = env::Instance()->interact().defineCallback([]() {
-		host::Fatal(u8"[ecall] instruction executed");
-		});
-	pEBreakId = env::Instance()->interact().defineCallback([]() {
-		host::Fatal(u8"[ebreak] instruction executed");
-		});
+void rv64::Cpu::setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) {
+	pContext = std::move(execContext);
+
+	/* validate the context is currently supported */
+	if (!pContext->userspace())
+		host::Fatal(u8"[rv64::Cpu] currently only supports userspace execution");
+	if (pContext->multiThreaded())
+		host::Fatal(u8"[rv64::Cpu] does currently not support multi-threaded execution");
 }
+void rv64::Cpu::setupCore(wasm::Module& mod) {}
 void rv64::Cpu::setupContext(env::guest_t address) {}
 void rv64::Cpu::started(const gen::Writer& writer) {
 	pDecoded.clear();
+	pTranslator.resetAll(pContext.get(), &writer);
 }
 void rv64::Cpu::completed(const gen::Writer& writer) {
 	pDecoded.clear();
+	pTranslator.resetAll(0, 0);
 }
 gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	/* check that the address is 2-byte aligned */
@@ -80,7 +80,7 @@ gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	return gen::Instruction{ type, target, uint8_t(inst.compressed ? 2 : 4), pDecoded.size() - 1 };
 }
 void rv64::Cpu::produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) {
-	rv64::Translate translate{ writer, address, pECallId, pEBreakId };
+	pTranslator.start(address);
 	for (size_t i = 0; i < count; ++i)
-		translate.next(pDecoded[self[i]]);
+		pTranslator.next(pDecoded[self[i]]);
 }

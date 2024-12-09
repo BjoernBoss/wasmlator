@@ -5,7 +5,11 @@
 #include <memory>
 #include <vector>
 
-#include "../interface/host.h"
+#include "../../interface/host.h"
+#include "../../environment/environment.h"
+#include "../../generate/generate.h"
+#include "../sys-cpu.h"
+#include "../sys-execcontext.h"
 
 /* riscv 64-bit */
 namespace rv64 {

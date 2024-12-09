@@ -2,6 +2,7 @@
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
+#include "sys-execcontext.h"
 
 namespace sys {
 	class Cpu : public gen::Translator {
@@ -13,6 +14,7 @@ namespace sys {
 		constexpr Cpu(uint32_t memoryCaches, uint32_t contextSize) : pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {}
 
 	public:
+		virtual void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) = 0;
 		virtual void setupCore(wasm::Module& mod) = 0;
 		virtual void setupContext(env::guest_t address) = 0;
 
