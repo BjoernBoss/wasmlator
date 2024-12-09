@@ -7,13 +7,13 @@ sys::detail::PrimitiveExecContext::PrimitiveExecContext() : sys::ExecContext{ fa
 std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New() {
 	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{});
 }
-void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer) {
+void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
 }
-void sys::detail::PrimitiveExecContext::debugBreak(const gen::Writer& writer) {
+void sys::detail::PrimitiveExecContext::throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
 }
-void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer) {
+void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
 }
-void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer) {
+void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
 }
 
 

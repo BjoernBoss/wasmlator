@@ -23,6 +23,7 @@ namespace rv64 {
 		void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) override;
 		void setupCore(wasm::Module& mod) override;
 		void setupContext(env::guest_t address) override;
+		std::u8string getExceptionText(uint64_t id) override;
 		void started(const gen::Writer& writer) override;
 		void completed(const gen::Writer& writer) override;
 		gen::Instruction fetch(env::guest_t address) override;

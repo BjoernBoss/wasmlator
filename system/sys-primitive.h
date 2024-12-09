@@ -16,10 +16,10 @@ namespace sys {
 			static std::unique_ptr<sys::ExecContext> New();
 
 		public:
-			void syscall(const gen::Writer& writer) final;
-			void debugBreak(const gen::Writer& writer) final;
-			void flushMemCache(const gen::Writer& writer) final;
-			void flushInstCache(const gen::Writer& writer) final;
+			void syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
+			void throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
+			void flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
+			void flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
 		};
 	}
 

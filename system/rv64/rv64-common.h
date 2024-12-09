@@ -150,6 +150,8 @@ namespace rv64 {
 	};
 
 	enum class Opcode : uint16_t {
+		misaligned,
+		
 		load_upper_imm,
 		add_upper_imm_pc,
 		jump_and_link_imm,
@@ -268,7 +270,7 @@ namespace rv64 {
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
-		bool compressed = false;
+		uint8_t size = 0;
 		int64_t imm = 0;
 
 	public:
@@ -295,6 +297,16 @@ namespace rv64 {
 			if (dest == reg::X1 || dest == reg::X5)
 				return false;
 			return (src1 == reg::X1 || src1 == reg::X5);
+		}
+		constexpr bool isMisAligned(env::guest_t address) const {
+			if (opcode == rv64::Opcode::branch_eq || opcode == rv64::Opcode::branch_ne || opcode == rv64::Opcode::branch_ge_s ||
+				opcode == rv64::Opcode::branch_ge_u || opcode == rv64::Opcode::branch_lt_s || opcode == rv64::Opcode::branch_lt_u)
+				address += imm;
+			else if (opcode == rv64::Opcode::jump_and_link_imm)
+				address += imm;
+			else
+				return false;
+			return ((address & 0x01) != 0);
 		}
 	};
 }

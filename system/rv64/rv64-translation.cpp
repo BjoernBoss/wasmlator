@@ -2,47 +2,42 @@
 
 namespace I = wasm::inst;
 
-bool rv64::Translate::fLoadSrc1(bool forceNull) const {
+wasm::Variable rv64::Translate::fTemp32(bool first) {
+	wasm::Variable& var = (first ? pTemp32_0 : pTemp32_1);
+	if (!var.valid())
+		var = pWriter->sink().local(wasm::Type::i32, (first ? u8"_temp_i32_0" : u8"_temp_i32_1"));
+	return var;
+}
+wasm::Variable rv64::Translate::fTemp64(bool first) {
+	wasm::Variable& var = (first ? pTemp64_0 : pTemp64_1);
+	if (!var.valid())
+		var = pWriter->sink().local(wasm::Type::i64, (first ? u8"_temp_i64_0" : u8"_temp_i64_1"));
+	return var;
+}
+
+bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 	if (pInst->src1 != reg::Zero) {
-		pWriter->get(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i64);
+		pWriter->get(pInst->src1 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
-		pWriter->sink()[I::U64::Const(0)];
+		pWriter->sink()[half ? I::U32::Const(0) : I::U64::Const(0)];
 	return false;
 }
-bool rv64::Translate::fLoadSrc1Half(bool forceNull) const {
-	if (pInst->src1 != reg::Zero) {
-		pWriter->get(pInst->src1 * sizeof(uint64_t), gen::MemoryType::i32);
-		return true;
-	}
-	else if (forceNull)
-		pWriter->sink()[I::U32::Const(0)];
-	return false;
-}
-bool rv64::Translate::fLoadSrc2(bool forceNull) const {
+bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 	if (pInst->src2 != reg::Zero) {
-		pWriter->get(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i64);
+		pWriter->get(pInst->src2 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
-		pWriter->sink()[I::U64::Const(0)];
-	return false;
-}
-bool rv64::Translate::fLoadSrc2Half(bool forceNull) const {
-	if (pInst->src2 != reg::Zero) {
-		pWriter->get(pInst->src2 * sizeof(uint64_t), gen::MemoryType::i32);
-		return true;
-	}
-	else if (forceNull)
-		pWriter->sink()[I::U32::Const(0)];
+		pWriter->sink()[half ? I::U32::Const(0) : I::U64::Const(0)];
 	return false;
 }
 void rv64::Translate::fStoreDest() const {
 	pWriter->set(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
 }
 
-void rv64::Translate::fMakeJAL() const {
+void rv64::Translate::fMakeJAL() {
 	wasm::Sink& sink = pWriter->sink();
 
 	/* write the next pc to the destination register */
@@ -53,10 +48,23 @@ void rv64::Translate::fMakeJAL() const {
 
 	/* check if its an indirect jump and if it can be predicted somehow (based on the riscv specification) */
 	if (pInst->opcode == rv64::Opcode::jump_and_link_reg) {
-		/* write the target pc to the stack */
+		wasm::Variable addr = fTemp64(true);
+
+		/* write the target address to the stack */
 		sink[I::I64::Const(pInst->imm)];
-		if (fLoadSrc1(false))
+		if (fLoadSrc1(false, false))
 			sink[I::I64::Add()];
+
+		/* perform the alignment validation */
+		sink[I::Local::Tee(addr)];
+		sink[I::U64::Shrink()];
+		sink[I::U32::Const(1)];
+		sink[I::U32::And()];
+		{
+			wasm::IfThen _if{ sink };
+			pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		}
+		sink[I::Local::Get(addr)];
 
 		/* check if the instruction can be considered a return */
 		if (pInst->isRet())
@@ -72,9 +80,13 @@ void rv64::Translate::fMakeJAL() const {
 		return;
 	}
 
-	/* add the instruction as normal direct call or jump */
+	/* check if the target is misaligned and add the misalignment-exception */
 	env::guest_t address = (pAddress + pInst->imm);
-	if (pInst->isCall())
+	if (pInst->isMisAligned(pAddress))
+		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+
+	/* add the instruction as normal direct call or jump */
+	else if (pInst->isCall())
 		pWriter->call(address, pNextAddress);
 	else
 		pWriter->jump(address);
@@ -82,6 +94,12 @@ void rv64::Translate::fMakeJAL() const {
 void rv64::Translate::fMakeBranch() const {
 	env::guest_t address = pAddress + pInst->imm;
 	wasm::Sink& sink = pWriter->sink();
+
+	/* check if the branch can be discarded, as it is misaligned */
+	if (pInst->isMisAligned(pAddress)) {
+		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		return;
+	}
 
 	/* check if the condition can be discarded */
 	if (pInst->src1 == pInst->src2) {
@@ -92,14 +110,14 @@ void rv64::Translate::fMakeBranch() const {
 
 	/* write the result of the condition to the stack */
 	if (pInst->opcode == rv64::Opcode::branch_eq) {
-		if (!fLoadSrc1(false) || !fLoadSrc2(false))
+		if (!fLoadSrc1(false, false) || !fLoadSrc2(false, false))
 			sink[I::U64::EqualZero()];
 		else
 			sink[I::U64::Equal()];
 	}
 	else {
-		fLoadSrc1(true);
-		fLoadSrc2(true);
+		fLoadSrc1(true, false);
+		fLoadSrc2(true, false);
 		switch (pInst->opcode) {
 		case rv64::Opcode::branch_ne:
 			sink[I::U64::NotEqual()];
@@ -144,49 +162,49 @@ void rv64::Translate::fMakeALUImm() const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::add_imm:
 		if (pInst->imm == 0)
-			fLoadSrc1(true);
+			fLoadSrc1(true, false);
 		else {
 			sink[I::I64::Const(pInst->imm)];
-			if (fLoadSrc1(false))
+			if (fLoadSrc1(false, false))
 				sink[I::U64::Add()];
 		}
 		break;
 	case rv64::Opcode::add_imm_half:
 		if (pInst->imm == 0)
-			fLoadSrc1Half(true);
+			fLoadSrc1(true, true);
 		else {
 			sink[I::I32::Const(pInst->imm)];
-			if (fLoadSrc1Half(false))
+			if (fLoadSrc1(false, true))
 				sink[I::U32::Add()];
 		}
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_imm:
 		sink[I::I64::Const(pInst->imm)];
-		if (fLoadSrc1(false))
+		if (fLoadSrc1(false, false))
 			sink[I::U64::XOr()];
 		break;
 	case rv64::Opcode::or_imm:
 		sink[I::I64::Const(pInst->imm)];
-		if (fLoadSrc1(false))
+		if (fLoadSrc1(false, false))
 			sink[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_imm:
-		if (fLoadSrc1(true)) {
+		if (fLoadSrc1(true, false)) {
 			sink[I::I64::Const(pInst->imm)];
 			sink[I::U64::And()];
 		}
 		break;
 	case rv64::Opcode::shift_left_logic_imm:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
-		if (fLoadSrc1(true)) {
+		if (fLoadSrc1(true, false)) {
 			sink[I::I64::Const(pInst->imm)];
 			sink[I::U64::ShiftLeft()];
 		}
 		break;
 	case rv64::Opcode::shift_left_logic_imm_half:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
-		if (fLoadSrc1Half(true)) {
+		if (fLoadSrc1(true, true)) {
 			sink[I::I32::Const(pInst->imm)];
 			sink[I::U32::ShiftLeft()];
 		}
@@ -194,14 +212,14 @@ void rv64::Translate::fMakeALUImm() const {
 		break;
 	case rv64::Opcode::shift_right_logic_imm:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
-		if (fLoadSrc1(true)) {
+		if (fLoadSrc1(true, false)) {
 			sink[I::I64::Const(pInst->imm)];
 			sink[I::U64::ShiftRight()];
 		}
 		break;
 	case rv64::Opcode::shift_right_logic_imm_half:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
-		if (fLoadSrc1Half(true)) {
+		if (fLoadSrc1(true, true)) {
 			sink[I::I32::Const(pInst->imm)];
 			sink[I::U32::ShiftRight()];
 		}
@@ -209,21 +227,21 @@ void rv64::Translate::fMakeALUImm() const {
 		break;
 	case rv64::Opcode::shift_right_arith_imm:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
-		if (fLoadSrc1(true)) {
+		if (fLoadSrc1(true, false)) {
 			sink[I::I64::Const(pInst->imm)];
 			sink[I::I64::ShiftRight()];
 		}
 		break;
 	case rv64::Opcode::shift_right_arith_imm_half:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
-		if (fLoadSrc1Half(true)) {
+		if (fLoadSrc1(true, true)) {
 			sink[I::I32::Const(pInst->imm)];
 			sink[I::I32::ShiftRight()];
 		}
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::set_less_than_s_imm:
-		if (fLoadSrc1(false)) {
+		if (fLoadSrc1(false, false)) {
 			sink[I::I64::Const(pInst->imm)];
 			sink[I::I64::Less()];
 			sink[I::U32::Expand()];
@@ -232,7 +250,7 @@ void rv64::Translate::fMakeALUImm() const {
 			sink[I::U64::Const(pInst->imm > 0 ? 1 : 0)];
 		break;
 	case rv64::Opcode::set_less_than_u_imm:
-		if (fLoadSrc1(false)) {
+		if (fLoadSrc1(false, false)) {
 			sink[I::I64::Const(pInst->imm)];
 			sink[I::U64::Less()];
 			sink[I::U32::Expand()];
@@ -265,86 +283,86 @@ void rv64::Translate::fMakeALUReg() const {
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::add_reg:
-		fLoadSrc1(false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false))
+		fLoadSrc1(false, false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
 			sink[I::U64::Add()];
 		break;
 	case rv64::Opcode::add_reg_half:
-		fLoadSrc1Half(false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2Half(false))
+		fLoadSrc1(false, true);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false, true))
 			sink[I::U32::Add()];
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::sub_reg:
-		if (fLoadSrc1(true) && fLoadSrc2(false))
+		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
 			sink[I::U64::Sub()];
 		break;
 	case rv64::Opcode::sub_reg_half:
-		if (fLoadSrc1Half(true) && fLoadSrc2Half(false))
+		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
 			sink[I::U32::Sub()];
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_reg:
-		fLoadSrc1(false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false))
+		fLoadSrc1(false, false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
 			sink[I::U64::XOr()];
 		break;
 	case rv64::Opcode::or_reg:
-		fLoadSrc1(false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false))
+		fLoadSrc1(false, false);
+		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
 			sink[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_reg:
 		if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero)
 			sink[I::U64::Const(0)];
 		else {
-			fLoadSrc1(false);
-			fLoadSrc2(false);
+			fLoadSrc1(false, false);
+			fLoadSrc2(false, false);
 			sink[I::U64::And()];
 		}
 		break;
 	case rv64::Opcode::shift_left_logic_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
-		if (fLoadSrc1(true) && fLoadSrc2(false))
+		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
 			sink[I::U64::ShiftLeft()];
 		break;
 	case rv64::Opcode::shift_left_logic_reg_half:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
-		if (fLoadSrc1Half(true) && fLoadSrc2Half(false))
+		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
 			sink[I::U32::ShiftLeft()];
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_right_logic_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
-		if (fLoadSrc1(true) && fLoadSrc2(false))
+		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
 			sink[I::U64::ShiftRight()];
 		break;
 	case rv64::Opcode::shift_right_logic_reg_half:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
-		if (fLoadSrc1Half(true) && fLoadSrc2Half(false))
+		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
 			sink[I::U32::ShiftRight()];
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_right_arith_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
-		if (fLoadSrc1(true) && fLoadSrc2(false))
+		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
 			sink[I::I64::ShiftRight()];
 		break;
 	case rv64::Opcode::shift_right_arith_reg_half:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
-		if (fLoadSrc1Half(true) && fLoadSrc2Half(false))
+		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
 			sink[I::I32::ShiftRight()];
 		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::set_less_than_s_reg:
-		fLoadSrc1(true);
-		fLoadSrc2(true);
+		fLoadSrc1(true, false);
+		fLoadSrc2(true, false);
 		sink[I::I64::Less()];
 		sink[I::U32::Expand()];
 		break;
 	case rv64::Opcode::set_less_than_u_reg:
-		fLoadSrc1(true);
-		fLoadSrc2(true);
+		fLoadSrc1(true, false);
+		fLoadSrc2(true, false);
 		sink[I::U64::Less()];
 		sink[I::U32::Expand()];
 		break;
@@ -365,7 +383,7 @@ void rv64::Translate::fMakeLoad() const {
 
 	/* compute the destination address and write it to the stack */
 	sink[I::I64::Const(pInst->imm)];
-	if (fLoadSrc1(false))
+	if (fLoadSrc1(false, false))
 		sink[I::U64::Add()];
 
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
@@ -404,11 +422,11 @@ void rv64::Translate::fMakeStore() const {
 
 	/* compute the destination address and write it to the stack */
 	sink[I::I64::Const(pInst->imm)];
-	if (fLoadSrc1(false))
+	if (fLoadSrc1(false, false))
 		sink[I::U64::Add()];
 
 	/* write the source value to the stack */
-	fLoadSrc2(true);
+	fLoadSrc2(true, false);
 
 	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
@@ -444,13 +462,13 @@ void rv64::Translate::fMakeMul() const {
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::mul_reg:
-		fLoadSrc1(false);
-		fLoadSrc2(false);
+		fLoadSrc1(false, false);
+		fLoadSrc2(false, false);
 		sink[I::I64::Mul()];
 		break;
 	case rv64::Opcode::mul_reg_half:
-		fLoadSrc1Half(false);
-		fLoadSrc2Half(false);
+		fLoadSrc1(false, true);
+		fLoadSrc2(false, true);
 		sink[I::U32::Mul()];
 		sink[I::I32::Expand()];
 		break;
@@ -483,28 +501,16 @@ void rv64::Translate::fMakeDivRem() {
 			fStoreDest();
 		}
 		else if (pInst->src1 != pInst->dest) {
-			fLoadSrc1(true);
+			fLoadSrc1(true, false);
 			fStoreDest();
 		}
 		return;
 	}
 
 	/* allocate the temporary variables and write the operands to the stack */
-	wasm::Variable temp;
-	if (half) {
-		if (!pDivisionTemp32.valid())
-			pDivisionTemp32 = sink.local(type, u8"_div_temp_i32");
-		temp = pDivisionTemp32;
-		fLoadSrc1Half(true);
-		fLoadSrc2Half(true);
-	}
-	else {
-		if (!pDivisionTemp64.valid())
-			pDivisionTemp64 = sink.local(type, u8"_div_temp_i64");
-		temp = pDivisionTemp64;
-		fLoadSrc1(true);
-		fLoadSrc2(true);
-	}
+	wasm::Variable temp = (half ? fTemp32(true) : fTemp64(true));
+	fLoadSrc1(true, half);
+	fLoadSrc2(true, half);
 
 	/* check if a division-by-zero will occur */
 	sink[I::Local::Tee(temp)];
@@ -594,13 +600,204 @@ void rv64::Translate::fMakeDivRem() {
 	/* write the result to the register */
 	fStoreDest();
 }
-void rv64::Translate::fMakeAMO() const {
+void rv64::Translate::fMakeAMO(bool half) {
+	/*
+	*	Note: simply treat the operations as all being atomic, as no threading is supported
+	*/
+	wasm::Sink& sink = pWriter->sink();
+
+	/* load the source address into the temporary */
+	wasm::Variable addr = fTemp64(true);
+	fLoadSrc1(true, false);
+	sink[I::Local::Tee(addr)];
+
+	/* validate the alignment constraints of the address */
+	sink[I::U64::Shrink()];
+	sink[I::U32::Const(half ? 0x03 : 0x07)];
+	sink[I::U32::And()];
+	{
+		wasm::IfThen _if{ sink };
+		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+	}
+
+	/* perform the reading of the original value and write it immediately to the destination */
+	wasm::Variable value = (half ? fTemp32(true) : fTemp64(false));
+	sink[I::Local::Get(addr)];
+	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	sink[I::Local::Tee(value)];
+	if (half)
+		sink[I::I32::Expand()];
+	fStoreDest();
+
+	/* write the destination address to the stack */
+	sink[I::Local::Get(addr)];
+
+	/* write the new value to the stack (perform the operation in the corresponding width) */
+	switch (pInst->opcode) {
+	case rv64::Opcode::amo_swap_w:
+	case rv64::Opcode::amo_swap_d:
+		fLoadSrc2(true, half);
+		break;
+	case rv64::Opcode::amo_add_w:
+	case rv64::Opcode::amo_add_d:
+		sink[I::Local::Get(value)];
+		if (fLoadSrc2(false, half))
+			sink[half ? I::U32::Add() : I::U64::Add()];
+		break;
+	case rv64::Opcode::amo_xor_w:
+	case rv64::Opcode::amo_xor_d:
+		sink[I::Local::Get(value)];
+		if (fLoadSrc2(false, half))
+			sink[half ? I::U32::XOr() : I::U64::XOr()];
+		break;
+	case rv64::Opcode::amo_and_w:
+	case rv64::Opcode::amo_and_d:
+		if (fLoadSrc2(true, half)) {
+			sink[I::Local::Get(value)];
+			sink[half ? I::U32::And() : I::U64::And()];
+		}
+		break;
+	case rv64::Opcode::amo_or_w:
+	case rv64::Opcode::amo_or_d:
+		sink[I::Local::Get(value)];
+		if (fLoadSrc2(false, half))
+			sink[half ? I::U32::Or() : I::U64::Or()];
+		break;
+	case rv64::Opcode::amo_min_s_w:
+	case rv64::Opcode::amo_min_s_d:
+		if (fLoadSrc2(true, half)) {
+			wasm::Variable other = (half ? fTemp32(false) : addr);
+			sink[I::Local::Tee(other)];
+			sink[I::Local::Get(value)];
+			sink[I::Local::Get(other)];
+		}
+		else {
+			sink[I::Local::Get(value)];
+			sink[half ? I::U32::Const(0) : I::U64::Const(0)];
+		}
+		sink[I::Local::Get(value)];
+		sink[half ? I::I32::Less() : I::I64::Less()];
+		sink[I::Select()];
+		break;
+	case rv64::Opcode::amo_max_s_w:
+	case rv64::Opcode::amo_max_s_d:
+		if (fLoadSrc2(true, half)) {
+			wasm::Variable other = (half ? fTemp32(false) : addr);
+			sink[I::Local::Tee(other)];
+			sink[I::Local::Get(value)];
+			sink[I::Local::Get(other)];
+		}
+		else {
+			sink[I::Local::Get(value)];
+			sink[half ? I::U32::Const(0) : I::U64::Const(0)];
+		}
+		sink[I::Local::Get(value)];
+		sink[half ? I::I32::Greater() : I::I64::Greater()];
+		sink[I::Select()];
+		break;
+	case rv64::Opcode::amo_min_u_w:
+	case rv64::Opcode::amo_min_u_d:
+		if (fLoadSrc2(true, half)) {
+			wasm::Variable other = (half ? fTemp32(false) : addr);
+			sink[I::Local::Tee(other)];
+			sink[I::Local::Get(value)];
+			sink[I::Local::Get(other)];
+			sink[I::Local::Get(value)];
+			sink[half ? I::U32::Less() : I::U64::Less()];
+			sink[I::Select()];
+		}
+		break;
+	case rv64::Opcode::amo_max_u_w:
+	case rv64::Opcode::amo_max_u_d:
+		if (fLoadSrc2(false, half)) {
+			wasm::Variable other = (half ? fTemp32(false) : addr);
+			sink[I::Local::Tee(other)];
+			sink[I::Local::Get(value)];
+			sink[I::Local::Get(other)];
+			sink[I::Local::Get(value)];
+			sink[half ? I::U32::Greater() : I::U64::Greater()];
+			sink[I::Select()];
+		}
+		else
+			sink[I::Local::Get(value)];
+		break;
+	default:
+		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		break;
+	}
+
+	/* write the result back to the memory */
+	pWriter->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+}
+void rv64::Translate::fMakeAMOLR() {
+	/*
+	*	Note: simply treat the operations as all being atomic, as no threading is supported
+	*/
+	wasm::Sink& sink = pWriter->sink();
+
+	/* operation-checks to simplify the logic */
+	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
+
+	/* load the source address into the temporary */
+	wasm::Variable addr = fTemp64(true);
+	fLoadSrc1(true, false);
+	sink[I::Local::Tee(addr)];
+
+	/* validate the alignment constraints of the address */
+	sink[I::U64::Shrink()];
+	sink[I::U32::Const(half ? 0x03 : 0x07)];
+	sink[I::U32::And()];
+	{
+		wasm::IfThen _if{ sink };
+		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+	}
+
+	/* write the value from memory to the register */
+	sink[I::Local::Get(addr)];
+	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
+	fStoreDest();
+}
+void rv64::Translate::fMakeAMOSC() {
+	/*
+	*	Note: simply treat the operations as all being atomic, as no threading is supported
+	*/
+	wasm::Sink& sink = pWriter->sink();
+
+	/* operation-checks to simplify the logic */
+	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
+
+	/* load the source address into the temporary */
+	wasm::Variable addr = fTemp64(true);
+	fLoadSrc1(true, false);
+	sink[I::Local::Tee(addr)];
+
+	/* validate the alignment constraints of the address */
+	sink[I::U64::Shrink()];
+	sink[I::U32::Const(half ? 0x03 : 0x07)];
+	sink[I::U32::And()];
+	{
+		wasm::IfThen _if{ sink };
+		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+	}
+
+	/* write the source value to the address (assumption that reservation is always valid) */
+	sink[I::Local::Get(addr)];
+	fLoadSrc2(true, half);
+	pWriter->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+
+	/* write the result to the destination register */
+	sink[I::U64::Const(0)];
+	fStoreDest();
+}
+void rv64::Translate::fMakeCSR() const {
 
 }
 
 void rv64::Translate::resetAll(sys::ExecContext* context, const gen::Writer* writer) {
-	pDivisionTemp32 = wasm::Variable{};
-	pDivisionTemp64 = wasm::Variable{};
+	pTemp32_0 = wasm::Variable{};
+	pTemp32_1 = wasm::Variable{};
+	pTemp64_0 = wasm::Variable{};
+	pTemp64_1 = wasm::Variable{};
 	pContext = context;
 	pWriter = writer;
 }
@@ -611,12 +808,15 @@ void rv64::Translate::start(env::guest_t address) {
 void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* setup the state for the upcoming instruction */
 	pAddress = pNextAddress;
-	pNextAddress += (inst.compressed ? 2 : 4);
+	pNextAddress += inst.size;
 	pInst = &inst;
 
 	/* perform the actual translation */
 	wasm::Sink& sink = pWriter->sink();
 	switch (pInst->opcode) {
+	case rv64::Opcode::misaligned:
+		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		break;
 	case rv64::Opcode::load_upper_imm:
 		if (pInst->dest != reg::Zero) {
 			sink[I::U64::Const(pInst->imm)];
@@ -689,16 +889,16 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeStore();
 		break;
 	case rv64::Opcode::ecall:
-		pContext->syscall(*pWriter);
+		pContext->syscall(*pWriter, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::ebreak:
-		pContext->debugBreak(*pWriter);
+		pContext->throwException(Translate::EBreakException, *pWriter, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::fence:
-		pContext->flushMemCache(*pWriter);
+		pContext->flushMemCache(*pWriter, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::fence_inst:
-		pContext->flushInstCache(*pWriter);
+		pContext->flushInstCache(*pWriter, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::mul_reg:
 	case rv64::Opcode::mul_reg_half:
@@ -714,9 +914,14 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::rem_u_reg_half:
 		fMakeDivRem();
 		break;
-
 	case rv64::Opcode::load_reserved_w:
+	case rv64::Opcode::load_reserved_d:
+		fMakeAMOLR();
+		break;
 	case rv64::Opcode::store_conditional_w:
+	case rv64::Opcode::store_conditional_d:
+		fMakeAMOSC();
+		break;
 	case rv64::Opcode::amo_swap_w:
 	case rv64::Opcode::amo_add_w:
 	case rv64::Opcode::amo_xor_w:
@@ -726,8 +931,8 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::amo_max_s_w:
 	case rv64::Opcode::amo_min_u_w:
 	case rv64::Opcode::amo_max_u_w:
-	case rv64::Opcode::load_reserved_d:
-	case rv64::Opcode::store_conditional_d:
+		fMakeAMO(true);
+		break;
 	case rv64::Opcode::amo_swap_d:
 	case rv64::Opcode::amo_add_d:
 	case rv64::Opcode::amo_xor_d:
@@ -737,15 +942,21 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::amo_max_s_d:
 	case rv64::Opcode::amo_min_u_d:
 	case rv64::Opcode::amo_max_u_d:
-	case rv64::Opcode::mul_high_s_reg:
-	case rv64::Opcode::mul_high_s_u_reg:
-	case rv64::Opcode::mul_high_u_reg:
+		fMakeAMO(false);
+		break;
 	case rv64::Opcode::csr_read_write:
 	case rv64::Opcode::csr_read_and_set:
 	case rv64::Opcode::csr_read_and_clear:
 	case rv64::Opcode::csr_read_write_imm:
 	case rv64::Opcode::csr_read_and_set_imm:
 	case rv64::Opcode::csr_read_and_clear_imm:
+		fMakeCSR();
+		break;
+
+
+	case rv64::Opcode::mul_high_s_reg:
+	case rv64::Opcode::mul_high_s_u_reg:
+	case rv64::Opcode::mul_high_u_reg:
 	case rv64::Opcode::_invalid:
 		host::Fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
 	}

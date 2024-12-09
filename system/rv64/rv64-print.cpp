@@ -22,6 +22,8 @@ struct PrintOpcode {
 };
 
 static constexpr PrintOpcode opcodeStrings[] = {
+	PrintOpcode{ u8"$misaligned", FormatType::none },
+
 	PrintOpcode{ u8"lui", FormatType::dst_imm },
 	PrintOpcode{ u8"auipc", FormatType::dst_imm },
 	PrintOpcode{ u8"jal", FormatType::jal },
@@ -167,7 +169,7 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 
 	/* add the operands */
 	PrintOpcode opcode = opcodeStrings[size_t(inst.opcode)];
-	std::u8string out = str::u8::Build((inst.compressed ? u8"c." : u8""), opcode.string);
+	std::u8string out = str::u8::Build(((inst.size == 2) ? u8"c." : u8""), opcode.string);
 	switch (opcode.format) {
 	case FormatType::dst_src1:
 		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", registerStrings[inst.src1]);

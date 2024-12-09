@@ -17,6 +17,7 @@ namespace sys {
 		virtual void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) = 0;
 		virtual void setupCore(wasm::Module& mod) = 0;
 		virtual void setupContext(env::guest_t address) = 0;
+		virtual std::u8string getExceptionText(uint64_t id) = 0;
 
 	public:
 		constexpr uint32_t memoryCaches() const {

@@ -3,6 +3,7 @@
 rv64::Instruction rv64::detail::Opcode03(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = detail::GetS<20, 31>(data);
@@ -36,6 +37,7 @@ rv64::Instruction rv64::detail::Opcode03(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode0f(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	if (detail::GetU<7, 31>(data) == 0x20)
 		out.opcode = rv64::Opcode::fence_inst;
 	else if (detail::GetU<7, 19>(data) == 0x00 && detail::GetU<28, 31>(data) == 0x00) {
@@ -48,6 +50,7 @@ rv64::Instruction rv64::detail::Opcode0f(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = detail::GetS<20, 31>(data);
@@ -93,6 +96,7 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode1b(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = detail::GetS<20, 31>(data);
@@ -122,6 +126,7 @@ rv64::Instruction rv64::detail::Opcode1b(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode17(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.imm = int32_t(data & ~0x0fff);
 
@@ -132,6 +137,7 @@ rv64::Instruction rv64::detail::Opcode17(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode23(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
 	out.imm = (int64_t(detail::GetS<25, 31>(data)) << 5)
@@ -157,6 +163,7 @@ rv64::Instruction rv64::detail::Opcode23(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode2f(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
 	out.dest = detail::GetU<7, 11>(data);
@@ -210,6 +217,7 @@ rv64::Instruction rv64::detail::Opcode2f(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode33(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
@@ -276,6 +284,7 @@ rv64::Instruction rv64::detail::Opcode33(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode37(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.imm = int32_t(data & ~0x0fff);
 
@@ -286,6 +295,7 @@ rv64::Instruction rv64::detail::Opcode37(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode3b(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
@@ -332,6 +342,7 @@ rv64::Instruction rv64::detail::Opcode3b(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode63(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
 	out.imm = (int64_t(detail::GetS<31, 31>(data)) << 12)
@@ -365,6 +376,7 @@ rv64::Instruction rv64::detail::Opcode63(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode67(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = detail::GetS<20, 31>(data);
@@ -377,6 +389,7 @@ rv64::Instruction rv64::detail::Opcode67(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode6f(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.imm = (int64_t(detail::GetS<31, 31>(data)) << 20)
 		| (uint64_t(detail::GetU<12, 19>(data)) << 12)
@@ -390,6 +403,7 @@ rv64::Instruction rv64::detail::Opcode6f(uint32_t data) {
 rv64::Instruction rv64::detail::Opcode73(uint32_t data) {
 	rv64::Instruction out;
 
+	out.size = 4;
 	out.src1 = detail::GetU<15, 19>(data);
 	out.imm = out.src1;
 	out.dest = detail::GetU<7, 11>(data);
@@ -427,7 +441,7 @@ rv64::Instruction rv64::detail::Opcode73(uint32_t data) {
 
 rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 	rv64::Instruction out;
-	out.compressed = true;
+	out.size = 2;
 
 	/* handle all of the different instructions of the first quadrant */
 	switch (detail::GetU<13, 15>(data)) {
@@ -483,7 +497,7 @@ rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 }
 rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 	rv64::Instruction out;
-	out.compressed = true;
+	out.size = 2;
 
 	/* handle all of the different instructions of the first quadrant */
 	uint8_t code = detail::GetU<13, 15>(data);
@@ -628,7 +642,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 }
 rv64::Instruction rv64::detail::Quadrant2(uint16_t data) {
 	rv64::Instruction out;
-	out.compressed = true;
+	out.size = 2;
 
 	/* handle all of the different instructions of the first quadrant */
 	uint8_t code = detail::GetU<13, 15>(data);
