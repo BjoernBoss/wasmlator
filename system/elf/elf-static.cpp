@@ -87,7 +87,6 @@ static void UnpackElfFile(const elf::Reader& reader) {
 			(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')));
 		if (!env::Instance()->memory().mmap(address, size, env::MemoryUsage::Write))
 			throw elf::Exception{ L"Failed to allocate memory for program-header [", i, L']' };
-		env::Instance()->memory().mclear(address, size, env::MemoryUsage::Write);
 
 		/* write the actual data to the section */
 		const uint8_t* data = reader.base<uint8_t>(programs[i].offset, programs[i].fileSize);

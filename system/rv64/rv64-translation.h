@@ -39,12 +39,12 @@ namespace rv64 {
 		void fMakeALUReg() const;
 		void fMakeLoad() const;
 		void fMakeStore() const;
-		void fMakeMul() const;
 		void fMakeDivRem();
 		void fMakeAMO(bool half);
 		void fMakeAMOLR();
 		void fMakeAMOSC();
 		void fMakeCSR() const;
+		void fMakeMul() const;
 
 	public:
 		void resetAll(sys::ExecContext* context, const gen::Writer* writer);

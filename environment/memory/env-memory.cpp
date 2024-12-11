@@ -179,12 +179,14 @@ bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t
 	}
 
 	/* update the virtual slot and the current physical page slot */
+	detail::physical_t actual = pVirtual[virt].physical + pVirtual[virt].size;
 	if (pVirtual[virt].usage == usage)
 		pVirtual[virt].size += size;
-	else {
-		detail::physical_t actual = pVirtual[virt].physical + pVirtual[virt].size;
+	else
 		pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ address, actual, size, usage });
-	}
+
+	/* clear the next allocated block of memory */
+	detail::MemoryBridge::ClearPhysical(actual, size);
 	return true;
 }
 size_t env::Memory::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
@@ -219,6 +221,9 @@ bool env::Memory::fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t 
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
 	if (pPhysical[phys + 1].used || pPhysical[phys + 1].size != size)
 		return false;
+
+	/* clear the next allocated block of memory */
+	detail::MemoryBridge::ClearPhysical(pPhysical[phys].physical + pPhysical[phys].size, size);
 
 	/* merge the three physical ranges back together */
 	pPhysical[phys].size += pPhysical[phys + 1].size + pPhysical[phys + 2].size;
@@ -702,6 +707,9 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 
 	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
 	detail::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
+
+	/* clear the next allocated block of memory */
+	detail::MemoryBridge::ClearPhysical(actual, size);
 
 	/* check if the virtual entry can be merged with the next entry */
 	size_t applied = 0;

@@ -280,6 +280,14 @@ void rv64::Translate::fMakeALUReg() const {
 		return;
 	}
 
+	/* check if the operation can be short-circuited */
+	if ((pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) && (pInst->opcode == rv64::Opcode::and_reg ||
+		pInst->opcode == rv64::Opcode::mul_reg || pInst->opcode == rv64::Opcode::mul_reg_half)) {
+		sink[I::U64::Const(0)];
+		fStoreDest();
+		return;
+	}
+
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::add_reg:
@@ -313,13 +321,20 @@ void rv64::Translate::fMakeALUReg() const {
 			sink[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_reg:
-		if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero)
-			sink[I::U64::Const(0)];
-		else {
-			fLoadSrc1(false, false);
-			fLoadSrc2(false, false);
-			sink[I::U64::And()];
-		}
+		fLoadSrc1(false, false);
+		fLoadSrc2(false, false);
+		sink[I::U64::And()];
+		break;
+	case rv64::Opcode::mul_reg:
+		fLoadSrc1(false, false);
+		fLoadSrc2(false, false);
+		sink[I::I64::Mul()];
+		break;
+	case rv64::Opcode::mul_reg_half:
+		fLoadSrc1(false, true);
+		fLoadSrc2(false, true);
+		sink[I::I32::Mul()];
+		sink[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_left_logic_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
@@ -446,39 +461,6 @@ void rv64::Translate::fMakeStore() const {
 		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
-}
-void rv64::Translate::fMakeMul() const {
-	wasm::Sink& sink = pWriter->sink();
-
-	/* check if the operation can be discarded */
-	if (pInst->dest == reg::Zero)
-		return;
-	if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) {
-		sink[I::U64::Const(0)];
-		fStoreDest();
-		return;
-	}
-
-	/* write the result of the operation to the stack */
-	switch (pInst->opcode) {
-	case rv64::Opcode::mul_reg:
-		fLoadSrc1(false, false);
-		fLoadSrc2(false, false);
-		sink[I::I64::Mul()];
-		break;
-	case rv64::Opcode::mul_reg_half:
-		fLoadSrc1(false, true);
-		fLoadSrc2(false, true);
-		sink[I::U32::Mul()];
-		sink[I::I32::Expand()];
-		break;
-	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
-		break;
-	}
-
-	/* write the result to the register */
-	fStoreDest();
 }
 void rv64::Translate::fMakeDivRem() {
 	wasm::Sink& sink = pWriter->sink();
@@ -792,6 +774,9 @@ void rv64::Translate::fMakeAMOSC() {
 void rv64::Translate::fMakeCSR() const {
 
 }
+void rv64::Translate::fMakeMul() const {
+
+}
 
 void rv64::Translate::resetAll(sys::ExecContext* context, const gen::Writer* writer) {
 	pTemp32_0 = wasm::Variable{};
@@ -861,6 +846,8 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::xor_reg:
 	case rv64::Opcode::or_reg:
 	case rv64::Opcode::and_reg:
+	case rv64::Opcode::mul_reg:
+	case rv64::Opcode::mul_reg_half:
 	case rv64::Opcode::set_less_than_s_reg:
 	case rv64::Opcode::set_less_than_u_reg:
 	case rv64::Opcode::shift_left_logic_reg:
@@ -900,8 +887,9 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::fence_inst:
 		pContext->flushInstCache(*pWriter, pAddress, pNextAddress);
 		break;
-	case rv64::Opcode::mul_reg:
-	case rv64::Opcode::mul_reg_half:
+	case rv64::Opcode::mul_high_s_reg:
+	case rv64::Opcode::mul_high_s_u_reg:
+	case rv64::Opcode::mul_high_u_reg:
 		fMakeMul();
 		break;
 	case rv64::Opcode::div_s_reg:
@@ -953,10 +941,6 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeCSR();
 		break;
 
-
-	case rv64::Opcode::mul_high_s_reg:
-	case rv64::Opcode::mul_high_s_u_reg:
-	case rv64::Opcode::mul_high_u_reg:
 	case rv64::Opcode::_invalid:
 		host::Fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
 	}
