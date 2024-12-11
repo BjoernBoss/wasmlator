@@ -1,6 +1,8 @@
 #include "gen-address.h"
 #include "../environment/environment.h"
 
+static host::Logger logger{ u8"gen::block" };
+
 namespace I = wasm::inst;
 
 gen::detail::Addresses::Addresses(wasm::Module& mod, size_t maxDepth) : pModule{ mod }, pMaxDepth{ maxDepth } {}
@@ -73,7 +75,7 @@ std::vector<env::BlockExport> gen::detail::Addresses::close(const detail::Mappin
 			continue;
 		std::u8string name{ place.function.id() };
 		if (place.incomplete)
-			host::Fatal(u8"Block Address [", name, u8"] has not been produced");
+			logger.fatal(u8"Block Address [", name, u8"] has not been produced");
 		exports.push_back({ name, address });
 	}
 

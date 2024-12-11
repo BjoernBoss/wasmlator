@@ -1,5 +1,7 @@
 #include "rv64-translation.h"
 
+static host::Logger logger{ u8"rv64::cpu" };
+
 namespace I = wasm::inst;
 
 wasm::Variable rv64::Translate::fTemp32(bool first) {
@@ -135,7 +137,7 @@ void rv64::Translate::fMakeBranch() const {
 			sink[I::U64::GreaterEqual()];
 			break;
 		default:
-			host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+			logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 			break;
 		}
 	}
@@ -259,7 +261,7 @@ void rv64::Translate::fMakeALUImm() const {
 			sink[I::U64::Const(pInst->imm != 0 ? 1 : 0)];
 		break;
 	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -382,7 +384,7 @@ void rv64::Translate::fMakeALUReg() const {
 		sink[I::U32::Expand()];
 		break;
 	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -425,7 +427,7 @@ void rv64::Translate::fMakeLoad() const {
 		pWriter->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -458,7 +460,7 @@ void rv64::Translate::fMakeStore() const {
 		pWriter->write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 }
@@ -575,7 +577,7 @@ void rv64::Translate::fMakeDivRem() {
 		sink[I::I32::Expand()];
 		break;
 	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -704,7 +706,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 			sink[I::Local::Get(value)];
 		break;
 	default:
-		host::Fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
+		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -942,6 +944,6 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		break;
 
 	case rv64::Opcode::_invalid:
-		host::Fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
+		logger.fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
 	}
 }

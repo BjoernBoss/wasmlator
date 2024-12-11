@@ -61,9 +61,9 @@ namespace env {
 		uint32_t pContextSize = 0;
 
 	protected:
-		constexpr System(uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize) : pPageSize{ pageSize }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {
+		System(uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize) : pPageSize{ pageSize }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {
 			if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0)
-				host::Fatal(u8"PageSize must be greater than zero and a power of two");
+				host::Logger{ u8"env::system" }.fatal(u8"PageSize must be greater than zero and a power of two");
 		}
 
 	public:

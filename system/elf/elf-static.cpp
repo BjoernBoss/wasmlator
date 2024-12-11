@@ -1,5 +1,7 @@
 #include "elf-static.h"
 
+static host::Logger logger{ u8"elf::static" };
+
 static uint32_t ValidateElfIdentifier(const uint8_t* data, size_t size) {
 	if (size < 9)
 		throw elf::Exception{ L"Buffer too small to contain elf identifier" };
@@ -80,11 +82,11 @@ static void UnpackElfFile(const elf::Reader& reader) {
 			throw elf::Exception{ L"Program header contains larger file-size than memory-size" };
 
 		/* allocate the memory (start it out as writable) */
-		host::Debug(str::u8::Format(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] (actual: [{:#018x}] with size [{:#018x}]) with usage [{}{}{}]",
+		logger.fmtDebug(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] (actual: [{:#018x}] with size [{:#018x}]) with usage [{}{}{}]",
 			i, address, size, programs[i].vAddress, programs[i].memSize,
 			(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 			(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
-			(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')));
+			(usage & env::MemoryUsage::Execute ? u8'x' : u8'-'));
 		if (!env::Instance()->memory().mmap(address, size, env::MemoryUsage::Write))
 			throw elf::Exception{ L"Failed to allocate memory for program-header [", i, L']' };
 
@@ -117,9 +119,9 @@ env::guest_t elf::LoadStatic(const uint8_t* data, size_t size) {
 
 	/* parse the elf-file based on its used bit-width */
 	if (bitWidth == 32) {
-		host::Debug(u8"Loading static 32bit elf binary");
+		logger.debug(u8"Loading static 32bit elf binary");
 		return LoadStaticElf<uint32_t>(reader);
 	}
-	host::Debug(u8"Loading static 64bit elf binary");
+	logger.debug(u8"Loading static 64bit elf binary");
 	return LoadStaticElf<uint64_t>(reader);
 }

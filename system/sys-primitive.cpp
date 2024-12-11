@@ -3,6 +3,8 @@
 #include "elf/elf-static.h"
 #include "riscv-buffer.h"
 
+static host::Logger logger{ u8"sys::primitive" };
+
 sys::detail::PrimitiveExecContext::PrimitiveExecContext() : sys::ExecContext{ false, true } {}
 std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New() {
 	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{});
@@ -53,7 +55,7 @@ void sys::Primitive::coreLoaded() {
 		pAddress = elf::LoadStatic(fileBuffer, sizeof(fileBuffer));
 	}
 	catch (const elf::Exception& e) {
-		host::Fatal(u8"Failed to load static elf: ", e.what());
+		logger.fatal(u8"Failed to load static elf: ", e.what());
 	}
 
 	/* initialize the context */
@@ -68,16 +70,16 @@ void sys::Primitive::blockLoaded() {
 		env::Instance()->mapping().execute(pAddress);
 	}
 	catch (const env::Terminated& e) {
-		host::Fatal(str::u8::Format(u8"Execution terminated at {:#018x} with {}", e.address, e.code));
+		logger.fatal(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
 	}
 	catch (const env::MemoryFault& e) {
-		host::Fatal(str::u8::Format(u8"MemoryFault detected at: {:#018x}", e.address));
+		logger.fatal(u8"MemoryFault detected at: [", str::As{ U"#018x", e.address }, u8']');
 	}
 	catch (const env::NotDecodable& e) {
-		host::Fatal(str::u8::Format(u8"NotDecodable caught: {:#018x}", e.address));
+		logger.fatal(u8"NotDecodable caught: [", str::As{ U"#018x", e.address }, u8']');
 	}
 	catch (const env::Translate& e) {
-		host::Debug(str::u8::Format(u8"Translate caught: {:#018x}", e.address));
+		logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
 		pAddress = e.address;
 		env::Instance()->startNewBlock();
 	}

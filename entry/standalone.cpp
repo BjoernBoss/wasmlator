@@ -2,7 +2,7 @@
 #include "../interface/interface.h"
 
 int main() {
-	host::SetLogLevel(host::LogLevel::debug);
+	host::SetLogLevel(host::LogLevel::trace);
 
 	StartupProcess();
 	return 0;

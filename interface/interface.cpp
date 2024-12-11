@@ -6,12 +6,14 @@
 #include "../environment/mapping/mapping-bridge.h"
 #include "../environment/interact/interact-bridge.h"
 
+static host::Logger logger{ u8"interface" };
+
 void main_initialize() {
 	try {
 		StartupProcess();
 	}
 	catch (...) {
-		host::Fatal(u8"Unhandled exception caught [main_initialize]");
+		logger.fatal(u8"Unhandled exception caught [main_initialize]");
 	}
 }
 
@@ -20,7 +22,7 @@ void main_core_loaded(uint32_t process, uint32_t succeeded) {
 		env::detail::ProcessBridge::CoreLoaded(process, succeeded > 0);
 	}
 	catch (...) {
-		host::Fatal(u8"Unhandled exception caught [main_core_loaded]");
+		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");
 	}
 }
 void main_block_loaded(uint32_t process, uint32_t succeeded) {
@@ -28,7 +30,7 @@ void main_block_loaded(uint32_t process, uint32_t succeeded) {
 		env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0);
 	}
 	catch (...) {
-		host::Fatal(u8"Unhandled exception caught [main_core_loaded]");
+		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");
 	}
 }
 

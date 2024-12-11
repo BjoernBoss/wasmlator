@@ -1,6 +1,8 @@
 #include "memory-writer.h"
 #include "../environment/memory/env-memory.h"
 
+static host::Logger logger{ u8"gen::memory" };
+
 namespace I = wasm::inst;
 
 gen::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
@@ -8,7 +10,7 @@ gen::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state, wasm::
 void gen::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
 	uint32_t caches = uint32_t(env::detail::MemoryAccess::CacheCount());
 	if (cache >= caches)
-		host::Fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
+		logger.fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
 void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type, env::guest_t address) const {
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);

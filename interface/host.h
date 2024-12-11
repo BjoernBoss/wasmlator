@@ -11,7 +11,11 @@ namespace host {
 		debug,
 		trace
 	};
+
+	/* set the current logging level (none implies only fatal is presented) */
 	void SetLogLevel(host::LogLevel level);
+
+	/* fetch the current logging-level */
 	host::LogLevel GetLogLevel();
 
 	class Logger {
@@ -128,40 +132,4 @@ namespace host {
 			fFatal(str::u8::Build(u8"F:[", pSelf, u8"] ", str::u8::Format(fmt, args...)));
 		}
 	};
-
-	/* write message as [log] out */
-	void Log(const std::u8string_view& msg);
-
-	/* write message as [debug] out */
-	void Debug(const std::u8string_view& msg);
-
-	/* write message as [fatal] out and terminate the execution */
-	void Fatal [[noreturn]] (const std::u8string_view& msg);
-
-	/* build the message and log it using host::Log */
-	template <class... Args>
-	void Log(const Args&... args) {
-		/* only build the string if it will be printed */
-		if (host::GetLogLevel() >= host::LogLevel::log) {
-			std::u8string str = str::u8::Build(args...);
-			host::Log(std::u8string_view{ str });
-		}
-	}
-
-	/* build the message and log it using host::Debug */
-	template <class... Args>
-	void Debug(const Args&... args) {
-		/* only build the string if it will be printed */
-		if (host::GetLogLevel() >= host::LogLevel::debug) {
-			std::u8string str = str::u8::Build(args...);
-			host::Debug(std::u8string_view{ str });
-		}
-	}
-
-	/* build the message and log it using host::Fatal */
-	template <class... Args>
-	void Fatal [[noreturn]] (const Args&... args) {
-		std::u8string str = str::u8::Build(args...);
-		host::Fatal(std::u8string_view{ str });
-	}
 }

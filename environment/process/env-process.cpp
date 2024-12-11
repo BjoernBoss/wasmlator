@@ -1,5 +1,7 @@
 #include "../environment.h"
 
+static host::Logger logger{ u8"env::process" };
+
 namespace global {
 	static env::Process* Instance = 0;
 	static uint32_t ProcId = 0;
@@ -13,9 +15,9 @@ env::Process::Process(std::unique_ptr<env::System>&& system) : pSystem{ std::mov
 
 void env::Process::Create(std::unique_ptr<env::System>&& system) {
 	/* try to setup the process */
-	host::Log(u8"Creating new process...");
+	logger.log(u8"Creating new process...");
 	if (global::Instance != 0)
-		host::Fatal(u8"Process creation failed as only one process can exist at a time");
+		logger.fatal(u8"Process creation failed as only one process can exist at a time");
 	global::Instance = new env::Process{ std::move(system) };
 
 	/* initialize the components */
@@ -26,14 +28,14 @@ void env::Process::Create(std::unique_ptr<env::System>&& system) {
 	global::Instance->pMemoryPages = detail::PhysPageCount(endOfMemory);
 
 	/* allocate the next process-id */
-	host::Log(u8"Process created with id [", ++global::ProcId, u8"]");
+	logger.log(u8"Process created with id [", ++global::ProcId, u8"]");
 
 	/* setup the core module */
 	global::Instance->fLoadCore();
 }
 
 void env::Process::fLoadCore() {
-	host::Debug(u8"Loading core for [", global::ProcId, u8"]...");
+	logger.debug(u8"Loading core for [", global::ProcId, u8"]...");
 	writer::BinaryWriter writer;
 
 	pState = State::loadingCore;
@@ -43,22 +45,22 @@ void env::Process::fLoadCore() {
 		pSystem->setupCore(mod);
 	}
 	catch (const wasm::Exception& e) {
-		host::Fatal(u8"WASM exception occurred while creating the core module: ", e.what());
+		logger.fatal(u8"WASM exception occurred while creating the core module: ", e.what());
 	}
 
 	/* setup the core loading */
 	if (!detail::ProcessBridge::LoadCore(writer.output(), global::ProcId))
-		host::Fatal(u8"Failed initiating loading of core for [", global::ProcId, u8']');
+		logger.fatal(u8"Failed initiating loading of core for [", global::ProcId, u8']');
 }
 void env::Process::fLoadBlock() {
-	host::Debug(u8"Loading block for [", global::ProcId, u8"]...");
+	logger.debug(u8"Loading block for [", global::ProcId, u8"]...");
 	writer::BinaryWriter writer;
 
 	/* check if a loading is currently in progress */
 	if (pState == State::none)
-		host::Fatal(u8"Cannot load a block if core has not been loaded");
+		logger.fatal(u8"Cannot load a block if core has not been loaded");
 	if (pState != State::coreLoaded)
-		host::Fatal(u8"Cannot load a block while another load is in progress");
+		logger.fatal(u8"Cannot load a block while another load is in progress");
 	pState = State::loadingBlock;
 
 	try {
@@ -67,7 +69,7 @@ void env::Process::fLoadBlock() {
 		pExports = pSystem->setupBlock(mod);
 	}
 	catch (const wasm::Exception& e) {
-		host::Fatal(u8"WASM exception occurred while creating the block module: ", e.what());
+		logger.fatal(u8"WASM exception occurred while creating the block module: ", e.what());
 	}
 
 	/* check if the exports are valid */
@@ -87,7 +89,7 @@ void env::Process::fLoadBlock() {
 		if (loading)
 			return;
 	}
-	host::Fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
+	logger.fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
 }
 bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
@@ -95,12 +97,12 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	if (process != global::ProcId)
 		return false;
 	if (!succeeded)
-		host::Fatal(u8"Failed loading core for [", global::ProcId, u8']');
-	host::Debug(u8"Core loading succeeded for [", global::ProcId, u8']');
+		logger.fatal(u8"Failed loading core for [", global::ProcId, u8']');
+	logger.debug(u8"Core loading succeeded for [", global::ProcId, u8']');
 
 	/* setup the core-function mappings */
 	if (!detail::ProcessBridge::SetupCoreMap())
-		host::Fatal(u8"Failed to import all core-functions accessed by the main application");
+		logger.fatal(u8"Failed to import all core-functions accessed by the main application");
 
 	/* register all core bindings */
 	uint32_t bindingIndex = 0;
@@ -108,7 +110,7 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 		for (auto& [name, index] : bindings) {
 			index = bindingIndex++;
 			if (!detail::ProcessBridge::SetExport(name, index))
-				host::Fatal(u8"Failed to setup binding for [", name, u8"] of object exported by core to blocks");
+				logger.fatal(u8"Failed to setup binding for [", name, u8"] of object exported by core to blocks");
 		}
 	}
 
@@ -128,8 +130,8 @@ bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 	if (process != global::ProcId)
 		return false;
 	if (!succeeded)
-		host::Fatal(u8"Failed loading block for [", global::ProcId, u8']');
-	host::Debug(u8"Block loading succeeded for [", global::ProcId, u8']');
+		logger.fatal(u8"Failed loading block for [", global::ProcId, u8']');
+	logger.debug(u8"Block loading succeeded for [", global::ProcId, u8']');
 
 	/* register all exports and update the loading-state */
 	detail::MappingAccess::BlockLoaded(pExports);
@@ -143,7 +145,7 @@ bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
 }
 void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& name) {
 	if (pBindingsClosed)
-		host::Fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
+		logger.fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
 	pBindings[mod].push_back({ name, 0 });
 }
 
@@ -157,13 +159,13 @@ void env::Process::startNewBlock() {
 	fLoadBlock();
 }
 void env::Process::release() {
-	host::Log(u8"Destroying process with id [", global::ProcId, u8"]...");
+	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
 
 	/* reset all mapped core-functions and release the current instance */
 	detail::ProcessBridge::ResetCoreMap();
 	global::Instance = 0;
 	delete this;
-	host::Log(u8"Process destroyed");
+	logger.log(u8"Process destroyed");
 }
 
 const env::System& env::Process::system() const {

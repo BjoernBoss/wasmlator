@@ -6,11 +6,11 @@ uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	/* check if the address has already been translated */
 	auto it = pMapping.find(address);
 	if (it == pMapping.end()) {
-		logger.fmtTrace(u8"Lookup block: [{:#018x}] resulted in: None", address);
+		logger.trace(u8"Lookup block: [", str::As{ U"#018x", address }, u8"] resulted in: None");
 		throw env::Translate{ address };
 	}
 
-	logger.fmtTrace(u8"Lookup block: [{:#018x}] resulted in: [{}]", address, it->second);
+	logger.trace(u8"Lookup block: [", str::As{ U"#018x", address }, u8"] resulted in: [", it->second, u8']');
 	return it->second;
 }
 bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
@@ -18,7 +18,7 @@ bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) 
 	std::unordered_set<env::guest_t> added;
 	for (const env::BlockExport& block : exports) {
 		if (pMapping.contains(block.address) || added.contains(block.address))
-			logger.fmtFatal(u8"Block for [{:#018x}] has already been defined", block.address);
+			logger.fatal(u8"Block for [", str::As{ U"#018x", block.address }, u8"] has already been defined");
 		added.insert(block.address);
 	}
 
@@ -28,7 +28,7 @@ bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) 
 void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 	/* validate all indices and write them to the map */
 	for (size_t i = 0; i < exports.size(); ++i) {
-		logger.fmtTrace(u8"Associating [{}] to [{:#018x}]", exports[i].name, exports[i].address);
+		logger.trace(u8"Associating [", exports[i].name, u8"] to [", str::As{ U"#018x", exports[i].address }, u8"]");
 		uint32_t index = detail::MappingBridge::Define(exports[i].name.c_str(), exports[i].name.size(), exports[i].address);
 		if (index == detail::InvalidMapping)
 			logger.fatal(u8"Failed to load [", exports[i].name, u8"] from block");
@@ -37,7 +37,7 @@ void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 }
 
 void env::Mapping::execute(env::guest_t address) {
-	logger.fmtDebug(u8"Executing [{:#018x}]", address);
+	logger.debug(u8"Executing [", str::As{ U"#018x", address }, u8"]");
 	detail::MappingBridge::Execute(address);
 }
 bool env::Mapping::contains(env::guest_t address) const {

@@ -1,5 +1,7 @@
 #include "gen-block.h"
 
+static host::Logger logger{ u8"gen::block" };
+
 gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDepth) : pAddresses{ mod, maxDepth }, pTranslator{ translator } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
@@ -21,7 +23,7 @@ gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDept
 }
 
 void gen::Block::fProcess(const detail::OpenAddress& next) {
-	host::Debug(str::u8::Format(u8"Processing block at [{:#018x}]", next.address));
+	logger.debug(u8"Processing block at [", str::As{ U"#018x", next.address }, u8']');
 	detail::SuperBlock block{ pContextShared, next.address };
 
 	/* setup the actual sink to the super-block and instruction-writer */
@@ -49,7 +51,7 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 
 	/* notify the interface about the completed block */
 	pTranslator->completed(writer);
-	host::Debug(str::u8::Format(u8"Block at [{:#018x}] completed", next.address));
+	logger.debug(u8"Block at [", str::As{ U"#018x", next.address }, u8"] completed");
 }
 
 void gen::Block::run(env::guest_t address) {

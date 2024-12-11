@@ -1,5 +1,7 @@
 #include "rv64-cpu.h"
 
+static host::Logger logger{ u8"rv64::cpu" };
+
 rv64::Cpu::Cpu() : sys::Cpu{ rv64::MemoryCaches, sizeof(rv64::Context) } {}
 
 std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
@@ -11,9 +13,9 @@ void rv64::Cpu::setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) {
 
 	/* validate the context is currently supported */
 	if (!pContext->userspace())
-		host::Fatal(u8"[rv64::Cpu] currently only supports userspace execution");
+		logger.fatal(u8"[rv64::Cpu] currently only supports userspace execution");
 	if (pContext->multiThreaded())
-		host::Fatal(u8"[rv64::Cpu] does currently not support multi-threaded execution");
+		logger.fatal(u8"[rv64::Cpu] does currently not support multi-threaded execution");
 }
 void rv64::Cpu::setupCore(wasm::Module& mod) {}
 void rv64::Cpu::setupContext(env::guest_t address) {}
@@ -52,7 +54,7 @@ gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 		code |= (env::Instance()->memory().code<uint16_t>(address + 2) << 16);
 		inst = rv64::Decode32(code);
 	}
-	host::Debug(str::u8::Format(u8"RV64: {:#018x}:{:#010x} {}", address, code, rv64::ToString(inst)));
+	logger.fmtTrace(u8"RV64: {:#018x}:{:#010x} {}", address, code, rv64::ToString(inst));
 
 	/* translate the instruction to the generated instruction-type */
 	gen::InstType type = gen::InstType::primitive;

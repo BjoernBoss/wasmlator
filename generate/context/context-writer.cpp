@@ -1,6 +1,8 @@
 #include "context-writer.h"
 #include "../environment/context/context-access.h"
 
+static host::Logger logger{ u8"gen::context" };
+
 namespace I = wasm::inst;
 
 gen::detail::ContextWriter::ContextWriter(const detail::ContextState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
@@ -33,7 +35,7 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 
 	uint32_t size = uint32_t(env::detail::ContextAccess::ContextSize());
 	if (offset > size)
-		host::Fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
+		logger.fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }
 
 void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {

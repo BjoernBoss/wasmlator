@@ -1,5 +1,7 @@
 #include "gen-superblock.h"
 
+static host::Logger logger{ u8"gen::block" };
+
 namespace I = wasm::inst;
 
 gen::detail::SuperBlock::SuperBlock(const detail::ContextShared& contextShared, env::guest_t address) : pContextShared{ contextShared }, pNextAddress{ address } {}
@@ -127,7 +129,7 @@ gen::detail::RangeIt gen::detail::SuperBlock::fConflictCluster(std::set<detail::
 
 	/* consistency check: There must be one backward jump ending at [last], as expansion would otherwise have been possible */
 	if (irreducibleCount == 0)
-		host::Fatal(u8"Inconsistency while resolving irreducible control-flow detected");
+		logger.fatal(u8"Inconsistency while resolving irreducible control-flow detected");
 
 	/* insert the new overall range to the output and the intermediate range (no need to add it to the input, as
 	*	it will act like an expansion, as it is a forward-jump starting at the first instruction, and can therefore
@@ -156,13 +158,13 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 
 	/* check if its an invalid instruction, in which case the block will be ended */
 	if (inst.type == gen::InstType::invalid) {
-		host::Debug(str::u8::Format(u8"Unable to decode instruction [{:#018x}]", pNextAddress));
+		logger.debug(u8"Unable to decode instruction [", str::As{ U"#018x", pNextAddress }, u8']');
 		return false;
 	}
 
 	/* validate the extent and advance the address */
 	if (inst.size == 0)
-		host::Fatal(str::u8::Format(u8"Instruction at [{:#018x}] cannot have a size of 0", pNextAddress));
+		logger.fatal(u8"Instruction at [", str::As{ U"#018x", pNextAddress }, u8"] cannot have a size of 0");
 	pNextAddress += inst.size;
 
 	/* check if the current strand can be continued or if the overall super-block is considered closed */

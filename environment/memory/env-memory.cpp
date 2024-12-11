@@ -755,7 +755,7 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	return true;
 }
 void env::Memory::munmap(env::guest_t address, uint32_t size) {
-	logger.fmtDebug(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size);
+	logger.debug(u8"Unmapping [", str::As{ U"#018x", address }, u8"] with size [", str::As{ U"#010x", size }, u8"]");
 
 	/* check if the address and size are aligned properly */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)

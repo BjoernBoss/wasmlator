@@ -1,5 +1,7 @@
 #include "env-interact.h"
 
+static host::Logger logger{ u8"env::interact" };
+
 bool env::Interact::fCheck(uint32_t index, bool param) const {
 	return (index < (param ? pParamCallbacks.size() : pVoidCallbacks.size()));
 }
@@ -20,24 +22,24 @@ uint32_t env::Interact::defineCallback(std::function<uint64_t(uint64_t)> fn) {
 }
 void env::Interact::call(const std::u8string& name) const {
 	if (!pCoreLoaded)
-		host::Fatal(u8"Cannot call core function before the core has been loaded");
+		logger.fatal(u8"Cannot call core function before the core has been loaded");
 
 	/* check if the function has been exported by the core */
 	auto it = pCallVoid.find(name);
 	if (it == pCallVoid.end())
-		host::Fatal(u8"No void-function named [", name, u8"] is exported by the core");
+		logger.fatal(u8"No void-function named [", name, u8"] is exported by the core");
 
 	/* invoke the function */
 	detail::InteractBridge::CallVoid(it->second);
 }
 uint64_t env::Interact::call(const std::u8string& name, uint64_t param) const {
 	if (!pCoreLoaded)
-		host::Fatal(u8"Cannot call core function before the core has been loaded");
+		logger.fatal(u8"Cannot call core function before the core has been loaded");
 
 	/* check if the function has been exported by the core */
 	auto it = pCallParam.find(name);
 	if (it == pCallParam.end())
-		host::Fatal(u8"No param-function named [", name, u8"] is exported by the core");
+		logger.fatal(u8"No param-function named [", name, u8"] is exported by the core");
 
 	/* invoke the function */
 	return detail::InteractBridge::CallParam(param, it->second);
