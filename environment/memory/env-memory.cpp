@@ -1,5 +1,7 @@
 #include "env-memory.h"
 
+static host::Logger logger{ u8"env::memory" };
+
 size_t env::Memory::fLookupVirtual(env::guest_t address) const {
 	size_t begin = 0, end = pVirtual.size();
 	while ((end - begin) > 1) {
@@ -76,58 +78,58 @@ void env::Memory::fMovePhysical(env::detail::physical_t dest, env::detail::physi
 void env::Memory::fFlushCaches() const {
 	fCheckConsistency();
 
-	host::Debug(u8"Flushing caches");
+	logger.trace(u8"Flushing caches");
 	std::memset(pCaches.data(), 0, sizeof(detail::MemoryCache) * pCaches.size());
 }
 void env::Memory::fCheckConsistency() const {
 	if (pPhysical.empty())
-		host::Fatal(u8"Physical slots invalid");
+		logger.fatal(u8"Physical slots invalid");
 
 	uint32_t totalPhys = 0, totalVirt = 0;
 	for (size_t i = 0; i < pPhysical.size(); ++i) {
 		totalPhys += (pPhysical[i].used ? pPhysical[i].size : 0);
 
 		if (fLookupPhysical(pPhysical[i].physical) != i)
-			host::Fatal(u8"Physical slot [", i, u8"] lookup failed");
+			logger.fatal(u8"Physical slot [", i, u8"] lookup failed");
 		if (pPhysical[i].size == 0 || fPageOffset(pPhysical[i].size) != 0)
-			host::Fatal(u8"Physical slot [", i, u8"] size is invalid");
+			logger.fatal(u8"Physical slot [", i, u8"] size is invalid");
 
 		if ((i > 0 ? (pPhysical[i - 1].physical + pPhysical[i - 1].size) : 0) != pPhysical[i].physical)
-			host::Fatal(u8"Physical slot [", i, u8"] address is invalid");
+			logger.fatal(u8"Physical slot [", i, u8"] address is invalid");
 		if (i > 0 && !pPhysical[i - 1].used && !pPhysical[i].used)
-			host::Fatal(u8"Physical slot [", i, u8"] usage is invalid");
+			logger.fatal(u8"Physical slot [", i, u8"] usage is invalid");
 	}
 
 	for (size_t i = 0; i < pVirtual.size(); ++i) {
 		totalVirt += pVirtual[i].size;
 
 		if (fLookupVirtual(pVirtual[i].address) != i)
-			host::Fatal(u8"Virtual slot [", i, u8"] lookup failed");
+			logger.fatal(u8"Virtual slot [", i, u8"] lookup failed");
 
 		size_t phys = fLookupPhysical(pVirtual[i].physical);
 		if (phys >= pPhysical.size() || !pPhysical[phys].used || pVirtual[i].physical < pPhysical[phys].physical ||
 			pVirtual[i].physical + pVirtual[i].size > pPhysical[phys].physical + pPhysical[phys].size)
-			host::Fatal(u8"Virtual slot [", i, u8"] physical is invalid");
+			logger.fatal(u8"Virtual slot [", i, u8"] physical is invalid");
 
 		if (pVirtual[i].size == 0 || fPageOffset(pVirtual[i].size) != 0)
-			host::Fatal(u8"Virtual slot [", i, u8"] size is invalid");
+			logger.fatal(u8"Virtual slot [", i, u8"] size is invalid");
 		if (i == 0)
 			continue;
 
 		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) > pVirtual[i].address)
-			host::Fatal(u8"Virtual slot [", i, u8"] address is invalid");
+			logger.fatal(u8"Virtual slot [", i, u8"] address is invalid");
 		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) < pVirtual[i].address)
 			continue;
 
 		if (pVirtual[i - 1].physical + pVirtual[i - 1].size != pVirtual[i].physical)
-			host::Fatal(u8"Virtual slot [", i, u8"] physical is invalid");
+			logger.fatal(u8"Virtual slot [", i, u8"] physical is invalid");
 		if (pVirtual[i - 1].usage == pVirtual[i].usage)
-			host::Fatal(u8"Virtual slot [", i, u8"] usage is invalid");
+			logger.fatal(u8"Virtual slot [", i, u8"] usage is invalid");
 	}
 
 	if (totalPhys != totalVirt)
-		host::Fatal(u8"Phyiscal used memory does not match virtual used memory");
-	host::Debug(u8"Memory consistency-check performed");
+		logger.fatal(u8"Phyiscal used memory does not match virtual used memory");
+	logger.debug(u8"Memory consistency-check performed");
 }
 
 bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
@@ -368,7 +370,7 @@ void env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env
 		/* check if the next virtual slot is valid */
 		size_t next = virt + dropped;
 		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
-			host::Fatal(u8"Unmapping range is not fully mapped");
+			logger.fatal(u8"Unmapping range is not fully mapped");
 
 		/* check if the slot is fully unmapped */
 		if (pVirtual[next].address + pVirtual[next].size <= end) {
@@ -561,7 +563,7 @@ void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 		/* check if the next virtual slot is valid */
 		size_t next = virt + dropped;
 		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
-			host::Fatal(u8"Change range is not fully mapped");
+			logger.fatal(u8"Change range is not fully mapped");
 
 		/* check if the slot is fully mapped across */
 		if (pVirtual[next].address + pVirtual[next].size <= end) {
@@ -621,12 +623,12 @@ void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 }
 
 void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const {
-	host::Debug(str::u8::Format(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}]", access, size,
+	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}]", access, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-'),
 		address
-	));
+	);
 	detail::MemoryLookup lookup = fLookup(address, access, size, usage);
 
 	/* write the lookup back to the cache */
@@ -650,24 +652,24 @@ uint64_t env::Memory::fCode(env::guest_t address, uint32_t size) const {
 }
 
 bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
-	host::Debug(str::u8::Format(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
+	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
-	));
+	);
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
-		host::Fatal(u8"Mapping requires address and size to be page-aligned");
+		logger.fatal(u8"Mapping requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
-		host::Fatal(u8"Memory-usage must only consist of read/write/execute usage");
+		logger.fatal(u8"Memory-usage must only consist of read/write/execute usage");
 
 	/* check if the given range is valid and does not overlap any existing ranges */
 	size_t virt = fLookupVirtual(address);
 	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size)
-		host::Fatal(u8"Mapping range is already partially mapped");
+		logger.fatal(u8"Mapping range is already partially mapped");
 	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address)
-		host::Fatal(u8"Mapping range is already partially mapped");
+		logger.fatal(u8"Mapping range is already partially mapped");
 	if (size == 0)
 		return true;
 
@@ -695,7 +697,7 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	/* lookup a physical slot large enough to house the contiguous memory region */
 	size_t phys = fMemAllocatePhysical((hasPrev ? pPhysical[physPrev].size : 0) + size + (hasNext ? pPhysical[physNext].size : 0), size);
 	if (phys >= pPhysical.size()) {
-		host::Debug(u8"Allocation failed");
+		logger.debug(u8"Allocation failed");
 		return false;
 	}
 
@@ -753,16 +755,16 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	return true;
 }
 void env::Memory::munmap(env::guest_t address, uint32_t size) {
-	host::Debug(str::u8::Format(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size));
+	logger.fmtDebug(u8"Unmapping [{:#018x}] with size [{:#010x}]", address, size);
 
 	/* check if the address and size are aligned properly */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
-		host::Fatal(u8"Unmapping requires address and size to be page-aligned");
+		logger.fatal(u8"Unmapping requires address and size to be page-aligned");
 
 	/* check if the given start is valid and lies within a mapped region */
 	size_t virt = fLookupVirtual(address);
 	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
-		host::Fatal(u8"Unmapping range is not fully mapped");
+		logger.fatal(u8"Unmapping range is not fully mapped");
 	if (size == 0)
 		return;
 
@@ -784,22 +786,22 @@ void env::Memory::munmap(env::guest_t address, uint32_t size) {
 	fFlushCaches();
 }
 void env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
-	host::Debug(str::u8::Format(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
+	logger.fmtDebug(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
-	));
+	);
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
-		host::Fatal(u8"Changing requires address and size to be page-aligned");
+		logger.fatal(u8"Changing requires address and size to be page-aligned");
 	if ((usage & ~(env::MemoryUsage::Read | env::MemoryUsage::Write | env::MemoryUsage::Execute)) != 0)
-		host::Fatal(u8"Memory-usage must only consist of read/write/execute usage");
+		logger.fatal(u8"Memory-usage must only consist of read/write/execute usage");
 
 	/* check if the given start is valid and lies within a mapped region */
 	size_t virt = fLookupVirtual(address);
 	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
-		host::Fatal(u8"Change range is not fully mapped");
+		logger.fatal(u8"Change range is not fully mapped");
 	if (size == 0)
 		return;
 
@@ -816,33 +818,33 @@ void env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) 
 	fFlushCaches();
 }
 void env::Memory::mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
-	host::Debug(str::u8::Format(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
+	logger.fmtDebug(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
-	));
+	);
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, source, size, usage);
 	detail::MemoryBridge::ReadFromPhysical(dest, lookup.physical + detail::physical_t(source - lookup.address), size);
 }
 void env::Memory::mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage) {
-	host::Debug(str::u8::Format(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
+	logger.fmtDebug(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
-	));
+	);
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
 	detail::MemoryBridge::WriteToPhysical(lookup.physical + detail::physical_t(dest - lookup.address), source, size);
 }
 void env::Memory::mclear(env::guest_t dest, uint32_t size, uint32_t usage) {
-	host::Debug(str::u8::Format(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
+	logger.fmtDebug(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
 		(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
 		(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
 		(usage & env::MemoryUsage::Execute ? u8'x' : u8'-')
-	));
+	);
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
