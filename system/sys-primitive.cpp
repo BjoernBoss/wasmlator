@@ -73,7 +73,7 @@ void sys::Primitive::blockLoaded() {
 		logger.fatal(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
 	}
 	catch (const env::MemoryFault& e) {
-		logger.fatal(u8"MemoryFault detected at: [", str::As{ U"#018x", e.address }, u8']');
+		logger.fatal(u8"MemoryFault detected at: [", str::As{ U"#018x", e.address }, u8"] while accessing [", str::As{ U"#018x", e.accessed }, u8']');
 	}
 	catch (const env::NotDecodable& e) {
 		logger.fatal(u8"NotDecodable caught: [", str::As{ U"#018x", e.address }, u8']');

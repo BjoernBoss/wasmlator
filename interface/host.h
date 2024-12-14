@@ -20,7 +20,6 @@ namespace host {
 
 	class Logger {
 	private:
-		/* fatal is mapped to 'F' */
 		static constexpr const char8_t LevelMap[] = { u8'?', u8'W', u8'L', u8'I', u8'D', u8'T' };
 
 	private:
@@ -123,13 +122,13 @@ namespace host {
 		/* build the message and write it out as [fatal] and terminate the execution */
 		template <class... Args>
 		void fatal [[noreturn]] (const Args&... args) const {
-			fFatal(str::u8::Build(u8"F:[", pSelf, u8"] ", args...));
+			fFatal(str::u8::Build(u8"[", pSelf, u8"] ", args...));
 		}
 
 		/* format the message and write it out as [fatal] and terminate the execution */
 		template <class... Args>
 		void fmtFatal [[noreturn]] (std::u8string_view fmt, const Args&... args) const {
-			fFatal(str::u8::Build(u8"F:[", pSelf, u8"] ", str::u8::Format(fmt, args...)));
+			fFatal(str::u8::Build(u8"[", pSelf, u8"] ", str::u8::Format(fmt, args...)));
 		}
 	};
 }

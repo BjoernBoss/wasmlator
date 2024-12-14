@@ -10,10 +10,7 @@ namespace rv64 {
 		static constexpr uint64_t MisAlignedException = 1;
 
 	private:
-		wasm::Variable pTemp32_0;
-		wasm::Variable pTemp32_1;
-		wasm::Variable pTemp64_0;
-		wasm::Variable pTemp64_1;
+		wasm::Variable pTemp[6];
 		sys::ExecContext* pContext = 0;
 		const gen::Writer* pWriter = 0;
 		const rv64::Instruction* pInst = 0;
@@ -24,8 +21,8 @@ namespace rv64 {
 		Translate() = default;
 
 	private:
-		wasm::Variable fTemp32(bool first);
-		wasm::Variable fTemp64(bool first);
+		wasm::Variable fTemp32(size_t index);
+		wasm::Variable fTemp64(size_t index);
 
 	private:
 		bool fLoadSrc1(bool forceNull, bool half) const;
@@ -44,7 +41,7 @@ namespace rv64 {
 		void fMakeAMOLR();
 		void fMakeAMOSC();
 		void fMakeCSR() const;
-		void fMakeMul() const;
+		void fMakeMul();
 
 	public:
 		void resetAll(sys::ExecContext* context, const gen::Writer* writer);

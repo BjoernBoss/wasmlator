@@ -4,16 +4,16 @@ static host::Logger logger{ u8"rv64::cpu" };
 
 namespace I = wasm::inst;
 
-wasm::Variable rv64::Translate::fTemp32(bool first) {
-	wasm::Variable& var = (first ? pTemp32_0 : pTemp32_1);
+wasm::Variable rv64::Translate::fTemp32(size_t index) {
+	wasm::Variable& var = pTemp[4 + index];
 	if (!var.valid())
-		var = pWriter->sink().local(wasm::Type::i32, (first ? u8"_temp_i32_0" : u8"_temp_i32_1"));
+		var = pWriter->sink().local(wasm::Type::i32, str::u8::Build(u8"_temp_i32_", index));
 	return var;
 }
-wasm::Variable rv64::Translate::fTemp64(bool first) {
-	wasm::Variable& var = (first ? pTemp64_0 : pTemp64_1);
+wasm::Variable rv64::Translate::fTemp64(size_t index) {
+	wasm::Variable& var = pTemp[index];
 	if (!var.valid())
-		var = pWriter->sink().local(wasm::Type::i64, (first ? u8"_temp_i64_0" : u8"_temp_i64_1"));
+		var = pWriter->sink().local(wasm::Type::i64, str::u8::Build(u8"_temp_i64_", index));
 	return var;
 }
 
@@ -50,7 +50,7 @@ void rv64::Translate::fMakeJAL() {
 
 	/* check if its an indirect jump and if it can be predicted somehow (based on the riscv specification) */
 	if (pInst->opcode == rv64::Opcode::jump_and_link_reg) {
-		wasm::Variable addr = fTemp64(true);
+		wasm::Variable addr = fTemp64(0);
 
 		/* write the target address to the stack */
 		sink[I::I64::Const(pInst->imm)];
@@ -492,7 +492,7 @@ void rv64::Translate::fMakeDivRem() {
 	}
 
 	/* allocate the temporary variables and write the operands to the stack */
-	wasm::Variable temp = (half ? fTemp32(true) : fTemp64(true));
+	wasm::Variable temp = (half ? fTemp32(0) : fTemp64(0));
 	fLoadSrc1(true, half);
 	fLoadSrc2(true, half);
 
@@ -591,7 +591,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	wasm::Sink& sink = pWriter->sink();
 
 	/* load the source address into the temporary */
-	wasm::Variable addr = fTemp64(true);
+	wasm::Variable addr = fTemp64(0);
 	fLoadSrc1(true, false);
 	sink[I::Local::Tee(addr)];
 
@@ -605,7 +605,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	}
 
 	/* perform the reading of the original value and write it immediately to the destination */
-	wasm::Variable value = (half ? fTemp32(true) : fTemp64(false));
+	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
 	sink[I::Local::Get(addr)];
 	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 	sink[I::Local::Tee(value)];
@@ -650,7 +650,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_min_s_w:
 	case rv64::Opcode::amo_min_s_d:
 		if (fLoadSrc2(true, half)) {
-			wasm::Variable other = (half ? fTemp32(false) : addr);
+			wasm::Variable other = (half ? fTemp32(1) : addr);
 			sink[I::Local::Tee(other)];
 			sink[I::Local::Get(value)];
 			sink[I::Local::Get(other)];
@@ -666,7 +666,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_max_s_w:
 	case rv64::Opcode::amo_max_s_d:
 		if (fLoadSrc2(true, half)) {
-			wasm::Variable other = (half ? fTemp32(false) : addr);
+			wasm::Variable other = (half ? fTemp32(1) : addr);
 			sink[I::Local::Tee(other)];
 			sink[I::Local::Get(value)];
 			sink[I::Local::Get(other)];
@@ -682,7 +682,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_min_u_w:
 	case rv64::Opcode::amo_min_u_d:
 		if (fLoadSrc2(true, half)) {
-			wasm::Variable other = (half ? fTemp32(false) : addr);
+			wasm::Variable other = (half ? fTemp32(1) : addr);
 			sink[I::Local::Tee(other)];
 			sink[I::Local::Get(value)];
 			sink[I::Local::Get(other)];
@@ -694,7 +694,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_max_u_w:
 	case rv64::Opcode::amo_max_u_d:
 		if (fLoadSrc2(false, half)) {
-			wasm::Variable other = (half ? fTemp32(false) : addr);
+			wasm::Variable other = (half ? fTemp32(1) : addr);
 			sink[I::Local::Tee(other)];
 			sink[I::Local::Get(value)];
 			sink[I::Local::Get(other)];
@@ -723,7 +723,7 @@ void rv64::Translate::fMakeAMOLR() {
 	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
 
 	/* load the source address into the temporary */
-	wasm::Variable addr = fTemp64(true);
+	wasm::Variable addr = fTemp64(0);
 	fLoadSrc1(true, false);
 	sink[I::Local::Tee(addr)];
 
@@ -751,7 +751,7 @@ void rv64::Translate::fMakeAMOSC() {
 	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
 
 	/* load the source address into the temporary */
-	wasm::Variable addr = fTemp64(true);
+	wasm::Variable addr = fTemp64(0);
 	fLoadSrc1(true, false);
 	sink[I::Local::Tee(addr)];
 
@@ -776,15 +776,122 @@ void rv64::Translate::fMakeAMOSC() {
 void rv64::Translate::fMakeCSR() const {
 
 }
-void rv64::Translate::fMakeMul() const {
+void rv64::Translate::fMakeMul() {
+	/*
+	*	Performed operation:
+	*
+	*	mul: a0a1 * b0b1 where each component is 32bits
+	*
+	*	r = a0 * b0
+	*	r = (r >> 32) + a0 * b1 + a1 * b0
+	*	r = (r >> 32) + a0a1 * b2b3 + a2a3 * b0b1 + a1 * b1
+	*/
+	wasm::Sink& sink = pWriter->sink();
 
+	/* operation-checks to simplify the logic */
+	bool bSigned = (pInst->opcode == rv64::Opcode::mul_high_s_reg);
+	bool isSigned = (bSigned || pInst->opcode == rv64::Opcode::mul_high_s_u_reg);
+
+	/* check if the operation can be discarded */
+	if (pInst->dest == reg::Zero)
+		return;
+
+	/* check if the operation can be short-circuited */
+	if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) {
+		sink[I::U64::Const(0)];
+		fStoreDest();
+		return;
+	}
+
+	/* check if at least one component is signed, in which case the full values need to be loaded before splitting
+	*	them into the separate words (b-signed implies a signed as well; the values are loaded into a1/b1) */
+	wasm::Variable a0 = fTemp64(0), a1 = fTemp64(1), b0 = fTemp64(2), b1 = fTemp64(3);
+	if (isSigned) {
+		/* load the two components and leave them on the stack (start with the sign-extension of a) */
+		fLoadSrc1(false, false);
+		sink[I::Local::Tee(a1)];
+		sink[I::I64::Const(63)];
+		sink[I::I64::ShiftRight()];
+		fLoadSrc2(false, false);
+		sink[I::Local::Tee(b1)];
+
+		/* perform the first multiplication [a2a3 * b0b1] */
+		sink[I::U64::Mul()];
+
+		/* perform the second multiplication, if b is sign-extended as well [a0a1 * b2b3] */
+		if (bSigned) {
+			sink[I::Local::Get(b1)];
+			sink[I::I64::Const(63)];
+			sink[I::I64::ShiftRight()];
+			sink[I::Local::Get(a1)];
+			sink[I::U64::Mul()];
+			sink[I::U64::Add()];
+		}
+	}
+
+	/* split the two variables into the separate word-components (not sign-extended,
+	*	as the extension is handled separately) and leave the upper two words on the stack */
+	for (size_t i = 0; i < 2; ++i) {
+		wasm::Variable& w0 = (i == 0 ? a0 : b0);
+		wasm::Variable& w1 = (i == 0 ? a1 : b1);
+
+		/* load the total value (leave a copy in w1) */
+		if (isSigned)
+			sink[I::Local::Get(w1)];
+		else {
+			if (i == 0)
+				fLoadSrc1(false, false);
+			else
+				fLoadSrc2(false, false);
+			sink[I::Local::Tee(w1)];
+		}
+
+		/* write the lower word back */
+		sink[I::U64::Const(0xffff'ffff)];
+		sink[I::U64::And()];
+		sink[I::Local::Set(w0)];
+
+		/* write the upper word back, but leave a copy of it on the stack */
+		sink[I::Local::Get(w1)];
+		sink[I::U64::Const(32)];
+		sink[I::U64::ShiftRight()];
+		sink[I::Local::Tee(w1)];
+	}
+
+	/* perform the multiplication of the two upper words [a1 * b1] and add it to the overall result */
+	sink[I::U64::Mul()];
+	if (isSigned)
+		sink[I::U64::Add()];
+
+	/* perform the multiplication of the lower two words, and shift it [(a0 * b0) >> 32] */
+	sink[I::Local::Get(a0)];
+	sink[I::Local::Get(b0)];
+	sink[I::U64::Mul()];
+	sink[I::U64::Const(32)];
+	sink[I::U64::ShiftRight()];
+
+	/* perfrom the cross multiplication, add the lower multiplication to it [((a0 * b0) >> 32) + a0 * b1 + b0 * a1] */
+	sink[I::Local::Get(a0)];
+	sink[I::Local::Get(b1)];
+	sink[I::U64::Mul()];
+	sink[I::U64::Add()];
+	sink[I::Local::Get(a1)];
+	sink[I::Local::Get(b0)];
+	sink[I::U64::Mul()];
+	sink[I::U64::Add()];
+
+	/* shift the last stage and add it to the overal result */
+	sink[I::U64::Const(32)];
+	sink[I::U64::ShiftRight()];
+	sink[I::U64::Add()];
+
+	/* write the result to the register */
+	fStoreDest();
 }
 
 void rv64::Translate::resetAll(sys::ExecContext* context, const gen::Writer* writer) {
-	pTemp32_0 = wasm::Variable{};
-	pTemp32_1 = wasm::Variable{};
-	pTemp64_0 = wasm::Variable{};
-	pTemp64_1 = wasm::Variable{};
+	for (wasm::Variable& var : pTemp)
+		var = wasm::Variable{};
 	pContext = context;
 	pWriter = writer;
 }
