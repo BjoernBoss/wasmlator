@@ -9,25 +9,97 @@ sys::detail::PrimitiveExecContext::PrimitiveExecContext() : sys::ExecContext{ fa
 std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New() {
 	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{});
 }
-void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
-}
-void sys::detail::PrimitiveExecContext::throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
-}
-void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
-}
-void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
-}
+void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
+void sys::detail::PrimitiveExecContext::throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
+void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
+void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
 
 
-sys::Primitive::Primitive(std::unique_ptr<sys::Cpu>&& cpu, uint32_t memoryCaches, uint32_t contextSize) : env::System{ PageSize, memoryCaches, contextSize }, pCpu{ std::move(cpu) } {}
-std::unique_ptr<env::System> sys::Primitive::New(std::unique_ptr<sys::Cpu>&& cpu) {
+sys::Primitive::Primitive(uint32_t memoryCaches, uint32_t contextSize) : env::System{ Primitive::PageSize, memoryCaches, contextSize } {}
+env::guest_t sys::Primitive::fPrepareStack() const {
+	env::Memory& mem = env::Instance()->memory();
+
+	/* count the size of the blob of data at the end */
+	size_t blobSize = 0;
+	for (size_t i = 0; i < pArgs.size(); ++i)
+		blobSize += pArgs[i].size() + 1;
+	for (size_t i = 0; i < pEnvs.size(); ++i)
+		blobSize += pEnvs[i].size() + 1;
+
+	/* compute the size of the structured stack-data
+	*	Args: one pointer for each argument plus count plus null-entry
+	*	Envs: one pointer for each environment plus null-entry
+	*	Auxiliary: one null-entry */
+	size_t structSize = 0;
+	structSize += sizeof(uint64_t) * (pArgs.size() + 2);
+	structSize += sizeof(uint64_t) * (pEnvs.size() + 1);
+	structSize += sizeof(uint64_t);
+
+	/* validate the stack dimensions (aligned to the corresponding boundaries) */
+	size_t totalSize = (blobSize + structSize + Primitive::StartOfStackAlignment - 1) & ~(Primitive::StartOfStackAlignment - 1);
+	size_t padding = totalSize - (blobSize + structSize);
+	if (totalSize > Primitive::StackSize)
+		logger.fatal(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Primitive::StackSize, u8']');
+
+	/* allocate the new stack and initialize the content for it */
+	if (!mem.mmap(Primitive::InitialStackAddress, Primitive::StackSize, env::MemoryUsage::ReadWrite))
+		logger.fatal(u8"Failed to allocate initial stack");
+	std::vector<uint8_t> content;
+	auto write = [&](const void* data, size_t size) {
+		const uint8_t* d = static_cast<const uint8_t*>(data);
+		content.insert(content.end(), d, d + size);
+		};
+	uint64_t blobPtr = Primitive::InitialStackAddress + Primitive::StackSize - blobSize;
+
+	/* write the argument-count out */
+	uint64_t count = pArgs.size(), nullValue = 0;
+	write(&count, sizeof(count));
+
+	/* write the argument pointers out and the trailing null-entry */
+	for (size_t i = 0; i < pArgs.size(); ++i) {
+		write(&blobPtr, sizeof(blobPtr));
+		blobPtr += pArgs[i].size() + 1;
+	}
+	write(&nullValue, sizeof(nullValue));
+
+	/* write the environment pointers out and the trailing null-entry */
+	for (size_t i = 0; i < pEnvs.size(); ++i) {
+		write(&blobPtr, sizeof(blobPtr));
+		blobPtr += pEnvs[i].size() + 1;
+	}
+	write(&nullValue, sizeof(nullValue));
+
+	/* write the empty auxiliary vector out */
+	write(&nullValue, sizeof(nullValue));
+
+	/* write the padding out */
+	content.insert(content.end(), padding, 0);
+
+	/* write the actual args to the blob */
+	for (size_t i = 0; i < pArgs.size(); ++i)
+		write(pArgs[i].data(), pArgs[i].size() + 1);
+
+	/* write the actual envs to the blob */
+	for (size_t i = 0; i < pEnvs.size(); ++i)
+		write(pEnvs[i].data(), pEnvs[i].size() + 1);
+
+	/* write the prepared content to the acutal stack and return the pointer to the argument-count */
+	env::guest_t stack = Primitive::InitialStackAddress + Primitive::StackSize - totalSize;
+	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::MemoryUsage::Write);
+	return stack;
+}
+std::unique_ptr<env::System> sys::Primitive::New(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* configure the cpu itself */
 	cpu->setupCpu(std::move(detail::PrimitiveExecContext::New()));
 
 	/* construct the primitive env-system object */
-	return std::unique_ptr<sys::Primitive>(new sys::Primitive{ std::move(cpu), caches, context });
+	std::unique_ptr<sys::Primitive> system = std::unique_ptr<sys::Primitive>(new sys::Primitive{ caches, context });
+	system->pCpu = std::move(cpu);
+	system->pArgs = args;
+	system->pEnvs = envs;
+	return system;
 }
 void sys::Primitive::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
@@ -41,7 +113,7 @@ void sys::Primitive::setupCore(wasm::Module& mod) {
 }
 std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
 	/* setup the translator */
-	gen::Block translator{ mod, pCpu.get(), TranslationDepth };
+	gen::Block translator{ mod, pCpu.get(), Primitive::TranslationDepth };
 
 	/* translate the next requested address */
 	translator.run(pAddress);
@@ -58,8 +130,11 @@ void sys::Primitive::coreLoaded() {
 		logger.fatal(u8"Failed to load static elf: ", e.what());
 	}
 
+	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
+	env::guest_t spAddress = fPrepareStack();
+
 	/* initialize the context */
-	pCpu->setupContext(pAddress);
+	pCpu->setupContext(pAddress, spAddress);
 
 	/* request the translation of the first block */
 	env::Instance()->startNewBlock();

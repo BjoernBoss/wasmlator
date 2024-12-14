@@ -66,6 +66,10 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		if (programs[i].type != elf::ProgramType::load)
 			continue;
 
+		/* validate the alignment */
+		if (programs[i].align > 1 && (pageSize % programs[i].align) != 0)
+			throw elf::Exception{ L"Program-header alignment is not aligned with page alignment" };
+
 		/* construct the page-usage to be used */
 		uint32_t usage = 0;
 		if ((programs[i].flags & elf::programFlags::exec) == elf::programFlags::exec)
@@ -79,7 +83,7 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		env::guest_t address = (programs[i].vAddress & ~(pageSize - 1));
 		uint32_t size = uint32_t(((programs[i].vAddress + programs[i].memSize + pageSize - 1) & ~(pageSize - 1)) - address);
 		if (programs[i].fileSize > programs[i].memSize)
-			throw elf::Exception{ L"Program header contains larger file-size than memory-size" };
+			throw elf::Exception{ L"Program-header contains larger file-size than memory-size" };
 
 		/* allocate the memory (start it out as writable) */
 		logger.fmtDebug(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] (actual: [{:#018x}] with size [{:#018x}]) with usage [{}{}{}]",

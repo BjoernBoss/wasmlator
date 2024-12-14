@@ -18,8 +18,15 @@ void rv64::Cpu::setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) {
 		logger.fatal(u8"[rv64::Cpu] does currently not support multi-threaded execution");
 }
 void rv64::Cpu::setupCore(wasm::Module& mod) {}
-void rv64::Cpu::setupContext(env::guest_t address) {}
-std::u8string rv64::Cpu::getExceptionText(uint64_t id) {
+void rv64::Cpu::setupContext(env::guest_t pcAddress, env::guest_t spAddress) {
+	rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
+
+	/* no need to write the pc to the context, as all exceptions will implicitly
+	*	already know the exact pc but write the stack-pointer to the sp-register,
+	*	the rest can remain as-is (will implicitly be null) */
+	ctx.sp = spAddress;
+}
+std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 	switch (id) {
 	case rv64::Translate::EBreakException:
 		return u8"ebreak";

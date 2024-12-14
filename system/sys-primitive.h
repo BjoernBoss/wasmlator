@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <string>
+
 #include "../environment/environment.h"
 #include "../generate/generate.h"
 
@@ -24,21 +27,31 @@ namespace sys {
 	}
 
 	/* primitive single-threaded system, which set up an environment, loads a static-elf
-	*	file to be executed, and passes the calls to the cpu implementation */
+	*	file to be executed, and passes the calls to the cpu implementation, as well as
+	*	a system-v ABI conform initial stack configuration
+	*	Note: The assumption is made, that the stack grows downwards */
 	class Primitive final : public env::System {
 	private:
+		static constexpr env::guest_t InitialStackAddress = 0x7800'0000'0000;
+		static constexpr env::guest_t StartOfStackAlignment = 128;
+		static constexpr env::guest_t StackSize = 0x40'0000;
 		static constexpr uint32_t TranslationDepth = 4;
 		static constexpr uint32_t PageSize = 0x1000;
 
 	private:
+		std::vector<std::u8string> pArgs;
+		std::vector<std::u8string> pEnvs;
 		std::unique_ptr<sys::Cpu> pCpu;
 		env::guest_t pAddress = 0;
 
 	private:
-		Primitive(std::unique_ptr<sys::Cpu>&& cpu, uint32_t memoryCaches, uint32_t contextSize);
+		Primitive(uint32_t memoryCaches, uint32_t contextSize);
+
+	private:
+		env::guest_t fPrepareStack() const;
 
 	public:
-		static std::unique_ptr<env::System> New(std::unique_ptr<sys::Cpu>&& cpu);
+		static std::unique_ptr<env::System> New(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs);
 
 	public:
 		void setupCore(wasm::Module& mod) final;
