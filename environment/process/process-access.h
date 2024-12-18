@@ -9,5 +9,6 @@ namespace env::detail {
 		static void AddCoreBinding(const std::u8string& mod, const std::u8string& name);
 		static void LockBindings();
 		static size_t BindingCount();
+		static bool SingleStep();
 	};
 }

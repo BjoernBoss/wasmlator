@@ -55,12 +55,6 @@ namespace env {
 		bool fBlockLoaded(uint32_t process, bool succeeded);
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 
-	private:
-		void fTerminate(int32_t code, env::guest_t address);
-		void fNotDecodable(env::guest_t address);
-		void fNotReachable(env::guest_t address);
-		void fSingleStep(env::guest_t address);
-
 	public:
 		const std::u8string& blockImportModule() const;
 		void bindExport(std::u8string_view name);

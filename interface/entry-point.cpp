@@ -19,3 +19,6 @@ void StartupProcess() {
 		});
 	logger.log(u8"Main: Process creation completed");
 }
+void HandleCommand(std::u8string_view cmd) {
+	logger.info(u8"Command received [", cmd, u8']');
+}

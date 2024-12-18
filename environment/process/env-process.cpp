@@ -163,19 +163,6 @@ void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& na
 	pBindings[mod].push_back({ name, 0 });
 }
 
-void env::Process::fTerminate(int32_t code, env::guest_t address) {
-	throw env::Terminated{ address, code };
-}
-void env::Process::fNotDecodable(env::guest_t address) {
-	throw env::NotDecodable{ address };
-}
-void env::Process::fNotReachable(env::guest_t address) {
-	logger.fatal(u8"Execution reached address [", str::As{ U"#018x", address }, u8"] which was considered not reachable by super-block");
-}
-void env::Process::fSingleStep(env::guest_t address) {
-	throw env::SingleStep{ address };
-}
-
 const std::u8string& env::Process::blockImportModule() const {
 	return pBlockImportName;
 }

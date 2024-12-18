@@ -16,9 +16,8 @@ gen::Block::Block(wasm::Module& mod, gen::Translator* translator) : pAddresses{ 
 	_core.setupBlockImports(mod, physical, memory);
 	_memory.setupBlockImports(mod, memory, physical, pMemory);
 	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
-	_process.setupBlockImports(mod, pProcess);
 	_interact.setupBlockImports(mod, pInteract);
-	_context.setupBlockImports(memory, pContext);
+	_context.setupBlockImports(mod, memory, pContext);
 
 	/* setup the components of the translator-members */
 	pAddresses.setup(blockPrototype);
@@ -29,8 +28,8 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 
 	/* setup the actual sink to the super-block and instruction-writer */
 	wasm::Sink sink{ next.function };
-	detail::SuperBlock block{ sink, pProcess, next.address };
-	gen::Writer writer{ sink, block, pMemory, pProcess, pContext, pMapping, pAddresses, pInteract };
+	detail::SuperBlock block{ sink, pContext, next.address };
+	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
 
 	/* notify the interface about the newly starting block */
 	pTranslator->started(writer, next.address);

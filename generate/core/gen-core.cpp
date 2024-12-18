@@ -1,10 +1,12 @@
 #include "gen-core.h"
 #include "core-builder.h"
 #include "../memory/memory-builder.h"
+#include "../context/context-builder.h"
 #include "../mapping/mapping-builder.h"
 
 gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	detail::MemoryBuilder _memory;
+	detail::ContextBuilder _context;
 	detail::MappingBuilder _mapping;
 	detail::CoreBuilder _core;
 	wasm::Global lastInstance;
@@ -13,6 +15,7 @@ gen::Core::Core(wasm::Module& mod) : pModule{ mod } {
 	/* initialize the core-imports */
 	_memory.setupCoreImports(mod);
 	_mapping.setupCoreImports(mod);
+	_context.setupCoreImports(mod);
 	pInteract.setupCoreImports(mod);
 	pProcess.setupCoreImports(mod);
 	_core.setupCoreImports(mod, memory);

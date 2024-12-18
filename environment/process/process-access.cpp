@@ -18,3 +18,6 @@ size_t env::detail::ProcessAccess::BindingCount() {
 		count += bindings.size();
 	return count;
 }
+bool env::detail::ProcessAccess::SingleStep() {
+	return env::Instance()->pConfig.singleStep;
+}

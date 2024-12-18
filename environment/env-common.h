@@ -143,10 +143,4 @@ namespace env {
 	public:
 		NotDecodable(env::guest_t address) : env::Exception{ address } {}
 	};
-
-	/* thrown whenever a single step has been taken in single-step configuration */
-	struct SingleStep : public env::Exception {
-	public:
-		SingleStep(env::guest_t address) : env::Exception{ address } {}
-	};
 }

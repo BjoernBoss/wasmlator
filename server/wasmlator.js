@@ -23,7 +23,7 @@ _state.controlled = function (fn) {
 			fn();
 	} catch (e) {
 		/* check if this is the first exception and log it and mark the wasmlator as failed */
-		if(_state.failed)
+		if (_state.failed)
 			return;
 		_state.failed = true;
 
@@ -34,7 +34,7 @@ _state.controlled = function (fn) {
 			console.error(`Unhandled exception occurred: ${e.stack}`)
 	}
 }
-_state.throwException = function(e) {
+_state.throwException = function (e) {
 	/* log the error immediately, as the error handling of the main-application could trigger
 	*	a wasm-trap, in which case the original exception will not be logged anymore */
 	if (!_state.failed)
@@ -206,6 +206,21 @@ _state.load_block = function (buffer, process) {
 			});
 		});
 	return 1;
+}
+
+/* pass a command to the main application */
+_state.cmd = function (str) {
+	_state.controlled(() => {
+		/* convert the string to a buffer */
+		let buf = new TextEncoder('utf-8').encode(str);
+
+		/* allocate a buffer for the string in the main-application and write the string to it */
+		let ptr = _state.main.exports.main_allocate_command(buf.length);
+		new Uint8Array(_state.main.memory.buffer, ptr, buf.length).set(buf);
+
+		/* perform the actual execution of the command (will ensure to free it) */
+		_state.main.exports.main_command(ptr, buf.length);
+	});
 }
 
 _state.load_glue();

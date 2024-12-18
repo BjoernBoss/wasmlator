@@ -19,7 +19,6 @@ namespace gen {
 		detail::Addresses pAddresses;
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
-		detail::ProcessState pProcess;
 		detail::ContextState pContext;
 		detail::InteractState pInteract;
 

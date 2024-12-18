@@ -11,6 +11,6 @@ bool env::detail::MappingBridge::Reserve(size_t exports) {
 uint32_t env::detail::MappingBridge::Define(const char8_t* name, size_t size, env::guest_t address) {
 	return map_define(name, uint32_t(size), address);
 }
-void env::detail::MappingBridge::Execute(env::guest_t address) {
-	map_execute(address);
+env::guest_t env::detail::MappingBridge::Execute(env::guest_t address) {
+	return map_execute(address);
 }

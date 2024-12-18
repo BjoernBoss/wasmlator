@@ -1,11 +1,11 @@
 #include "gen-superblock.h"
-#include "../environment/environment.h"
+#include "../environment/process/process-access.h"
 
 static host::Logger logger{ u8"gen::block" };
 
 namespace I = wasm::inst;
 
-gen::detail::SuperBlock::SuperBlock(wasm::Sink& sink, const detail::ProcessState& process, env::guest_t address) : pSink{ sink }, pProcess{ process, sink }, pNextAddress{ address } {}
+gen::detail::SuperBlock::SuperBlock(wasm::Sink& sink, const detail::ContextState& context, env::guest_t address) : pSink{ sink }, pContext{ context, sink }, pNextAddress{ address } {}
 
 size_t gen::detail::SuperBlock::fLookup(env::guest_t address) const {
 	size_t first = 0, last = pList.size() - 1;
@@ -169,7 +169,7 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 	pNextAddress += inst.size;
 
 	/* check if the current strand can be continued or if the overall super-block is considered closed */
-	if (env::Instance()->genConfig().singleStep)
+	if (env::detail::ProcessAccess::SingleStep())
 		return false;
 	if (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect)
 		return true;
@@ -191,7 +191,7 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 }
 void gen::detail::SuperBlock::setupRanges() {
 	/* check if this is single-step mode, in which case the iterators can just be reset */
-	if (env::Instance()->genConfig().singleStep) {
+	if (env::detail::ProcessAccess::SingleStep()) {
 		pIndex = 0;
 		pIt = pRanges.begin();
 		return;
@@ -249,22 +249,20 @@ bool gen::detail::SuperBlock::next() {
 		pStack.clear();
 
 		/* check if the not-decodable stub needs to be added */
-		if (lastAndInvalid)
-			pProcess.makeNotDecodable(pNextAddress);
-
-		/* add the single-step-handler */
-		else if (env::Instance()->genConfig().singleStep) {
-			pSink[I::U64::Const(pNextAddress)];
-			pProcess.makeSingleStep();
+		if (lastAndInvalid) {
+			pContext.makeNotDecodable(pNextAddress);
+			pSink[I::Unreachable()];
 		}
 
-		/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued s*/
-		else
-			pProcess.makeNotReachable(pNextAddress);
+		/* add the single-step-handler */
+		else if (env::detail::ProcessAccess::SingleStep())
+			pSink[I::U64::Const(pNextAddress)];
 
-		/* add the unreachable instruction as the last instruction will not match
-		*	the return typ and wasm therefore detects an invalid return type */
-		pSink[I::Unreachable()];
+		/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued */
+		else {
+			pContext.makeNotReachable(pNextAddress);
+			pSink[I::Unreachable()];
+		}
 		return false;
 	}
 

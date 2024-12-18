@@ -2,6 +2,7 @@
 
 #include "../environment/process/process-bridge.h"
 #include "../environment/memory/memory-bridge.h"
+#include "../environment/context/context-bridge.h"
 #include "../environment/mapping/mapping-bridge.h"
 #include "../environment/interact/interact-bridge.h"
 
@@ -13,6 +14,23 @@ void main_initialize() {
 	}
 	catch (...) {
 		logger.fatal(u8"Unhandled exception caught [main_initialize]");
+	}
+}
+char8_t* main_allocate_command(uint32_t size) {
+	/* allocate a raw buffer of the given size and return it */
+	return new char8_t[size];
+}
+void main_command(char8_t* ptr, uint32_t size) {
+	try {
+		/* first write the raw buffer to a std::u8string, in order for exceptions
+		*	to free the memory properly, and pass it to the handler */
+		std::u8string command{ ptr, size };
+		delete[] ptr;
+
+		HandleCommand(command);
+	}
+	catch (...) {
+		logger.fatal(u8"Unhandled exception caught [main_command]");
 	}
 }
 
@@ -34,16 +52,13 @@ void main_block_loaded(uint32_t process, uint32_t succeeded) {
 }
 
 void main_terminate(int32_t code, uint64_t address) {
-	env::detail::ProcessBridge::Terminate(code, address);
+	env::detail::ContextBridge::Terminate(code, address);
 }
 void main_not_decodable(uint64_t address) {
-	env::detail::ProcessBridge::NotDecodable(address);
+	env::detail::ContextBridge::NotDecodable(address);
 }
 void main_not_reachable(uint64_t address) {
-	env::detail::ProcessBridge::NotReachable(address);
-}
-void main_single_step(uint64_t address) {
-	env::detail::ProcessBridge::SingleStep(address);
+	env::detail::ContextBridge::NotReachable(address);
 }
 
 uint32_t main_resolve(uint64_t address) {

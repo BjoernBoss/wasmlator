@@ -7,7 +7,7 @@ namespace I = wasm::inst;
 void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, {});
+	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
 }
 void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
 	/* add the import to the lookup function */
@@ -174,22 +174,34 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 	/* add the blocks-execute function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, {});
+		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
 		wasm::Sink sink{ mod.function(u8"map_execute", prototype, wasm::Export{}) };
 
 		sink[I::Param::Get(0)];
 
-		/* simply perform the lookup and execution until until an exception automatically exists the loop */
-		wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
+		/* check if this is single-step mode, in which case only the single block
+		*	needs to be executed, and otherwise loop until an exception is thrown */
+		if (env::detail::ProcessAccess::SingleStep()) {
+			/* perform the lookup of the address (will either find the index, or throw an exception) */
+			sink[I::Call::Direct(state.lookup)];
 
-		/* perform the lookup of the address (will either find the index, or throw an exception) */
-		sink[I::Call::Direct(state.lookup)];
+			/* execute the address */
+			sink[I::Call::IndirectTail(state.functions, pBlockPrototype)];
+		}
+		else {
 
-		/* execute the address */
-		sink[I::Call::Indirect(state.functions, pBlockPrototype)];
+			/* simply perform the lookup and execution until until an exception automatically exists the loop */
+			wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
 
-		/* loop back to the start of the loop */
-		sink[I::Branch::Direct(_loop)];
+			/* perform the lookup of the address (will either find the index, or throw an exception) */
+			sink[I::Call::Direct(state.lookup)];
+
+			/* execute the address */
+			sink[I::Call::Indirect(state.functions, pBlockPrototype)];
+
+			/* loop back to the start of the loop */
+			sink[I::Branch::Direct(_loop)];
+		}
 	}
 }
 void gen::detail::MappingBuilder::setupBlockImports(wasm::Module& mod, wasm::Prototype& blockPrototype, detail::MappingState& state) const {

@@ -6,7 +6,6 @@
 #include "../memory/memory-writer.h"
 #include "../context/context-writer.h"
 #include "../interact/interact-writer.h"
-#include "../process/process-writer.h"
 
 namespace gen {
 	class Block;
@@ -17,13 +16,12 @@ namespace gen {
 		wasm::Sink& pSink;
 		detail::SuperBlock& pSuperBlock;
 		detail::MemoryWriter pMemory;
-		detail::ProcessWriter pProcess;
 		detail::ContextWriter pContext;
 		detail::AddressWriter pAddress;
 		detail::InteractWriter pInteract;
 
 	private:
-		Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ProcessState& process, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact);
+		Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact);
 
 	public:
 		Writer(gen::Writer&&) = delete;

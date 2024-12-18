@@ -26,26 +26,6 @@ void gen::detail::ProcessBuilder::setupCoreImports(wasm::Module& mod) {
 	/* import the set-imports function */
 	prototype = mod.prototype(u8"glue_set_imports_type", { { u8"obj", wasm::Type::refExtern } }, {});
 	pSetImports = mod.function(u8"glue_set_imports", prototype, wasm::Import{ u8"glue" });
-
-	/* import the main terminate method and pass it through as binding to the blocks */
-	prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, {});
-	mod.function(u8"main_terminate", prototype, wasm::Transport{ u8"main" });
-	env::detail::ProcessAccess::AddCoreBinding(u8"proc", u8"main_terminate");
-
-	/* import the main not decodable method and pass it through as binding to the blocks */
-	prototype = mod.prototype(u8"main_not_decodable_type", { { u8"address", wasm::Type::i64 } }, {});
-	mod.function(u8"main_not_decodable", prototype, wasm::Transport{ u8"main" });
-	env::detail::ProcessAccess::AddCoreBinding(u8"proc", u8"main_not_decodable");
-
-	/* import the main not reachable method and pass it through as binding to the blocks */
-	prototype = mod.prototype(u8"main_not_reachable_type", { { u8"address", wasm::Type::i64 } }, {});
-	mod.function(u8"main_not_reachable", prototype, wasm::Transport{ u8"main" });
-	env::detail::ProcessAccess::AddCoreBinding(u8"proc", u8"main_not_reachable");
-
-	/* import the main single step method and pass it through as binding to the blocks */
-	prototype = mod.prototype(u8"main_single_step_type", { { u8"address", wasm::Type::i64 } }, {});
-	mod.function(u8"main_single_step", prototype, wasm::Transport{ u8"main" });
-	env::detail::ProcessAccess::AddCoreBinding(u8"proc", u8"main_single_step");
 }
 void gen::detail::ProcessBuilder::setupCoreBody(wasm::Module& mod) {
 	/* reserve bindings-table (dont set its limit yet) */
@@ -158,21 +138,4 @@ void gen::detail::ProcessBuilder::finalizeCoreBody(wasm::Module& mod) const {
 	/* finalize the limit of the bindings-table */
 	uint32_t count = uint32_t(env::detail::ProcessAccess::BindingCount());
 	mod.limit(pBindings, wasm::Limit{ count , count });
-}
-void gen::detail::ProcessBuilder::setupBlockImports(wasm::Module& mod, detail::ProcessState& state) const {
-	/* add the function-import for the terminate function */
-	wasm::Prototype prototype = mod.prototype(u8"main_terminate_type", { { u8"code", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, {});
-	state.terminate = mod.function(u8"main_terminate", prototype, wasm::Import{ u8"proc" });
-
-	/* add the function-import for the not decodable function */
-	prototype = mod.prototype(u8"main_not_decodable_type", { { u8"address", wasm::Type::i64 } }, {});
-	state.notDecodable = mod.function(u8"main_not_decodable", prototype, wasm::Import{ u8"proc" });
-
-	/* add the function-import for the not reachable function */
-	prototype = mod.prototype(u8"main_not_reachable_type", { { u8"address", wasm::Type::i64 } }, {});
-	state.notReachable = mod.function(u8"main_not_reachable", prototype, wasm::Import{ u8"proc" });
-
-	/* add the function-import for the single-step function */
-	prototype = mod.prototype(u8"main_single_step_type", { { u8"address", wasm::Type::i64 } }, {});
-	state.singleStep = mod.function(u8"main_single_step", prototype, wasm::Import{ u8"proc" });
 }

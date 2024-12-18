@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../gen-common.h"
-#include "../process/process-writer.h"
+#include "../context/context-writer.h"
 
 namespace gen::detail {
 	struct InstRange {
@@ -58,14 +58,14 @@ namespace gen::detail {
 		std::vector<uintptr_t> pChunk;
 		std::set<detail::InstRange> pRanges;
 		wasm::Sink& pSink;
-		detail::ProcessWriter pProcess;
+		detail::ContextWriter pContext;
 		detail::RangeIt pIt;
 		env::guest_t pNextAddress = 0;
 		env::guest_t pCurrentChunk = 0;
 		size_t pIndex = 0;
 
 	public:
-		SuperBlock(wasm::Sink& sink, const detail::ProcessState& process, env::guest_t address);
+		SuperBlock(wasm::Sink& sink, const detail::ContextState& context, env::guest_t address);
 
 	private:
 		size_t fLookup(env::guest_t address) const;

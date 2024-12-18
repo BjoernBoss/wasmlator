@@ -22,5 +22,8 @@ namespace gen::detail {
 	public:
 		void makeRead(uint32_t offset, gen::MemoryType type) const;
 		void makeWrite(uint32_t offset, gen::MemoryType type) const;
+		void makeTerminate(env::guest_t address) const;
+		void makeNotDecodable(env::guest_t address) const;
+		void makeNotReachable(env::guest_t address) const;
 	};
 }

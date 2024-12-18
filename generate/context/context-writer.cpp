@@ -170,3 +170,15 @@ void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type
 		break;
 	}
 }
+void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {
+	pSink[I::U64::Const(address)];
+	pSink[I::Call::Direct(pState.terminate)];
+}
+void gen::detail::ContextWriter::makeNotDecodable(env::guest_t address) const {
+	pSink[I::U64::Const(address)];
+	pSink[I::Call::Direct(pState.notDecodable)];
+}
+void gen::detail::ContextWriter::makeNotReachable(env::guest_t address) const {
+	pSink[I::U64::Const(address)];
+	pSink[I::Call::Direct(pState.notReachable)];
+}
