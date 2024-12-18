@@ -7,6 +7,10 @@ namespace env::detail {
 		/* exports */
 		static void CoreLoaded(uint32_t process, bool succeeded);
 		static void BlockLoaded(uint32_t process, bool succeeded);
+		static void Terminate(int32_t code, uint64_t address);
+		static void NotDecodable(uint64_t address);
+		static void NotReachable(uint64_t address);
+		static void SingleStep(uint64_t address);
 
 		/* imports */
 		static bool LoadCore(const std::vector<uint8_t>& data, uint32_t process);

@@ -11,6 +11,18 @@ void env::detail::ProcessBridge::BlockLoaded(uint32_t process, bool succeeded) {
 	if (env::Instance() == 0 || !env::Instance()->fBlockLoaded(process, succeeded))
 		logger.warn(u8"Old block-load for [", process, u8"] silently discarded");
 }
+void env::detail::ProcessBridge::Terminate(int32_t code, uint64_t address) {
+	env::Instance()->fTerminate(code, address);
+}
+void env::detail::ProcessBridge::NotDecodable(uint64_t address) {
+	env::Instance()->fNotDecodable(address);
+}
+void env::detail::ProcessBridge::NotReachable(uint64_t address) {
+	env::Instance()->fNotReachable(address);
+}
+void env::detail::ProcessBridge::SingleStep(uint64_t address) {
+	env::Instance()->fSingleStep(address);
+}
 
 bool env::detail::ProcessBridge::LoadCore(const std::vector<uint8_t>& data, uint32_t process) {
 	return (host_load_core(data.data(), uint32_t(data.size()), process) > 0);

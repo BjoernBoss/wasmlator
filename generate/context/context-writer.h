@@ -20,7 +20,6 @@ namespace gen::detail {
 		void fCheckRange(uint32_t offset, gen::MemoryType type) const;
 
 	public:
-		void makeTerminate(env::guest_t address) const;
 		void makeRead(uint32_t offset, gen::MemoryType type) const;
 		void makeWrite(uint32_t offset, gen::MemoryType type) const;
 	};

@@ -24,7 +24,7 @@ namespace rv64 {
 		void setupCore(wasm::Module& mod) override;
 		void setupContext(env::guest_t pcAddress, env::guest_t spAddress) override;
 		std::u8string getExceptionText(uint64_t id) const override;
-		void started(const gen::Writer& writer) override;
+		void started(const gen::Writer& writer, env::guest_t address) override;
 		void completed(const gen::Writer& writer) override;
 		gen::Instruction fetch(env::guest_t address) override;
 		void produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) override;

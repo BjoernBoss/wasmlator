@@ -33,19 +33,20 @@ namespace env {
 		env::Mapping pMapping;
 		env::Interact pInteract;
 		std::u8string pBlockImportName;
+		env::GenConfig pConfig;
 		uint32_t pPhysicalPages = 0;
 		uint32_t pMemoryPages = 0;
 		State pState = State::none;
 		bool pBindingsClosed = false;
 
 	private:
-		Process(std::unique_ptr<env::System>&& system);
+		Process(std::unique_ptr<env::System>&& system, const env::GenConfig& config);
 		Process(env::Process&&) = delete;
 		Process(const env::Process&) = delete;
 		~Process() = default;
 
 	public:
-		static void Create(std::unique_ptr<env::System>&& system);
+		static void Create(std::unique_ptr<env::System>&& system, const env::GenConfig& config);
 
 	private:
 		void fLoadCore();
@@ -54,6 +55,12 @@ namespace env {
 		bool fBlockLoaded(uint32_t process, bool succeeded);
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 
+	private:
+		void fTerminate(int32_t code, env::guest_t address);
+		void fNotDecodable(env::guest_t address);
+		void fNotReachable(env::guest_t address);
+		void fSingleStep(env::guest_t address);
+
 	public:
 		const std::u8string& blockImportModule() const;
 		void bindExport(std::u8string_view name);
@@ -61,6 +68,7 @@ namespace env {
 		void release();
 
 	public:
+		const env::GenConfig& genConfig() const;
 		const env::System& system() const;
 		env::System& system();
 		const env::Context& context() const;

@@ -12,6 +12,10 @@ void StartupProcess() {
 		rv64::Cpu::New(),
 		{ u8"/this/path", u8"abc-def" },
 		{ u8"abc=def", u8"ghi=jkl" }
-	));
+	), env::GenConfig{
+		.translationDepth = 4,
+		.singleStep = true,
+		.logBlocks = true,
+		});
 	logger.log(u8"Main: Process creation completed");
 }

@@ -10,19 +10,29 @@
 #include "sys-execcontext.h"
 
 namespace sys {
+	class Primitive;
+
 	namespace detail {
 		class PrimitiveExecContext final : public sys::ExecContext {
 		private:
-			PrimitiveExecContext();
+			sys::Primitive* pPrimitive = 0;
+
+		private:
+			PrimitiveExecContext(sys::Primitive* primitive);
 
 		public:
-			static std::unique_ptr<sys::ExecContext> New();
+			static std::unique_ptr<sys::ExecContext> New(sys::Primitive* primitive);
 
 		public:
 			void syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
 			void throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
 			void flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
 			void flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
+		};
+
+		struct FlushInstCache : public env::Exception {
+		public:
+			FlushInstCache(env::guest_t address) : env::Exception{ address } {}
 		};
 	}
 
@@ -31,11 +41,11 @@ namespace sys {
 	*	a system-v ABI conform initial stack configuration
 	*	Note: The assumption is made, that the stack grows downwards */
 	class Primitive final : public env::System {
+		friend class detail::PrimitiveExecContext;
 	private:
 		static constexpr env::guest_t InitialStackAddress = 0x7800'0000'0000;
 		static constexpr env::guest_t StartOfStackAlignment = 128;
 		static constexpr env::guest_t StackSize = 0x40'0000;
-		static constexpr uint32_t TranslationDepth = 4;
 		static constexpr uint32_t PageSize = 0x1000;
 
 	private:
@@ -43,6 +53,11 @@ namespace sys {
 		std::vector<std::u8string> pEnvs;
 		std::unique_ptr<sys::Cpu> pCpu;
 		env::guest_t pAddress = 0;
+		struct {
+			uint32_t flushInst = 0;
+			uint32_t syscall = 0;
+			uint32_t exception = 0;
+		} pRegistered;
 
 	private:
 		Primitive(uint32_t memoryCaches, uint32_t contextSize);

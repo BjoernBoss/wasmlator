@@ -11,14 +11,19 @@ env::Process* env::Instance() {
 	return global::Instance;
 }
 
-env::Process::Process(std::unique_ptr<env::System>&& system) : pSystem{ std::move(system) } {}
+env::Process::Process(std::unique_ptr<env::System>&& system, const env::GenConfig& config) : pSystem{ std::move(system) }, pConfig{ config } {}
 
-void env::Process::Create(std::unique_ptr<env::System>&& system) {
+void env::Process::Create(std::unique_ptr<env::System>&& system, const env::GenConfig& config) {
 	/* try to setup the process */
 	logger.log(u8"Creating new process...");
 	if (global::Instance != 0)
 		logger.fatal(u8"Process creation failed as only one process can exist at a time");
-	global::Instance = new env::Process{ std::move(system) };
+	global::Instance = new env::Process{ std::move(system), config };
+
+	/* log the generation-configuration */
+	logger.info(u8"  Single Steps:      ", str::As{ U"S", config.singleStep });
+	logger.info(u8"  Log Blocks:        ", str::As{ U"S", config.logBlocks });
+	logger.info(u8"  Translation Depth: ", config.translationDepth);
 
 	/* initialize the components */
 	uintptr_t endOfMemory = 0;
@@ -36,12 +41,12 @@ void env::Process::Create(std::unique_ptr<env::System>&& system) {
 
 void env::Process::fLoadCore() {
 	logger.debug(u8"Loading core for [", global::ProcId, u8"]...");
-	writer::BinaryWriter writer;
+	wasm::BinaryWriter binOutput;
 
 	pState = State::loadingCore;
 	try {
 		/* setup the core module to be loaded */
-		wasm::Module mod{ &writer };
+		wasm::Module mod{ &binOutput };
 		pSystem->setupCore(mod);
 	}
 	catch (const wasm::Exception& e) {
@@ -49,12 +54,12 @@ void env::Process::fLoadCore() {
 	}
 
 	/* setup the core loading */
-	if (!detail::ProcessBridge::LoadCore(writer.output(), global::ProcId))
+	if (!detail::ProcessBridge::LoadCore(binOutput.output(), global::ProcId))
 		logger.fatal(u8"Failed initiating loading of core for [", global::ProcId, u8']');
 }
 void env::Process::fLoadBlock() {
 	logger.debug(u8"Loading block for [", global::ProcId, u8"]...");
-	writer::BinaryWriter writer;
+	wasm::BinaryWriter binOutput;
 
 	/* check if a loading is currently in progress */
 	if (pState == State::none)
@@ -64,9 +69,18 @@ void env::Process::fLoadBlock() {
 	pState = State::loadingBlock;
 
 	try {
+		/* setup the writer to either produce only the binary output, or the binary and text output */
+		std::unique_ptr<wasm::TextWriter> tWriter = (pConfig.logBlocks ? std::make_unique<wasm::TextWriter>(u8"  ") : 0);
+		wasm::SplitWriter writer = wasm::SplitWriter{ &binOutput, tWriter.get() };
+
 		/* setup the block module to be loaded */
 		wasm::Module mod{ &writer };
 		pExports = pSystem->setupBlock(mod);
+		mod.close();
+
+		/* check if the text-output should be logged */
+		if (pConfig.logBlocks)
+			logger.info(tWriter->output());
 	}
 	catch (const wasm::Exception& e) {
 		logger.fatal(u8"WASM exception occurred while creating the block module: ", e.what());
@@ -84,7 +98,7 @@ void env::Process::fLoadBlock() {
 		detail::ProcessBridge::BlockImportsCommit(false);
 
 		/* try to load the actual block and clear the imports-reference (to allow garbage collection to occur) */
-		bool loading = detail::ProcessBridge::LoadBlock(writer.output(), global::ProcId);
+		bool loading = detail::ProcessBridge::LoadBlock(binOutput.output(), global::ProcId);
 		detail::ProcessBridge::BlockImportsCommit(true);
 		if (loading)
 			return;
@@ -149,6 +163,19 @@ void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& na
 	pBindings[mod].push_back({ name, 0 });
 }
 
+void env::Process::fTerminate(int32_t code, env::guest_t address) {
+	throw env::Terminated{ address, code };
+}
+void env::Process::fNotDecodable(env::guest_t address) {
+	throw env::NotDecodable{ address };
+}
+void env::Process::fNotReachable(env::guest_t address) {
+	logger.fatal(u8"Execution reached address [", str::As{ U"#018x", address }, u8"] which was considered not reachable by super-block");
+}
+void env::Process::fSingleStep(env::guest_t address) {
+	throw env::SingleStep{ address };
+}
+
 const std::u8string& env::Process::blockImportModule() const {
 	return pBlockImportName;
 }
@@ -168,6 +195,9 @@ void env::Process::release() {
 	logger.log(u8"Process destroyed");
 }
 
+const env::GenConfig& env::Process::genConfig() const {
+	return pConfig;
+}
 const env::System& env::Process::system() const {
 	return *pSystem.get();
 }

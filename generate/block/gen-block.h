@@ -6,6 +6,7 @@
 #include "gen-address.h"
 #include "../memory/memory-builder.h"
 #include "../mapping/mapping-builder.h"
+#include "../process/process-builder.h"
 #include "../context/context-builder.h"
 #include "../core/core-builder.h"
 
@@ -18,12 +19,12 @@ namespace gen {
 		detail::Addresses pAddresses;
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
+		detail::ProcessState pProcess;
 		detail::ContextState pContext;
 		detail::InteractState pInteract;
-		detail::ContextShared pContextShared;
 
 	public:
-		Block(wasm::Module& mod, gen::Translator* translator, size_t maxDepth);
+		Block(wasm::Module& mod, gen::Translator* translator);
 		Block(gen::Block&&) = delete;
 		Block(const gen::Block&) = delete;
 

@@ -73,11 +73,11 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		/* construct the page-usage to be used */
 		uint32_t usage = 0;
 		if ((programs[i].flags & elf::programFlags::exec) == elf::programFlags::exec)
-			usage |= env::MemoryUsage::Execute;
+			usage |= env::Usage::Execute;
 		if ((programs[i].flags & elf::programFlags::read) == elf::programFlags::read)
-			usage |= env::MemoryUsage::Read;
+			usage |= env::Usage::Read;
 		if ((programs[i].flags & elf::programFlags::write) == elf::programFlags::write)
-			usage |= env::MemoryUsage::Write;
+			usage |= env::Usage::Write;
 
 		/* compute the page-aligned address and size */
 		env::guest_t address = (programs[i].vAddress & ~(pageSize - 1));
@@ -88,15 +88,15 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		/* allocate the memory (start it out as writable) */
 		logger.fmtDebug(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] (actual: [{:#018x}] with size [{:#018x}]) with usage [{}{}{}]",
 			i, address, size, programs[i].vAddress, programs[i].memSize,
-			(usage & env::MemoryUsage::Read ? u8'r' : u8'-'),
-			(usage & env::MemoryUsage::Write ? u8'w' : u8'-'),
-			(usage & env::MemoryUsage::Execute ? u8'x' : u8'-'));
-		if (!env::Instance()->memory().mmap(address, size, env::MemoryUsage::Write))
+			(usage & env::Usage::Read ? u8'r' : u8'-'),
+			(usage & env::Usage::Write ? u8'w' : u8'-'),
+			(usage & env::Usage::Execute ? u8'x' : u8'-'));
+		if (!env::Instance()->memory().mmap(address, size, env::Usage::Write))
 			throw elf::Exception{ L"Failed to allocate memory for program-header [", i, L']' };
 
 		/* write the actual data to the section */
 		const uint8_t* data = reader.base<uint8_t>(programs[i].offset, programs[i].fileSize);
-		env::Instance()->memory().mwrite(programs[i].vAddress, data, uint32_t(programs[i].fileSize), env::MemoryUsage::Write);
+		env::Instance()->memory().mwrite(programs[i].vAddress, data, uint32_t(programs[i].fileSize), env::Usage::Write);
 
 		/* update the protection flags to match the actual flags */
 		env::Instance()->memory().mprotect(address, size, usage);

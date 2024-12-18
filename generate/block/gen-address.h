@@ -42,12 +42,11 @@ namespace gen::detail {
 		wasm::Table pAddresses;
 		wasm::Prototype pBlockPrototype;
 		size_t pDepth = 0;
-		size_t pMaxDepth = 0;
 		uint32_t pLinks = 0;
 		bool pNeedsStartup = false;
 
 	public:
-		Addresses(wasm::Module& mod, size_t maxDepth);
+		Addresses(wasm::Module& mod);
 
 	private:
 		Placement& fPush(env::guest_t address, size_t depth);

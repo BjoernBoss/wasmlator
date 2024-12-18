@@ -5,7 +5,7 @@ static host::Logger logger{ u8"gen::block" };
 
 namespace I = wasm::inst;
 
-gen::detail::Addresses::Addresses(wasm::Module& mod, size_t maxDepth) : pModule{ mod }, pMaxDepth{ maxDepth } {}
+gen::detail::Addresses::Addresses(wasm::Module& mod) : pModule{ mod } {}
 
 gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t address, size_t depth) {
 	/* check if the address has already been translated */
@@ -21,7 +21,7 @@ gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t ad
 	}
 
 	/* check if the depth-limit has been reached or the entry already exists and setup the address-table required for linking */
-	if (entry.alreadyExists || depth > pMaxDepth) {
+	if (entry.alreadyExists || depth > env::Instance()->genConfig().translationDepth) {
 		entry.index = pLinks++;
 		if (!pAddresses.valid())
 			pAddresses = pModule.table(u8"linked_addresses", true);

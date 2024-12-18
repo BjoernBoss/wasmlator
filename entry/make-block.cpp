@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 		std::string path{ argv[i] };
 
 		if (path.ends_with(".wasm")) {
-			writer::BinaryWriter writer;
+			wasm::BinaryWriter writer;
 
 			/* produce the module as WASM */
 			if (!SetupModule(&writer))
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 			_out.write(reinterpret_cast<const char*>(data.data()), data.size());
 		}
 		else if (path.ends_with(".wat")) {
-			writer::TextWriter writer;
+			wasm::TextWriter writer;
 
 			/* produce the module as WAT */
 			if (!SetupModule(&writer))

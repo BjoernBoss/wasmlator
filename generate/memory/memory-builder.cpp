@@ -63,9 +63,9 @@ void gen::detail::MemoryBuilder::setupCoreBody(wasm::Module& mod, const wasm::Me
 	state.code = mod.function(u8"mem_lookup_code", prototype, wasm::Export{});
 
 	/* add the actual implementations */
-	fMakeLookup(memory, state.read, env::MemoryUsage::Read);
-	fMakeLookup(memory, state.write, env::MemoryUsage::Write);
-	fMakeLookup(memory, state.code, env::MemoryUsage::Execute);
+	fMakeLookup(memory, state.read, env::Usage::Read);
+	fMakeLookup(memory, state.write, env::Usage::Write);
+	fMakeLookup(memory, state.code, env::Usage::Execute);
 
 	/* add the write-to-physical function */
 	{

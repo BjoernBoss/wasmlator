@@ -1,10 +1,11 @@
 #include "gen-superblock.h"
+#include "../environment/environment.h"
 
 static host::Logger logger{ u8"gen::block" };
 
 namespace I = wasm::inst;
 
-gen::detail::SuperBlock::SuperBlock(const detail::ContextShared& contextShared, env::guest_t address) : pContextShared{ contextShared }, pNextAddress{ address } {}
+gen::detail::SuperBlock::SuperBlock(wasm::Sink& sink, const detail::ProcessState& process, env::guest_t address) : pSink{ sink }, pProcess{ process, sink }, pNextAddress{ address } {}
 
 size_t gen::detail::SuperBlock::fLookup(env::guest_t address) const {
 	size_t first = 0, last = pList.size() - 1;
@@ -168,10 +169,10 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 	pNextAddress += inst.size;
 
 	/* check if the current strand can be continued or if the overall super-block is considered closed */
+	if (env::Instance()->genConfig().singleStep)
+		return false;
 	if (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect)
 		return true;
-	if (inst.type == gen::InstType::invalid)
-		return false;
 
 	/* iterate over the instructions and check if any of the jumps jump to the current next
 	*	address, in which case the block can be continued (iterate over all instructions again,
@@ -189,6 +190,13 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 	return false;
 }
 void gen::detail::SuperBlock::setupRanges() {
+	/* check if this is single-step mode, in which case the iterators can just be reset */
+	if (env::Instance()->genConfig().singleStep) {
+		pIndex = 0;
+		pIt = pRanges.begin();
+		return;
+	}
+
 	/* create the set of jump-ranges */
 	std::set<detail::InstRange> raw = fSetupRanges();
 
@@ -231,7 +239,7 @@ gen::detail::InstTarget gen::detail::SuperBlock::lookup(env::guest_t target) con
 	}
 	return { 0, false };
 }
-bool gen::detail::SuperBlock::next(wasm::Sink& sink) {
+bool gen::detail::SuperBlock::next() {
 	pChunk.clear();
 
 	/* check if the end has been reached (either because only one remaining un-decodable instruction has been encountered or because
@@ -240,20 +248,23 @@ bool gen::detail::SuperBlock::next(wasm::Sink& sink) {
 	if (lastAndInvalid || pIndex >= pList.size()) {
 		pStack.clear();
 
-		/* check if the not-decodable stub needs to be added and otherwise add the not-reachable stub, as
-		*	this address should never be reached as the super-block would otherwise have been continued */
-		if (lastAndInvalid) {
-			sink[I::U64::Const(pList.back().address)];
-			sink[I::Call::Direct(pContextShared.notDecodable)];
+		/* check if the not-decodable stub needs to be added */
+		if (lastAndInvalid)
+			pProcess.makeNotDecodable(pNextAddress);
+
+		/* add the single-step-handler */
+		else if (env::Instance()->genConfig().singleStep) {
+			pSink[I::U64::Const(pNextAddress)];
+			pProcess.makeSingleStep();
 		}
-		else {
-			sink[I::U64::Const(pNextAddress)];
-			sink[I::Call::Direct(pContextShared.notReachable)];
-		}
+
+		/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued s*/
+		else
+			pProcess.makeNotReachable(pNextAddress);
 
 		/* add the unreachable instruction as the last instruction will not match
 		*	the return typ and wasm therefore detects an invalid return type */
-		sink[I::Unreachable()];
+		pSink[I::Unreachable()];
 		return false;
 	}
 
@@ -269,36 +280,36 @@ bool gen::detail::SuperBlock::next(wasm::Sink& sink) {
 		if (target.irreducible && pIt->backwards) {
 			/* allocate the state variable */
 			if (!target.cfg.valid())
-				target.cfg = sink.local(wasm::Type::i32, str::u8::Build(u8"_cfg_", pIt->target));
+				target.cfg = pSink.local(wasm::Type::i32, str::u8::Build(u8"_cfg_", pIt->target));
 
 			/* add the code to reset the variable upon entry of the loop backwards */
-			sink[I::U32::Const(0)];
-			sink[I::Local::Set(target.cfg)];
+			pSink[I::U32::Const(0)];
+			pSink[I::Local::Set(target.cfg)];
 		}
 
 		/* add the next header (mark the jump as internal and thereby not accessible,
 		*	if its the forward-jump of a resolved irreducible control-flow) */
 		if (pIt->backwards)
-			pStack.push_back({ wasm::Loop{ sink }, target.address, pIt->last, false });
+			pStack.push_back({ wasm::Loop{ pSink }, target.address, pIt->last, false });
 		else
-			pStack.push_back({ wasm::Block{ sink }, target.address, pIt->last, target.irreducible });
+			pStack.push_back({ wasm::Block{ pSink }, target.address, pIt->last, target.irreducible });
 
 		/* check if the conditional forward-jump of the resolved irreducible control-flow needs to be added */
 		if (!pIt->backwards && target.irreducible) {
 			/* check if the corresponding loop was entered from its neighbors, not by jumping */
-			sink[I::Local::Get(target.cfg)];
-			sink[I::U32::EqualZero()];
-			wasm::IfThen _if{ sink };
+			pSink[I::Local::Get(target.cfg)];
+			pSink[I::U32::EqualZero()];
+			wasm::IfThen _if{ pSink };
 
 			/* mark the loop as now being entered in a valid fashion (no need to ensure this is added
 			*	immediately after the loop-header, as they will both have the same first-address, and
 			*	therefore it will be executed before any translator-generated code will be executed) */
-			sink[I::U32::Const(1)];
-			sink[I::Local::Set(target.cfg)];
+			pSink[I::U32::Const(1)];
+			pSink[I::Local::Set(target.cfg)];
 
 			/* add the immediate jump to the actual target address */
 			_if.otherwise();
-			sink[I::Branch::Direct(pStack.back().target)];
+			pSink[I::Branch::Direct(pStack.back().target)];
 		}
 		++pIt;
 	}

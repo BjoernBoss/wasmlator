@@ -38,10 +38,6 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 		logger.fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }
 
-void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {
-	pSink[I::U32::Const(address)];
-	pSink[I::Call::Direct(pState.terminate)];
-}
 void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type) const {
 	fCheckRange(offset, type);
 

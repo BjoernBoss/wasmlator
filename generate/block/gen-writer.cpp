@@ -2,8 +2,8 @@
 
 namespace I = wasm::inst;
 
-gen::Writer::Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
-	pSink{ sink }, pSuperBlock{ block }, pMemory{ memory, sink }, pContext{ context, sink }, pAddress{ mapping, addresses, sink }, pInteract{ interact, sink } {}
+gen::Writer::Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ProcessState& process, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
+	pSink{ sink }, pSuperBlock{ block }, pMemory{ memory, sink }, pProcess{ process, sink }, pContext{ context, sink }, pAddress{ process, mapping, addresses, sink }, pInteract{ interact, sink } {}
 
 wasm::Sink& gen::Writer::sink() const {
 	return pSink;
@@ -50,7 +50,7 @@ void gen::Writer::set(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeWrite(offset, type);
 }
 void gen::Writer::terminate(env::guest_t instAddress) const {
-	pContext.makeTerminate(instAddress);
+	pProcess.makeTerminate(instAddress);
 }
 void gen::Writer::invokeVoid(uint32_t index) const {
 	pInteract.makeVoid(index);

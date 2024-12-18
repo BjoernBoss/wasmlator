@@ -5,14 +5,26 @@
 
 static host::Logger logger{ u8"sys::primitive" };
 
-sys::detail::PrimitiveExecContext::PrimitiveExecContext() : sys::ExecContext{ false, true } {}
-std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New() {
-	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{});
+namespace I = wasm::inst;
+
+sys::detail::PrimitiveExecContext::PrimitiveExecContext(sys::Primitive* primitive) : sys::ExecContext{ false, true }, pPrimitive{ primitive } {}
+std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New(sys::Primitive* primitive) {
+	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{ primitive });
 }
-void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
-void sys::detail::PrimitiveExecContext::throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
-void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
-void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {}
+void sys::detail::PrimitiveExecContext::syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
+	writer.invokeVoid(pPrimitive->pRegistered.syscall);
+}
+void sys::detail::PrimitiveExecContext::throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
+	writer.invokeVoid(pPrimitive->pRegistered.exception);
+}
+void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
+	/* nothing to be done here, as the system is considered single-threaded */
+}
+void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
+	writer.sink()[I::U64::Const(pPrimitive->pRegistered.flushInst)];
+	writer.invokeParam(pPrimitive->pRegistered.flushInst);
+	writer.sink()[I::Drop()];
+}
 
 
 sys::Primitive::Primitive(uint32_t memoryCaches, uint32_t contextSize) : env::System{ Primitive::PageSize, memoryCaches, contextSize } {}
@@ -42,7 +54,7 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 		logger.fatal(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Primitive::StackSize, u8']');
 
 	/* allocate the new stack and initialize the content for it */
-	if (!mem.mmap(Primitive::InitialStackAddress, Primitive::StackSize, env::MemoryUsage::ReadWrite))
+	if (!mem.mmap(Primitive::InitialStackAddress, Primitive::StackSize, env::Usage::ReadWrite))
 		logger.fatal(u8"Failed to allocate initial stack");
 	std::vector<uint8_t> content;
 	auto write = [&](const void* data, size_t size) {
@@ -85,17 +97,17 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 
 	/* write the prepared content to the acutal stack and return the pointer to the argument-count */
 	env::guest_t stack = Primitive::InitialStackAddress + Primitive::StackSize - totalSize;
-	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::MemoryUsage::Write);
+	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
 }
 std::unique_ptr<env::System> sys::Primitive::New(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
-	/* configure the cpu itself */
-	cpu->setupCpu(std::move(detail::PrimitiveExecContext::New()));
+	/* allocate the primitive object and configure the cpu itself */
+	std::unique_ptr<sys::Primitive> system = std::unique_ptr<sys::Primitive>(new sys::Primitive{ caches, context });
+	cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(system.get())));
 
 	/* construct the primitive env-system object */
-	std::unique_ptr<sys::Primitive> system = std::unique_ptr<sys::Primitive>(new sys::Primitive{ caches, context });
 	system->pCpu = std::move(cpu);
 	system->pArgs = args;
 	system->pEnvs = envs;
@@ -113,7 +125,7 @@ void sys::Primitive::setupCore(wasm::Module& mod) {
 }
 std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
 	/* setup the translator */
-	gen::Block translator{ mod, pCpu.get(), Primitive::TranslationDepth };
+	gen::Block translator{ mod, pCpu.get() };
 
 	/* translate the next requested address */
 	translator.run(pAddress);
@@ -133,6 +145,18 @@ void sys::Primitive::coreLoaded() {
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
 	env::guest_t spAddress = fPrepareStack();
 
+	/* register the functions to be invoked by the execution-environment */
+	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
+		throw detail::FlushInstCache{ address };
+		return 0;
+		});
+	pRegistered.syscall = env::Instance()->interact().defineCallback([]() {
+		logger.fatal(u8"Syscall invoked");
+		});
+	pRegistered.exception = env::Instance()->interact().defineCallback([]() {
+		logger.fatal(u8"Exception caught");
+		});
+
 	/* initialize the context */
 	pCpu->setupContext(pAddress, spAddress);
 
@@ -148,7 +172,8 @@ void sys::Primitive::blockLoaded() {
 		logger.fatal(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
 	}
 	catch (const env::MemoryFault& e) {
-		logger.fatal(u8"MemoryFault detected at: [", str::As{ U"#018x", e.address }, u8"] while accessing [", str::As{ U"#018x", e.accessed }, u8']');
+		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",
+			e.address, e.accessed, e.usedUsage, e.actualUsage);
 	}
 	catch (const env::NotDecodable& e) {
 		logger.fatal(u8"NotDecodable caught: [", str::As{ U"#018x", e.address }, u8']');

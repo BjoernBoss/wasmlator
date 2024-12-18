@@ -36,13 +36,20 @@ namespace env {
 	using guest_t = uint64_t;
 
 	/* memory page usage flags */
-	struct MemoryUsage {
+	struct Usage {
 		static constexpr uint32_t Read = 0x01;
 		static constexpr uint32_t Write = 0x02;
 		static constexpr uint32_t Execute = 0x04;
-		static constexpr uint32_t ReadWrite = MemoryUsage::Read | MemoryUsage::Write;
-		static constexpr uint32_t ReadExecute = MemoryUsage::Read | MemoryUsage::Execute;
-		static constexpr uint32_t All = MemoryUsage::Read | MemoryUsage::Write | MemoryUsage::Execute;
+		static constexpr uint32_t ReadWrite = Usage::Read | Usage::Write;
+		static constexpr uint32_t ReadExecute = Usage::Read | Usage::Execute;
+		static constexpr uint32_t All = Usage::Read | Usage::Write | Usage::Execute;
+	};
+
+	/* global generation-configuration of the process */
+	struct GenConfig {
+		size_t translationDepth = 4;
+		bool singleStep = false;
+		bool logBlocks = false;
 	};
 
 	/* block exported function entry */
@@ -128,12 +135,18 @@ namespace env {
 	/* thrown whenever an unknown address is to be executed */
 	struct Translate : public env::Exception {
 	public:
-		Translate(env::guest_t address) : env::Exception{ address }{}
+		Translate(env::guest_t address) : env::Exception{ address } {}
 	};
 
 	/* thrown whenever an undecodable instruction is to be executed */
 	struct NotDecodable : public env::Exception {
 	public:
-		NotDecodable(env::guest_t address) : env::Exception{ address }{}
+		NotDecodable(env::guest_t address) : env::Exception{ address } {}
+	};
+
+	/* thrown whenever a single step has been taken in single-step configuration */
+	struct SingleStep : public env::Exception {
+	public:
+		SingleStep(env::guest_t address) : env::Exception{ address } {}
 	};
 }

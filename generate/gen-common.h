@@ -65,7 +65,7 @@ namespace gen {
 
 	public:
 		/* new super-block translation is being started */
-		virtual void started(const gen::Writer& writer) = 0;
+		virtual void started(const gen::Writer& writer, env::guest_t address) = 0;
 
 		/* super-block translation has been completed */
 		virtual void completed(const gen::Writer& writer) = 0;

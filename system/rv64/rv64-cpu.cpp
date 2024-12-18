@@ -36,7 +36,7 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 		return u8"%unknown%";
 	}
 }
-void rv64::Cpu::started(const gen::Writer& writer) {
+void rv64::Cpu::started(const gen::Writer& writer, env::guest_t address) {
 	pDecoded.clear();
 	pTranslator.resetAll(pContext.get(), &writer);
 }

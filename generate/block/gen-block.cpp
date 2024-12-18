@@ -2,11 +2,12 @@
 
 static host::Logger logger{ u8"gen::block" };
 
-gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDepth) : pAddresses{ mod, maxDepth }, pTranslator{ translator } {
+gen::Block::Block(wasm::Module& mod, gen::Translator* translator) : pAddresses{ mod }, pTranslator{ translator } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
-	detail::ContextBuilder _context;
+	detail::ProcessBuilder _process;
 	detail::InteractBuilder _interact;
+	detail::ContextBuilder _context;
 	detail::CoreBuilder _core;
 
 	/* initialize the block-imports */
@@ -15,8 +16,9 @@ gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDept
 	_core.setupBlockImports(mod, physical, memory);
 	_memory.setupBlockImports(mod, memory, physical, pMemory);
 	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
-	_context.setupBlockImports(mod, memory, pContextShared, pContext);
+	_process.setupBlockImports(mod, pProcess);
 	_interact.setupBlockImports(mod, pInteract);
+	_context.setupBlockImports(memory, pContext);
 
 	/* setup the components of the translator-members */
 	pAddresses.setup(blockPrototype);
@@ -24,14 +26,14 @@ gen::Block::Block(wasm::Module& mod, gen::Translator* translator, size_t maxDept
 
 void gen::Block::fProcess(const detail::OpenAddress& next) {
 	logger.debug(u8"Processing block at [", str::As{ U"#018x", next.address }, u8']');
-	detail::SuperBlock block{ pContextShared, next.address };
 
 	/* setup the actual sink to the super-block and instruction-writer */
 	wasm::Sink sink{ next.function };
-	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
+	detail::SuperBlock block{ sink, pProcess, next.address };
+	gen::Writer writer{ sink, block, pMemory, pProcess, pContext, pMapping, pAddresses, pInteract };
 
 	/* notify the interface about the newly starting block */
-	pTranslator->started(writer);
+	pTranslator->started(writer, next.address);
 
 	/* iterate over the instruction stream and look for the end of the current strand */
 	gen::Instruction inst{};
@@ -43,7 +45,7 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	block.setupRanges();
 
 	/* iterate over the chunks of the super-block and produce them */
-	while (block.next(sink)) {
+	while (block.next()) {
 		env::guest_t address = block.chunkStart();
 		const std::vector<uintptr_t>& chunk = block.chunk();
 		pTranslator->produce(writer, address, chunk.data(), chunk.size());

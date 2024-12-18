@@ -1,8 +1,9 @@
 #include "address-writer.h"
+#include "../environment/environment.h"
 
 namespace I = wasm::inst;
 
-gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host, wasm::Sink& sink) : pMapping{ mapping, sink }, pHost{ host }, pSink{ sink } {}
+gen::detail::AddressWriter::AddressWriter(const detail::ProcessState& process, const detail::MappingState& mapping, detail::Addresses& host, wasm::Sink& sink) : pProcess{ process, sink }, pMapping{ mapping, sink }, pHost{ host }, pSink{ sink } {}
 
 void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const {
 	if (!pTempAddress.valid())
@@ -22,6 +23,12 @@ void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const
 }
 
 void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nextAddress) const {
+	/* check if the execution is in single-step mode, and simply add a step to the next address */
+	if (env::Instance()->genConfig().singleStep) {
+		pSink[I::U64::Const(address)];
+		pProcess.makeSingleStep();
+		return;
+	}
 	detail::PlaceAddress target = pHost.pushLocal(address);
 
 	/* check if an immediate call can be added */
@@ -57,13 +64,27 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 		pSink[I::Call::Indirect(pHost.addresses(), pMapping.blockPrototype())];
 	}
 
+	/* add the final landing-pad of the return (to validate the return-address) */
 	fCallLandingPad(nextAddress);
 }
 void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) const {
+	/* check if the execution is in single-step mode, and simply add a step to the next address */
+	if (env::Instance()->genConfig().singleStep) {
+		pProcess.makeSingleStep();
+		return;
+	}
+
+	/* add the normal indirect call and corresponding landing-pad (to validate the return-address)  */
 	pMapping.makeDirectInvoke();
 	fCallLandingPad(nextAddress);
 }
 void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
+	/* check if the execution is in single-step mode, and simply add a step to the next address */
+	if (env::Instance()->genConfig().singleStep) {
+		pSink[I::U64::Const(address)];
+		pProcess.makeSingleStep();
+		return;
+	}
 	detail::PlaceAddress target = pHost.pushLocal(address);
 
 	/* check if an immediate tail-call can be added */
@@ -99,8 +120,22 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 	pSink[I::Call::IndirectTail(pHost.addresses(), pMapping.blockPrototype())];
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
+	/* check if the execution is in single-step mode, and simply add a step to the next address */
+	if (env::Instance()->genConfig().singleStep) {
+		pProcess.makeSingleStep();
+		return;
+	}
+
+	/* add the indirect jump to the target */
 	pMapping.makeTailInvoke();
 }
 void gen::detail::AddressWriter::makeReturn() const {
+	/* check if the execution is in single-step mode, and simply add a step to the next address */
+	if (env::Instance()->genConfig().singleStep) {
+		pProcess.makeSingleStep();
+		return;
+	}
+
+	/* add the direct return, which will ensure a validation of the target address */
 	pSink[I::Return()];
 }

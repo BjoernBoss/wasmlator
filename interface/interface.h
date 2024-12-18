@@ -28,6 +28,10 @@ extern "C" {
 	/* exports */
 	void main_core_loaded(uint32_t process, uint32_t succeeded);
 	void main_block_loaded(uint32_t process, uint32_t succeeded);
+	void main_terminate(int32_t code, uint64_t address);
+	void main_not_decodable(uint64_t address);
+	void main_not_reachable(uint64_t address);
+	void main_single_step(uint64_t address);
 
 	/* imports */
 	uint32_t proc_export(const char8_t* name, uint32_t size, uint32_t index);
@@ -35,14 +39,6 @@ extern "C" {
 	void proc_block_imports_next_member(const char8_t* name, uint32_t size);
 	void proc_block_imports_set_value(const char8_t* name, uint32_t size, uint32_t index);
 	void proc_block_imports_commit(uint32_t null);
-}
-
-/* environment/context/context-bridge interactions */
-extern "C" {
-	/* exports */
-	void main_terminate(int32_t code, uint64_t address);
-	void main_not_decodable(uint64_t address);
-	void main_not_reachable(uint64_t address);
 }
 
 /* environment/mapping/mapping-bridge interactions */
