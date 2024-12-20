@@ -3,12 +3,12 @@
 
 static host::Logger logger{ u8"env::process" };
 
-void env::detail::ProcessBridge::CoreLoaded(uint32_t process, bool succeeded) {
-	if (env::Instance() == 0 || !env::Instance()->fCoreLoaded(process, succeeded))
+void env::detail::ProcessBridge::CoreLoaded(uint32_t process) {
+	if (env::Instance() == 0 || !env::Instance()->fCoreLoaded(process))
 		logger.warn(u8"Old core-load for [", process, u8"] silently discarded");
 }
-void env::detail::ProcessBridge::BlockLoaded(uint32_t process, bool succeeded) {
-	if (env::Instance() == 0 || !env::Instance()->fBlockLoaded(process, succeeded))
+void env::detail::ProcessBridge::BlockLoaded(uint32_t process) {
+	if (env::Instance() == 0 || !env::Instance()->fBlockLoaded(process))
 		logger.warn(u8"Old block-load for [", process, u8"] silently discarded");
 }
 

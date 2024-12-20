@@ -34,17 +34,17 @@ void main_command(char8_t* ptr, uint32_t size) {
 	}
 }
 
-void main_core_loaded(uint32_t process, uint32_t succeeded) {
+void main_core_loaded(uint32_t process) {
 	try {
-		env::detail::ProcessBridge::CoreLoaded(process, succeeded > 0);
+		env::detail::ProcessBridge::CoreLoaded(process);
 	}
 	catch (...) {
 		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");
 	}
 }
-void main_block_loaded(uint32_t process, uint32_t succeeded) {
+void main_block_loaded(uint32_t process) {
 	try {
-		env::detail::ProcessBridge::BlockLoaded(process, succeeded > 0);
+		env::detail::ProcessBridge::BlockLoaded(process);
 	}
 	catch (...) {
 		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");

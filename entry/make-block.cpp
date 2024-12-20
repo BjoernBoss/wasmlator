@@ -11,7 +11,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
 		NullTranslator _null;
-		gen::Block _block{ mod, &_null, 2 };
+		gen::Block _block{ mod, &_null };
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());
@@ -22,7 +22,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 int main(int argc, char** argv) {
 	host::SetLogLevel(host::LogLevel::none);
-	env::Process::Create(std::make_unique<NullSystem>());
+	env::Process::Create(std::make_unique<NullSystem>(), {});
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };

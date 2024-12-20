@@ -105,13 +105,11 @@ void env::Process::fLoadBlock() {
 	}
 	logger.fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
 }
-bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
+bool env::Process::fCoreLoaded(uint32_t process) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
 	*	the loading-state, as it will not be affected by a process of a different id) */
 	if (process != global::ProcId)
 		return false;
-	if (!succeeded)
-		logger.fatal(u8"Failed loading core for [", global::ProcId, u8']');
 	logger.debug(u8"Core loading succeeded for [", global::ProcId, u8']');
 
 	/* setup the core-function mappings */
@@ -138,13 +136,11 @@ bool env::Process::fCoreLoaded(uint32_t process, bool succeeded) {
 	return true;
 
 }
-bool env::Process::fBlockLoaded(uint32_t process, bool succeeded) {
+bool env::Process::fBlockLoaded(uint32_t process) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
 	*	the loading-state, as it will not be affected by a process of a different id) */
 	if (process != global::ProcId)
 		return false;
-	if (!succeeded)
-		logger.fatal(u8"Failed loading block for [", global::ProcId, u8']');
 	logger.debug(u8"Block loading succeeded for [", global::ProcId, u8']');
 
 	/* register all exports and update the loading-state */

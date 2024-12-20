@@ -21,7 +21,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 
 int main(int argc, char** argv) {
 	host::SetLogLevel(host::LogLevel::none);
-	env::Process::Create(std::make_unique<NullSystem>());
+	env::Process::Create(std::make_unique<NullSystem>(), {});
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };

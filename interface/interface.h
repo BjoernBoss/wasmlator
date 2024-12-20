@@ -29,8 +29,8 @@ extern "C" {
 /* environment/process/process-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_core_loaded(uint32_t process, uint32_t succeeded);
-	void main_block_loaded(uint32_t process, uint32_t succeeded);
+	void main_core_loaded(uint32_t process);
+	void main_block_loaded(uint32_t process);
 
 	/* imports */
 	uint32_t proc_export(const char8_t* name, uint32_t size, uint32_t index);

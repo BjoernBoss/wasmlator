@@ -51,8 +51,8 @@ namespace env {
 	private:
 		void fLoadCore();
 		void fLoadBlock();
-		bool fCoreLoaded(uint32_t process, bool succeeded);
-		bool fBlockLoaded(uint32_t process, bool succeeded);
+		bool fCoreLoaded(uint32_t process);
+		bool fBlockLoaded(uint32_t process);
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 
 	public:

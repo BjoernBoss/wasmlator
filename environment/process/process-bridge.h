@@ -5,8 +5,8 @@
 namespace env::detail {
 	struct ProcessBridge {
 		/* exports */
-		static void CoreLoaded(uint32_t process, bool succeeded);
-		static void BlockLoaded(uint32_t process, bool succeeded);
+		static void CoreLoaded(uint32_t process);
+		static void BlockLoaded(uint32_t process);
 
 		/* imports */
 		static bool LoadCore(const std::vector<uint8_t>& data, uint32_t process);

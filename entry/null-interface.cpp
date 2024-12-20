@@ -5,11 +5,11 @@
 #include <vector>
 
 uint32_t host_load_core(const uint8_t* data, uint32_t size, uint32_t process) {
-	main_core_loaded(process, 1);
+	main_core_loaded(process);
 	return 1;
 }
 uint32_t host_load_block(const uint8_t* data, uint32_t size, uint32_t process) {
-	main_block_loaded(process, 1);
+	main_block_loaded(process);
 	return 1;
 }
 void host_print_u8(const char8_t* data, uint32_t size) {

@@ -199,8 +199,10 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 			/* execute the address */
 			sink[I::Call::Indirect(state.functions, pBlockPrototype)];
 
-			/* loop back to the start of the loop */
+			/* loop back to the start of the loop (add unreachable, as loop is only exited via exceptions) */
 			sink[I::Branch::Direct(_loop)];
+			_loop.close();
+			sink[I::Unreachable()];
 		}
 	}
 }
