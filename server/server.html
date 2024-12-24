@@ -8,8 +8,180 @@
 	<title>Wasmlator - Server Page</title>
 </head>
 
-<body style="background-color:#404040">
-	<script async src=wasmlator.js></script>
+<body>
+	<div class="container">
+		<div id="output" class="output text"></div>
+		<div class="bottom-bar">
+			<textarea id="input" class="input text" placeholder="command..." rows="1" spellcheck="false"></textarea>
+			<div id="busy" class="input-busy text">
+				Wasmlator.js is currently busy...
+			</div>
+		</div>
+	</div>
 </body>
+
+<style>
+	body,
+	html {
+		background-color: black;
+		overflow: hidden;
+		margin: 0;
+		height: 100%;
+	}
+
+	.container {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		flex-wrap: nowrap;
+	}
+
+	.output {
+		overflow-y: auto;
+		overflow-x: hidden;
+		flex-grow: 1;
+		min-height: 10em;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+
+	.output ::selection {
+		color: #000000;
+		background-color: #ffffff;
+	}
+
+	.bottom-bar {
+		flex-shrink: 0;
+		background-color: #404040;
+		width: 100%;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		border-style: solid;
+		border-color: #808080;
+		border-width: 2px 0 0 0;
+	}
+
+	.text {
+		font-family: monospace;
+		font-size: 16px;
+		font-weight: 600;
+		line-height: 17px;
+	}
+
+	.mtrace {
+		color: #1fadff;
+	}
+
+	.mdebug {
+		color: #5aff28;
+	}
+
+	.mlog {
+		color: #ffffff;
+	}
+
+	.minfo {
+		color: #ff29f4;
+	}
+
+	.mwarn {
+		color: #ffd240;
+	}
+
+	.mfatal {
+		color: #f02222;
+	}
+
+	.input-busy {
+		color: #f08080;
+		margin: 10px 10px 20px 10px;
+		visibility: visible;
+	}
+
+	.input {
+		color: black;
+		flex-grow: 1;
+		margin: 10px 10px 0 10px;
+		background-color: #505050;
+		border-style: solid;
+		border-radius: 3px;
+		border-color: #808080;
+		outline: none;
+		resize: none;
+		field-sizing: content;
+	}
+
+	.input:focus {
+		background-color: #585858;
+	}
+</style>
+
+<script>
+
+</script>
+
+<script async src=wasmlator.js></script>
+
+<script>
+	window.onload = function () {
+		let htmlOutput = document.getElementById('output');
+		let htmlInput = document.getElementById('input');
+		let htmlBusy = document.getElementById('busy');
+
+		let busy = function () {
+			htmlBusy.style.visibility = 'hidden';
+		};
+		let log = function (m, normal) {
+			let e = document.createElement('div');
+
+			switch ((m.length <= 1 || !normal) ? 'F' : m[0]) {
+				case 'T':
+					e.classList.add('mtrace');
+					break;
+				case 'D':
+					e.classList.add('mdebug');
+					break;
+				case 'L':
+					e.classList.add('mlog');
+					break;
+				case 'I':
+					e.classList.add('minfo');
+					break;
+				case 'W':
+					e.classList.add('mwarn');
+					break;
+				default:
+					e.classList.add('mfatal');
+					break;
+			}
+
+			e.innerText = m;
+			htmlOutput.appendChild(e);
+			e.scrollIntoView(true);
+		};
+
+		let wasmlator = setup_wasmlator(busy, log);
+
+		htmlInput.onkeydown = function (e) {
+			if (e.code != 'Enter')
+				return true;
+
+			let m = htmlInput.value;
+			htmlInput.value = '';
+
+			setTimeout(function () {
+				try {
+					htmlBusy.style.visibility = 'visible';
+					wasmlator(m, busy);
+				} catch (e) {
+					log(e.stack, false);
+				}
+			});
+			return false;
+		}
+	}
+</script>
 
 </html>

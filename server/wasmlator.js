@@ -1,6 +1,6 @@
 class BusyError extends Error { };
 
-setup_wasmlator = function (cb) {
+setup_wasmlator = function (cb, logPrint) {
 	/* local state of all loaded wasmlator-content */
 	let _state = {
 		main: {
@@ -59,10 +59,14 @@ setup_wasmlator = function (cb) {
 			_state.failed = true;
 
 			/* log the actual error (only if this is the first exception) */
-			if (e instanceof Error)
+			if (e instanceof Error) {
 				console.error(e);
-			else
-				console.error(`Unhandled exception occurred: ${e.stack}`)
+				logPrint(e.stack, false);
+			}
+			else {
+				console.error(`Unhandled exception occurred: ${e.stack}`);
+				logPrint(e.stack, false);
+			}
 		}
 	}
 	_state.throwException = function (e) {
@@ -158,7 +162,9 @@ setup_wasmlator = function (cb) {
 
 		/* setup the remaining host-imports */
 		imports.env.host_print_u8 = function (ptr, size) {
-			console.log(_state.load_string(ptr, size, true));
+			let msg = _state.load_string(ptr, size, true);
+			console.log(msg);
+			logPrint(msg, true);
 		};
 		imports.env.host_fatal_u8 = function (ptr, size) {
 			_state.throwException(new FatalError(`Wasmlator.js: ${_state.load_string(ptr, size, true)}`));
