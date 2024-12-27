@@ -129,6 +129,9 @@
 		let htmlOutput = document.getElementById('output');
 		let htmlInput = document.getElementById('input');
 		let htmlBusy = document.getElementById('busy');
+		let history = ['', ''];
+		let historyIndex = 0;
+		let inputDirty = true;
 
 		let busy = function () {
 			htmlBusy.style.visibility = 'hidden';
@@ -165,11 +168,37 @@
 		let wasmlator = setup_wasmlator(busy, log);
 
 		htmlInput.onkeydown = function (e) {
+			if (e.code == 'ArrowUp' || e.code == 'ArrowDown') {
+				if (inputDirty) {
+					historyIndex = history.length - 1;
+					history[historyIndex] = htmlInput.value;
+					inputDirty = false;
+				}
+
+				if (e.code == 'ArrowUp' && historyIndex > 0)
+					htmlInput.value = history[--historyIndex];
+				else if (e.code == 'ArrowDown' && historyIndex < history.length - 1)
+					htmlInput.value = history[++historyIndex];
+
+				return false;
+			}
+			inputDirty = true;
+
 			if (e.code != 'Enter')
 				return true;
 
 			let m = htmlInput.value;
 			htmlInput.value = '';
+
+			let last = (history.length == 1 ? '' : history[history.length - 2]);
+			if (m.length == 0) {
+				m = last;
+				history[history.length - 1] = '';
+			}
+			else if (m != last) {
+				history[history.length - 1] = m;
+				history.push('');
+			}
 
 			setTimeout(function () {
 				try {
