@@ -1,5 +1,6 @@
 #include "gen-address.h"
 #include "../environment/environment.h"
+#include "../generate.h"
 
 static host::Logger logger{ u8"gen::block" };
 
@@ -21,7 +22,7 @@ gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t ad
 	}
 
 	/* check if the depth-limit has been reached or the entry already exists and setup the address-table required for linking */
-	if (entry.alreadyExists || depth > env::Instance()->genConfig().translationDepth) {
+	if (entry.alreadyExists || depth > gen::Instance()->translationDepth()) {
 		entry.index = pLinks++;
 		if (!pAddresses.valid())
 			pAddresses = pModule.table(u8"linked_addresses", true);

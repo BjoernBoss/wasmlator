@@ -4,8 +4,8 @@ static host::Logger logger{ u8"env::memory" };
 
 uintptr_t env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();
-	uint32_t caches = env::Instance()->system().memoryCaches();
-	self.pPageSize = env::Instance()->system().pageSize();
+	uint32_t caches = env::Instance()->memoryCaches();
+	self.pPageSize = env::Instance()->pageSize();
 
 	/* ensure the page-size is valid */
 	if (detail::PhysPageSize < self.pPageSize || (detail::PhysPageSize % self.pPageSize) != 0)

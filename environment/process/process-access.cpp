@@ -1,5 +1,8 @@
 #include "../environment.h"
 
+bool env::detail::ProcessAccess::Setup(env::Process& process, std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
+	return process.fSetup(std::move(system), pageSize, memoryCaches, contextSize, logBlocks);
+}
 uint32_t env::detail::ProcessAccess::PhysicalPages() {
 	return env::Instance()->pPhysicalPages;
 }
@@ -17,7 +20,4 @@ size_t env::detail::ProcessAccess::BindingCount() {
 	for (const auto& [mod, bindings] : env::Instance()->pBindings)
 		count += bindings.size();
 	return count;
-}
-bool env::detail::ProcessAccess::SingleStep() {
-	return env::Instance()->pConfig.singleStep;
 }

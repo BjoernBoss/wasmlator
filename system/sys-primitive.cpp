@@ -27,7 +27,6 @@ void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer
 }
 
 
-sys::Primitive::Primitive(uint32_t memoryCaches, uint32_t contextSize) : env::System{ Primitive::PageSize, memoryCaches, contextSize } {}
 env::guest_t sys::Primitive::fPrepareStack() const {
 	env::Memory& mem = env::Instance()->memory();
 
@@ -100,32 +99,47 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
 }
-std::unique_ptr<env::System> sys::Primitive::New(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs) {
+bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
+	/* log the configuration */
+	logger.info(u8"  Debug       : ", str::As{ U"S", debug });
+	logger.info(u8"  Arguments   : ", args.size());
+	for (size_t i = 0; i < args.size(); ++i)
+		logger.info(u8"    [", i, u8"]: ", args[i]);
+	logger.info(u8"  Environments: ", envs.size());
+	for (size_t i = 0; i < envs.size(); ++i)
+		logger.info(u8"    [", i, u8"]: ", envs[i]);
+
 	/* allocate the primitive object and configure the cpu itself */
-	std::unique_ptr<sys::Primitive> system = std::unique_ptr<sys::Primitive>(new sys::Primitive{ caches, context });
+	std::unique_ptr<sys::Primitive> system = std::make_unique<sys::Primitive>();
 	cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(system.get())));
 
 	/* construct the primitive env-system object */
-	system->pCpu = std::move(cpu);
 	system->pArgs = args;
 	system->pEnvs = envs;
-	return system;
+
+	/* register the process and translator (translator first, as it will be used for core-creation) */
+	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug))
+		return false;
+	if (env::SetInstance(std::move(system), Primitive::PageSize, caches, context, debug))
+		return true;
+	gen::ClearInstance();
+	return false;
 }
 void sys::Primitive::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
 	gen::Core core{ mod };
 
 	/* perform the cpu-configuration of the core */
-	pCpu->setupCore(mod);
+	dynamic_cast<sys::Cpu*>(gen::Instance()->translator())->setupCore(mod);
 
 	/* finalize the actual core */
 	core.close();
 }
 std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
 	/* setup the translator */
-	gen::Block translator{ mod, pCpu.get() };
+	gen::Block translator{ mod };
 
 	/* translate the next requested address */
 	translator.run(pAddress);
@@ -158,7 +172,7 @@ void sys::Primitive::coreLoaded() {
 		});
 
 	/* initialize the context */
-	pCpu->setupContext(pAddress, spAddress);
+	dynamic_cast<sys::Cpu*>(gen::Instance()->translator())->setupContext(pAddress, spAddress);
 
 	/* request the translation of the first block */
 	env::Instance()->startNewBlock();
@@ -169,7 +183,7 @@ void sys::Primitive::blockLoaded() {
 		env::Instance()->mapping().execute(pAddress);
 	}
 	catch (const env::Terminated& e) {
-		logger.fatal(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
+		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
 	}
 	catch (const env::MemoryFault& e) {
 		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",

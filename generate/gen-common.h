@@ -7,12 +7,14 @@
 #include <unordered_map>
 #include <vector>
 #include <set>
+#include <memory>
 
 #include "../environment/env-common.h"
 #include "../interface/host.h"
 
 namespace gen {
 	class Writer;
+	class Generator;
 
 	/* memory reading type */
 	enum class MemoryType : uint8_t {
@@ -58,7 +60,7 @@ namespace gen {
 	/* translator interface is used to perform the actual translation of super-blocks automatically */
 	class Translator {
 	protected:
-		constexpr Translator() = default;
+		Translator() = default;
 
 	public:
 		virtual ~Translator() = default;

@@ -15,7 +15,6 @@ namespace gen {
 	*	Note: blocks must not be flushed mid block-creation */
 	class Block {
 	private:
-		gen::Translator* pTranslator = 0;
 		detail::Addresses pAddresses;
 		detail::MemoryState pMemory;
 		detail::MappingState pMapping;
@@ -23,7 +22,7 @@ namespace gen {
 		detail::InteractState pInteract;
 
 	public:
-		Block(wasm::Module& mod, gen::Translator* translator);
+		Block(wasm::Module& mod);
 		Block(gen::Block&&) = delete;
 		Block(const gen::Block&) = delete;
 

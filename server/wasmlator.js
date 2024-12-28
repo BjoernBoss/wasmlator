@@ -72,8 +72,10 @@ setup_wasmlator = function (cb, logPrint) {
 	_state.throwException = function (e) {
 		/* log the error immediately, as the error handling of the main-application could trigger
 		*	a wasm-trap, in which case the original exception will not be logged anymore */
-		if (!_state.failed)
+		if (!_state.failed) {
 			console.error(e);
+			logPrint(e.stack, false);
+		}
 		_state.failed = true;
 		throw e;
 	}

@@ -1,6 +1,7 @@
 #include "mapping-builder.h"
 #include "../environment/mapping/env-mapping.h"
 #include "../environment/process/process-access.h"
+#include "../generate.h"
 
 namespace I = wasm::inst;
 
@@ -181,7 +182,8 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 		/* check if this is single-step mode, in which case only the single block
 		*	needs to be executed, and otherwise loop until an exception is thrown */
-		if (env::detail::ProcessAccess::SingleStep()) {
+		if (gen::Instance()->singleStep()) {
+
 			/* perform the lookup of the address (will either find the index, or throw an exception) */
 			sink[I::Call::Direct(state.lookup)];
 
@@ -189,7 +191,6 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 			sink[I::Call::IndirectTail(state.functions, pBlockPrototype)];
 		}
 		else {
-
 			/* simply perform the lookup and execution until until an exception automatically exists the loop */
 			wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
 

@@ -33,22 +33,23 @@ namespace env {
 		env::Mapping pMapping;
 		env::Interact pInteract;
 		std::u8string pBlockImportName;
-		env::GenConfig pConfig;
+		uint32_t pPageSize = 0;
+		uint32_t pMemoryCaches = 0;
+		uint32_t pContextSize = 0;
 		uint32_t pPhysicalPages = 0;
 		uint32_t pMemoryPages = 0;
 		State pState = State::none;
 		bool pBindingsClosed = false;
+		bool pLogBlocks = false;
 
-	private:
-		Process(std::unique_ptr<env::System>&& system, const env::GenConfig& config);
+	public:
+		Process() = default;
 		Process(env::Process&&) = delete;
 		Process(const env::Process&) = delete;
 		~Process() = default;
 
-	public:
-		static void Create(std::unique_ptr<env::System>&& system, const env::GenConfig& config);
-
 	private:
+		bool fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks);
 		void fLoadCore();
 		void fLoadBlock();
 		bool fCoreLoaded(uint32_t process);
@@ -59,10 +60,8 @@ namespace env {
 		const std::u8string& blockImportModule() const;
 		void bindExport(std::u8string_view name);
 		void startNewBlock();
-		void release();
 
 	public:
-		const env::GenConfig& genConfig() const;
 		const env::System& system() const;
 		env::System& system();
 		const env::Context& context() const;
@@ -73,5 +72,8 @@ namespace env {
 		env::Mapping& mapping();
 		const env::Interact& interact() const;
 		env::Interact& interact();
+		uint32_t pageSize() const;
+		uint32_t memoryCaches() const;
+		uint32_t contextSize() const;
 	};
 }

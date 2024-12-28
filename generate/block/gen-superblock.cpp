@@ -1,5 +1,5 @@
 #include "gen-superblock.h"
-#include "../environment/process/process-access.h"
+#include "../generate.h"
 
 static host::Logger logger{ u8"gen::block" };
 
@@ -169,7 +169,7 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 	pNextAddress += inst.size;
 
 	/* check if the current strand can be continued or if the overall super-block is considered closed */
-	if (env::detail::ProcessAccess::SingleStep())
+	if (gen::Instance()->singleStep())
 		return false;
 	if (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect)
 		return true;
@@ -191,7 +191,7 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 }
 void gen::detail::SuperBlock::setupRanges() {
 	/* check if this is single-step mode, in which case the iterators can just be reset */
-	if (env::detail::ProcessAccess::SingleStep()) {
+	if (gen::Instance()->singleStep()) {
 		pIndex = 0;
 		pIt = pRanges.begin();
 		return;
@@ -255,7 +255,7 @@ bool gen::detail::SuperBlock::next() {
 		}
 
 		/* add the single-step-handler */
-		else if (env::detail::ProcessAccess::SingleStep())
+		else if (gen::Instance()->singleStep())
 			pSink[I::U64::Const(pNextAddress)];
 
 		/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued */

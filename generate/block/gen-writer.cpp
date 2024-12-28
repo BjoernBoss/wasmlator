@@ -3,7 +3,8 @@
 namespace I = wasm::inst;
 
 gen::Writer::Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
-	pSink{ sink }, pSuperBlock{ block }, pMemory{ memory, sink }, pContext{ context, sink }, pAddress{ mapping, addresses, sink }, pInteract{ interact, sink } {}
+	pSink{ sink }, pSuperBlock{ block }, pMemory{ memory, sink }, pContext{ context, sink }, pAddress{ mapping, addresses, sink }, pInteract{ interact, sink } {
+}
 
 wasm::Sink& gen::Writer::sink() const {
 	return pSink;

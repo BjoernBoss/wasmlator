@@ -46,12 +46,12 @@ namespace sys {
 		static constexpr env::guest_t InitialStackAddress = 0x7800'0000'0000;
 		static constexpr env::guest_t StartOfStackAlignment = 128;
 		static constexpr env::guest_t StackSize = 0x40'0000;
+		static constexpr uint32_t TranslationDepth = 4;
 		static constexpr uint32_t PageSize = 0x1000;
 
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
-		std::unique_ptr<sys::Cpu> pCpu;
 		env::guest_t pAddress = 0;
 		struct {
 			uint32_t flushInst = 0;
@@ -59,14 +59,17 @@ namespace sys {
 			uint32_t exception = 0;
 		} pRegistered;
 
-	private:
-		Primitive(uint32_t memoryCaches, uint32_t contextSize);
+	public:
+		Primitive() = default;
+		Primitive(sys::Primitive&&) = delete;
+		Primitive(const sys::Primitive&) = delete;
+		~Primitive() = default;
 
 	private:
 		env::guest_t fPrepareStack() const;
 
 	public:
-		static std::unique_ptr<env::System> New(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs);
+		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug);
 
 	public:
 		void setupCore(wasm::Module& mod) final;

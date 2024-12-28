@@ -3,42 +3,44 @@
 static host::Logger logger{ u8"env::process" };
 
 namespace global {
-	static env::Process* Instance = 0;
+	static std::unique_ptr<env::Process> Instance;
 	static uint32_t ProcId = 0;
 }
 
-env::Process* env::Instance() {
-	return global::Instance;
-}
+bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
+	/* apply the configuration */
+	pSystem = std::move(system);
+	pPageSize = pageSize;
+	pMemoryCaches = memoryCaches;
+	pContextSize = contextSize;
+	pLogBlocks = logBlocks;
 
-env::Process::Process(std::unique_ptr<env::System>&& system, const env::GenConfig& config) : pSystem{ std::move(system) }, pConfig{ config } {}
-
-void env::Process::Create(std::unique_ptr<env::System>&& system, const env::GenConfig& config) {
-	/* try to setup the process */
-	logger.log(u8"Creating new process...");
-	if (global::Instance != 0)
-		logger.fatal(u8"Process creation failed as only one process can exist at a time");
-	global::Instance = new env::Process{ std::move(system), config };
+	/* validate the configuration */
+	if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0) {
+		logger.fatal(u8"PageSize must be greater than zero and a power of two");
+		return false;
+	}
 
 	/* log the generation-configuration */
-	logger.info(u8"  Single Steps:      ", str::As{ U"S", config.singleStep });
-	logger.info(u8"  Log Blocks:        ", str::As{ U"S", config.logBlocks });
-	logger.info(u8"  Translation Depth: ", config.translationDepth);
+	logger.info(u8"  Page Size    : ", str::As{ U"#x", pPageSize });
+	logger.info(u8"  Memory Caches: ", pMemoryCaches);
+	logger.info(u8"  Context Size : ", pContextSize);
+	logger.info(u8"  Log Blocks   : ", str::As{ U"S", pLogBlocks });
 
 	/* initialize the components */
 	uintptr_t endOfMemory = 0;
 	endOfMemory = std::max(endOfMemory, detail::ContextAccess::Configure());
 	endOfMemory = std::max(endOfMemory, detail::MappingAccess::Configure());
-	endOfMemory = std::max(endOfMemory, detail::MemoryAccess::Configure(global::Instance->pPhysicalPages));
-	global::Instance->pMemoryPages = detail::PhysPageCount(endOfMemory);
+	endOfMemory = std::max(endOfMemory, detail::MemoryAccess::Configure(pPhysicalPages));
+	pMemoryPages = detail::PhysPageCount(endOfMemory);
 
 	/* allocate the next process-id */
 	logger.log(u8"Process created with id [", ++global::ProcId, u8"]");
 
 	/* setup the core module */
-	global::Instance->fLoadCore();
+	fLoadCore();
+	return true;
 }
-
 void env::Process::fLoadCore() {
 	logger.debug(u8"Loading core for [", global::ProcId, u8"]...");
 	wasm::BinaryWriter binOutput;
@@ -70,7 +72,7 @@ void env::Process::fLoadBlock() {
 
 	try {
 		/* setup the writer to either produce only the binary output, or the binary and text output */
-		std::unique_ptr<wasm::TextWriter> tWriter = (pConfig.logBlocks ? std::make_unique<wasm::TextWriter>(u8"  ") : 0);
+		std::unique_ptr<wasm::TextWriter> tWriter = (pLogBlocks ? std::make_unique<wasm::TextWriter>(u8"  ") : 0);
 		wasm::SplitWriter writer = wasm::SplitWriter{ &binOutput, tWriter.get() };
 
 		/* setup the block module to be loaded */
@@ -79,7 +81,7 @@ void env::Process::fLoadBlock() {
 		mod.close();
 
 		/* check if the text-output should be logged */
-		if (pConfig.logBlocks)
+		if (pLogBlocks)
 			logger.info(tWriter->output());
 	}
 	catch (const wasm::Exception& e) {
@@ -168,19 +170,7 @@ void env::Process::bindExport(std::u8string_view name) {
 void env::Process::startNewBlock() {
 	fLoadBlock();
 }
-void env::Process::release() {
-	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
 
-	/* reset all mapped core-functions and release the current instance */
-	detail::ProcessBridge::ResetCoreMap();
-	global::Instance = 0;
-	delete this;
-	logger.log(u8"Process destroyed");
-}
-
-const env::GenConfig& env::Process::genConfig() const {
-	return pConfig;
-}
 const env::System& env::Process::system() const {
 	return *pSystem.get();
 }
@@ -210,4 +200,45 @@ const env::Interact& env::Process::interact() const {
 }
 env::Interact& env::Process::interact() {
 	return pInteract;
+}
+uint32_t env::Process::pageSize() const {
+	return pPageSize;
+}
+uint32_t env::Process::memoryCaches() const {
+	return pMemoryCaches;
+}
+uint32_t env::Process::contextSize() const {
+	return pContextSize;
+}
+
+
+env::Process* env::Instance() {
+	return global::Instance.get();
+}
+bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
+	if (global::Instance.get() != 0) {
+		logger.fatal(u8"Cannot create process as only one process can exist at a time");
+		return false;
+	}
+
+	/* allocate the new instance */
+	logger.log(u8"Creating new process...");
+	global::Instance = std::make_unique<env::Process>();
+
+	/* configure the instance */
+	if (detail::ProcessAccess::Setup(*global::Instance.get(), std::move(system), pageSize, memoryCaches, contextSize, logBlocks)) {
+		logger.log(u8"Process created");
+		return true;
+	}
+	global::Instance.reset();
+	logger.warn(u8"Failed to setup process");
+	return false;
+}
+void env::ClearInstance() {
+	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
+
+	/* reset all mapped core-functions and release the current instance */
+	detail::ProcessBridge::ResetCoreMap();
+	global::Instance.reset();
+	logger.log(u8"Process destroyed");
 }

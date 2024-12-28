@@ -12,4 +12,6 @@ namespace env {
 	*		interact with the core, which will otherwise result in a null-function execution within the glue-module
 	*	Note: must only be destroyed form within coreLoaded/blockLoaded or the main startup */
 	env::Process* Instance();
+	bool SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks);
+	void ClearInstance();
 }

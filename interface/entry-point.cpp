@@ -1,24 +1,34 @@
-#include "interface.h"
+#include "../interface/interface.h"
 #include "../interface/host.h"
 #include "../environment/environment.h"
 #include "../system/sys-primitive.h"
 #include "../system/rv64/rv64-cpu.h"
 
-static host::Logger logger{ u8"entry-point" };
+static host::Logger logger{ u8"dispatch" };
 
 void StartupProcess() {
 	logger.log(u8"Main: Setting up system: [primitive] with cpu: [rv64]");
-	env::Process::Create(sys::Primitive::New(
-		rv64::Cpu::New(),
+
+	sys::Primitive::Create(rv64::Cpu::New(),
 		{ u8"/this/path", u8"abc-def" },
-		{ u8"abc=def", u8"ghi=jkl" }
-	), env::GenConfig{
-		.translationDepth = 4,
-		.singleStep = true,
-		.logBlocks = true,
-		});
+		{ u8"abc=def", u8"ghi=jkl" },
+		true);
+
 	logger.log(u8"Main: Process creation completed");
 }
+
+static bool DispatchCommand(std::u8string_view cmd) {
+	if (cmd == u8"setup") {
+		sys::Primitive::Create(rv64::Cpu::New(),
+			{ u8"/this/path", u8"abc-def" },
+			{ u8"abc=def", u8"ghi=jkl" },
+			true);
+	}
+
+	return true;
+}
+
 void HandleCommand(std::u8string_view cmd) {
-	logger.info(u8"Command received [", cmd, u8']');
+	if (cmd.empty() || !DispatchCommand(cmd))
+		logger.warn(u8"Unknown command [", cmd, u8"] received");
 }

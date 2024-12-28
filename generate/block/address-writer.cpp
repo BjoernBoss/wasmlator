@@ -1,5 +1,5 @@
 #include "address-writer.h"
-#include "../environment/process/process-access.h"
+#include "../generate.h"
 
 namespace I = wasm::inst;
 
@@ -24,7 +24,7 @@ void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const
 
 void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nextAddress) const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (env::detail::ProcessAccess::SingleStep()) {
+	if (gen::Instance()->singleStep()) {
 		pSink[I::U64::Const(address)];
 		pSink[I::Return()];
 		return;
@@ -69,7 +69,7 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 }
 void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (env::detail::ProcessAccess::SingleStep()) {
+	if (gen::Instance()->singleStep()) {
 		pSink[I::Return()];
 		return;
 	}
@@ -80,7 +80,7 @@ void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) cons
 }
 void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (env::detail::ProcessAccess::SingleStep()) {
+	if (gen::Instance()->singleStep()) {
 		pSink[I::U64::Const(address)];
 		pSink[I::Return()];
 		return;
@@ -121,7 +121,7 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (env::detail::ProcessAccess::SingleStep()) {
+	if (gen::Instance()->singleStep()) {
 		pSink[I::Return()];
 		return;
 	}
@@ -131,7 +131,7 @@ void gen::detail::AddressWriter::makeJumpIndirect() const {
 }
 void gen::detail::AddressWriter::makeReturn() const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (env::detail::ProcessAccess::SingleStep()) {
+	if (gen::Instance()->singleStep()) {
 		pSink[I::Return()];
 		return;
 	}

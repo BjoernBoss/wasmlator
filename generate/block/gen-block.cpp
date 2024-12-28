@@ -1,8 +1,9 @@
 #include "gen-block.h"
+#include "../generate.h"
 
 static host::Logger logger{ u8"gen::block" };
 
-gen::Block::Block(wasm::Module& mod, gen::Translator* translator) : pAddresses{ mod }, pTranslator{ translator } {
+gen::Block::Block(wasm::Module& mod) : pAddresses{ mod } {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ProcessBuilder _process;
@@ -32,12 +33,12 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
 
 	/* notify the interface about the newly starting block */
-	pTranslator->started(writer, next.address);
+	gen::Instance()->translator()->started(writer, next.address);
 
 	/* iterate over the instruction stream and look for the end of the current strand */
 	gen::Instruction inst{};
 	do {
-		inst = pTranslator->fetch(block.nextFetch());
+		inst = gen::Instance()->translator()->fetch(block.nextFetch());
 	} while (block.push(inst));
 
 	/* setup the ranges of the super-block */
@@ -47,11 +48,11 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	while (block.next()) {
 		env::guest_t address = block.chunkStart();
 		const std::vector<uintptr_t>& chunk = block.chunk();
-		pTranslator->produce(writer, address, chunk.data(), chunk.size());
+		gen::Instance()->translator()->produce(writer, address, chunk.data(), chunk.size());
 	}
 
 	/* notify the interface about the completed block */
-	pTranslator->completed(writer);
+	gen::Instance()->translator()->completed(writer);
 	logger.debug(u8"Block at [", str::As{ U"#018x", next.address }, u8"] completed");
 }
 

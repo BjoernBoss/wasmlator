@@ -15,6 +15,8 @@
 #include "../interface/host.h"
 
 namespace env {
+	class Process;
+
 	namespace detail {
 		using physical_t = uint32_t;
 
@@ -45,13 +47,6 @@ namespace env {
 		static constexpr uint32_t All = Usage::Read | Usage::Write | Usage::Execute;
 	};
 
-	/* global generation-configuration of the process */
-	struct GenConfig {
-		size_t translationDepth = 4;
-		bool singleStep = false;
-		bool logBlocks = false;
-	};
-
 	/* block exported function entry */
 	struct BlockExport {
 		std::u8string name;
@@ -59,19 +54,10 @@ namespace env {
 	};
 
 	/* system interface is used to setup and configure the environment accordingly and interact with it
-	*	Note: wasm should only be generated within setupCore/setupBlock, as they are wrapped to catch any potential wasm-issues
-	*	Note: PageSize must be greater than zero and a power of two */
+	*	Note: wasm should only be generated within setupCore/setupBlock, as they are wrapped to catch any potential wasm-issues */
 	class System {
-	private:
-		uint32_t pPageSize = 0;
-		uint32_t pMemoryCaches = 0;
-		uint32_t pContextSize = 0;
-
 	protected:
-		System(uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize) : pPageSize{ pageSize }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {
-			if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0)
-				host::Logger{ u8"env::system" }.fatal(u8"PageSize must be greater than zero and a power of two");
-		}
+		System() = default;
 
 	public:
 		virtual ~System() = default;
@@ -88,17 +74,6 @@ namespace env {
 
 		/* invoked when the last configured block has been loaded */
 		virtual void blockLoaded() = 0;
-
-	public:
-		constexpr uint32_t pageSize() const {
-			return pPageSize;
-		}
-		constexpr uint32_t memoryCaches() const {
-			return pMemoryCaches;
-		}
-		constexpr uint32_t contextSize() const {
-			return pContextSize;
-		}
 	};
 
 	/* base of exceptions thrown by the execution environment */

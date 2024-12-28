@@ -61,7 +61,7 @@ static void UnpackElfFile(const elf::Reader& reader) {
 	}
 
 	/* write all program-headers to be loaded to the guest environment */
-	env::guest_t pageSize = env::Instance()->system().pageSize();
+	env::guest_t pageSize = env::Instance()->pageSize();
 	for (size_t i = 0; i < programHeaderCount; ++i) {
 		if (programs[i].type != elf::ProgramType::load)
 			continue;
