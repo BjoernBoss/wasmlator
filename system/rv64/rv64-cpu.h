@@ -20,13 +20,13 @@ namespace rv64 {
 		static std::unique_ptr<sys::Cpu> New();
 
 	public:
-		void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) override;
-		void setupCore(wasm::Module& mod) override;
-		void setupContext(env::guest_t pcAddress, env::guest_t spAddress) override;
-		std::u8string getExceptionText(uint64_t id) const override;
-		void started(env::guest_t address) override;
-		void completed() override;
-		gen::Instruction fetch(env::guest_t address) override;
-		void produce(env::guest_t address, const uintptr_t* self, size_t count) override;
+		void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) final;
+		void setupCore(wasm::Module& mod) final;
+		void setupContext(env::guest_t pcAddress, env::guest_t spAddress) final;
+		std::u8string getExceptionText(uint64_t id) const final;
+		void started(env::guest_t address) final;
+		void completed() final;
+		gen::Instruction fetch(env::guest_t address) final;
+		void produce(env::guest_t address, const uintptr_t* self, size_t count) final;
 	};
 }

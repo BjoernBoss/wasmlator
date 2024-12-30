@@ -1,4 +1,4 @@
-class BusyError extends Error { };
+class BusyError extends Error { constructor(m) { super(m); this.name = 'BusyError'; } };
 
 setup_wasmlator = function (cb, logPrint) {
 	/* local state of all loaded wasmlator-content */
@@ -21,9 +21,9 @@ setup_wasmlator = function (cb, logPrint) {
 	/* interact with the busy-areas (to prevent nested execution of commands) */
 	_state.start = function (cb) {
 		if (_state.failed)
-			throw BusyError('Wasmlator.js failed and is in an inoperable state');
+			throw new BusyError('Wasmlator.js failed and is in an inoperable state');
 		if (_state.busy > 0)
-			throw BusyError('Wasmlator.js is currently busy with another operation');
+			throw new BusyError('Wasmlator.js is currently busy with another operation');
 
 		/* setup the busy-state and configure the completed-callback */
 		_state.busy = 1;
@@ -44,9 +44,9 @@ setup_wasmlator = function (cb, logPrint) {
 
 	/* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
 	*	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
-	class FatalError extends Error { };
-	class LoadError extends Error { };
-	class UnknownExitError extends Error { };
+	class FatalError extends Error { constructor(m) { super(m); this.name = 'FatalError'; } };
+	class LoadError extends Error { constructor(m) { super(m); this.name = 'LoadError'; } };
+	class UnknownExitError extends Error { constructor(m) { super(m); this.name = 'UnknownExitError'; } };
 	_state.controlled = function (fn) {
 		try {
 			/* skip the function call if the state is considered failed */

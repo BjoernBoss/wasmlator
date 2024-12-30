@@ -74,6 +74,9 @@ namespace env {
 
 		/* invoked when the last configured block has been loaded */
 		virtual void blockLoaded() = 0;
+
+		/* invoked when the system should tear itself down */
+		virtual void shutdown() = 0;
 	};
 
 	/* base of exceptions thrown by the execution environment */

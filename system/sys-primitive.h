@@ -76,5 +76,6 @@ namespace sys {
 		std::vector<env::BlockExport> setupBlock(wasm::Module& mod) final;
 		void coreLoaded() final;
 		void blockLoaded() final;
+		void shutdown() final;
 	};
 }

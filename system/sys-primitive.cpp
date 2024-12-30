@@ -196,3 +196,8 @@ void sys::Primitive::blockLoaded() {
 		env::Instance()->startNewBlock();
 	}
 }
+void sys::Primitive::shutdown() {
+	/* clearing the system-reference will also release this object */
+	gen::ClearInstance();
+	env::ClearInstance();
+}

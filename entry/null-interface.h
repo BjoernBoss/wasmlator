@@ -5,16 +5,17 @@
 
 struct NullSystem final : public env::System {
 	NullSystem() {}
-	void setupCore(wasm::Module& mod) override {}
-	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) override { return {}; }
-	void coreLoaded() override {}
-	void blockLoaded() override {}
+	void setupCore(wasm::Module& mod) final {}
+	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) final { return {}; }
+	void coreLoaded() final {}
+	void blockLoaded() final {}
+	void shutdown() final {}
 };
 
 struct NullTranslator final : public gen::Translator {
 	NullTranslator() = default;
-	void started(env::guest_t address) override {}
-	void completed() override {}
-	gen::Instruction fetch(env::guest_t address) override { return {}; }
-	void produce(env::guest_t address, const uintptr_t* self, size_t count) override {}
+	void started(env::guest_t address) final {}
+	void completed() final {}
+	gen::Instruction fetch(env::guest_t address) final { return {}; }
+	void produce(env::guest_t address, const uintptr_t* self, size_t count) final {}
 };

@@ -171,11 +171,11 @@ void env::Process::startNewBlock() {
 	fLoadBlock();
 }
 
-const env::System& env::Process::system() const {
-	return *pSystem.get();
+const env::System* env::Process::system() const {
+	return pSystem.get();
 }
-env::System& env::Process::system() {
-	return *pSystem.get();
+env::System* env::Process::system() {
+	return pSystem.get();
 }
 const env::Context& env::Process::context() const {
 	return pContext;

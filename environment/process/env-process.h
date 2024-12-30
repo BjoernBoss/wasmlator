@@ -62,8 +62,8 @@ namespace env {
 		void startNewBlock();
 
 	public:
-		const env::System& system() const;
-		env::System& system();
+		const env::System* system() const;
+		env::System* system();
 		const env::Context& context() const;
 		env::Context& context();
 		const env::Memory& memory() const;
