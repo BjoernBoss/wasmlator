@@ -26,8 +26,8 @@ namespace gen::detail {
 	class InteractBuilder {
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
-		void setupCoreImports(wasm::Module& mod) const;
-		void finalizeCoreBody(wasm::Module& mod) const;
-		void setupBlockImports(wasm::Module& mod, detail::InteractState& state) const;
+		void setupCoreImports() const;
+		void finalizeCoreBody() const;
+		void setupBlockImports(detail::InteractState& state) const;
 	};
 }

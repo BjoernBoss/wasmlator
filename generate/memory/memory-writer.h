@@ -8,7 +8,6 @@ namespace gen::detail {
 		friend class detail::MemoryBuilder;
 	private:
 		const detail::MemoryState& pState;
-		wasm::Sink& pSink;
 		mutable wasm::Variable pAccess;
 		mutable wasm::Variable pValuei32;
 		mutable wasm::Variable pValuei64;
@@ -16,7 +15,7 @@ namespace gen::detail {
 		mutable wasm::Variable pValuef64;
 
 	public:
-		MemoryWriter(const detail::MemoryState& state, wasm::Sink& sink);
+		MemoryWriter(const detail::MemoryState& state);
 
 	private:
 		void fCheckCache(uint32_t cache) const;

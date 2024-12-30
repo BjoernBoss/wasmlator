@@ -47,8 +47,8 @@ namespace gen::detail {
 
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
-		void setupCoreImports(wasm::Module& mod);
-		void setupCoreBody(wasm::Module& mod, const wasm::Memory& memory, const wasm::Memory& physical) const;
-		void setupBlockImports(wasm::Module& mod, const wasm::Memory& memory, const wasm::Memory& physical, detail::MemoryState& state) const;
+		void setupCoreImports();
+		void setupCoreBody(const wasm::Memory& memory, const wasm::Memory& physical) const;
+		void setupBlockImports(const wasm::Memory& memory, const wasm::Memory& physical, detail::MemoryState& state) const;
 	};
 }

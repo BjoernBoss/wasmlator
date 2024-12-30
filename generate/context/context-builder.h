@@ -24,7 +24,7 @@ namespace gen::detail {
 
 	class ContextBuilder {
 	public:
-		void setupCoreImports(wasm::Module& mod);
-		void setupBlockImports(wasm::Module& mod, const wasm::Memory& memory, detail::ContextState& state) const;
+		void setupCoreImports();
+		void setupBlockImports(const wasm::Memory& memory, detail::ContextState& state) const;
 	};
 }

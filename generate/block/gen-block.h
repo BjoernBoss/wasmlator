@@ -11,7 +11,7 @@
 #include "../core/core-builder.h"
 
 namespace gen {
-	/* env::Process instance must be created
+	/* env::Process instance and gen::Generator instance must be created
 	*	Note: blocks must not be flushed mid block-creation */
 	class Block {
 	private:

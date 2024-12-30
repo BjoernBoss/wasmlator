@@ -3,9 +3,7 @@
 
 static host::Logger logger{ u8"gen::block" };
 
-namespace I = wasm::inst;
-
-gen::detail::SuperBlock::SuperBlock(wasm::Sink& sink, const detail::ContextState& context, env::guest_t address) : pSink{ sink }, pContext{ context, sink }, pNextAddress{ address } {}
+gen::detail::SuperBlock::SuperBlock(const detail::ContextState& context, env::guest_t address) : pContext{ context }, pNextAddress{ address } {}
 
 size_t gen::detail::SuperBlock::fLookup(env::guest_t address) const {
 	size_t first = 0, last = pList.size() - 1;
@@ -251,17 +249,17 @@ bool gen::detail::SuperBlock::next() {
 		/* check if the not-decodable stub needs to be added */
 		if (lastAndInvalid) {
 			pContext.makeNotDecodable(pNextAddress);
-			pSink[I::Unreachable()];
+			gen::Add[I::Unreachable()];
 		}
 
 		/* add the single-step-handler */
 		else if (gen::Instance()->singleStep())
-			pSink[I::U64::Const(pNextAddress)];
+			gen::Add[I::U64::Const(pNextAddress)];
 
 		/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued */
 		else {
 			pContext.makeNotReachable(pNextAddress);
-			pSink[I::Unreachable()];
+			gen::Add[I::Unreachable()];
 		}
 		return false;
 	}
@@ -278,36 +276,36 @@ bool gen::detail::SuperBlock::next() {
 		if (target.irreducible && pIt->backwards) {
 			/* allocate the state variable */
 			if (!target.cfg.valid())
-				target.cfg = pSink.local(wasm::Type::i32, str::u8::Build(u8"_cfg_", pIt->target));
+				target.cfg = gen::Sink->local(wasm::Type::i32, str::u8::Build(u8"_cfg_", pIt->target));
 
 			/* add the code to reset the variable upon entry of the loop backwards */
-			pSink[I::U32::Const(0)];
-			pSink[I::Local::Set(target.cfg)];
+			gen::Add[I::U32::Const(0)];
+			gen::Add[I::Local::Set(target.cfg)];
 		}
 
 		/* add the next header (mark the jump as internal and thereby not accessible,
 		*	if its the forward-jump of a resolved irreducible control-flow) */
 		if (pIt->backwards)
-			pStack.push_back({ wasm::Loop{ pSink }, target.address, pIt->last, false });
+			pStack.push_back({ wasm::Loop{ *gen::Sink }, target.address, pIt->last, false });
 		else
-			pStack.push_back({ wasm::Block{ pSink }, target.address, pIt->last, target.irreducible });
+			pStack.push_back({ wasm::Block{ *gen::Sink }, target.address, pIt->last, target.irreducible });
 
 		/* check if the conditional forward-jump of the resolved irreducible control-flow needs to be added */
 		if (!pIt->backwards && target.irreducible) {
 			/* check if the corresponding loop was entered from its neighbors, not by jumping */
-			pSink[I::Local::Get(target.cfg)];
-			pSink[I::U32::EqualZero()];
-			wasm::IfThen _if{ pSink };
+			gen::Add[I::Local::Get(target.cfg)];
+			gen::Add[I::U32::EqualZero()];
+			wasm::IfThen _if{ *gen::Sink };
 
 			/* mark the loop as now being entered in a valid fashion (no need to ensure this is added
 			*	immediately after the loop-header, as they will both have the same first-address, and
 			*	therefore it will be executed before any translator-generated code will be executed) */
-			pSink[I::U32::Const(1)];
-			pSink[I::Local::Set(target.cfg)];
+			gen::Add[I::U32::Const(1)];
+			gen::Add[I::Local::Set(target.cfg)];
 
 			/* add the immediate jump to the actual target address */
 			_if.otherwise();
-			pSink[I::Branch::Direct(pStack.back().target)];
+			gen::Add[I::Branch::Direct(pStack.back().target)];
 		}
 		++pIt;
 	}

@@ -1,67 +1,65 @@
 #include "address-writer.h"
 #include "../generate.h"
 
-namespace I = wasm::inst;
-
-gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host, wasm::Sink& sink) : pMapping{ mapping, sink }, pHost{ host }, pSink{ sink } {}
+gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host) : pMapping{ mapping }, pHost{ host } {}
 
 void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const {
 	if (!pTempAddress.valid())
-		pTempAddress = pSink.local(wasm::Type::i64, u8"_continuation_address");
+		pTempAddress = gen::Sink->local(wasm::Type::i64, u8"_continuation_address");
 
 	/* validate the addresses match */
-	pSink[I::Local::Tee(pTempAddress)];
-	pSink[I::U64::Const(nextAddress)];
-	pSink[I::U64::NotEqual()];
+	gen::Add[I::Local::Tee(pTempAddress)];
+	gen::Add[I::U64::Const(nextAddress)];
+	gen::Add[I::U64::NotEqual()];
 	{
 		/* return the target-address until someone can execute it
 		*	(currently unknown whether or not it has been translated yet) */
-		wasm::IfThen _if{ pSink };
-		pSink[I::Local::Get(pTempAddress)];
-		pSink[I::Return()];
+		wasm::IfThen _if{ *gen::Sink };
+		gen::Add[I::Local::Get(pTempAddress)];
+		gen::Add[I::Return()];
 	}
 }
 
 void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nextAddress) const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
-		pSink[I::U64::Const(address)];
-		pSink[I::Return()];
+		gen::Add[I::U64::Const(address)];
+		gen::Add[I::Return()];
 		return;
 	}
 	detail::PlaceAddress target = pHost.pushLocal(address);
 
 	/* check if an immediate call can be added */
 	if (target.thisModule)
-		pSink[I::Call::Direct(target.function)];
+		gen::Add[I::Call::Direct(target.function)];
 
 	/* add the lookup via the table */
 	else {
 		/* check if the slot-value needs to be verified and potentially be written back */
 		if (!target.alreadyExists) {
-			pSink[I::U32::Const(target.index)];
-			pSink[I::Table::Get(pHost.addresses())];
-			pSink[I::Ref::IsNull()];
+			gen::Add[I::U32::Const(target.index)];
+			gen::Add[I::Table::Get(pHost.addresses())];
+			gen::Add[I::Ref::IsNull()];
 
 			/* perform the lookup and write the function back to the table */
 			{
-				wasm::IfThen _if{ pSink };
+				wasm::IfThen _if{ *gen::Sink };
 
 				/* index for the address to be written to */
-				pSink[I::U32::Const(target.index)];
+				gen::Add[I::U32::Const(target.index)];
 
 				/* lookup the actual function corresponding to the address */
-				pSink[I::U64::Const(address)];
+				gen::Add[I::U64::Const(address)];
 				pMapping.makeGetFunction();
 
 				/* write the address to the table */
-				pSink[I::Table::Set(pHost.addresses())];
+				gen::Add[I::Table::Set(pHost.addresses())];
 			}
 		}
 
 		/* perform the call */
-		pSink[I::U32::Const(target.index)];
-		pSink[I::Call::Indirect(pHost.addresses(), pMapping.blockPrototype())];
+		gen::Add[I::U32::Const(target.index)];
+		gen::Add[I::Call::Indirect(pHost.addresses(), pMapping.blockPrototype())];
 	}
 
 	/* add the final landing-pad of the return (to validate the return-address) */
@@ -70,7 +68,7 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
-		pSink[I::Return()];
+		gen::Add[I::Return()];
 		return;
 	}
 
@@ -81,48 +79,48 @@ void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) cons
 void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
-		pSink[I::U64::Const(address)];
-		pSink[I::Return()];
+		gen::Add[I::U64::Const(address)];
+		gen::Add[I::Return()];
 		return;
 	}
 	detail::PlaceAddress target = pHost.pushLocal(address);
 
 	/* check if an immediate tail-call can be added */
 	if (target.thisModule) {
-		pSink[I::Call::Tail(target.function)];
+		gen::Add[I::Call::Tail(target.function)];
 		return;
 	}
 
 	/* check if the slot-value needs to be verified and potentially be written back */
 	if (!target.alreadyExists) {
-		pSink[I::U32::Const(target.index)];
-		pSink[I::Table::Get(pHost.addresses())];
-		pSink[I::Ref::IsNull()];
+		gen::Add[I::U32::Const(target.index)];
+		gen::Add[I::Table::Get(pHost.addresses())];
+		gen::Add[I::Ref::IsNull()];
 
 		/* perform the lookup and write the function back to the table */
 		{
-			wasm::IfThen _if{ pSink };
+			wasm::IfThen _if{ *gen::Sink };
 
 			/* index for the address to be written to */
-			pSink[I::U32::Const(target.index)];
+			gen::Add[I::U32::Const(target.index)];
 
 			/* lookup the actual function corresponding to the address */
-			pSink[I::U64::Const(address)];
+			gen::Add[I::U64::Const(address)];
 			pMapping.makeGetFunction();
 
 			/* write the address to the table */
-			pSink[I::Table::Set(pHost.addresses())];
+			gen::Add[I::Table::Set(pHost.addresses())];
 		}
 	}
 
 	/* perform the 'jump' to the address */
-	pSink[I::U32::Const(target.index)];
-	pSink[I::Call::IndirectTail(pHost.addresses(), pMapping.blockPrototype())];
+	gen::Add[I::U32::Const(target.index)];
+	gen::Add[I::Call::IndirectTail(pHost.addresses(), pMapping.blockPrototype())];
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
-		pSink[I::Return()];
+		gen::Add[I::Return()];
 		return;
 	}
 
@@ -132,10 +130,10 @@ void gen::detail::AddressWriter::makeJumpIndirect() const {
 void gen::detail::AddressWriter::makeReturn() const {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
-		pSink[I::Return()];
+		gen::Add[I::Return()];
 		return;
 	}
 
 	/* add the direct return, which will ensure a validation of the target address */
-	pSink[I::Return()];
+	gen::Add[I::Return()];
 }

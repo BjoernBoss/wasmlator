@@ -57,7 +57,6 @@ namespace gen::detail {
 		std::vector<Entry> pList;
 		std::vector<uintptr_t> pChunk;
 		std::set<detail::InstRange> pRanges;
-		wasm::Sink& pSink;
 		detail::ContextWriter pContext;
 		detail::RangeIt pIt;
 		env::guest_t pNextAddress = 0;
@@ -65,7 +64,7 @@ namespace gen::detail {
 		size_t pIndex = 0;
 
 	public:
-		SuperBlock(wasm::Sink& sink, const detail::ContextState& context, env::guest_t address);
+		SuperBlock(const detail::ContextState& context, env::guest_t address);
 
 	private:
 		size_t fLookup(env::guest_t address) const;

@@ -1,14 +1,12 @@
-#include "interact-writer.h"
+#include "../generate.h"
 
-namespace I = wasm::inst;
-
-gen::detail::InteractWriter::InteractWriter(const detail::InteractState& state, wasm::Sink& sink) : pState{ state }, pSink{ sink } {}
+gen::detail::InteractWriter::InteractWriter(const detail::InteractState& state) : pState{ state } {}
 
 void gen::detail::InteractWriter::makeVoid(uint32_t index) const {
-	pSink[I::U32::Const(index)];
-	pSink[I::Call::Direct(pState.invokeVoid)];
+	gen::Add[I::U32::Const(index)];
+	gen::Add[I::Call::Direct(pState.invokeVoid)];
 }
 void gen::detail::InteractWriter::makeParam(uint32_t index) const {
-	pSink[I::U32::Const(index)];
-	pSink[I::Call::Direct(pState.invokeParam)];
+	gen::Add[I::U32::Const(index)];
+	gen::Add[I::Call::Direct(pState.invokeParam)];
 }

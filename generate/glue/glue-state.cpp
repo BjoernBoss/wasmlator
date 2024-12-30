@@ -1,7 +1,5 @@
 #include "glue-state.h"
 
-namespace I = wasm::inst;
-
 gen::detail::GlueState::GlueState(wasm::Module& mod) : pModule{ mod } {}
 void gen::detail::GlueState::setup() {
 	/* add the get-export import function */

@@ -10,7 +10,6 @@ namespace gen {
 	*	Note: after close/destructor, nothing must be done to the module or configurations to env::Process (will close the module as well) */
 	class Core {
 	private:
-		wasm::Module& pModule;
 		detail::InteractBuilder pInteract;
 		detail::ProcessBuilder pProcess;
 		bool pClosed = false;

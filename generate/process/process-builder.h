@@ -29,8 +29,8 @@ namespace gen::detail {
 
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
-		void setupCoreImports(wasm::Module& mod);
-		void setupCoreBody(wasm::Module& mod);
-		void finalizeCoreBody(wasm::Module& mod) const;
+		void setupCoreImports();
+		void setupCoreBody();
+		void finalizeCoreBody() const;
 	};
 }

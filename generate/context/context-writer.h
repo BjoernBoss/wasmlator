@@ -7,14 +7,13 @@ namespace gen::detail {
 	class ContextWriter {
 	private:
 		const detail::ContextState& pState;
-		wasm::Sink& pSink;
 		mutable wasm::Variable pValuei32;
 		mutable wasm::Variable pValuei64;
 		mutable wasm::Variable pValuef32;
 		mutable wasm::Variable pValuef64;
 
 	public:
-		ContextWriter(const detail::ContextState& state, wasm::Sink& sink);
+		ContextWriter(const detail::ContextState& state);
 
 	private:
 		void fCheckRange(uint32_t offset, gen::MemoryType type) const;

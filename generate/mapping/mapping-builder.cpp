@@ -1,43 +1,40 @@
-#include "mapping-builder.h"
+#include "../generate.h"
 #include "../environment/mapping/env-mapping.h"
 #include "../environment/process/process-access.h"
-#include "../generate.h"
-
-namespace I = wasm::inst;
 
 void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
 }
-void gen::detail::MappingBuilder::setupCoreImports(wasm::Module& mod) {
+void gen::detail::MappingBuilder::setupCoreImports() {
 	/* add the import to the lookup function */
-	wasm::Prototype prototype = mod.prototype(u8"main_resolve_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	pResolve = mod.function(u8"main_resolve", prototype, wasm::Import{ u8"main" });
+	wasm::Prototype prototype = gen::Module->prototype(u8"main_resolve_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
+	pResolve = gen::Module->function(u8"main_resolve", prototype, wasm::Import{ u8"main" });
 
 	/* add the import to the get-export function */
-	prototype = mod.prototype(u8"glue_get_function_type", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
-	pGetFunction = mod.function(u8"glue_get_function", prototype, wasm::Import{ u8"glue" });
+	prototype = gen::Module->prototype(u8"glue_get_function_type", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::refFunction });
+	pGetFunction = gen::Module->function(u8"glue_get_function", prototype, wasm::Import{ u8"glue" });
 
 	/* define the bindings passed to the blocks */
 	env::detail::ProcessAccess::AddCoreBinding(u8"map", u8"map_functions");
 	env::detail::ProcessAccess::AddCoreBinding(u8"map", u8"map_lookup");
 
 	/* setup the block-type for the core */
-	pBlockPrototype = mod.prototype(u8"block_prototype", {}, { wasm::Type::i64 });
+	pBlockPrototype = gen::Module->prototype(u8"block_prototype", {}, { wasm::Type::i64 });
 }
-void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::Memory& memory) const {
+void gen::detail::MappingBuilder::setupCoreBody(const wasm::Memory& memory) const {
 	detail::MappingState state;
 
 	/* add the function-table and total-count (first slot is always null-slot to allow lookup-failure to be indicated by zero-return) */
-	state.functions = mod.table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Export{});
-	wasm::Global functionCount = mod.global(u8"map_function_count", wasm::Type::i32, true);
-	mod.value(functionCount, wasm::Value::MakeU32(1));
+	state.functions = gen::Module->table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Export{});
+	wasm::Global functionCount = gen::Module->global(u8"map_function_count", wasm::Type::i32, true);
+	gen::Module->value(functionCount, wasm::Value::MakeU32(1));
 
 	/* add the lookup function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-		state.lookup = mod.function(u8"map_lookup", prototype, wasm::Export{});
+		wasm::Prototype prototype = gen::Module->prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
+		state.lookup = gen::Module->function(u8"map_lookup", prototype, wasm::Export{});
 		wasm::Sink sink{ state.lookup };
 		wasm::Variable address = sink.param(0);
 		wasm::Variable hashAddress = sink.local(wasm::Type::i32, u8"hash_address");
@@ -95,8 +92,8 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 	/* add the load-block function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_reserve_type", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
-		wasm::Sink sink{ mod.function(u8"map_reserve", prototype, wasm::Export{}) };
+		wasm::Prototype prototype = gen::Module->prototype(u8"map_reserve_type", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
+		wasm::Sink sink{ gen::Module->function(u8"map_reserve", prototype, wasm::Export{}) };
 		wasm::Variable finalCount = sink.local(wasm::Type::i32, u8"count");
 		wasm::Variable tableSize = sink.local(wasm::Type::i32, u8"table_size");
 
@@ -137,8 +134,8 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 	/* add the define function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_define_type", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-		wasm::Sink sink{ mod.function(u8"map_define", prototype, wasm::Export{}) };
+		wasm::Prototype prototype = gen::Module->prototype(u8"map_define_type", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
+		wasm::Sink sink{ gen::Module->function(u8"map_define", prototype, wasm::Export{}) };
 		wasm::Variable func = sink.local(wasm::Type::refFunction, u8"exported_function");
 		wasm::Variable index = sink.local(wasm::Type::i32, u8"function_index");
 
@@ -175,8 +172,8 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 
 	/* add the blocks-execute function */
 	{
-		wasm::Prototype prototype = mod.prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
-		wasm::Sink sink{ mod.function(u8"map_execute", prototype, wasm::Export{}) };
+		wasm::Prototype prototype = gen::Module->prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
+		wasm::Sink sink{ gen::Module->function(u8"map_execute", prototype, wasm::Export{}) };
 
 		sink[I::Param::Get(0)];
 
@@ -207,14 +204,14 @@ void gen::detail::MappingBuilder::setupCoreBody(wasm::Module& mod, const wasm::M
 		}
 	}
 }
-void gen::detail::MappingBuilder::setupBlockImports(wasm::Module& mod, wasm::Prototype& blockPrototype, detail::MappingState& state) const {
+void gen::detail::MappingBuilder::setupBlockImports(wasm::Prototype& blockPrototype, detail::MappingState& state) const {
 	/* add the function-table import */
-	state.functions = mod.table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Import{ u8"map" });
+	state.functions = gen::Module->table(u8"map_functions", true, wasm::Limit{ detail::MinFunctionList }, wasm::Import{ u8"map" });
 
 	/* add the function-import for the block-lookup */
-	wasm::Prototype prototype = mod.prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	state.lookup = mod.function(u8"map_lookup", prototype, wasm::Import{ u8"map" });
+	wasm::Prototype prototype = gen::Module->prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
+	state.lookup = gen::Module->function(u8"map_lookup", prototype, wasm::Import{ u8"map" });
 
 	/* setup the general block-type */
-	state.blockPrototype = (blockPrototype = mod.prototype(u8"block_prototype", {}, { wasm::Type::i64 }));
+	state.blockPrototype = (blockPrototype = gen::Module->prototype(u8"block_prototype", {}, { wasm::Type::i64 }));
 }

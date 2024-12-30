@@ -4,7 +4,7 @@
 #include "../generate/generate.h"
 
 struct NullSystem final : public env::System {
-	NullSystem() : env::System{ 0x1000, 2, 2 } {}
+	NullSystem() {}
 	void setupCore(wasm::Module& mod) override {}
 	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) override { return {}; }
 	void coreLoaded() override {}

@@ -1,14 +1,9 @@
-#include "gen-writer.h"
+#include "../generate.h"
 
-namespace I = wasm::inst;
-
-gen::Writer::Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
-	pSink{ sink }, pSuperBlock{ block }, pMemory{ memory, sink }, pContext{ context, sink }, pAddress{ mapping, addresses, sink }, pInteract{ interact, sink } {
+gen::Writer::Writer(detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
+	pSuperBlock{ block }, pMemory{ memory }, pContext{ context }, pAddress{ mapping, addresses }, pInteract{ interact } {
 }
 
-wasm::Sink& gen::Writer::sink() const {
-	return pSink;
-}
 const wasm::Target* gen::Writer::hasTarget(env::guest_t target) const {
 	detail::InstTarget lookup = pSuperBlock.lookup(target);
 	return (lookup.directJump ? lookup.target : 0);
@@ -17,7 +12,7 @@ void gen::Writer::jump(env::guest_t target) const {
 	/* check if a branch can be inserted */
 	detail::InstTarget lookup = pSuperBlock.lookup(target);
 	if (lookup.target != 0)
-		pSink[I::Branch::Direct(*lookup.target)];
+		gen::Add[I::Branch::Direct(*lookup.target)];
 
 	/* add the redirecting jump */
 	else

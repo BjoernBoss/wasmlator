@@ -38,7 +38,6 @@ namespace gen::detail {
 	private:
 		std::unordered_map<env::guest_t, Placement> pTranslated;
 		std::priority_queue<Queued> pQueue;
-		wasm::Module& pModule;
 		wasm::Table pAddresses;
 		wasm::Prototype pBlockPrototype;
 		size_t pDepth = 0;
@@ -46,7 +45,7 @@ namespace gen::detail {
 		bool pNeedsStartup = false;
 
 	public:
-		Addresses(wasm::Module& mod);
+		Addresses() = default;
 
 	private:
 		Placement& fPush(env::guest_t address, size_t depth);

@@ -7,10 +7,9 @@ namespace gen::detail {
 	class MappingWriter {
 	private:
 		const detail::MappingState& pState;
-		wasm::Sink& pSink;
 
 	public:
-		MappingWriter(const detail::MappingState& state, wasm::Sink& sink);
+		MappingWriter(const detail::MappingState& state);
 
 	public:
 		void makeGetFunction() const;

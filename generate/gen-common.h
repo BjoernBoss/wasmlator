@@ -12,6 +12,8 @@
 #include "../environment/env-common.h"
 #include "../interface/host.h"
 
+namespace I = wasm::inst;
+
 namespace gen {
 	class Writer;
 	class Generator;

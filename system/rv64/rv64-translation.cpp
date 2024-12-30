@@ -2,18 +2,16 @@
 
 static host::Logger logger{ u8"rv64::cpu" };
 
-namespace I = wasm::inst;
-
 wasm::Variable rv64::Translate::fTemp32(size_t index) {
 	wasm::Variable& var = pTemp[4 + index];
 	if (!var.valid())
-		var = pWriter->sink().local(wasm::Type::i32, str::u8::Build(u8"_temp_i32_", index));
+		var = gen::Sink->local(wasm::Type::i32, str::u8::Build(u8"_temp_i32_", index));
 	return var;
 }
 wasm::Variable rv64::Translate::fTemp64(size_t index) {
 	wasm::Variable& var = pTemp[index];
 	if (!var.valid())
-		var = pWriter->sink().local(wasm::Type::i64, str::u8::Build(u8"_temp_i64_", index));
+		var = gen::Sink->local(wasm::Type::i64, str::u8::Build(u8"_temp_i64_", index));
 	return var;
 }
 
@@ -23,7 +21,7 @@ bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 		return true;
 	}
 	else if (forceNull)
-		pWriter->sink()[half ? I::U32::Const(0) : I::U64::Const(0)];
+		gen::Add[half ? I::U32::Const(0) : I::U64::Const(0)];
 	return false;
 }
 bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
@@ -32,7 +30,7 @@ bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 		return true;
 	}
 	else if (forceNull)
-		pWriter->sink()[half ? I::U32::Const(0) : I::U64::Const(0)];
+		gen::Add[half ? I::U32::Const(0) : I::U64::Const(0)];
 	return false;
 }
 void rv64::Translate::fStoreDest() const {
@@ -40,11 +38,9 @@ void rv64::Translate::fStoreDest() const {
 }
 
 void rv64::Translate::fMakeJAL() {
-	wasm::Sink& sink = pWriter->sink();
-
 	/* write the next pc to the destination register */
 	if (pInst->dest != reg::Zero) {
-		sink[I::U64::Const(pNextAddress)];
+		gen::Add[I::U64::Const(pNextAddress)];
 		fStoreDest();
 	}
 
@@ -53,20 +49,20 @@ void rv64::Translate::fMakeJAL() {
 		wasm::Variable addr = fTemp64(0);
 
 		/* write the target address to the stack */
-		sink[I::I64::Const(pInst->imm)];
+		gen::Add[I::I64::Const(pInst->imm)];
 		if (fLoadSrc1(false, false))
-			sink[I::I64::Add()];
+			gen::Add[I::I64::Add()];
 
 		/* perform the alignment validation */
-		sink[I::Local::Tee(addr)];
-		sink[I::U64::Shrink()];
-		sink[I::U32::Const(1)];
-		sink[I::U32::And()];
+		gen::Add[I::Local::Tee(addr)];
+		gen::Add[I::U64::Shrink()];
+		gen::Add[I::U32::Const(1)];
+		gen::Add[I::U32::And()];
 		{
-			wasm::IfThen _if{ sink };
+			wasm::IfThen _if{ *gen::Sink };
 			pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 		}
-		sink[I::Local::Get(addr)];
+		gen::Add[I::Local::Get(addr)];
 
 		/* check if the instruction can be considered a return */
 		if (pInst->isRet())
@@ -95,7 +91,6 @@ void rv64::Translate::fMakeJAL() {
 }
 void rv64::Translate::fMakeBranch() const {
 	env::guest_t address = pAddress + pInst->imm;
-	wasm::Sink& sink = pWriter->sink();
 
 	/* check if the branch can be discarded, as it is misaligned */
 	if (pInst->isMisAligned(pAddress)) {
@@ -113,28 +108,28 @@ void rv64::Translate::fMakeBranch() const {
 	/* write the result of the condition to the stack */
 	if (pInst->opcode == rv64::Opcode::branch_eq) {
 		if (!fLoadSrc1(false, false) || !fLoadSrc2(false, false))
-			sink[I::U64::EqualZero()];
+			gen::Add[I::U64::EqualZero()];
 		else
-			sink[I::U64::Equal()];
+			gen::Add[I::U64::Equal()];
 	}
 	else {
 		fLoadSrc1(true, false);
 		fLoadSrc2(true, false);
 		switch (pInst->opcode) {
 		case rv64::Opcode::branch_ne:
-			sink[I::U64::NotEqual()];
+			gen::Add[I::U64::NotEqual()];
 			break;
 		case rv64::Opcode::branch_lt_s:
-			sink[I::I64::Less()];
+			gen::Add[I::I64::Less()];
 			break;
 		case rv64::Opcode::branch_ge_s:
-			sink[I::I64::GreaterEqual()];
+			gen::Add[I::I64::GreaterEqual()];
 			break;
 		case rv64::Opcode::branch_lt_u:
-			sink[I::U64::Less()];
+			gen::Add[I::U64::Less()];
 			break;
 		case rv64::Opcode::branch_ge_u:
-			sink[I::U64::GreaterEqual()];
+			gen::Add[I::U64::GreaterEqual()];
 			break;
 		default:
 			logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -145,17 +140,15 @@ void rv64::Translate::fMakeBranch() const {
 	/* check if the target can directly be branched to */
 	const wasm::Target* target = pWriter->hasTarget(address);
 	if (target != 0) {
-		sink[I::Branch::If(*target)];
+		gen::Add[I::Branch::If(*target)];
 		return;
 	}
 
 	/* add the optional jump to the target */
-	wasm::IfThen _if{ sink };
+	wasm::IfThen _if{ *gen::Sink };
 	pWriter->jump(address);
 }
 void rv64::Translate::fMakeALUImm() const {
-	wasm::Sink& sink = pWriter->sink();
-
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
@@ -166,99 +159,99 @@ void rv64::Translate::fMakeALUImm() const {
 		if (pInst->imm == 0)
 			fLoadSrc1(true, false);
 		else {
-			sink[I::I64::Const(pInst->imm)];
+			gen::Add[I::I64::Const(pInst->imm)];
 			if (fLoadSrc1(false, false))
-				sink[I::U64::Add()];
+				gen::Add[I::U64::Add()];
 		}
 		break;
 	case rv64::Opcode::add_imm_half:
 		if (pInst->imm == 0)
 			fLoadSrc1(true, true);
 		else {
-			sink[I::I32::Const(pInst->imm)];
+			gen::Add[I::I32::Const(pInst->imm)];
 			if (fLoadSrc1(false, true))
-				sink[I::U32::Add()];
+				gen::Add[I::U32::Add()];
 		}
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_imm:
-		sink[I::I64::Const(pInst->imm)];
+		gen::Add[I::I64::Const(pInst->imm)];
 		if (fLoadSrc1(false, false))
-			sink[I::U64::XOr()];
+			gen::Add[I::U64::XOr()];
 		break;
 	case rv64::Opcode::or_imm:
-		sink[I::I64::Const(pInst->imm)];
+		gen::Add[I::I64::Const(pInst->imm)];
 		if (fLoadSrc1(false, false))
-			sink[I::U64::Or()];
+			gen::Add[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_imm:
 		if (fLoadSrc1(true, false)) {
-			sink[I::I64::Const(pInst->imm)];
-			sink[I::U64::And()];
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::U64::And()];
 		}
 		break;
 	case rv64::Opcode::shift_left_logic_imm:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
 		if (fLoadSrc1(true, false)) {
-			sink[I::I64::Const(pInst->imm)];
-			sink[I::U64::ShiftLeft()];
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::U64::ShiftLeft()];
 		}
 		break;
 	case rv64::Opcode::shift_left_logic_imm_half:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
 		if (fLoadSrc1(true, true)) {
-			sink[I::I32::Const(pInst->imm)];
-			sink[I::U32::ShiftLeft()];
+			gen::Add[I::I32::Const(pInst->imm)];
+			gen::Add[I::U32::ShiftLeft()];
 		}
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_right_logic_imm:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
 		if (fLoadSrc1(true, false)) {
-			sink[I::I64::Const(pInst->imm)];
-			sink[I::U64::ShiftRight()];
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::U64::ShiftRight()];
 		}
 		break;
 	case rv64::Opcode::shift_right_logic_imm_half:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
 		if (fLoadSrc1(true, true)) {
-			sink[I::I32::Const(pInst->imm)];
-			sink[I::U32::ShiftRight()];
+			gen::Add[I::I32::Const(pInst->imm)];
+			gen::Add[I::U32::ShiftRight()];
 		}
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_right_arith_imm:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
 		if (fLoadSrc1(true, false)) {
-			sink[I::I64::Const(pInst->imm)];
-			sink[I::I64::ShiftRight()];
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::I64::ShiftRight()];
 		}
 		break;
 	case rv64::Opcode::shift_right_arith_imm_half:
 		/* no need to mask shift as immediate is already restricted to 6 bits */
 		if (fLoadSrc1(true, true)) {
-			sink[I::I32::Const(pInst->imm)];
-			sink[I::I32::ShiftRight()];
+			gen::Add[I::I32::Const(pInst->imm)];
+			gen::Add[I::I32::ShiftRight()];
 		}
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::set_less_than_s_imm:
 		if (fLoadSrc1(false, false)) {
-			sink[I::I64::Const(pInst->imm)];
-			sink[I::I64::Less()];
-			sink[I::U32::Expand()];
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::I64::Less()];
+			gen::Add[I::U32::Expand()];
 		}
 		else
-			sink[I::U64::Const(pInst->imm > 0 ? 1 : 0)];
+			gen::Add[I::U64::Const(pInst->imm > 0 ? 1 : 0)];
 		break;
 	case rv64::Opcode::set_less_than_u_imm:
 		if (fLoadSrc1(false, false)) {
-			sink[I::I64::Const(pInst->imm)];
-			sink[I::U64::Less()];
-			sink[I::U32::Expand()];
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::U64::Less()];
+			gen::Add[I::U32::Expand()];
 		}
 		else
-			sink[I::U64::Const(pInst->imm != 0 ? 1 : 0)];
+			gen::Add[I::U64::Const(pInst->imm != 0 ? 1 : 0)];
 		break;
 	default:
 		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -269,15 +262,13 @@ void rv64::Translate::fMakeALUImm() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeALUReg() const {
-	wasm::Sink& sink = pWriter->sink();
-
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
 
 	/* check if the two sources are null, in which case nothing needs to be done */
 	if (pInst->src1 == reg::Zero && pInst->src2 == reg::Zero) {
-		sink[I::U64::Const(0)];
+		gen::Add[I::U64::Const(0)];
 		fStoreDest();
 		return;
 	}
@@ -285,7 +276,7 @@ void rv64::Translate::fMakeALUReg() const {
 	/* check if the operation can be short-circuited */
 	if ((pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) && (pInst->opcode == rv64::Opcode::and_reg ||
 		pInst->opcode == rv64::Opcode::mul_reg || pInst->opcode == rv64::Opcode::mul_reg_half)) {
-		sink[I::U64::Const(0)];
+		gen::Add[I::U64::Const(0)];
 		fStoreDest();
 		return;
 	}
@@ -295,93 +286,93 @@ void rv64::Translate::fMakeALUReg() const {
 	case rv64::Opcode::add_reg:
 		fLoadSrc1(false, false);
 		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
-			sink[I::U64::Add()];
+			gen::Add[I::U64::Add()];
 		break;
 	case rv64::Opcode::add_reg_half:
 		fLoadSrc1(false, true);
 		if (pInst->src1 != reg::Zero && fLoadSrc2(false, true))
-			sink[I::U32::Add()];
-		sink[I::I32::Expand()];
+			gen::Add[I::U32::Add()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::sub_reg:
 		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
-			sink[I::U64::Sub()];
+			gen::Add[I::U64::Sub()];
 		break;
 	case rv64::Opcode::sub_reg_half:
 		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
-			sink[I::U32::Sub()];
-		sink[I::I32::Expand()];
+			gen::Add[I::U32::Sub()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_reg:
 		fLoadSrc1(false, false);
 		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
-			sink[I::U64::XOr()];
+			gen::Add[I::U64::XOr()];
 		break;
 	case rv64::Opcode::or_reg:
 		fLoadSrc1(false, false);
 		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
-			sink[I::U64::Or()];
+			gen::Add[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_reg:
 		fLoadSrc1(false, false);
 		fLoadSrc2(false, false);
-		sink[I::U64::And()];
+		gen::Add[I::U64::And()];
 		break;
 	case rv64::Opcode::mul_reg:
 		fLoadSrc1(false, false);
 		fLoadSrc2(false, false);
-		sink[I::I64::Mul()];
+		gen::Add[I::I64::Mul()];
 		break;
 	case rv64::Opcode::mul_reg_half:
 		fLoadSrc1(false, true);
 		fLoadSrc2(false, true);
-		sink[I::I32::Mul()];
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Mul()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_left_logic_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
 		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
-			sink[I::U64::ShiftLeft()];
+			gen::Add[I::U64::ShiftLeft()];
 		break;
 	case rv64::Opcode::shift_left_logic_reg_half:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
 		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
-			sink[I::U32::ShiftLeft()];
-		sink[I::I32::Expand()];
+			gen::Add[I::U32::ShiftLeft()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_right_logic_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
 		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
-			sink[I::U64::ShiftRight()];
+			gen::Add[I::U64::ShiftRight()];
 		break;
 	case rv64::Opcode::shift_right_logic_reg_half:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
 		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
-			sink[I::U32::ShiftRight()];
-		sink[I::I32::Expand()];
+			gen::Add[I::U32::ShiftRight()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::shift_right_arith_reg:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
 		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
-			sink[I::I64::ShiftRight()];
+			gen::Add[I::I64::ShiftRight()];
 		break;
 	case rv64::Opcode::shift_right_arith_reg_half:
 		/* wasm-standard automatically performs masking of value, identical to requirements of riscv */
 		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
-			sink[I::I32::ShiftRight()];
-		sink[I::I32::Expand()];
+			gen::Add[I::I32::ShiftRight()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::set_less_than_s_reg:
 		fLoadSrc1(true, false);
 		fLoadSrc2(true, false);
-		sink[I::I64::Less()];
-		sink[I::U32::Expand()];
+		gen::Add[I::I64::Less()];
+		gen::Add[I::U32::Expand()];
 		break;
 	case rv64::Opcode::set_less_than_u_reg:
 		fLoadSrc1(true, false);
 		fLoadSrc2(true, false);
-		sink[I::U64::Less()];
-		sink[I::U32::Expand()];
+		gen::Add[I::U64::Less()];
+		gen::Add[I::U32::Expand()];
 		break;
 	default:
 		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -392,16 +383,14 @@ void rv64::Translate::fMakeALUReg() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeLoad() const {
-	wasm::Sink& sink = pWriter->sink();
-
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
 
 	/* compute the destination address and write it to the stack */
-	sink[I::I64::Const(pInst->imm)];
+	gen::Add[I::I64::Const(pInst->imm)];
 	if (fLoadSrc1(false, false))
-		sink[I::U64::Add()];
+		gen::Add[I::U64::Add()];
 
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
@@ -435,12 +424,10 @@ void rv64::Translate::fMakeLoad() const {
 	fStoreDest();
 }
 void rv64::Translate::fMakeStore() const {
-	wasm::Sink& sink = pWriter->sink();
-
 	/* compute the destination address and write it to the stack */
-	sink[I::I64::Const(pInst->imm)];
+	gen::Add[I::I64::Const(pInst->imm)];
 	if (fLoadSrc1(false, false))
-		sink[I::U64::Add()];
+		gen::Add[I::U64::Add()];
 
 	/* write the source value to the stack */
 	fLoadSrc2(true, false);
@@ -465,8 +452,6 @@ void rv64::Translate::fMakeStore() const {
 	}
 }
 void rv64::Translate::fMakeDivRem() {
-	wasm::Sink& sink = pWriter->sink();
-
 	/* operation-checks to simplify the logic */
 	bool half = (pInst->opcode == rv64::Opcode::div_s_reg_half || pInst->opcode == rv64::Opcode::div_u_reg_half ||
 		pInst->opcode == rv64::Opcode::rem_s_reg_half || pInst->opcode == rv64::Opcode::rem_u_reg_half);
@@ -481,7 +466,7 @@ void rv64::Translate::fMakeDivRem() {
 		return;
 	if (pInst->src2 == reg::Zero) {
 		if (div) {
-			sink[I::I64::Const(-1)];
+			gen::Add[I::I64::Const(-1)];
 			fStoreDest();
 		}
 		else if (pInst->src1 != pInst->dest) {
@@ -497,84 +482,84 @@ void rv64::Translate::fMakeDivRem() {
 	fLoadSrc2(true, half);
 
 	/* check if a division-by-zero will occur */
-	sink[I::Local::Tee(temp)];
-	sink[half ? I::U32::EqualZero() : I::U64::EqualZero()];
-	wasm::IfThen zero{ sink, u8"", { type }, {} };
+	gen::Add[I::Local::Tee(temp)];
+	gen::Add[half ? I::U32::EqualZero() : I::U64::EqualZero()];
+	wasm::IfThen zero{ *gen::Sink, u8"", { type }, {} };
 
 	/* write the division-by-zero result to the stack (for remainder, its just the first operand) */
 	if (div) {
-		sink[I::Drop()];
-		sink[I::I64::Const(-1)];
+		gen::Add[I::Drop()];
+		gen::Add[I::I64::Const(-1)];
 	}
 	fStoreDest();
 
 	/* restore the second operand */
 	zero.otherwise();
-	sink[I::Local::Get(temp)];
+	gen::Add[I::Local::Get(temp)];
 
 	/* check if a division overflow may occur */
 	wasm::Block overflown;
 	if (sign) {
-		overflown = std::move(wasm::Block{ sink, u8"", { type, type }, {} });
-		sink[half ? I::I32::Const(-1) : I::I64::Const(-1)];
-		sink[half ? I::U32::Equal() : I::U64::Equal()];
-		wasm::IfThen mayOverflow{ sink, u8"", { type }, { type, type } };
+		overflown = std::move(wasm::Block{ *gen::Sink, u8"", { type, type }, {} });
+		gen::Add[half ? I::I32::Const(-1) : I::I64::Const(-1)];
+		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
+		wasm::IfThen mayOverflow{ *gen::Sink, u8"", { type }, { type, type } };
 
 		/* check the second operand (temp can be overwritten, as the divisor is now known) */
-		sink[I::Local::Tee(temp)];
-		sink[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
-		sink[half ? I::U32::Equal() : I::U64::Equal()];
+		gen::Add[I::Local::Tee(temp)];
+		gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
+		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
 		{
-			wasm::IfThen isOverflow{ sink, u8"", {}, { type, type } };
+			wasm::IfThen isOverflow{ *gen::Sink, u8"", {}, { type, type } };
 
 			/* write the overflow result to the destination */
 			if (div)
-				sink[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
+				gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
 			else
-				sink[half ? I::I32::Const(0) : I::I64::Const(0)];
+				gen::Add[half ? I::I32::Const(0) : I::I64::Const(0)];
 			fStoreDest();
-			sink[I::Branch::Direct(overflown)];
+			gen::Add[I::Branch::Direct(overflown)];
 
 			/* restore the operands for the operation */
 			isOverflow.otherwise();
-			sink[I::Local::Get(temp)];
-			sink[half ? I::I32::Const(-1) : I::I64::Const(-1)];
+			gen::Add[I::Local::Get(temp)];
+			gen::Add[half ? I::I32::Const(-1) : I::I64::Const(-1)];
 		}
 
 		/* restore the first operand */
 		mayOverflow.otherwise();
-		sink[I::Local::Get(temp)];
+		gen::Add[I::Local::Get(temp)];
 	}
 
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::div_s_reg:
-		sink[I::I64::Div()];
+		gen::Add[I::I64::Div()];
 		break;
 	case rv64::Opcode::div_s_reg_half:
-		sink[I::I32::Div()];
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Div()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::div_u_reg:
-		sink[I::U64::Div()];
+		gen::Add[I::U64::Div()];
 		break;
 	case rv64::Opcode::div_u_reg_half:
-		sink[I::U32::Div()];
-		sink[I::I32::Expand()];
+		gen::Add[I::U32::Div()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::rem_s_reg:
-		sink[I::I64::Mod()];
+		gen::Add[I::I64::Mod()];
 		break;
 	case rv64::Opcode::rem_s_reg_half:
-		sink[I::I32::Mod()];
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Mod()];
+		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::rem_u_reg:
-		sink[I::U64::Mod()];
+		gen::Add[I::U64::Mod()];
 		break;
 	case rv64::Opcode::rem_u_reg_half:
-		sink[I::U32::Mod()];
-		sink[I::I32::Expand()];
+		gen::Add[I::U32::Mod()];
+		gen::Add[I::I32::Expand()];
 		break;
 	default:
 		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -588,33 +573,32 @@ void rv64::Translate::fMakeAMO(bool half) {
 	/*
 	*	Note: simply treat the operations as all being atomic, as no threading is supported
 	*/
-	wasm::Sink& sink = pWriter->sink();
 
 	/* load the source address into the temporary */
 	wasm::Variable addr = fTemp64(0);
 	fLoadSrc1(true, false);
-	sink[I::Local::Tee(addr)];
+	gen::Add[I::Local::Tee(addr)];
 
 	/* validate the alignment constraints of the address */
-	sink[I::U64::Shrink()];
-	sink[I::U32::Const(half ? 0x03 : 0x07)];
-	sink[I::U32::And()];
+	gen::Add[I::U64::Shrink()];
+	gen::Add[I::U32::Const(half ? 0x03 : 0x07)];
+	gen::Add[I::U32::And()];
 	{
-		wasm::IfThen _if{ sink };
+		wasm::IfThen _if{ *gen::Sink };
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 	}
 
 	/* perform the reading of the original value and write it immediately to the destination */
 	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
-	sink[I::Local::Get(addr)];
+	gen::Add[I::Local::Get(addr)];
 	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
-	sink[I::Local::Tee(value)];
+	gen::Add[I::Local::Tee(value)];
 	if (half)
-		sink[I::I32::Expand()];
+		gen::Add[I::I32::Expand()];
 	fStoreDest();
 
 	/* write the destination address to the stack */
-	sink[I::Local::Get(addr)];
+	gen::Add[I::Local::Get(addr)];
 
 	/* write the new value to the stack (perform the operation in the corresponding width) */
 	switch (pInst->opcode) {
@@ -624,86 +608,86 @@ void rv64::Translate::fMakeAMO(bool half) {
 		break;
 	case rv64::Opcode::amo_add_w:
 	case rv64::Opcode::amo_add_d:
-		sink[I::Local::Get(value)];
+		gen::Add[I::Local::Get(value)];
 		if (fLoadSrc2(false, half))
-			sink[half ? I::U32::Add() : I::U64::Add()];
+			gen::Add[half ? I::U32::Add() : I::U64::Add()];
 		break;
 	case rv64::Opcode::amo_xor_w:
 	case rv64::Opcode::amo_xor_d:
-		sink[I::Local::Get(value)];
+		gen::Add[I::Local::Get(value)];
 		if (fLoadSrc2(false, half))
-			sink[half ? I::U32::XOr() : I::U64::XOr()];
+			gen::Add[half ? I::U32::XOr() : I::U64::XOr()];
 		break;
 	case rv64::Opcode::amo_and_w:
 	case rv64::Opcode::amo_and_d:
 		if (fLoadSrc2(true, half)) {
-			sink[I::Local::Get(value)];
-			sink[half ? I::U32::And() : I::U64::And()];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[half ? I::U32::And() : I::U64::And()];
 		}
 		break;
 	case rv64::Opcode::amo_or_w:
 	case rv64::Opcode::amo_or_d:
-		sink[I::Local::Get(value)];
+		gen::Add[I::Local::Get(value)];
 		if (fLoadSrc2(false, half))
-			sink[half ? I::U32::Or() : I::U64::Or()];
+			gen::Add[half ? I::U32::Or() : I::U64::Or()];
 		break;
 	case rv64::Opcode::amo_min_s_w:
 	case rv64::Opcode::amo_min_s_d:
 		if (fLoadSrc2(true, half)) {
 			wasm::Variable other = (half ? fTemp32(1) : addr);
-			sink[I::Local::Tee(other)];
-			sink[I::Local::Get(value)];
-			sink[I::Local::Get(other)];
+			gen::Add[I::Local::Tee(other)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[I::Local::Get(other)];
 		}
 		else {
-			sink[I::Local::Get(value)];
-			sink[half ? I::U32::Const(0) : I::U64::Const(0)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[half ? I::U32::Const(0) : I::U64::Const(0)];
 		}
-		sink[I::Local::Get(value)];
-		sink[half ? I::I32::Less() : I::I64::Less()];
-		sink[I::Select()];
+		gen::Add[I::Local::Get(value)];
+		gen::Add[half ? I::I32::Less() : I::I64::Less()];
+		gen::Add[I::Select()];
 		break;
 	case rv64::Opcode::amo_max_s_w:
 	case rv64::Opcode::amo_max_s_d:
 		if (fLoadSrc2(true, half)) {
 			wasm::Variable other = (half ? fTemp32(1) : addr);
-			sink[I::Local::Tee(other)];
-			sink[I::Local::Get(value)];
-			sink[I::Local::Get(other)];
+			gen::Add[I::Local::Tee(other)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[I::Local::Get(other)];
 		}
 		else {
-			sink[I::Local::Get(value)];
-			sink[half ? I::U32::Const(0) : I::U64::Const(0)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[half ? I::U32::Const(0) : I::U64::Const(0)];
 		}
-		sink[I::Local::Get(value)];
-		sink[half ? I::I32::Greater() : I::I64::Greater()];
-		sink[I::Select()];
+		gen::Add[I::Local::Get(value)];
+		gen::Add[half ? I::I32::Greater() : I::I64::Greater()];
+		gen::Add[I::Select()];
 		break;
 	case rv64::Opcode::amo_min_u_w:
 	case rv64::Opcode::amo_min_u_d:
 		if (fLoadSrc2(true, half)) {
 			wasm::Variable other = (half ? fTemp32(1) : addr);
-			sink[I::Local::Tee(other)];
-			sink[I::Local::Get(value)];
-			sink[I::Local::Get(other)];
-			sink[I::Local::Get(value)];
-			sink[half ? I::U32::Less() : I::U64::Less()];
-			sink[I::Select()];
+			gen::Add[I::Local::Tee(other)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[I::Local::Get(other)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[half ? I::U32::Less() : I::U64::Less()];
+			gen::Add[I::Select()];
 		}
 		break;
 	case rv64::Opcode::amo_max_u_w:
 	case rv64::Opcode::amo_max_u_d:
 		if (fLoadSrc2(false, half)) {
 			wasm::Variable other = (half ? fTemp32(1) : addr);
-			sink[I::Local::Tee(other)];
-			sink[I::Local::Get(value)];
-			sink[I::Local::Get(other)];
-			sink[I::Local::Get(value)];
-			sink[half ? I::U32::Greater() : I::U64::Greater()];
-			sink[I::Select()];
+			gen::Add[I::Local::Tee(other)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[I::Local::Get(other)];
+			gen::Add[I::Local::Get(value)];
+			gen::Add[half ? I::U32::Greater() : I::U64::Greater()];
+			gen::Add[I::Select()];
 		}
 		else
-			sink[I::Local::Get(value)];
+			gen::Add[I::Local::Get(value)];
 		break;
 	default:
 		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -717,7 +701,6 @@ void rv64::Translate::fMakeAMOLR() {
 	/*
 	*	Note: simply treat the operations as all being atomic, as no threading is supported
 	*/
-	wasm::Sink& sink = pWriter->sink();
 
 	/* operation-checks to simplify the logic */
 	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
@@ -725,19 +708,19 @@ void rv64::Translate::fMakeAMOLR() {
 	/* load the source address into the temporary */
 	wasm::Variable addr = fTemp64(0);
 	fLoadSrc1(true, false);
-	sink[I::Local::Tee(addr)];
+	gen::Add[I::Local::Tee(addr)];
 
 	/* validate the alignment constraints of the address */
-	sink[I::U64::Shrink()];
-	sink[I::U32::Const(half ? 0x03 : 0x07)];
-	sink[I::U32::And()];
+	gen::Add[I::U64::Shrink()];
+	gen::Add[I::U32::Const(half ? 0x03 : 0x07)];
+	gen::Add[I::U32::And()];
 	{
-		wasm::IfThen _if{ sink };
+		wasm::IfThen _if{ *gen::Sink };
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 	}
 
 	/* write the value from memory to the register */
-	sink[I::Local::Get(addr)];
+	gen::Add[I::Local::Get(addr)];
 	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
 	fStoreDest();
 }
@@ -745,7 +728,6 @@ void rv64::Translate::fMakeAMOSC() {
 	/*
 	*	Note: simply treat the operations as all being atomic, as no threading is supported
 	*/
-	wasm::Sink& sink = pWriter->sink();
 
 	/* operation-checks to simplify the logic */
 	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
@@ -753,24 +735,24 @@ void rv64::Translate::fMakeAMOSC() {
 	/* load the source address into the temporary */
 	wasm::Variable addr = fTemp64(0);
 	fLoadSrc1(true, false);
-	sink[I::Local::Tee(addr)];
+	gen::Add[I::Local::Tee(addr)];
 
 	/* validate the alignment constraints of the address */
-	sink[I::U64::Shrink()];
-	sink[I::U32::Const(half ? 0x03 : 0x07)];
-	sink[I::U32::And()];
+	gen::Add[I::U64::Shrink()];
+	gen::Add[I::U32::Const(half ? 0x03 : 0x07)];
+	gen::Add[I::U32::And()];
 	{
-		wasm::IfThen _if{ sink };
+		wasm::IfThen _if{ *gen::Sink };
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 	}
 
 	/* write the source value to the address (assumption that reservation is always valid) */
-	sink[I::Local::Get(addr)];
+	gen::Add[I::Local::Get(addr)];
 	fLoadSrc2(true, half);
 	pWriter->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 
 	/* write the result to the destination register */
-	sink[I::U64::Const(0)];
+	gen::Add[I::U64::Const(0)];
 	fStoreDest();
 }
 void rv64::Translate::fMakeCSR() const {
@@ -786,7 +768,6 @@ void rv64::Translate::fMakeMul() {
 	*	r = (r >> 32) + a0 * b1 + a1 * b0
 	*	r = (r >> 32) + a0a1 * b2b3 + a2a3 * b0b1 + a1 * b1
 	*/
-	wasm::Sink& sink = pWriter->sink();
 
 	/* operation-checks to simplify the logic */
 	bool bSigned = (pInst->opcode == rv64::Opcode::mul_high_s_reg);
@@ -798,7 +779,7 @@ void rv64::Translate::fMakeMul() {
 
 	/* check if the operation can be short-circuited */
 	if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) {
-		sink[I::U64::Const(0)];
+		gen::Add[I::U64::Const(0)];
 		fStoreDest();
 		return;
 	}
@@ -809,23 +790,23 @@ void rv64::Translate::fMakeMul() {
 	if (isSigned) {
 		/* load the two components and leave them on the stack (start with the sign-extension of a) */
 		fLoadSrc1(false, false);
-		sink[I::Local::Tee(a1)];
-		sink[I::I64::Const(63)];
-		sink[I::I64::ShiftRight()];
+		gen::Add[I::Local::Tee(a1)];
+		gen::Add[I::I64::Const(63)];
+		gen::Add[I::I64::ShiftRight()];
 		fLoadSrc2(false, false);
-		sink[I::Local::Tee(b1)];
+		gen::Add[I::Local::Tee(b1)];
 
 		/* perform the first multiplication [a2a3 * b0b1] */
-		sink[I::U64::Mul()];
+		gen::Add[I::U64::Mul()];
 
 		/* perform the second multiplication, if b is sign-extended as well [a0a1 * b2b3] */
 		if (bSigned) {
-			sink[I::Local::Get(b1)];
-			sink[I::I64::Const(63)];
-			sink[I::I64::ShiftRight()];
-			sink[I::Local::Get(a1)];
-			sink[I::U64::Mul()];
-			sink[I::U64::Add()];
+			gen::Add[I::Local::Get(b1)];
+			gen::Add[I::I64::Const(63)];
+			gen::Add[I::I64::ShiftRight()];
+			gen::Add[I::Local::Get(a1)];
+			gen::Add[I::U64::Mul()];
+			gen::Add[I::U64::Add()];
 		}
 	}
 
@@ -837,53 +818,53 @@ void rv64::Translate::fMakeMul() {
 
 		/* load the total value (leave a copy in w1) */
 		if (isSigned)
-			sink[I::Local::Get(w1)];
+			gen::Add[I::Local::Get(w1)];
 		else {
 			if (i == 0)
 				fLoadSrc1(false, false);
 			else
 				fLoadSrc2(false, false);
-			sink[I::Local::Tee(w1)];
+			gen::Add[I::Local::Tee(w1)];
 		}
 
 		/* write the lower word back */
-		sink[I::U64::Const(0xffff'ffff)];
-		sink[I::U64::And()];
-		sink[I::Local::Set(w0)];
+		gen::Add[I::U64::Const(0xffff'ffff)];
+		gen::Add[I::U64::And()];
+		gen::Add[I::Local::Set(w0)];
 
 		/* write the upper word back, but leave a copy of it on the stack */
-		sink[I::Local::Get(w1)];
-		sink[I::U64::Const(32)];
-		sink[I::U64::ShiftRight()];
-		sink[I::Local::Tee(w1)];
+		gen::Add[I::Local::Get(w1)];
+		gen::Add[I::U64::Const(32)];
+		gen::Add[I::U64::ShiftRight()];
+		gen::Add[I::Local::Tee(w1)];
 	}
 
 	/* perform the multiplication of the two upper words [a1 * b1] and add it to the overall result */
-	sink[I::U64::Mul()];
+	gen::Add[I::U64::Mul()];
 	if (isSigned)
-		sink[I::U64::Add()];
+		gen::Add[I::U64::Add()];
 
 	/* perform the multiplication of the lower two words, and shift it [(a0 * b0) >> 32] */
-	sink[I::Local::Get(a0)];
-	sink[I::Local::Get(b0)];
-	sink[I::U64::Mul()];
-	sink[I::U64::Const(32)];
-	sink[I::U64::ShiftRight()];
+	gen::Add[I::Local::Get(a0)];
+	gen::Add[I::Local::Get(b0)];
+	gen::Add[I::U64::Mul()];
+	gen::Add[I::U64::Const(32)];
+	gen::Add[I::U64::ShiftRight()];
 
 	/* perfrom the cross multiplication, add the lower multiplication to it [((a0 * b0) >> 32) + a0 * b1 + b0 * a1] */
-	sink[I::Local::Get(a0)];
-	sink[I::Local::Get(b1)];
-	sink[I::U64::Mul()];
-	sink[I::U64::Add()];
-	sink[I::Local::Get(a1)];
-	sink[I::Local::Get(b0)];
-	sink[I::U64::Mul()];
-	sink[I::U64::Add()];
+	gen::Add[I::Local::Get(a0)];
+	gen::Add[I::Local::Get(b1)];
+	gen::Add[I::U64::Mul()];
+	gen::Add[I::U64::Add()];
+	gen::Add[I::Local::Get(a1)];
+	gen::Add[I::Local::Get(b0)];
+	gen::Add[I::U64::Mul()];
+	gen::Add[I::U64::Add()];
 
 	/* shift the last stage and add it to the overal result */
-	sink[I::U64::Const(32)];
-	sink[I::U64::ShiftRight()];
-	sink[I::U64::Add()];
+	gen::Add[I::U64::Const(32)];
+	gen::Add[I::U64::ShiftRight()];
+	gen::Add[I::U64::Add()];
 
 	/* write the result to the register */
 	fStoreDest();
@@ -906,20 +887,19 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	pInst = &inst;
 
 	/* perform the actual translation */
-	wasm::Sink& sink = pWriter->sink();
 	switch (pInst->opcode) {
 	case rv64::Opcode::misaligned:
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::load_upper_imm:
 		if (pInst->dest != reg::Zero) {
-			sink[I::U64::Const(pInst->imm)];
+			gen::Add[I::U64::Const(pInst->imm)];
 			fStoreDest();
 		}
 		break;
 	case rv64::Opcode::add_upper_imm_pc:
 		if (pInst->dest != reg::Zero) {
-			sink[I::U64::Const(pAddress + pInst->imm)];
+			gen::Add[I::U64::Const(pAddress + pInst->imm)];
 			fStoreDest();
 		}
 		break;

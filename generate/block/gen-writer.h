@@ -13,7 +13,6 @@ namespace gen {
 	class Writer {
 		friend class gen::Block;
 	private:
-		wasm::Sink& pSink;
 		detail::SuperBlock& pSuperBlock;
 		detail::MemoryWriter pMemory;
 		detail::ContextWriter pContext;
@@ -21,16 +20,13 @@ namespace gen {
 		detail::InteractWriter pInteract;
 
 	private:
-		Writer(wasm::Sink& sink, detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact);
+		Writer(detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact);
 
 	public:
 		Writer(gen::Writer&&) = delete;
 		Writer(const gen::Writer&) = delete;
 
 	public:
-		/* sink of the current function representing the given super-block */
-		wasm::Sink& sink() const;
-
 		/* check if the given jumpDirect/conditionalDirect instruction target can be locally referenced via a label */
 		const wasm::Target* hasTarget(env::guest_t target) const;
 

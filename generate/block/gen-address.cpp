@@ -4,10 +4,6 @@
 
 static host::Logger logger{ u8"gen::block" };
 
-namespace I = wasm::inst;
-
-gen::detail::Addresses::Addresses(wasm::Module& mod) : pModule{ mod } {}
-
 gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t address, size_t depth) {
 	/* check if the address has already been translated */
 	auto it = pTranslated.find(address);
@@ -25,14 +21,14 @@ gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t ad
 	if (entry.alreadyExists || depth > gen::Instance()->translationDepth()) {
 		entry.index = pLinks++;
 		if (!pAddresses.valid())
-			pAddresses = pModule.table(u8"linked_addresses", true);
+			pAddresses = gen::Module->table(u8"linked_addresses", true);
 		return entry;
 	}
 
 	/* allocate the address to this module */
 	entry.thisModule = true;
 	entry.incomplete = true;
-	entry.function = pModule.function(str::Format<str::u8::Local<128>>(u8"addr_{:#018x}", address), pBlockPrototype, wasm::Export{});
+	entry.function = gen::Module->function(str::Format<str::u8::Local<128>>(u8"addr_{:#018x}", address), pBlockPrototype, wasm::Export{});
 	pQueue.push({ address, depth });
 	return entry;
 }
@@ -67,7 +63,7 @@ gen::detail::OpenAddress gen::detail::Addresses::start() {
 std::vector<env::BlockExport> gen::detail::Addresses::close(const detail::MappingState& mappingState) {
 	/* setup the addresses-table limit */
 	if (pAddresses.valid())
-		pModule.limit(pAddresses, wasm::Limit{ uint32_t(pLinks), uint32_t(pLinks) });
+		gen::Module->limit(pAddresses, wasm::Limit{ uint32_t(pLinks), uint32_t(pLinks) });
 
 	/* ensure that all functions have been written and collect the exports */
 	std::vector<env::BlockExport> exports;
@@ -82,9 +78,12 @@ std::vector<env::BlockExport> gen::detail::Addresses::close(const detail::Mappin
 
 	/* setup the startup-function for the already existing imports */
 	if (pNeedsStartup) {
-		wasm::Function startup = pModule.function(u8"_setup_imports", {}, {});
+		wasm::Function startup = gen::Module->function(u8"_setup_imports", {}, {});
 		wasm::Sink sink{ startup };
-		detail::MappingWriter mapping{ mappingState, sink };
+
+		/* bind the sink (necessary for the writer) */
+		gen::Instance()->setSink(&sink);
+		detail::MappingWriter mapping{ mappingState };
 
 		/* iterate over the functions and write them all to the imports */
 		for (const auto& [address, place] : pTranslated) {
@@ -98,7 +97,9 @@ std::vector<env::BlockExport> gen::detail::Addresses::close(const detail::Mappin
 			sink[I::Table::Set(pAddresses)];
 		}
 
-		pModule.startup(startup);
+		/* clear the sink reference and bind the startup-function */
+		gen::Instance()->setSink(0);
+		gen::Module->startup(startup);
 	}
 	return exports;
 }

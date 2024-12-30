@@ -13,8 +13,8 @@ namespace gen::detail {
 
 	class CoreBuilder {
 	public:
-		void setupCoreImports(wasm::Module& mod, wasm::Memory& memory) const;
-		void setupCoreBody(wasm::Module& mod, wasm::Memory& physical) const;
-		void setupBlockImports(wasm::Module& mod, wasm::Memory& physical, wasm::Memory& memory) const;
+		void setupCoreImports(wasm::Memory& memory) const;
+		void setupCoreBody(wasm::Memory& physical) const;
+		void setupBlockImports(wasm::Memory& physical, wasm::Memory& memory) const;
 	};
 }

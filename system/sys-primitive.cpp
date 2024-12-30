@@ -5,8 +5,6 @@
 
 static host::Logger logger{ u8"sys::primitive" };
 
-namespace I = wasm::inst;
-
 sys::detail::PrimitiveExecContext::PrimitiveExecContext(sys::Primitive* primitive) : sys::ExecContext{ false, true }, pPrimitive{ primitive } {}
 std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New(sys::Primitive* primitive) {
 	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{ primitive });
@@ -21,9 +19,9 @@ void sys::detail::PrimitiveExecContext::flushMemCache(const gen::Writer& writer,
 	/* nothing to be done here, as the system is considered single-threaded */
 }
 void sys::detail::PrimitiveExecContext::flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) {
-	writer.sink()[I::U64::Const(pPrimitive->pRegistered.flushInst)];
+	gen::Add[I::U64::Const(pPrimitive->pRegistered.flushInst)];
 	writer.invokeParam(pPrimitive->pRegistered.flushInst);
-	writer.sink()[I::Drop()];
+	gen::Add[I::Drop()];
 }
 
 

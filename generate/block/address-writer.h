@@ -9,11 +9,10 @@ namespace gen::detail {
 	private:
 		detail::MappingWriter pMapping;
 		detail::Addresses& pHost;
-		wasm::Sink& pSink;
 		mutable wasm::Variable pTempAddress;
 
 	public:
-		AddressWriter(const detail::MappingState& mapping, detail::Addresses& host, wasm::Sink& sink);
+		AddressWriter(const detail::MappingState& mapping, detail::Addresses& host);
 
 	private:
 		void fCallLandingPad(env::guest_t nextAddress) const;

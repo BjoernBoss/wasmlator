@@ -13,6 +13,8 @@ namespace gen {
 		friend detail::GeneratorAccess;
 	private:
 		std::unique_ptr<gen::Translator> pTranslator;
+		wasm::Module* pModule = 0;
+		wasm::Sink* pSink = 0;
 		uint32_t pTranslationDepth = 0;
 		bool pSingleStep = false;
 
@@ -28,11 +30,13 @@ namespace gen {
 	public:
 		const gen::Translator* translator() const;
 		gen::Translator* translator();
-		constexpr uint32_t translationDepth() const {
-			return pTranslationDepth;
-		}
-		constexpr bool singleStep() const {
-			return pSingleStep;
-		}
+		uint32_t translationDepth() const;
+		bool singleStep() const;
+		const wasm::Module& _module() const;
+		wasm::Module& _module();
+		const wasm::Sink& _sink() const;
+		wasm::Sink& _sink();
+		void setModule(wasm::Module* mod);
+		void setSink(wasm::Sink* sink);
 	};
 }

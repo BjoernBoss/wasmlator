@@ -1,9 +1,8 @@
-#include "gen-block.h"
 #include "../generate.h"
 
 static host::Logger logger{ u8"gen::block" };
 
-gen::Block::Block(wasm::Module& mod) : pAddresses{ mod } {
+gen::Block::Block(wasm::Module& mod) {
 	detail::MemoryBuilder _memory;
 	detail::MappingBuilder _mapping;
 	detail::ProcessBuilder _process;
@@ -11,14 +10,17 @@ gen::Block::Block(wasm::Module& mod) : pAddresses{ mod } {
 	detail::ContextBuilder _context;
 	detail::CoreBuilder _core;
 
+	/* bind the module to the current generator */
+	gen::Instance()->setModule(&mod);
+
 	/* initialize the block-imports */
 	wasm::Prototype blockPrototype;
 	wasm::Memory physical, memory;
-	_core.setupBlockImports(mod, physical, memory);
-	_memory.setupBlockImports(mod, memory, physical, pMemory);
-	_mapping.setupBlockImports(mod, blockPrototype, pMapping);
-	_interact.setupBlockImports(mod, pInteract);
-	_context.setupBlockImports(mod, memory, pContext);
+	_core.setupBlockImports(physical, memory);
+	_memory.setupBlockImports(memory, physical, pMemory);
+	_mapping.setupBlockImports(blockPrototype, pMapping);
+	_interact.setupBlockImports(pInteract);
+	_context.setupBlockImports(memory, pContext);
 
 	/* setup the components of the translator-members */
 	pAddresses.setup(blockPrototype);
@@ -27,10 +29,13 @@ gen::Block::Block(wasm::Module& mod) : pAddresses{ mod } {
 void gen::Block::fProcess(const detail::OpenAddress& next) {
 	logger.debug(u8"Processing block at [", str::As{ U"#018x", next.address }, u8']');
 
-	/* setup the actual sink to the super-block and instruction-writer */
+	/* setup the actual sink */
 	wasm::Sink sink{ next.function };
-	detail::SuperBlock block{ sink, pContext, next.address };
-	gen::Writer writer{ sink, block, pMemory, pContext, pMapping, pAddresses, pInteract };
+	gen::Instance()->setSink(&sink);
+
+	/* configure the super-block and instruction-writer */
+	detail::SuperBlock block{ pContext, next.address };
+	gen::Writer writer{ block, pMemory, pContext, pMapping, pAddresses, pInteract };
 
 	/* notify the interface about the newly starting block */
 	gen::Instance()->translator()->started(writer, next.address);
@@ -54,6 +59,9 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	/* notify the interface about the completed block */
 	gen::Instance()->translator()->completed(writer);
 	logger.debug(u8"Block at [", str::As{ U"#018x", next.address }, u8"] completed");
+
+	/* remove the sink from the generator */
+	gen::Instance()->setSink(0);
 }
 
 void gen::Block::run(env::guest_t address) {
@@ -62,5 +70,12 @@ void gen::Block::run(env::guest_t address) {
 		fProcess(pAddresses.start());
 }
 std::vector<env::BlockExport> gen::Block::close() {
-	return pAddresses.close(pMapping);
+	std::vector<env::BlockExport> out = pAddresses.close(pMapping);
+
+	/* unbind the module and close it (as a precaution) */
+	wasm::Module& mod = gen::Instance()->_module();
+	gen::Instance()->setModule(0);
+	mod.close();
+
+	return out;
 }

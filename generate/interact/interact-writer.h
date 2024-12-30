@@ -7,10 +7,9 @@ namespace gen::detail {
 	class InteractWriter {
 	private:
 		const detail::InteractState& pState;
-		wasm::Sink& pSink;
 
 	public:
-		InteractWriter(const detail::InteractState& state, wasm::Sink& sink);
+		InteractWriter(const detail::InteractState& state);
 
 	public:
 		void makeVoid(uint32_t index) const;
