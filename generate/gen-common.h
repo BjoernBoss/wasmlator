@@ -69,15 +69,15 @@ namespace gen {
 
 	public:
 		/* new super-block translation is being started */
-		virtual void started(const gen::Writer& writer, env::guest_t address) = 0;
+		virtual void started(env::guest_t address) = 0;
 
 		/* super-block translation has been completed */
-		virtual void completed(const gen::Writer& writer) = 0;
+		virtual void completed() = 0;
 
 		/* fetch the next instruction at the given address */
 		virtual gen::Instruction fetch(env::guest_t address) = 0;
 
 		/* produce the wasm-code for the given chunk of fetched instructions (guaranteed to not be jumped into) */
-		virtual void produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) = 0;
+		virtual void produce(env::guest_t address, const uintptr_t* self, size_t count) = 0;
 	};
 }

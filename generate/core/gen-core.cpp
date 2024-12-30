@@ -43,9 +43,7 @@ void gen::Core::fClose() {
 	pProcess.finalizeCoreBody();
 
 	/* unbind the module and close it (as a precaution) */
-	wasm::Module& mod = gen::Instance()->_module();
-	gen::Instance()->setModule(0);
-	mod.close();
+	gen::Instance()->setModule(0)->close();
 }
 
 void gen::Core::close() {

@@ -12,7 +12,6 @@ namespace rv64 {
 	private:
 		wasm::Variable pTemp[6];
 		sys::ExecContext* pContext = 0;
-		const gen::Writer* pWriter = 0;
 		const rv64::Instruction* pInst = 0;
 		env::guest_t pAddress = 0;
 		env::guest_t pNextAddress = 0;
@@ -44,7 +43,7 @@ namespace rv64 {
 		void fMakeMul();
 
 	public:
-		void resetAll(sys::ExecContext* context, const gen::Writer* writer);
+		void resetAll(sys::ExecContext* context);
 		void start(env::guest_t address);
 		void next(const rv64::Instruction& inst);
 	};

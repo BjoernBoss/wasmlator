@@ -24,10 +24,10 @@ namespace sys {
 			static std::unique_ptr<sys::ExecContext> New(sys::Primitive* primitive);
 
 		public:
-			void syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
-			void throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
-			void flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
-			void flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) final;
+			void syscall(env::guest_t address, env::guest_t nextAddress) final;
+			void throwException(uint64_t id, env::guest_t address, env::guest_t nextAddress) final;
+			void flushMemCache(env::guest_t address, env::guest_t nextAddress) final;
+			void flushInstCache(env::guest_t address, env::guest_t nextAddress) final;
 		};
 
 		struct FlushInstCache : public env::Exception {

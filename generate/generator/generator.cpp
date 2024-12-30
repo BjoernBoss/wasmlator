@@ -10,6 +10,11 @@ namespace global {
 bool gen::detail::GeneratorAccess::Setup(gen::Generator& generator, std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep) {
 	return generator.fSetup(std::move(translator), translationDepth, singleStep);
 }
+void gen::detail::GeneratorAccess::SetWriter(gen::Writer* writer) {
+	if (gen::Make != 0 && writer != 0)
+		logger.fatal(u8"Generator can only be associated with one writer at a time");
+	gen::Make = writer;
+}
 
 
 bool gen::Generator::fSetup(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep) {
@@ -34,29 +39,19 @@ uint32_t gen::Generator::translationDepth() const {
 bool gen::Generator::singleStep() const {
 	return pSingleStep;
 }
-const wasm::Module& gen::Generator::_module() const {
-	return *pModule;
-}
-wasm::Module& gen::Generator::_module() {
-	return *pModule;
-}
-const wasm::Sink& gen::Generator::_sink() const {
-	return *pSink;
-}
-wasm::Sink& gen::Generator::_sink() {
-	return *pSink;
-}
-void gen::Generator::setModule(wasm::Module* mod) {
+wasm::Module* gen::Generator::setModule(wasm::Module* mod) {
 	if (mod != 0 && pModule != 0)
 		logger.fatal(u8"Generator can only be associated with one module at a time");
-	pModule = mod;
+	std::swap(pModule, mod);
 	gen::Module = pModule;
+	return mod;
 }
-void gen::Generator::setSink(wasm::Sink* sink) {
+wasm::Sink* gen::Generator::setSink(wasm::Sink* sink) {
 	if (sink != 0 && pSink != 0)
 		logger.fatal(u8"Generator can only be associated with one sink at a time");
-	pSink = sink;
+	std::swap(pSink, sink);
 	gen::Sink = pSink;
+	return sink;
 }
 
 
@@ -92,3 +87,4 @@ void gen::ClearInstance() {
 
 wasm::Module* gen::Module = 0;
 wasm::Sink* gen::Sink = 0;
+gen::Writer* gen::Make = 0;

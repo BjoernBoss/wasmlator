@@ -36,9 +36,10 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	/* configure the super-block and instruction-writer */
 	detail::SuperBlock block{ pContext, next.address };
 	gen::Writer writer{ block, pMemory, pContext, pMapping, pAddresses, pInteract };
+	detail::GeneratorAccess::SetWriter(&writer);
 
 	/* notify the interface about the newly starting block */
-	gen::Instance()->translator()->started(writer, next.address);
+	gen::Instance()->translator()->started(next.address);
 
 	/* iterate over the instruction stream and look for the end of the current strand */
 	gen::Instruction inst{};
@@ -53,14 +54,15 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	while (block.next()) {
 		env::guest_t address = block.chunkStart();
 		const std::vector<uintptr_t>& chunk = block.chunk();
-		gen::Instance()->translator()->produce(writer, address, chunk.data(), chunk.size());
+		gen::Instance()->translator()->produce(address, chunk.data(), chunk.size());
 	}
 
 	/* notify the interface about the completed block */
-	gen::Instance()->translator()->completed(writer);
+	gen::Instance()->translator()->completed();
 	logger.debug(u8"Block at [", str::As{ U"#018x", next.address }, u8"] completed");
 
-	/* remove the sink from the generator */
+	/* remove the writer and sink from the generator */
+	detail::GeneratorAccess::SetWriter(0);
 	gen::Instance()->setSink(0);
 }
 
@@ -73,9 +75,6 @@ std::vector<env::BlockExport> gen::Block::close() {
 	std::vector<env::BlockExport> out = pAddresses.close(pMapping);
 
 	/* unbind the module and close it (as a precaution) */
-	wasm::Module& mod = gen::Instance()->_module();
-	gen::Instance()->setModule(0);
-	mod.close();
-
+	gen::Instance()->setModule(0)->close();
 	return out;
 }

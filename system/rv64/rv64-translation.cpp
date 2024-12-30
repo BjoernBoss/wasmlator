@@ -17,7 +17,7 @@ wasm::Variable rv64::Translate::fTemp64(size_t index) {
 
 bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 	if (pInst->src1 != reg::Zero) {
-		pWriter->get(pInst->src1 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
+		gen::Make->get(pInst->src1 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
@@ -26,7 +26,7 @@ bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 }
 bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 	if (pInst->src2 != reg::Zero) {
-		pWriter->get(pInst->src2 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
+		gen::Make->get(pInst->src2 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
@@ -34,7 +34,7 @@ bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 	return false;
 }
 void rv64::Translate::fStoreDest() const {
-	pWriter->set(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
+	gen::Make->set(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
 }
 
 void rv64::Translate::fMakeJAL() {
@@ -60,48 +60,48 @@ void rv64::Translate::fMakeJAL() {
 		gen::Add[I::U32::And()];
 		{
 			wasm::IfThen _if{ gen::Sink };
-			pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+			pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 		}
 		gen::Add[I::Local::Get(addr)];
 
 		/* check if the instruction can be considered a return */
 		if (pInst->isRet())
-			pWriter->ret();
+			gen::Make->ret();
 
 		/* check if the instruction can be considered a call */
 		else if (pInst->isCall())
-			pWriter->call(pNextAddress);
+			gen::Make->call(pNextAddress);
 
 		/* translate the instruction as normal jump */
 		else
-			pWriter->jump();
+			gen::Make->jump();
 		return;
 	}
 
 	/* check if the target is misaligned and add the misalignment-exception */
 	env::guest_t address = (pAddress + pInst->imm);
 	if (pInst->isMisAligned(pAddress))
-		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 
 	/* add the instruction as normal direct call or jump */
 	else if (pInst->isCall())
-		pWriter->call(address, pNextAddress);
+		gen::Make->call(address, pNextAddress);
 	else
-		pWriter->jump(address);
+		gen::Make->jump(address);
 }
 void rv64::Translate::fMakeBranch() const {
 	env::guest_t address = pAddress + pInst->imm;
 
 	/* check if the branch can be discarded, as it is misaligned */
 	if (pInst->isMisAligned(pAddress)) {
-		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 		return;
 	}
 
 	/* check if the condition can be discarded */
 	if (pInst->src1 == pInst->src2) {
 		if (pInst->opcode == rv64::Opcode::branch_eq || pInst->opcode == rv64::Opcode::branch_ge_s || pInst->opcode == rv64::Opcode::branch_ge_u)
-			pWriter->jump(address);
+			gen::Make->jump(address);
 		return;
 	}
 
@@ -138,7 +138,7 @@ void rv64::Translate::fMakeBranch() const {
 	}
 
 	/* check if the target can directly be branched to */
-	const wasm::Target* target = pWriter->hasTarget(address);
+	const wasm::Target* target = gen::Make->hasTarget(address);
 	if (target != 0) {
 		gen::Add[I::Branch::If(*target)];
 		return;
@@ -146,7 +146,7 @@ void rv64::Translate::fMakeBranch() const {
 
 	/* add the optional jump to the target */
 	wasm::IfThen _if{ gen::Sink };
-	pWriter->jump(address);
+	gen::Make->jump(address);
 }
 void rv64::Translate::fMakeALUImm() const {
 	/* check if the operation can be discarded */
@@ -395,25 +395,25 @@ void rv64::Translate::fMakeLoad() const {
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_byte_s:
-		pWriter->read(pInst->src1, gen::MemoryType::i8To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_s:
-		pWriter->read(pInst->src1, gen::MemoryType::i16To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_s:
-		pWriter->read(pInst->src1, gen::MemoryType::i32To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i32To64, pAddress);
 		break;
 	case rv64::Opcode::load_byte_u:
-		pWriter->read(pInst->src1, gen::MemoryType::u8To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_u:
-		pWriter->read(pInst->src1, gen::MemoryType::u16To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_u:
-		pWriter->read(pInst->src1, gen::MemoryType::u32To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::load_dword:
-		pWriter->read(pInst->src1, gen::MemoryType::i64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -435,16 +435,16 @@ void rv64::Translate::fMakeStore() const {
 	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
-		pWriter->write(pInst->src1, gen::MemoryType::u8To64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::store_half:
-		pWriter->write(pInst->src1, gen::MemoryType::u16To64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::store_word:
-		pWriter->write(pInst->src1, gen::MemoryType::u32To64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
-		pWriter->write(pInst->src1, gen::MemoryType::i64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
@@ -585,13 +585,13 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
 	/* perform the reading of the original value and write it immediately to the destination */
 	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
 	gen::Add[I::Local::Get(addr)];
-	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	gen::Make->read(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 	gen::Add[I::Local::Tee(value)];
 	if (half)
 		gen::Add[I::I32::Expand()];
@@ -695,7 +695,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	}
 
 	/* write the result back to the memory */
-	pWriter->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 }
 void rv64::Translate::fMakeAMOLR() {
 	/*
@@ -716,12 +716,12 @@ void rv64::Translate::fMakeAMOLR() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
 	/* write the value from memory to the register */
 	gen::Add[I::Local::Get(addr)];
-	pWriter->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
+	gen::Make->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
 	fStoreDest();
 }
 void rv64::Translate::fMakeAMOSC() {
@@ -743,13 +743,13 @@ void rv64::Translate::fMakeAMOSC() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
 	/* write the source value to the address (assumption that reservation is always valid) */
 	gen::Add[I::Local::Get(addr)];
 	fLoadSrc2(true, half);
-	pWriter->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 
 	/* write the result to the destination register */
 	gen::Add[I::U64::Const(0)];
@@ -870,11 +870,10 @@ void rv64::Translate::fMakeMul() {
 	fStoreDest();
 }
 
-void rv64::Translate::resetAll(sys::ExecContext* context, const gen::Writer* writer) {
+void rv64::Translate::resetAll(sys::ExecContext* context) {
 	for (wasm::Variable& var : pTemp)
 		var = wasm::Variable{};
 	pContext = context;
-	pWriter = writer;
 }
 void rv64::Translate::start(env::guest_t address) {
 	pAddress = address;
@@ -889,7 +888,7 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* perform the actual translation */
 	switch (pInst->opcode) {
 	case rv64::Opcode::misaligned:
-		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::load_upper_imm:
 		if (pInst->dest != reg::Zero) {
@@ -965,16 +964,16 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeStore();
 		break;
 	case rv64::Opcode::ecall:
-		pContext->syscall(*pWriter, pAddress, pNextAddress);
+		pContext->syscall(pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::ebreak:
-		pContext->throwException(Translate::EBreakException, *pWriter, pAddress, pNextAddress);
+		pContext->throwException(Translate::EBreakException, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::fence:
-		pContext->flushMemCache(*pWriter, pAddress, pNextAddress);
+		pContext->flushMemCache(pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::fence_inst:
-		pContext->flushInstCache(*pWriter, pAddress, pNextAddress);
+		pContext->flushInstCache(pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::mul_high_s_reg:
 	case rv64::Opcode::mul_high_s_u_reg:

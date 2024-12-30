@@ -4,6 +4,7 @@
 #include "generator/generator.h"
 #include "core/gen-core.h"
 #include "block/gen-block.h"
+#include "block/gen-writer.h"
 #include "glue/gen-glue.h"
 
 namespace gen {
@@ -13,13 +14,16 @@ namespace gen {
 	bool SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep);
 	void ClearInstance();
 
-	/* maps to gen::Instance()->module() */
+	/* maps to gen::Instance()->setModule() */
 	extern wasm::Module* Module;
 
-	/* maps to gen::Instance()->sink() */
+	/* maps to gen::Instance()->setSink() */
 	extern wasm::Sink* Sink;
 
-	/* writes all instructions to gen::Instance()->sink() */
+	/* access writer created by gen::Block */
+	extern gen::Writer* Make;
+
+	/* writes all instructions to gen::Instance()->setSink() */
 	static struct {
 		void operator[](const wasm::InstSimple& inst) {
 			(*gen::Sink)[inst];

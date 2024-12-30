@@ -18,19 +18,19 @@ namespace sys {
 	public:
 		/* generate the code to perform a syscall (must not be called from non-userspace applications)
 		*	Note: may abort the control-flow */
-		virtual void syscall(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) = 0;
+		virtual void syscall(env::guest_t address, env::guest_t nextAddress) = 0;
 
 		/* generate the code to throw an exception (must not be called from non-userspace applications)
 		*	Note: will abort the control-flow */
-		virtual void throwException(uint64_t id, const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) = 0;
+		virtual void throwException(uint64_t id, env::guest_t address, env::guest_t nextAddress) = 0;
 
 		/* generate the code to flush the memory cache
 		*	Note: may abort the control-flow */
-		virtual void flushMemCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) = 0;
+		virtual void flushMemCache(env::guest_t address, env::guest_t nextAddress) = 0;
 
 		/* generate the code to flush the instruction cache
 		*	Note: will abort the control-flow */
-		virtual void flushInstCache(const gen::Writer& writer, env::guest_t address, env::guest_t nextAddress) = 0;
+		virtual void flushInstCache(env::guest_t address, env::guest_t nextAddress) = 0;
 
 	public:
 		constexpr bool multiThreaded() const {

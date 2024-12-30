@@ -36,13 +36,13 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 		return u8"%unknown%";
 	}
 }
-void rv64::Cpu::started(const gen::Writer& writer, env::guest_t address) {
+void rv64::Cpu::started(env::guest_t address) {
 	pDecoded.clear();
-	pTranslator.resetAll(pContext.get(), &writer);
+	pTranslator.resetAll(pContext.get());
 }
-void rv64::Cpu::completed(const gen::Writer& writer) {
+void rv64::Cpu::completed() {
 	pDecoded.clear();
-	pTranslator.resetAll(0, 0);
+	pTranslator.resetAll(0);
 }
 gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	/* check that the address is 2-byte aligned */
@@ -106,7 +106,7 @@ gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	/* construct the output-instruction format */
 	return gen::Instruction{ type, target, inst.size, pDecoded.size() - 1 };
 }
-void rv64::Cpu::produce(const gen::Writer& writer, env::guest_t address, const uintptr_t* self, size_t count) {
+void rv64::Cpu::produce(env::guest_t address, const uintptr_t* self, size_t count) {
 	pTranslator.start(address);
 	for (size_t i = 0; i < count; ++i)
 		pTranslator.next(pDecoded[self[i]]);
