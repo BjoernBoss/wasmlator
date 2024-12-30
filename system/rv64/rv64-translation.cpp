@@ -59,7 +59,7 @@ void rv64::Translate::fMakeJAL() {
 		gen::Add[I::U32::Const(1)];
 		gen::Add[I::U32::And()];
 		{
-			wasm::IfThen _if{ *gen::Sink };
+			wasm::IfThen _if{ gen::Sink };
 			pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 		}
 		gen::Add[I::Local::Get(addr)];
@@ -145,7 +145,7 @@ void rv64::Translate::fMakeBranch() const {
 	}
 
 	/* add the optional jump to the target */
-	wasm::IfThen _if{ *gen::Sink };
+	wasm::IfThen _if{ gen::Sink };
 	pWriter->jump(address);
 }
 void rv64::Translate::fMakeALUImm() const {
@@ -484,7 +484,7 @@ void rv64::Translate::fMakeDivRem() {
 	/* check if a division-by-zero will occur */
 	gen::Add[I::Local::Tee(temp)];
 	gen::Add[half ? I::U32::EqualZero() : I::U64::EqualZero()];
-	wasm::IfThen zero{ *gen::Sink, u8"", { type }, {} };
+	wasm::IfThen zero{ gen::Sink, u8"", { type }, {} };
 
 	/* write the division-by-zero result to the stack (for remainder, its just the first operand) */
 	if (div) {
@@ -500,17 +500,17 @@ void rv64::Translate::fMakeDivRem() {
 	/* check if a division overflow may occur */
 	wasm::Block overflown;
 	if (sign) {
-		overflown = std::move(wasm::Block{ *gen::Sink, u8"", { type, type }, {} });
+		overflown = std::move(wasm::Block{ gen::Sink, u8"", { type, type }, {} });
 		gen::Add[half ? I::I32::Const(-1) : I::I64::Const(-1)];
 		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
-		wasm::IfThen mayOverflow{ *gen::Sink, u8"", { type }, { type, type } };
+		wasm::IfThen mayOverflow{ gen::Sink, u8"", { type }, { type, type } };
 
 		/* check the second operand (temp can be overwritten, as the divisor is now known) */
 		gen::Add[I::Local::Tee(temp)];
 		gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
 		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
 		{
-			wasm::IfThen isOverflow{ *gen::Sink, u8"", {}, { type, type } };
+			wasm::IfThen isOverflow{ gen::Sink, u8"", {}, { type, type } };
 
 			/* write the overflow result to the destination */
 			if (div)
@@ -584,7 +584,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::Add[I::U32::Const(half ? 0x03 : 0x07)];
 	gen::Add[I::U32::And()];
 	{
-		wasm::IfThen _if{ *gen::Sink };
+		wasm::IfThen _if{ gen::Sink };
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 	}
 
@@ -715,7 +715,7 @@ void rv64::Translate::fMakeAMOLR() {
 	gen::Add[I::U32::Const(half ? 0x03 : 0x07)];
 	gen::Add[I::U32::And()];
 	{
-		wasm::IfThen _if{ *gen::Sink };
+		wasm::IfThen _if{ gen::Sink };
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 	}
 
@@ -742,7 +742,7 @@ void rv64::Translate::fMakeAMOSC() {
 	gen::Add[I::U32::Const(half ? 0x03 : 0x07)];
 	gen::Add[I::U32::And()];
 	{
-		wasm::IfThen _if{ *gen::Sink };
+		wasm::IfThen _if{ gen::Sink };
 		pContext->throwException(Translate::MisAlignedException, *pWriter, pAddress, pNextAddress);
 	}
 

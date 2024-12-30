@@ -14,7 +14,7 @@ void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const
 	{
 		/* return the target-address until someone can execute it
 		*	(currently unknown whether or not it has been translated yet) */
-		wasm::IfThen _if{ *gen::Sink };
+		wasm::IfThen _if{ gen::Sink };
 		gen::Add[I::Local::Get(pTempAddress)];
 		gen::Add[I::Return()];
 	}
@@ -43,7 +43,7 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 
 			/* perform the lookup and write the function back to the table */
 			{
-				wasm::IfThen _if{ *gen::Sink };
+				wasm::IfThen _if{ gen::Sink };
 
 				/* index for the address to be written to */
 				gen::Add[I::U32::Const(target.index)];
@@ -99,7 +99,7 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 
 		/* perform the lookup and write the function back to the table */
 		{
-			wasm::IfThen _if{ *gen::Sink };
+			wasm::IfThen _if{ gen::Sink };
 
 			/* index for the address to be written to */
 			gen::Add[I::U32::Const(target.index)];

@@ -286,16 +286,16 @@ bool gen::detail::SuperBlock::next() {
 		/* add the next header (mark the jump as internal and thereby not accessible,
 		*	if its the forward-jump of a resolved irreducible control-flow) */
 		if (pIt->backwards)
-			pStack.push_back({ wasm::Loop{ *gen::Sink }, target.address, pIt->last, false });
+			pStack.push_back({ wasm::Loop{ gen::Sink }, target.address, pIt->last, false });
 		else
-			pStack.push_back({ wasm::Block{ *gen::Sink }, target.address, pIt->last, target.irreducible });
+			pStack.push_back({ wasm::Block{ gen::Sink }, target.address, pIt->last, target.irreducible });
 
 		/* check if the conditional forward-jump of the resolved irreducible control-flow needs to be added */
 		if (!pIt->backwards && target.irreducible) {
 			/* check if the corresponding loop was entered from its neighbors, not by jumping */
 			gen::Add[I::Local::Get(target.cfg)];
 			gen::Add[I::U32::EqualZero()];
-			wasm::IfThen _if{ *gen::Sink };
+			wasm::IfThen _if{ gen::Sink };
 
 			/* mark the loop as now being entered in a valid fashion (no need to ensure this is added
 			*	immediately after the loop-header, as they will both have the same first-address, and

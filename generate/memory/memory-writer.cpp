@@ -53,7 +53,7 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 
 	{
 		/* greater-equal, perform mem-cache lookup */
-		wasm::IfThen _if{ *gen::Sink, u8"", {}, { wasm::Type::i32 } };
+		wasm::IfThen _if{ gen::Sink, u8"", {}, { wasm::Type::i32 } };
 
 		/* write the address to the stack */
 		gen::Add[I::U64::Const(address)];
