@@ -4,3 +4,6 @@
 [submodule "repos/wasgen"]
 	path = repos/wasgen
 	url = git@github.com:BjoernBoss/wasgen.git
+[submodule "repos/arger"]
+	path = repos/arger
+	url = git@github.com:BjoernBoss/arger.git
