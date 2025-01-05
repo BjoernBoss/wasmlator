@@ -8,23 +8,32 @@ std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
 	return std::unique_ptr<rv64::Cpu>{ new rv64::Cpu{} };
 }
 
-void rv64::Cpu::setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) {
+bool rv64::Cpu::setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) {
 	pContext = std::move(execContext);
 
 	/* validate the context is currently supported */
-	if (!pContext->userspace())
-		logger.fatal(u8"[rv64::Cpu] currently only supports userspace execution");
-	if (pContext->multiThreaded())
-		logger.fatal(u8"[rv64::Cpu] does currently not support multi-threaded execution");
+	if (!pContext->userspace()) {
+		logger.error(u8"Currently only support for userspace execution");
+		return false;
+	}
+	if (pContext->multiThreaded()) {
+		logger.error(u8"Currently no support for multi-threaded execution");
+		return false;
+	}
+	return true;
 }
-void rv64::Cpu::setupCore(wasm::Module& mod) {}
-void rv64::Cpu::setupContext(env::guest_t pcAddress, env::guest_t spAddress) {
+bool rv64::Cpu::setupCore(wasm::Module& mod) {
+	return true;
+}
+bool rv64::Cpu::setupContext(env::guest_t pcAddress, env::guest_t spAddress) {
 	rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
 
 	/* no need to write the pc to the context, as all exceptions will implicitly
 	*	already know the exact pc but write the stack-pointer to the sp-register,
 	*	the rest can remain as-is (will implicitly be null) */
 	ctx.sp = spAddress;
+
+	return true;
 }
 std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 	switch (id) {

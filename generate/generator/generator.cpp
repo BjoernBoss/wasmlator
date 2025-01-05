@@ -60,7 +60,7 @@ gen::Generator* gen::Instance() {
 }
 bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep) {
 	if (global::Instance.get() != 0) {
-		logger.fatal(u8"Cannot create generator as only one generator can exist at a time");
+		logger.error(u8"Cannot create generator as only one generator can exist at a time");
 		return false;
 	}
 
@@ -74,7 +74,6 @@ bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t tr
 		return true;
 	}
 	global::Instance.reset();
-	logger.warn(u8"Failed to setup generator");
 	return false;
 }
 void gen::ClearInstance() {

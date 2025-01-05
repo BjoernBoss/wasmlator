@@ -52,6 +52,7 @@ namespace sys {
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
+		sys::Cpu* pCpu = 0;
 		env::guest_t pAddress = 0;
 		struct {
 			uint32_t flushInst = 0;
@@ -72,9 +73,9 @@ namespace sys {
 		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug);
 
 	public:
-		void setupCore(wasm::Module& mod) final;
+		bool setupCore(wasm::Module& mod) final;
+		bool coreLoaded() final;
 		std::vector<env::BlockExport> setupBlock(wasm::Module& mod) final;
-		void coreLoaded() final;
 		void blockLoaded() final;
 		void shutdown() final;
 	};

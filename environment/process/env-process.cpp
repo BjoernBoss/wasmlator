@@ -17,7 +17,7 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 
 	/* validate the configuration */
 	if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0) {
-		logger.fatal(u8"PageSize must be greater than zero and a power of two");
+		logger.error(u8"PageSize must be greater than zero and a power of two");
 		return false;
 	}
 
@@ -31,17 +31,18 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 	uintptr_t endOfMemory = 0;
 	endOfMemory = std::max(endOfMemory, detail::ContextAccess::Configure());
 	endOfMemory = std::max(endOfMemory, detail::MappingAccess::Configure());
-	endOfMemory = std::max(endOfMemory, detail::MemoryAccess::Configure(pPhysicalPages));
-	pMemoryPages = detail::PhysPageCount(endOfMemory);
+	auto memoryConfig = detail::MemoryAccess::Configure(pPhysicalPages);
+	if (!memoryConfig.has_value())
+		return false;
+	pMemoryPages = detail::PhysPageCount(std::max(endOfMemory, memoryConfig.value()));
 
 	/* allocate the next process-id */
 	logger.log(u8"Process created with id [", ++global::ProcId, u8"]");
 
 	/* setup the core module */
-	fLoadCore();
-	return true;
+	return fLoadCore();
 }
-void env::Process::fLoadCore() {
+bool env::Process::fLoadCore() {
 	logger.debug(u8"Loading core for [", global::ProcId, u8"]...");
 	wasm::BinaryWriter binOutput;
 
@@ -49,15 +50,57 @@ void env::Process::fLoadCore() {
 	try {
 		/* setup the core module to be loaded */
 		wasm::Module mod{ &binOutput };
-		pSystem->setupCore(mod);
+		if (!pSystem->setupCore(mod))
+			return false;
 	}
 	catch (const wasm::Exception& e) {
-		logger.fatal(u8"WASM exception occurred while creating the core module: ", e.what());
+		logger.error(u8"WASM exception occurred while creating the core module: ", e.what());
+		return false;
 	}
 
 	/* setup the core loading */
-	if (!detail::ProcessBridge::LoadCore(binOutput.output(), global::ProcId))
-		logger.fatal(u8"Failed initiating loading of core for [", global::ProcId, u8']');
+	if (detail::ProcessBridge::LoadCore(binOutput.output(), global::ProcId))
+		return true;
+	logger.error(u8"Failed initiating loading of core for [", global::ProcId, u8']');
+	return false;
+}
+bool env::Process::fCoreLoaded(uint32_t process) {
+	/* check if the ids still match and otherwise simply discard the call (no need to update
+	*	the loading-state, as it will not be affected by a process of a different id) */
+	if (process != global::ProcId)
+		return false;
+	logger.debug(u8"Core loading succeeded for [", global::ProcId, u8']');
+
+	/* setup the core-function mappings */
+	if (!detail::ProcessBridge::SetupCoreMap()) {
+		logger.error(u8"Failed to import all core-functions accessed by the main application");
+		pSystem->shutdown();
+		return true;
+	}
+
+	/* register all core bindings */
+	uint32_t bindingIndex = 0;
+	for (auto& [mod, bindings] : pBindings) {
+		for (auto& [name, index] : bindings) {
+			index = bindingIndex++;
+			if (detail::ProcessBridge::SetExport(name, index))
+				continue;
+
+			/* log the error and shutdown the created system */
+			logger.error(u8"Failed to setup binding for [", name, u8"] of object exported by core to blocks");
+			pSystem->shutdown();
+			return true;
+		}
+	}
+
+	/* notify the core-objects about the core being loaded */
+	detail::InteractAccess::CoreLoaded();
+	pState = State::coreLoaded;
+
+	/* notify the the system about the loaded core and check if the setup failed */
+	if (!pSystem->coreLoaded())
+		pSystem->shutdown();
+	return true;
 }
 void env::Process::fLoadBlock() {
 	logger.debug(u8"Loading block for [", global::ProcId, u8"]...");
@@ -106,37 +149,6 @@ void env::Process::fLoadBlock() {
 			return;
 	}
 	logger.fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
-}
-bool env::Process::fCoreLoaded(uint32_t process) {
-	/* check if the ids still match and otherwise simply discard the call (no need to update
-	*	the loading-state, as it will not be affected by a process of a different id) */
-	if (process != global::ProcId)
-		return false;
-	logger.debug(u8"Core loading succeeded for [", global::ProcId, u8']');
-
-	/* setup the core-function mappings */
-	if (!detail::ProcessBridge::SetupCoreMap())
-		logger.fatal(u8"Failed to import all core-functions accessed by the main application");
-
-	/* register all core bindings */
-	uint32_t bindingIndex = 0;
-	for (auto& [mod, bindings] : pBindings) {
-		for (auto& [name, index] : bindings) {
-			index = bindingIndex++;
-			if (!detail::ProcessBridge::SetExport(name, index))
-				logger.fatal(u8"Failed to setup binding for [", name, u8"] of object exported by core to blocks");
-		}
-	}
-
-	/* notify the core-objects about the core being loaded */
-	detail::InteractAccess::CoreLoaded();
-	pState = State::coreLoaded;
-
-	/* notify the the system about the loaded core (do not perform
-	*	any other operations, as the process might have be destroyed) */
-	pSystem->coreLoaded();
-	return true;
-
 }
 bool env::Process::fBlockLoaded(uint32_t process) {
 	/* check if the ids still match and otherwise simply discard the call (no need to update
@@ -217,7 +229,7 @@ env::Process* env::Instance() {
 }
 bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
 	if (global::Instance.get() != 0) {
-		logger.fatal(u8"Cannot create process as only one process can exist at a time");
+		logger.error(u8"Cannot create process as only one process can exist at a time");
 		return false;
 	}
 
@@ -231,7 +243,6 @@ bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, 
 		return true;
 	}
 	global::Instance.reset();
-	logger.warn(u8"Failed to setup process");
 	return false;
 }
 void env::ClearInstance() {

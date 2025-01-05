@@ -50,9 +50,9 @@ namespace env {
 
 	private:
 		bool fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks);
-		void fLoadCore();
-		void fLoadBlock();
+		bool fLoadCore();
 		bool fCoreLoaded(uint32_t process);
+		void fLoadBlock();
 		bool fBlockLoaded(uint32_t process);
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 

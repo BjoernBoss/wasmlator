@@ -15,14 +15,14 @@ namespace sys {
 
 	public:
 		/* configure the cpu based on the given execution-context */
-		virtual void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) = 0;
+		virtual bool setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) = 0;
 
 		/* add any potential wasm-related functions to the core-module */
-		virtual void setupCore(wasm::Module& mod) = 0;
+		virtual bool setupCore(wasm::Module& mod) = 0;
 
 		/* configure the userspace-context with the given starting-execution address and stack-pointer address
 		*	Note: will only be called for userspace execution-contexts */
-		virtual void setupContext(env::guest_t pcAddress, env::guest_t spAddress) = 0;
+		virtual bool setupContext(env::guest_t pcAddress, env::guest_t spAddress) = 0;
 
 		/* convert the exception of the given id to a descriptive string */
 		virtual std::u8string getExceptionText(uint64_t id) const = 0;

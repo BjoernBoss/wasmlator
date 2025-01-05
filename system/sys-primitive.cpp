@@ -47,12 +47,16 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 	/* validate the stack dimensions (aligned to the corresponding boundaries) */
 	size_t totalSize = (blobSize + structSize + Primitive::StartOfStackAlignment - 1) & ~(Primitive::StartOfStackAlignment - 1);
 	size_t padding = totalSize - (blobSize + structSize);
-	if (totalSize > Primitive::StackSize)
-		logger.fatal(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Primitive::StackSize, u8']');
+	if (totalSize > Primitive::StackSize) {
+		logger.error(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Primitive::StackSize, u8']');
+		return 0;
+	}
 
 	/* allocate the new stack and initialize the content for it */
-	if (!mem.mmap(Primitive::InitialStackAddress, Primitive::StackSize, env::Usage::ReadWrite))
-		logger.fatal(u8"Failed to allocate initial stack");
+	if (!mem.mmap(Primitive::InitialStackAddress, Primitive::StackSize, env::Usage::ReadWrite)) {
+		logger.error(u8"Failed to allocate initial stack");
+		return 0;
+	}
 	std::vector<uint8_t> content;
 	auto write = [&](const void* data, size_t size) {
 		const uint8_t* d = static_cast<const uint8_t*>(data);
@@ -92,7 +96,8 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 	for (size_t i = 0; i < pEnvs.size(); ++i)
 		write(pEnvs[i].data(), pEnvs[i].size() + 1);
 
-	/* write the prepared content to the acutal stack and return the pointer to the argument-count */
+	/* write the prepared content to the acutal stack and return the pointer to
+	*	the argument-count (ptr must not be zero, as this indicates failure) */
 	env::guest_t stack = Primitive::InitialStackAddress + Primitive::StackSize - totalSize;
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
@@ -111,11 +116,13 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 
 	/* allocate the primitive object and configure the cpu itself */
 	std::unique_ptr<sys::Primitive> system = std::make_unique<sys::Primitive>();
-	cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(system.get())));
+	if (!cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(system.get()))))
+		return false;
 
 	/* construct the primitive env-system object */
 	system->pArgs = args;
 	system->pEnvs = envs;
+	system->pCpu = cpu.get();
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
 	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug))
@@ -125,37 +132,32 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	gen::ClearInstance();
 	return false;
 }
-void sys::Primitive::setupCore(wasm::Module& mod) {
+bool sys::Primitive::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
 	gen::Core core{ mod };
 
 	/* perform the cpu-configuration of the core */
-	dynamic_cast<sys::Cpu*>(gen::Instance()->translator())->setupCore(mod);
+	if (!pCpu->setupCore(mod))
+		return false;
 
 	/* finalize the actual core */
 	core.close();
+	return true;
 }
-std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
-	/* setup the translator */
-	gen::Block translator{ mod };
-
-	/* translate the next requested address */
-	translator.run(pAddress);
-
-	/* finalize the translation */
-	return translator.close();
-}
-void sys::Primitive::coreLoaded() {
+bool sys::Primitive::coreLoaded() {
 	/* load the static elf-image and configure the startup-address */
 	try {
 		pAddress = elf::LoadStatic(fileBuffer, sizeof(fileBuffer));
 	}
 	catch (const elf::Exception& e) {
-		logger.fatal(u8"Failed to load static elf: ", e.what());
+		logger.error(u8"Failed to load static elf: ", e.what());
+		return false;
 	}
 
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
 	env::guest_t spAddress = fPrepareStack();
+	if (spAddress == 0)
+		return false;
 
 	/* register the functions to be invoked by the execution-environment */
 	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
@@ -170,10 +172,22 @@ void sys::Primitive::coreLoaded() {
 		});
 
 	/* initialize the context */
-	dynamic_cast<sys::Cpu*>(gen::Instance()->translator())->setupContext(pAddress, spAddress);
+	if (!pCpu->setupContext(pAddress, spAddress))
+		return false;
 
 	/* request the translation of the first block */
 	env::Instance()->startNewBlock();
+	return true;
+}
+std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
+	/* setup the translator */
+	gen::Block translator{ mod };
+
+	/* translate the next requested address */
+	translator.run(pAddress);
+
+	/* finalize the translation */
+	return translator.close();
 }
 void sys::Primitive::blockLoaded() {
 	/* start execution of the next address and catch/handle any incoming exceptions */

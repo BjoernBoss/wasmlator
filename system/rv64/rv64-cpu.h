@@ -20,9 +20,9 @@ namespace rv64 {
 		static std::unique_ptr<sys::Cpu> New();
 
 	public:
-		void setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) final;
-		void setupCore(wasm::Module& mod) final;
-		void setupContext(env::guest_t pcAddress, env::guest_t spAddress) final;
+		bool setupCpu(std::unique_ptr<sys::ExecContext>&& execContext) final;
+		bool setupCore(wasm::Module& mod) final;
+		bool setupContext(env::guest_t pcAddress, env::guest_t spAddress) final;
 		std::u8string getExceptionText(uint64_t id) const final;
 		void started(env::guest_t address) final;
 		void completed() final;

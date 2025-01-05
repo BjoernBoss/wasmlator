@@ -2,14 +2,16 @@
 
 static host::Logger logger{ u8"env::memory" };
 
-uintptr_t env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
+std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();
 	uint32_t caches = env::Instance()->memoryCaches();
 	self.pPageSize = env::Instance()->pageSize();
 
 	/* ensure the page-size is valid */
-	if (detail::PhysPageSize < self.pPageSize || (detail::PhysPageSize % self.pPageSize) != 0)
-		logger.fatal(u8"The physical page size [", detail::PhysPageSize, u8"] must a multiple of virtual page size [", self.pPageSize, u8']');
+	if (detail::PhysPageSize < self.pPageSize || (detail::PhysPageSize % self.pPageSize) != 0) {
+		logger.error(u8"The physical page size [", detail::PhysPageSize, u8"] must a multiple of virtual page size [", self.pPageSize, u8']');
+		return std::nullopt;
+	}
 
 	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up */
 	self.pReadCache = caches + 0;
