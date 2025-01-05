@@ -485,7 +485,7 @@ rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 		break;
 	case 0x07:
 		/* c.sd */
-		out.opcode = rv64::Opcode::store_word;
+		out.opcode = rv64::Opcode::store_dword;
 		out.src1 = detail::RVCRegisters[detail::GetU<7, 9>(data)];
 		out.src2 = detail::RVCRegisters[detail::GetU<2, 4>(data)];
 		out.imm = (uint64_t(detail::GetU<5, 6>(data)) << 6)
@@ -618,6 +618,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 	case 0x06:
 	case 0x07:
 		out.src1 = detail::RVCRegisters[detail::GetU<7, 9>(data)];
+		out.src2 = reg::Zero;
 		out.imm = (int64_t(detail::GetS<12, 12>(data)) << 8)
 			| (uint64_t(detail::GetU<5, 6>(data)) << 6)
 			| (uint64_t(detail::GetU<2, 2>(data)) << 5)
@@ -625,16 +626,12 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 			| (uint64_t(detail::GetU<3, 4>(data)) << 1);
 
 		/* c.beqz */
-		if (code) {
-			out.src2 = reg::Zero;
+		if (code == 0x06)
 			out.opcode = rv64::Opcode::branch_eq;
-		}
 
 		/* c.bnez */
-		else {
-			out.src2 = reg::Zero;
+		else
 			out.opcode = rv64::Opcode::branch_ne;
-		}
 		break;
 	}
 

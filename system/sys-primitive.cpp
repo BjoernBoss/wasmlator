@@ -52,12 +52,15 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 		return 0;
 	}
 
-	/* allocate the new stack and initialize the content for it */
+	/* allocate the new stack */
 	env::guest_t stackBase = mem.alloc(Primitive::StackSize, env::Usage::ReadWrite);
 	if (stackBase == 0) {
 		logger.error(u8"Failed to allocate initial stack");
 		return 0;
 	}
+	logger.debug(u8"Stack allocated to [", str::As{ U"#018x", stackBase }, u8"] with size [", str::As{ U"#010x", Primitive::StackSize }, u8']');
+
+	/* initialize the content for the stack */
 	std::vector<uint8_t> content;
 	auto write = [&](const void* data, size_t size) {
 		const uint8_t* d = static_cast<const uint8_t*>(data);
@@ -159,7 +162,7 @@ bool sys::Primitive::coreLoaded() {
 	env::guest_t spAddress = fPrepareStack();
 	if (spAddress == 0)
 		return false;
-	logger.debug(L"Stack loaded to: ", str::As{ U"018x", spAddress });
+	logger.debug(L"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* register the functions to be invoked by the execution-environment */
 	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
