@@ -4,6 +4,10 @@
 int main() {
 	host::SetLogLevel(host::LogLevel::trace);
 
-	StartupProcess();
+	while (true) {
+		std::string cmd;
+		std::getline(std::cin, cmd);
+		HandleCommand(str::u8::To(cmd));
+	}
 	return 0;
 }

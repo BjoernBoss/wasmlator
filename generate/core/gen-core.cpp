@@ -1,7 +1,4 @@
 #include "../generate.h"
-#include "../memory/memory-builder.h"
-#include "../context/context-builder.h"
-#include "../mapping/mapping-builder.h"
 
 gen::Core::Core(wasm::Module& mod) {
 	detail::MemoryBuilder _memory;

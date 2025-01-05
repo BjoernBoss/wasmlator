@@ -1,4 +1,3 @@
-#include "gen-superblock.h"
 #include "../generate.h"
 
 static host::Logger logger{ u8"gen::block" };

@@ -13,6 +13,12 @@ namespace env {
 
 		static constexpr env::guest_t MainAccessAddress = std::numeric_limits<env::guest_t>::max();
 
+		/* start any allocations above the given start-address and use the given spacing
+		*	between addresses, if possible - in order to allow growth of allocations (> 32gb) */
+		static constexpr env::guest_t StartOfAllocations = 0x0000'4000'0000'0000;
+		static constexpr env::guest_t EndOfAllocations = 0x8000'0000'0000'0000;
+		static constexpr env::guest_t SpacingBetweenAllocations = 0x8'0000'0000;
+
 		struct MemoryCache {
 			env::guest_t address{ 0 };
 			detail::physical_t physical{ 0 };
@@ -76,6 +82,7 @@ namespace env {
 		size_t fMemAllocatePhysical(uint32_t size, uint32_t growth);
 		bool fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t usage);
 		detail::physical_t fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext);
+		bool fMMap(env::guest_t address, uint32_t size, uint32_t usage);
 
 	private:
 		void fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size);

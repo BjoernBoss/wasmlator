@@ -336,6 +336,115 @@ env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys,
 		pPhysical.resize(last);
 	return actual;
 }
+bool env::Memory::fMMap(env::guest_t address, uint32_t size, uint32_t usage) {
+	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
+		(usage & env::Usage::Read ? u8'r' : u8'-'),
+		(usage & env::Usage::Write ? u8'w' : u8'-'),
+		(usage & env::Usage::Execute ? u8'x' : u8'-')
+	);
+
+	/* check if the address and size are aligned properly and validate the usage */
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0 || size == 0) {
+		logger.error(u8"Mapping requires address and size to be page-aligned and size greater than zero");
+		return false;
+	}
+	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0) {
+		logger.error(u8"Memory-usage must only consist of read/write/execute usage");
+		return false;
+	}
+
+	/* check if the given range is valid and does not overlap any existing ranges */
+	size_t virt = fLookupVirtual(address);
+	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size) {
+		logger.error(u8"Mapping range is already partially mapped");
+		return false;
+	}
+	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address) {
+		logger.error(u8"Mapping range is already partially mapped");
+		return false;
+	}
+
+	/* check if the previous or neighboring virtual page is already allocated */
+	bool hasPrev = (!pVirtual.empty() && pVirtual[virt].address + pVirtual[virt].size == address);
+	bool hasNext = (virt + 1 < pVirtual.size() && address + size == pVirtual[virt + 1].address);
+
+	/* check if an existing neighboring region can just be expanded */
+	if (hasPrev && !hasNext && fMemExpandPrevious(virt, address, size, usage)) {
+		fFlushCaches();
+		return true;
+	}
+
+	/* edge-case of previous and next already being properly mapped */
+	if (hasPrev && hasNext && fMemAllocateIntermediate(virt, size, usage)) {
+		/* flush the caches to ensure the new mapping is applied */
+		fFlushCaches();
+		return true;
+	}
+
+	/* compute the size of the entire contiguous range */
+	size_t physPrev = (hasPrev ? fLookupPhysical(pVirtual[virt].physical) : pPhysical.size());
+	size_t physNext = (hasNext ? fLookupPhysical(pVirtual[virt + 1].physical) : pPhysical.size());
+
+	/* lookup a physical slot large enough to house the contiguous memory region */
+	size_t phys = fMemAllocatePhysical((hasPrev ? pPhysical[physPrev].size : 0) + size + (hasNext ? pPhysical[physNext].size : 0), size);
+	if (phys >= pPhysical.size()) {
+		logger.debug(u8"Allocation failed");
+		return false;
+	}
+
+	/* patch the phys-prev/phys-next indices (as the allocation might have changed the overall count) */
+	if (!hasPrev)
+		physPrev = pPhysical.size();
+	if (!hasNext)
+		physNext = pPhysical.size();
+
+	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
+	detail::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
+
+	/* clear the next allocated block of memory */
+	detail::MemoryBridge::ClearPhysical(actual, size);
+
+	/* check if the virtual entry can be merged with the next entry */
+	size_t applied = 0;
+	if (hasNext && pVirtual[virt + 1].usage == usage) {
+		++applied;
+		size += pVirtual[virt + 1].size;
+		pVirtual[virt + 1] = detail::MemoryVirtual{ address, actual, size, usage };
+	}
+
+	/* check if it can be merged into the previous slot */
+	if (hasPrev && pVirtual[virt].usage == usage) {
+		++applied;
+		pVirtual[virt].size += size;
+	}
+
+	/* check if a new slot needs to be allocate or even a slot needs to be removed */
+	if (pVirtual.empty())
+		pVirtual.push_back({ address, actual, size, usage });
+	else if (applied == 0)
+		pVirtual.insert(pVirtual.begin() + virt + (address >= pVirtual[virt].address ? 1 : 0), { address, actual, size, usage });
+	else if (applied == 2)
+		pVirtual.erase(pVirtual.begin() + virt + 1);
+
+	/* check if the lowest physical memory should be reduced and moved down
+	*	(there must at least be two slots, as an allocation has occurred in this call) */
+	uint32_t end = pPhysical.back().physical + pPhysical.back().size;
+	if (!pPhysical[0].used && pPhysical[0].size >= (end / detail::ShiftMemoryFactor)) {
+		uint32_t shift = pPhysical[1].physical;
+		fMovePhysical(0, shift, end - shift);
+
+		/* move the physical and virtual memory down */
+		for (size_t i = 1; i < pPhysical.size(); ++i)
+			pPhysical[i - 1] = detail::MemoryPhysical{ pPhysical[i].physical - shift, pPhysical[i].size, pPhysical[i].used };
+		pPhysical.pop_back();
+		for (size_t i = 0; i < pVirtual.size(); ++i)
+			pVirtual[i].physical -= shift;
+	}
+
+	/* flush the caches to ensure the new mapping is accepted */
+	fFlushCaches();
+	return true;
+}
 
 void env::Memory::fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size) {
 	const detail::MemoryVirtual entry = pVirtual[virt];
@@ -661,118 +770,69 @@ uint64_t env::Memory::fCode(env::guest_t address, uint32_t size) const {
 }
 
 env::guest_t env::Memory::alloc(uint32_t size, uint32_t usage) {
-	return 0;
+	/* fetch the last address currently allocated */
+	env::guest_t last = (pVirtual.empty() ? 0 : pVirtual.back().address + pVirtual.back().size);
+	last = (last + pPageSize - 1) & ~env::guest_t(pPageSize - 1);
+
+	/* check if the start of allocations can just be taken */
+	env::guest_t address = 0;
+	if (last <= detail::StartOfAllocations - detail::SpacingBetweenAllocations)
+		address = detail::StartOfAllocations;
+
+	/* check if the next address is still available, while leaving allocation-space for both the last and next allocation */
+	else if (last < detail::EndOfAllocations && detail::EndOfAllocations - last >= size + 2 * detail::SpacingBetweenAllocations)
+		address = last + detail::SpacingBetweenAllocations;
+
+	/* lookup the largest spot in the allocations, and place the address in the middle */
+	else {
+		/* the index must exist, as size (32-bit) and the two spacings (also small in comparison) cannot be
+		*	greater than the allocatable address-space, therefore the last check would otherwise have been hit */
+		size_t index = fLookupVirtual(detail::StartOfAllocations);
+
+		/* compute the slot to the start-of-allocations address */
+		env::guest_t start = 0, end = 0;
+		if (pVirtual[index].address > detail::StartOfAllocations) {
+			start = detail::StartOfAllocations;
+			end = pVirtual[index].address;
+		}
+		env::guest_t prev = pVirtual[index].address + env::guest_t(pVirtual[index].size);
+
+		/* iterate over the upcoming addresses and look for the largest empty slot */
+		for (++index; index < pVirtual.size(); ++index) {
+			if (pVirtual[index].address >= detail::EndOfAllocations)
+				break;
+
+			/* check if the current spacing is larger */
+			env::guest_t space = pVirtual[index].address - prev;
+			if (space > (end - start)) {
+				start = prev;
+				end = pVirtual[index].address;
+			}
+			prev = pVirtual[index].address + pVirtual[index].size;
+		}
+
+		/* check if the slot to the end-of-allocations is larger */
+		if (prev < detail::EndOfAllocations) {
+			env::guest_t space = detail::EndOfAllocations - prev;
+			if (space > (end - start)) {
+				start = prev;
+				end = detail::EndOfAllocations;
+			}
+		}
+
+		/* check if a matching slot has been found and compute the address to be used */
+		if ((end - start) < size)
+			return 0;
+		address = start + (((end - start - size) / 2) & ~env::guest_t(pPageSize - 1));
+	}
+
+	/* try to perform the allocation */
+	if (!fMMap(address, size, usage))
+		return 0;
+	return address;
 }
 bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
-	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-')
-	);
-
-	/* check if the address and size are aligned properly and validate the usage */
-	if (fPageOffset(address) != 0 || fPageOffset(size) != 0) {
-		logger.error(u8"Mapping requires address and size to be page-aligned");
-		return false;
-	}
-	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0) {
-		logger.error(u8"Memory-usage must only consist of read/write/execute usage");
-		return false;
-	}
-
-	/* check if the given range is valid and does not overlap any existing ranges */
-	size_t virt = fLookupVirtual(address);
-	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size) {
-		logger.error(u8"Mapping range is already partially mapped");
-		return false;
-	}
-	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address) {
-		logger.error(u8"Mapping range is already partially mapped");
-		return false;
-	}
-	if (size == 0)
-		return true;
-
-	/* check if the previous or neighboring virtual page is already allocated */
-	bool hasPrev = (!pVirtual.empty() && pVirtual[virt].address + pVirtual[virt].size == address);
-	bool hasNext = (virt + 1 < pVirtual.size() && address + size == pVirtual[virt + 1].address);
-
-	/* check if an existing neighboring region can just be expanded */
-	if (hasPrev && !hasNext && fMemExpandPrevious(virt, address, size, usage)) {
-		fFlushCaches();
-		return true;
-	}
-
-	/* edge-case of previous and next already being properly mapped */
-	if (hasPrev && hasNext && fMemAllocateIntermediate(virt, size, usage)) {
-		/* flush the caches to ensure the new mapping is applied */
-		fFlushCaches();
-		return true;
-	}
-
-	/* compute the size of the entire contiguous range */
-	size_t physPrev = (hasPrev ? fLookupPhysical(pVirtual[virt].physical) : pPhysical.size());
-	size_t physNext = (hasNext ? fLookupPhysical(pVirtual[virt + 1].physical) : pPhysical.size());
-
-	/* lookup a physical slot large enough to house the contiguous memory region */
-	size_t phys = fMemAllocatePhysical((hasPrev ? pPhysical[physPrev].size : 0) + size + (hasNext ? pPhysical[physNext].size : 0), size);
-	if (phys >= pPhysical.size()) {
-		logger.debug(u8"Allocation failed");
-		return false;
-	}
-
-	/* patch the phys-prev/phys-next indices (as the allocation might have changed the overall count) */
-	if (!hasPrev)
-		physPrev = pPhysical.size();
-	if (!hasNext)
-		physNext = pPhysical.size();
-
-	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
-	detail::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
-
-	/* clear the next allocated block of memory */
-	detail::MemoryBridge::ClearPhysical(actual, size);
-
-	/* check if the virtual entry can be merged with the next entry */
-	size_t applied = 0;
-	if (hasNext && pVirtual[virt + 1].usage == usage) {
-		++applied;
-		size += pVirtual[virt + 1].size;
-		pVirtual[virt + 1] = detail::MemoryVirtual{ address, actual, size, usage };
-	}
-
-	/* check if it can be merged into the previous slot */
-	if (hasPrev && pVirtual[virt].usage == usage) {
-		++applied;
-		pVirtual[virt].size += size;
-	}
-
-	/* check if a new slot needs to be allocate or even a slot needs to be removed */
-	if (pVirtual.empty())
-		pVirtual.push_back({ address, actual, size, usage });
-	else if (applied == 0)
-		pVirtual.insert(pVirtual.begin() + virt + (address >= pVirtual[virt].address ? 1 : 0), { address, actual, size, usage });
-	else if (applied == 2)
-		pVirtual.erase(pVirtual.begin() + virt + 1);
-
-	/* check if the lowest physical memory should be reduced and moved down
-	*	(there must at least be two slots, as an allocation has occurred in this call) */
-	uint32_t end = pPhysical.back().physical + pPhysical.back().size;
-	if (!pPhysical[0].used && pPhysical[0].size >= (end / detail::ShiftMemoryFactor)) {
-		uint32_t shift = pPhysical[1].physical;
-		fMovePhysical(0, shift, end - shift);
-
-		/* move the physical and virtual memory down */
-		for (size_t i = 1; i < pPhysical.size(); ++i)
-			pPhysical[i - 1] = detail::MemoryPhysical{ pPhysical[i].physical - shift, pPhysical[i].size, pPhysical[i].used };
-		pPhysical.pop_back();
-		for (size_t i = 0; i < pVirtual.size(); ++i)
-			pVirtual[i].physical -= shift;
-	}
-
-	/* flush the caches to ensure the new mapping is accepted */
-	fFlushCaches();
-	return true;
+	return fMMap(address, size, usage);
 }
 bool env::Memory::munmap(env::guest_t address, uint32_t size) {
 	logger.debug(u8"Unmapping [", str::As{ U"#018x", address }, u8"] with size [", str::As{ U"#010x", size }, u8"]");

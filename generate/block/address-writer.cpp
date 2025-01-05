@@ -1,4 +1,3 @@
-#include "address-writer.h"
 #include "../generate.h"
 
 gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host) : pMapping{ mapping }, pHost{ host } {}

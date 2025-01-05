@@ -1,6 +1,6 @@
 #include "../generate.h"
-#include "../environment/process/process-access.h"
 #include "../environment/interact/interact-access.h"
+#include "../environment/process/process-access.h"
 
 void gen::detail::InteractBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"int_call_void", { { u8"index", wasm::Type::i32 } }, {});

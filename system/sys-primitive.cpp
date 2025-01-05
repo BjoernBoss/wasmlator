@@ -53,7 +53,8 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 	}
 
 	/* allocate the new stack and initialize the content for it */
-	if (!mem.mmap(Primitive::InitialStackAddress, Primitive::StackSize, env::Usage::ReadWrite)) {
+	env::guest_t stackBase = mem.alloc(Primitive::StackSize, env::Usage::ReadWrite);
+	if (stackBase == 0) {
 		logger.error(u8"Failed to allocate initial stack");
 		return 0;
 	}
@@ -62,7 +63,7 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 		const uint8_t* d = static_cast<const uint8_t*>(data);
 		content.insert(content.end(), d, d + size);
 		};
-	uint64_t blobPtr = Primitive::InitialStackAddress + Primitive::StackSize - blobSize;
+	env::guest_t blobPtr = stackBase + Primitive::StackSize - blobSize;
 
 	/* write the argument-count out */
 	uint64_t count = pArgs.size(), nullValue = 0;
@@ -98,7 +99,7 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 
 	/* write the prepared content to the acutal stack and return the pointer to
 	*	the argument-count (ptr must not be zero, as this indicates failure) */
-	env::guest_t stack = Primitive::InitialStackAddress + Primitive::StackSize - totalSize;
+	env::guest_t stack = stackBase + Primitive::StackSize - totalSize;
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
 }
@@ -158,6 +159,7 @@ bool sys::Primitive::coreLoaded() {
 	env::guest_t spAddress = fPrepareStack();
 	if (spAddress == 0)
 		return false;
+	logger.debug(L"Stack loaded to: ", str::As{ U"018x", spAddress });
 
 	/* register the functions to be invoked by the execution-environment */
 	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
