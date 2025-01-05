@@ -69,6 +69,7 @@ namespace env {
 		void fMovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) const;
 		void fFlushCaches() const;
 		void fCheckConsistency() const;
+		bool fCheckAllMapped(size_t virt, env::guest_t end) const;
 
 	private:
 		bool fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage);
@@ -78,12 +79,12 @@ namespace env {
 
 	private:
 		void fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size);
-		void fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end);
+		bool fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end);
 		void fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size);
 
 	private:
-		bool fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage);
-		void fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage);
+		void fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage);
+		bool fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage);
 
 	private:
 		void fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const;
@@ -92,9 +93,10 @@ namespace env {
 		uint64_t fCode(env::guest_t address, uint32_t size) const;
 
 	public:
+		env::guest_t alloc(uint32_t size, uint32_t usage);
 		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);
-		void munmap(env::guest_t address, uint32_t size);
-		void mprotect(env::guest_t address, uint32_t size, uint32_t usage);
+		bool munmap(env::guest_t address, uint32_t size);
+		bool mprotect(env::guest_t address, uint32_t size, uint32_t usage);
 		void mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const;
 		void mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage);
 		void mclear(env::guest_t dest, uint32_t size, uint32_t usage);

@@ -131,6 +131,18 @@ void env::Memory::fCheckConsistency() const {
 		logger.fatal(u8"Phyiscal used memory does not match virtual used memory");
 	logger.debug(u8"Memory consistency-check performed");
 }
+bool env::Memory::fCheckAllMapped(size_t virt, env::guest_t end) const {
+	env::guest_t address = pVirtual[virt].address;
+
+	/* check if the entire range is mapped correctly */
+	while (virt < pVirtual.size() && pVirtual[virt].address == address) {
+		address = pVirtual[virt].address + pVirtual[virt].size;
+		++virt;
+		if (end <= address)
+			return true;
+	}
+	return false;
+}
 
 bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
@@ -354,33 +366,32 @@ void env::Memory::fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32
 	offset += size;
 	pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ address + size, entry.physical + offset, entry.size - offset, entry.usage });
 }
-void env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end) {
-	uint32_t shift = 0;
+bool env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end) {
+	/* check if the entire range is mapped correctly */
+	if (!fCheckAllMapped(virt, end)) {
+		logger.error(u8"Unmapping range is not fully mapped");
+		return false;
+	}
 
-	/* check if the first slot needs to be split up */
+	/* check if the first slot needs to be split up (cannot be double-split, as it must reach across multiple blocks) */
 	if (pVirtual[virt].address < address) {
-		shift = uint32_t(pVirtual[virt].address + pVirtual[virt].size - address);
 		pVirtual[virt].size = uint32_t(address - pVirtual[virt].address);
 		++virt;
 	}
 
-	/* remove all remaining blocks until the end has been reached */
+	/* remove all remaining blocks until the end has been reached (must all
+	*	be valid, as the range has been validated to be fully mapped) */
 	size_t dropped = 0;
 	while (true) {
-		/* check if the next virtual slot is valid */
 		size_t next = virt + dropped;
-		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
-			logger.fatal(u8"Unmapping range is not fully mapped");
 
 		/* check if the slot is fully unmapped */
 		if (pVirtual[next].address + pVirtual[next].size <= end) {
 			++dropped;
-			shift = 0;
 
 			/* check if this was the last block */
 			if (pVirtual[next].address + pVirtual[next].size == end)
 				break;
-			address += pVirtual[next].size;
 			continue;
 		}
 
@@ -395,6 +406,7 @@ void env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env
 	/* drop all cleared blocks */
 	if (dropped > 0)
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
+	return true;
 }
 void env::Memory::fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size) {
 	/* check if the entire physical range is being removed */
@@ -461,12 +473,12 @@ void env::Memory::fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size)
 	pPhysical[phys].size = offset;
 }
 
-bool env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
+void env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
 	const detail::MemoryVirtual entry = pVirtual[virt];
 
 	/* check if nothing needs to be done */
 	if (entry.usage == usage)
-		return false;
+		return;
 
 	/* check if a previous or next block exists */
 	bool hasPrev = (virt > 0 && pVirtual[virt - 1].address + uint64_t(pVirtual[virt - 1].size) == entry.address);
@@ -489,7 +501,7 @@ bool env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 		}
 		if (remove > 0)
 			pVirtual.erase(pVirtual.begin() + virt + 1, pVirtual.begin() + virt + 1 + remove);
-		return true;
+		return;
 	}
 
 	/* check if they align at the lower bound, in which case only one new entry needs to be added */
@@ -506,7 +518,7 @@ bool env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 			pVirtual[virt].size = size;
 			pVirtual[virt].usage = usage;
 		}
-		return true;
+		return;
 	}
 
 	/* check if they align at the upper bound, in which case only one new entry needs to be inserted */
@@ -522,7 +534,7 @@ bool env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 			pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ entry.address + size, entry.physical + size, entry.size - size, usage });
 			pVirtual[virt].size = size;
 		}
-		return true;
+		return;
 	}
 
 	/* a new slot needs to be inserted below and above (no possibility to merge with neighboring blocks) */
@@ -531,17 +543,20 @@ bool env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 	pVirtual[virt].size = offset;
 	pVirtual[virt + 1] = detail::MemoryVirtual{ address, entry.physical + offset, size, usage };
 	pVirtual[virt + 2] = detail::MemoryVirtual{ address + size, entry.physical + offset + size, entry.size - offset - size, entry.usage };
-	return true;
 }
-void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage) {
+bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage) {
 	bool hasValue = false;
-	uint32_t shift = 0;
+
+	/* check if the entire range is mapped correctly */
+	if (!fCheckAllMapped(virt, end)) {
+		logger.error(u8"Change range is not fully mapped");
+		return false;
+	}
 
 	/* check if the first slot needs to be split up or if it can be used directly */
 	detail::physical_t start = pVirtual[virt].physical;
 	if (pVirtual[virt].address < address) {
 		if (pVirtual[virt].usage != usage) {
-			shift = uint32_t(pVirtual[virt].address + pVirtual[virt].size - address);
 			pVirtual[virt].size = uint32_t(address - pVirtual[virt].address);
 			start += pVirtual[virt].size;
 		}
@@ -557,13 +572,11 @@ void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	else if (virt > 0 && pVirtual[virt - 1].address + uint64_t(pVirtual[virt - 1].size) == address && pVirtual[virt - 1].usage == usage)
 		hasValue = true;
 
-	/* convert all remaining blocks until the end has been reached */
+	/* convert all remaining blocks until the end has been reached (must all
+	*	be valid, as the range has been validated to be fully mapped) */
 	size_t dropped = 0;
 	while (true) {
-		/* check if the next virtual slot is valid */
 		size_t next = virt + dropped;
-		if (next >= pVirtual.size() || pVirtual[next].address != address + shift)
-			logger.fatal(u8"Change range is not fully mapped");
 
 		/* check if the slot is fully mapped across */
 		if (pVirtual[next].address + pVirtual[next].size <= end) {
@@ -573,46 +586,41 @@ void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 				++dropped;
 			}
 
-			/* make this the initial slot */
+			/* make this the initial slot (cannot be the first slot, as this call requires multiple blocks) */
 			else {
-				pVirtual[next] = detail::MemoryVirtual{ address, start, pVirtual[next].size + shift, usage };
+				pVirtual[next] = detail::MemoryVirtual{ address, start, pVirtual[next].size + uint32_t(pVirtual[next].address - address), usage };
 				hasValue = true;
-				shift = 0;
 				++virt;
 			}
 
 			/* check if this was the last block */
 			if (pVirtual[next].address + pVirtual[next].size == end)
 				break;
-			address += pVirtual[next].size;
 			continue;
 		}
-		size = uint32_t(end - address);
-		uint32_t remainderUsage = pVirtual[next].usage;
-		uint32_t remainderSize = shift + pVirtual[next].size - size;
 
 		/* check if the last slot is of the same usage and can just be added */
-		if (remainderUsage == usage) {
+		if (pVirtual[next].usage == usage) {
 			if (hasValue) {
 				pVirtual[virt - 1].size += pVirtual[next].size;
 				++dropped;
 			}
 			else
-				pVirtual[next] = { address, start, size + remainderSize, usage };
+				pVirtual[next] = { address, start, pVirtual[next].size + uint32_t(pVirtual[next].address - address), usage };
 		}
 
-		/* add the remaining capacity to the previous slot and clip it from the next slot */
-		else if (hasValue) {
-			pVirtual[virt - 1].size += size;
-			pVirtual[next].address += size;
-			pVirtual[next].physical += size;
-			pVirtual[next].size -= size;
-		}
-
-		/* use the new block as initial block and insert the remainder as a new block */
+		/* shift the remainder to the next block and either add the rest to the previous block, or insert the new block */
 		else {
-			pVirtual[next] = detail::MemoryVirtual{ address, start, size, usage };
-			pVirtual.insert(pVirtual.begin() + next + 1, detail::MemoryVirtual{ address + size, start + size, remainderSize, remainderUsage });
+			uint32_t offset = uint32_t(end - pVirtual[next].address);
+			pVirtual[next].address += offset;
+			pVirtual[next].physical += offset;
+			pVirtual[next].size -= offset;
+
+			/* add the capacity to the previous block or insert the new block */
+			if (hasValue)
+				pVirtual[virt - 1].size += offset;
+			else
+				pVirtual.insert(pVirtual.begin() + next, detail::MemoryVirtual{ end, start, uint32_t(end - address), usage });
 		}
 		break;
 	}
@@ -620,6 +628,7 @@ void env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	/* drop all cleared blocks */
 	if (dropped > 0)
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
+	return true;
 }
 
 void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const {
@@ -651,6 +660,9 @@ uint64_t env::Memory::fCode(env::guest_t address, uint32_t size) const {
 	return detail::MemoryBridge::Code(address, size);
 }
 
+env::guest_t env::Memory::alloc(uint32_t size, uint32_t usage) {
+	return 0;
+}
 bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
@@ -659,17 +671,25 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	);
 
 	/* check if the address and size are aligned properly and validate the usage */
-	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
-		logger.fatal(u8"Mapping requires address and size to be page-aligned");
-	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0)
-		logger.fatal(u8"Memory-usage must only consist of read/write/execute usage");
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0) {
+		logger.error(u8"Mapping requires address and size to be page-aligned");
+		return false;
+	}
+	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0) {
+		logger.error(u8"Memory-usage must only consist of read/write/execute usage");
+		return false;
+	}
 
 	/* check if the given range is valid and does not overlap any existing ranges */
 	size_t virt = fLookupVirtual(address);
-	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size)
-		logger.fatal(u8"Mapping range is already partially mapped");
-	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address)
-		logger.fatal(u8"Mapping range is already partially mapped");
+	if (virt < pVirtual.size() && address >= pVirtual[virt].address && address < pVirtual[virt].address + pVirtual[virt].size) {
+		logger.error(u8"Mapping range is already partially mapped");
+		return false;
+	}
+	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address) {
+		logger.error(u8"Mapping range is already partially mapped");
+		return false;
+	}
 	if (size == 0)
 		return true;
 
@@ -754,38 +774,41 @@ bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
 	fFlushCaches();
 	return true;
 }
-void env::Memory::munmap(env::guest_t address, uint32_t size) {
+bool env::Memory::munmap(env::guest_t address, uint32_t size) {
 	logger.debug(u8"Unmapping [", str::As{ U"#018x", address }, u8"] with size [", str::As{ U"#010x", size }, u8"]");
 
 	/* check if the address and size are aligned properly */
-	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
-		logger.fatal(u8"Unmapping requires address and size to be page-aligned");
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0) {
+		logger.error(u8"Unmapping requires address and size to be page-aligned");
+		return false;
+	}
 
 	/* check if the given start is valid and lies within a mapped region */
 	size_t virt = fLookupVirtual(address);
-	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
-		logger.fatal(u8"Unmapping range is not fully mapped");
+	if (virt >= pVirtual.size() || address < pVirtual[virt].address) {
+		logger.error(u8"Unmapping range is not fully mapped");
+		return false;
+	}
 	if (size == 0)
-		return;
+		return true;
 
 	/* cache the physical state to be able to patch it afterwards */
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
 	uint32_t offset = (pVirtual[virt].physical - pPhysical[phys].physical) + uint32_t(address - pVirtual[virt].address);
 
-	/* check if the new usage lies across multiple slots */
+	/* check if the range lies on a single block or across multiple slots */
 	env::guest_t end = address + size;
-	if (pVirtual[virt].address + pVirtual[virt].size < end)
-		fMemUnmapMultipleBlocks(virt, address, end);
-
-	/* apply the new usage to the single block */
-	else
+	if (pVirtual[virt].address + pVirtual[virt].size >= end)
 		fMemUnmapSingleBlock(virt, address, size);
+	else if (!fMemUnmapMultipleBlocks(virt, address, end))
+		return false;
 
 	/* unmap the physical memory and flush the caches to ensure the new mapping is accepted */
 	fMemUnmapPhysical(phys, offset, size);
 	fFlushCaches();
+	return true;
 }
-void env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
+bool env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
 	logger.fmtDebug(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
@@ -793,29 +816,37 @@ void env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) 
 	);
 
 	/* check if the address and size are aligned properly and validate the usage */
-	if (fPageOffset(address) != 0 || fPageOffset(size) != 0)
-		logger.fatal(u8"Changing requires address and size to be page-aligned");
-	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0)
-		logger.fatal(u8"Memory-usage must only consist of read/write/execute usage");
+	if (fPageOffset(address) != 0 || fPageOffset(size) != 0) {
+		logger.error(u8"Changing requires address and size to be page-aligned");
+		return false;
+	}
+	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0) {
+		logger.error(u8"Memory-usage must only consist of read/write/execute usage");
+		return false;
+	}
 
 	/* check if the given start is valid and lies within a mapped region */
 	size_t virt = fLookupVirtual(address);
-	if (virt >= pVirtual.size() || address < pVirtual[virt].address)
-		logger.fatal(u8"Change range is not fully mapped");
+	if (virt >= pVirtual.size() || address < pVirtual[virt].address) {
+		logger.error(u8"Change range is not fully mapped");
+		return false;
+	}
 	if (size == 0)
-		return;
+		return true;
 
-	/* check if the new usage lies across multiple slots */
+	/* check if the range lies on a single block or across multiple slots */
 	env::guest_t end = address + size;
-	if (pVirtual[virt].address + pVirtual[virt].size < end)
-		fMemProtectMultipleBlocks(virt, address, end, size, usage);
-
-	/* apply the new usage to the single block */
-	else if (!fMemProtectSingleBlock(virt, address, size, usage))
-		return;
+	if (pVirtual[virt].address + pVirtual[virt].size >= end) {
+		if (pVirtual[virt].usage == usage)
+			return true;
+		fMemProtectSingleBlock(virt, address, size, usage);
+	}
+	else if (!fMemProtectMultipleBlocks(virt, address, end, size, usage))
+		return false;
 
 	/* flush the caches to ensure the new mapping is accepted */
 	fFlushCaches();
+	return true;
 }
 void env::Memory::mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
 	logger.fmtDebug(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,

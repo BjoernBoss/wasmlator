@@ -99,7 +99,8 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		env::Instance()->memory().mwrite(programs[i].vAddress, data, uint32_t(programs[i].fileSize), env::Usage::Write);
 
 		/* update the protection flags to match the actual flags */
-		env::Instance()->memory().mprotect(address, size, usage);
+		if (!env::Instance()->memory().mprotect(address, size, usage))
+			throw elf::Exception{ L"Failed to change the protection for program-header [", i, L']' };
 	}
 }
 
