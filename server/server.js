@@ -1,6 +1,5 @@
 window.onload = function () {
 	let htmlOutput = document.getElementById('output');
-	let htmlInput = document.getElementById('input');
 	let htmlBusy = document.getElementById('busy');
 	let buttonState = {
 		'trace': true,
@@ -10,10 +9,8 @@ window.onload = function () {
 		'warn': true,
 		'error': true
 	};
-	let history = ['', ''];
-	let historyIndex = 0;
-	let inputDirty = true;
 
+	/* register the button-behavior */
 	for (const key in buttonState) {
 		let html = document.getElementById(key);
 		html.onclick = function () {
@@ -25,75 +22,90 @@ window.onload = function () {
 		};
 	}
 
-	let busy = function () {
-		htmlBusy.style.visibility = 'hidden';
-	};
-	let log = function (m, normal) {
+	/* logger function to write the logs to the ui */
+	let logMessage = function (m, failure) {
 		let e = document.createElement('div');
+		htmlOutput.appendChild(e);
 
-		let name = '';
-		switch ((m.length <= 2 || !normal) ? 'F' : m[0]) {
-			case 'T':
-				name = 'trace';
-				break;
-			case 'D':
-				name = 'debug';
-				break;
-			case 'L':
-				name = 'log';
-				break;
-			case 'I':
-				name = 'info';
-				break;
-			case 'W':
-				name = 'warn';
-				break;
-			case 'E':
-				name = 'error';
-				break;
-			default:
-				break;
-		}
+		/* lookup the log-type */
+		let name = {
+			'T': 'trace',
+			'D': 'debug',
+			'L': 'log',
+			'I': 'info',
+			'W': 'warn',
+			'E': 'error'
+		}[(m.length <= 2 || failure) ? null : m[0]];
 
-		if (name != '') {
+		/* update the string and patch the types and visibility */
+		if (name !== undefined) {
 			m = m.substr(2);
-			e.classList.add(name);
 			if (!buttonState[name])
 				e.style.display = 'none';
 		}
 		else
-			e.classList.add('fatal');
+			name = 'fatal';
 
+		/* apply the style and write the text out */
+		e.classList.add(name);
 		e.innerText = m;
-		htmlOutput.appendChild(e);
 		e.scrollIntoView(true);
 	};
 
-	let wasmlator = setup_wasmlator(busy, log);
+	/* load the web-worker, which runs the wasmlator */
+	let worker = new Worker('./worker.js');
+	let workerBusy = true;
+	let initialLogDone = false;
 
-	htmlInput.onkeydown = function (e) {
+	/* register the command-handler to the worker */
+	worker.onmessage = function (e) {
+		let data = e.data;
+		if (data.cmd == 'ready') {
+			htmlBusy.style.visibility = 'hidden';
+			workerBusy = false;
+			if (!initialLogDone)
+				logMessage('L: Wasmlator.js loaded successfully and ready...', false);
+			initialLogDone = true;
+		}
+		else if (data.cmd == 'log')
+			logMessage(data.msg, data.failure);
+		else
+			logMessage(`Unknown command [${data.cmd}] received from service worker.`, true);
+	};
+
+	/* register the handler for creating the history behavior and committing the commands */
+	let history = ['', ''];
+	let historyIndex = 0;
+	let inputDirty = true;
+	document.getElementById('input').onkeydown = function (e) {
+		/* check if the history should be looked at */
 		if (e.code == 'ArrowUp' || e.code == 'ArrowDown') {
 			if (inputDirty) {
 				historyIndex = history.length - 1;
-				history[historyIndex] = htmlInput.value;
+				history[historyIndex] = this.value;
 				inputDirty = false;
 			}
 
 			if (e.code == 'ArrowUp' && historyIndex > 0)
-				htmlInput.value = history[--historyIndex];
+				this.value = history[--historyIndex];
 			else if (e.code == 'ArrowDown' && historyIndex < history.length - 1)
-				htmlInput.value = history[++historyIndex];
+				this.value = history[++historyIndex];
 
 			return false;
 		}
 		inputDirty = true;
 
+		/* check if a command has been entered, and the worker is currently not busy */
 		if (e.code != 'Enter' && e.code != 'NumpadEnter')
 			return true;
+		if (workerBusy)
+			return false;
 
-		let m = htmlInput.value;
-		htmlInput.value = '';
+		/* extract the command */
+		let m = this.value;
+		this.value = '';
 
+		/* update the history */
 		let last = (history.length == 1 ? '' : history[history.length - 2]);
 		if (m.length == 0) {
 			m = last;
@@ -104,14 +116,10 @@ window.onload = function () {
 			history.push('');
 		}
 
-		setTimeout(function () {
-			try {
-				htmlBusy.style.visibility = 'visible';
-				wasmlator(m, busy);
-			} catch (e) {
-				log(e.stack, false);
-			}
-		});
+		/* send the command to the worker and mark him as busy */
+		htmlBusy.style.visibility = 'visible';
+		workerBusy = true;
+		worker.postMessage(m);
 		return false;
 	}
 }

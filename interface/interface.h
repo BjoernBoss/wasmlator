@@ -4,13 +4,11 @@
 #include <string>
 
 /* primary application entry point */
-void StartupProcess();
 void HandleCommand(std::u8string_view commcmdand);
 
 /* environment/entry-point interactions */
 extern "C" {
 	/* exports */
-	void main_initialize();
 	char8_t* main_allocate_command(uint32_t size);
 	void main_command(char8_t* ptr, uint32_t size);
 }

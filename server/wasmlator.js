@@ -1,6 +1,6 @@
 class BusyError extends Error { constructor(m) { super(m); this.name = 'BusyError'; } };
 
-setup_wasmlator = function (cb, logPrint) {
+setup_wasmlator = function (logPrint, cb) {
 	/* local state of all loaded wasmlator-content */
 	let _state = {
 		main: {
@@ -61,11 +61,11 @@ setup_wasmlator = function (cb, logPrint) {
 			/* log the actual error (only if this is the first exception) */
 			if (e instanceof Error) {
 				console.error(e);
-				logPrint(e.stack, false);
+				logPrint(e.stack, true);
 			}
 			else {
 				console.error(`Unhandled exception occurred: ${e.stack}`);
-				logPrint(e.stack, false);
+				logPrint(e.stack, true);
 			}
 		}
 	}
@@ -74,7 +74,7 @@ setup_wasmlator = function (cb, logPrint) {
 		*	a wasm-trap, in which case the original exception will not be logged anymore */
 		if (!_state.failed) {
 			console.error(e);
-			logPrint(e.stack, false);
+			logPrint(e.stack, true);
 		}
 		_state.failed = true;
 		throw e;
@@ -164,9 +164,7 @@ setup_wasmlator = function (cb, logPrint) {
 
 		/* setup the remaining host-imports */
 		imports.env.host_print_u8 = function (ptr, size) {
-			let msg = _state.load_string(ptr, size, true);
-			console.log(msg);
-			logPrint(msg, true);
+			logPrint(_state.load_string(ptr, size, true), false);
 		};
 		imports.env.host_fatal_u8 = function (ptr, size) {
 			_state.throwException(new FatalError(`Wasmlator.js: ${_state.load_string(ptr, size, true)}`));
@@ -190,11 +188,11 @@ setup_wasmlator = function (cb, logPrint) {
 				_state.main.exports = instance.instance.exports;
 				_state.main.memory = _state.main.exports.memory;
 
-				/* startup the main application, which requires the internal _initialize and explicitly created main_initialize to be invoked */
+				/* startup the main application, which requires the internal _initialize to be invoked */
 				_state.controlled(() => {
 					console.log(`WasmLator.js: Starting up main module...`);
 					_state.main.exports._initialize();
-					_state.main.exports.main_initialize();
+					console.log(`WasmLator.js: Main module initialized`);
 
 					/* leave the busy-area (may execute the completed callback) */
 					_state.leave();

@@ -8,14 +8,6 @@
 
 static host::Logger logger{ u8"interface" };
 
-void main_initialize() {
-	try {
-		StartupProcess();
-	}
-	catch (...) {
-		logger.fatal(u8"Unhandled exception caught [main_initialize]");
-	}
-}
 char8_t* main_allocate_command(uint32_t size) {
 	/* allocate a raw buffer of the given size and return it */
 	return new char8_t[size];
@@ -42,6 +34,7 @@ void main_core_loaded(uint32_t process) {
 		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");
 	}
 }
+
 void main_block_loaded(uint32_t process) {
 	try {
 		env::detail::ProcessBridge::BlockLoaded(process);

@@ -79,10 +79,6 @@ static arger::Config Commands{
 
 static host::Logger logger{ u8"" };
 
-void StartupProcess() {
-	logger.log(u8"Application initialized");
-}
-
 void HandleCommand(std::u8string_view cmd) {
 	logger.info(u8"Handling: ", cmd);
 	arger::Parsed out;
