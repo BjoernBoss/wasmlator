@@ -40,7 +40,14 @@ setup_wasmlator = function (logPrint, cb) {
 	}
 
 	/* start the official busy-area, as the creation is considered being busy */
-	_state.start(cb);
+	_state.start(() => {
+		if (_state.loadState == 'loaded')
+			logPrint('Wasmlator.js: Loaded successfully and ready...', false);
+		else
+			logPrint('Wasmlator.js: Failed to load properly', true);
+		if (cb != null)
+			cb();
+	});
 	_state.loadState = 'loading';
 
 	/* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
@@ -79,7 +86,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* load the initial glue module and afterwards the main application */
 	_state.load_glue = function () {
-		console.log(`WasmLator.js: Loading glue module...`);
+		logPrint(`WasmLator.js: Loading glue module...`, false);
 
 		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
@@ -115,7 +122,7 @@ setup_wasmlator = function (logPrint, cb) {
 				return WebAssembly.instantiateStreaming(resp, imports);
 			})
 			.then((instance) => {
-				console.log(`WasmLator.js: Glue module loaded`);
+				logPrint(`WasmLator.js: Glue module loaded`, false);
 				_state.glue.exports = instance.instance.exports;
 				_state.glue.memory = _state.glue.exports.memory;
 
@@ -130,7 +137,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* load the actual primary application once the glue module has been loaded and compiled */
 	_state.load_main = function () {
-		console.log(`WasmLator.js: Loading main module...`);
+		logPrint(`WasmLator.js: Loading main module...`, false);
 
 		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
@@ -170,16 +177,16 @@ setup_wasmlator = function (logPrint, cb) {
 				return WebAssembly.instantiateStreaming(resp, imports);
 			})
 			.then((instance) => {
-				console.log(`WasmLator.js: Main module loaded`);
+				logPrint(`WasmLator.js: Main module loaded`, false);
 				_state.main.exports = instance.instance.exports;
 				_state.main.memory = _state.main.exports.memory;
 
 				/* startup the main application, which requires the internal _initialize to be invoked */
 				_state.controlled(() => {
-					console.log(`WasmLator.js: Starting up main module...`);
+					logPrint(`WasmLator.js: Starting up main module...`, false);
 					_state.main.exports._initialize();
 					_state.loadState = 'loaded';
-					console.log(`WasmLator.js: Main module initialized`);
+					logPrint(`WasmLator.js: Main module initialized`, false);
 				});
 			})
 			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`Failed to load main module: ${err}`))))

@@ -7,7 +7,8 @@ window.onload = function () {
 		'log': true,
 		'info': true,
 		'warn': true,
-		'error': true
+		'error': true,
+		'fatal': true
 	};
 
 	/* register the button-behavior */
@@ -29,22 +30,21 @@ window.onload = function () {
 
 		/* lookup the log-type */
 		let name = {
-			'T': 'trace',
-			'D': 'debug',
-			'L': 'log',
-			'I': 'info',
-			'W': 'warn',
-			'E': 'error'
-		}[(m.length <= 2 || failure) ? null : m[0]];
+			'T:': 'trace',
+			'D:': 'debug',
+			'L:': 'log',
+			'I:': 'info',
+			'W:': 'warn',
+			'E:': 'error'
+		}[m.substr(0, 2)];
 
 		/* update the string and patch the types and visibility */
-		if (name !== undefined) {
+		if (name !== undefined)
 			m = m.substr(2);
-			if (!buttonState[name])
-				e.style.display = 'none';
-		}
 		else
-			name = 'fatal';
+			name = (failure ? 'fatal' : 'log');
+		if (!buttonState[name])
+			e.style.display = 'none';
 
 		/* apply the style and write the text out */
 		e.classList.add(name);
@@ -55,7 +55,6 @@ window.onload = function () {
 	/* load the web-worker, which runs the wasmlator */
 	let worker = new Worker('./worker.js');
 	let workerBusy = true;
-	let initialLogDone = false;
 
 	/* register the command-handler to the worker */
 	worker.onmessage = function (e) {
@@ -63,9 +62,6 @@ window.onload = function () {
 		if (data.cmd == 'ready') {
 			htmlBusy.style.visibility = 'hidden';
 			workerBusy = false;
-			if (!initialLogDone)
-				logMessage('L: Wasmlator.js loaded successfully and ready...', false);
-			initialLogDone = true;
 		}
 		else if (data.cmd == 'log')
 			logMessage(data.msg, data.failure);
