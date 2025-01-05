@@ -13,15 +13,15 @@ setup_wasmlator = function (logPrint, cb) {
 			memory: null,
 			exports: {}
 		},
-		failed: false,
+		loadState: 'none', // none, loading, loaded
 		busy: 0,
 		completed: null
 	};
 
 	/* interact with the busy-areas (to prevent nested execution of commands) */
 	_state.start = function (cb) {
-		if (_state.failed)
-			throw new BusyError('Wasmlator.js failed and is in an inoperable state');
+		if (_state.loadState != 'none' && _state.loadState != 'loaded')
+			throw new BusyError('Wasmlator.js failed to be loaded properly and is in an inoperable state');
 		if (_state.busy > 0)
 			throw new BusyError('Wasmlator.js is currently busy with another operation');
 
@@ -35,12 +35,13 @@ setup_wasmlator = function (logPrint, cb) {
 	_state.leave = function () {
 		if (--_state.busy > 0)
 			return;
-		if (_state.completed != null && !_state.failed)
+		if (_state.completed != null)
 			_state.completed();
 	}
 
 	/* start the official busy-area, as the creation is considered being busy */
 	_state.start(cb);
+	_state.loadState = 'loading';
 
 	/* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
 	*	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
@@ -49,16 +50,8 @@ setup_wasmlator = function (logPrint, cb) {
 	class UnknownExitError extends Error { constructor(m) { super(m); this.name = 'UnknownExitError'; } };
 	_state.controlled = function (fn) {
 		try {
-			/* skip the function call if the state is considered failed */
-			if (!_state.failed)
-				fn();
+			fn();
 		} catch (e) {
-			/* check if this is the first exception and log it and mark the wasmlator as failed */
-			if (_state.failed)
-				return;
-			_state.failed = true;
-
-			/* log the actual error (only if this is the first exception) */
 			if (e instanceof Error) {
 				console.error(e);
 				logPrint(e.stack, true);
@@ -70,13 +63,6 @@ setup_wasmlator = function (logPrint, cb) {
 		}
 	}
 	_state.throwException = function (e) {
-		/* log the error immediately, as the error handling of the main-application could trigger
-		*	a wasm-trap, in which case the original exception will not be logged anymore */
-		if (!_state.failed) {
-			console.error(e);
-			logPrint(e.stack, true);
-		}
-		_state.failed = true;
 		throw e;
 	}
 
@@ -95,7 +81,7 @@ setup_wasmlator = function (logPrint, cb) {
 	_state.load_glue = function () {
 		console.log(`WasmLator.js: Loading glue module...`);
 
-		/* enter the busy-area (will be left once the glue module has been loaded successfully or never, if it failed) */
+		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
 
 		/* setup the glue imports */
@@ -135,18 +121,18 @@ setup_wasmlator = function (logPrint, cb) {
 
 				/* load the main module, which will then startup the wasmlator */
 				_state.controlled(() => _state.load_main());
-
-				/* leave the busy-area (may execute the completed callback) */
-				_state.leave();
 			})
-			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`Failed to load glue module: ${err}`))));
+			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`Failed to load glue module: ${err}`))))
+
+			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
+			.finally(() => _state.leave());
 	}
 
 	/* load the actual primary application once the glue module has been loaded and compiled */
 	_state.load_main = function () {
 		console.log(`WasmLator.js: Loading main module...`);
 
-		/* enter the busy-area (will be left once the glue module has been loaded successfully or never, if it failed) */
+		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
 		let imports = {
 			env: {},
@@ -192,13 +178,14 @@ setup_wasmlator = function (logPrint, cb) {
 				_state.controlled(() => {
 					console.log(`WasmLator.js: Starting up main module...`);
 					_state.main.exports._initialize();
+					_state.loadState = 'loaded';
 					console.log(`WasmLator.js: Main module initialized`);
-
-					/* leave the busy-area (may execute the completed callback) */
-					_state.leave();
 				});
 			})
-			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`Failed to load main module: ${err}`))));
+			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`Failed to load main module: ${err}`))))
+
+			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
+			.finally(() => _state.leave());
 	}
 
 	/* load a core module */
@@ -213,25 +200,23 @@ setup_wasmlator = function (logPrint, cb) {
 
 		/* try to instantiate the core module */
 		WebAssembly.instantiate(buffer, imports)
-			.then((instance) => {
-				_state.controlled(() => {
-					/* set the last-instance, invoke the handler, and then reset the last-instance
-					*	again, in order to ensure unused instances can be garbage-collected */
-					_state.glue.exports.set_last_instance(instance.instance);
-					_state.main.exports.main_core_loaded(process);
-					_state.glue.exports.set_last_instance(null);
+			.then((instance) => _state.controlled(() => {
+				/* set the last-instance, invoke the handler, and then reset the last-instance
+				*	again, in order to ensure unused instances can be garbage-collected */
+				_state.glue.exports.set_last_instance(instance.instance);
+				_state.main.exports.main_core_loaded(process);
+				_state.glue.exports.set_last_instance(null);
+			}))
+			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`WasmLator.js: Failed to load core: ${err}`))))
 
-					/* leave the busy-area (may execute the completed callback) */
-					_state.leave();
-				});
-			})
-			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`WasmLator.js: Failed to load core: ${err}`))));
+			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
+			.finally(() => _state.leave());
 		return 1;
 	}
 
 	/* load a block module */
 	_state.load_block = function (buffer, process) {
-		/* enter the busy-area (will be left once the module was loaded successfully; otherwise it will fail anyways) */
+		/* enter the busy-area (will be left once the module was loaded successfully or an error occurred) */
 		_state.enter();
 
 		/* fetch the imports-object */
@@ -239,22 +224,17 @@ setup_wasmlator = function (logPrint, cb) {
 
 		/* try to instantiate the block module */
 		WebAssembly.instantiate(buffer, imports)
-			.then((instance) => {
-				_state.controlled(() => {
-					/* set the last-instance, invoke the handler, and then reset the last-instance
-					*	again, in order to ensure unused instances can be garbage-collected */
-					_state.glue.exports.set_last_instance(instance.instance);
-					_state.main.exports.main_block_loaded(process);
-					_state.glue.exports.set_last_instance(null);
+			.then((instance) => _state.controlled(() => {
+				/* set the last-instance, invoke the handler, and then reset the last-instance
+				*	again, in order to ensure unused instances can be garbage-collected */
+				_state.glue.exports.set_last_instance(instance.instance);
+				_state.main.exports.main_block_loaded(process);
+				_state.glue.exports.set_last_instance(null);
+			}))
+			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`WasmLator.js: Failed to load block: ${err}`))))
 
-					/* leave the busy-area (may execute the completed callback) */
-					_state.leave();
-				});
-			})
-			.catch((err) => {
-				_state.controlled(() => _state.throwException(new LoadError(`WasmLator.js: Failed to load block: ${err}`)));
-			});
-
+			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
+			.finally(() => _state.leave());
 		return 1;
 	}
 
@@ -270,8 +250,6 @@ setup_wasmlator = function (logPrint, cb) {
 
 		/* pass the actual command to the application */
 		_state.controlled(() => {
-			_state.enter();
-
 			/* convert the string to a buffer */
 			let buf = new TextEncoder('utf-8').encode(command);
 
@@ -281,7 +259,6 @@ setup_wasmlator = function (logPrint, cb) {
 
 			/* perform the actual execution of the command (will ensure to free it) */
 			_state.main.exports.main_command(ptr, buf.length);
-			_state.leave();
 		});
 
 		/* leave the busy-section (may execute the callback) */
