@@ -33,7 +33,7 @@ static arger::Config Commands{
 	},
 };
 
-static host::Logger logger{ u8"dispatch" };
+static host::Logger logger{ u8"" };
 
 void StartupProcess() {
 	logger.log(u8"StartupProcess");

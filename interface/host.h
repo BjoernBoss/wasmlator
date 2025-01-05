@@ -5,6 +5,7 @@
 namespace host {
 	enum class LogLevel : uint8_t {
 		none,
+		error,
 		warn,
 		log,
 		info,
@@ -20,10 +21,10 @@ namespace host {
 
 	class Logger {
 	private:
-		static constexpr const char8_t LevelMap[] = { u8'?', u8'W', u8'L', u8'I', u8'D', u8'T' };
+		static constexpr const char8_t LevelMap[] = { u8'?', u8'E', u8'W', u8'L', u8'I', u8'D', u8'T' };
 
 	private:
-		std::u8string pSelf;
+		std::u8string pFormat;
 
 	public:
 		Logger(std::u8string_view self);
@@ -36,14 +37,15 @@ namespace host {
 		template <class... Args>
 		void fBuildLevel(host::LogLevel level, const Args&... args) const {
 			/* only build/format the string if it will be printed */
-			if (host::GetLogLevel() >= level && level != host::LogLevel::none)
-				fLog(str::u8::Build(LevelMap[size_t(level)], u8":[", pSelf, u8"] ", args...));
+			if (host::GetLogLevel() >= level && level != host::LogLevel::none) {
+				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, args...));
+			}
 		}
 		template <class... Args>
 		void fFormatLevel(host::LogLevel level, std::u8string_view fmt, const Args&... args) const {
 			/* only build/format the string if it will be printed */
 			if (host::GetLogLevel() >= level && level != host::LogLevel::none)
-				fLog(str::u8::Build(LevelMap[size_t(level)], u8":[", pSelf, u8"] ", str::u8::Format(fmt, args...)));
+				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, str::u8::Format(fmt, args...)));
 		}
 
 	public:
@@ -95,7 +97,7 @@ namespace host {
 			fFormatLevel(host::LogLevel::info, fmt, args...);
 		}
 
-		/* build the message and write it out as [warning] */
+		/* build the message and write it out as [warn] */
 		template <class... Args>
 		void warn(const Args&... args) const {
 			fBuildLevel(host::LogLevel::warn, args...);
@@ -105,6 +107,18 @@ namespace host {
 		template <class... Args>
 		void fmtWarn(std::u8string_view fmt, const Args&... args) const {
 			fFormatLevel(host::LogLevel::warn, fmt, args...);
+		}
+
+		/* build the message and write it out as [error] */
+		template <class... Args>
+		void error(const Args&... args) const {
+			fBuildLevel(host::LogLevel::error, args...);
+		}
+
+		/* format the message and write it out as [error] */
+		template <class... Args>
+		void fmtError(std::u8string_view fmt, const Args&... args) const {
+			fFormatLevel(host::LogLevel::error, fmt, args...);
 		}
 
 		/* build the message and write it out using the given level */
@@ -122,13 +136,13 @@ namespace host {
 		/* build the message and write it out as [fatal] and terminate the execution */
 		template <class... Args>
 		void fatal [[noreturn]] (const Args&... args) const {
-			fFatal(str::u8::Build(u8"[", pSelf, u8"] ", args...));
+			fFatal(str::u8::Build(pFormat, args...));
 		}
 
 		/* format the message and write it out as [fatal] and terminate the execution */
 		template <class... Args>
 		void fmtFatal [[noreturn]] (std::u8string_view fmt, const Args&... args) const {
-			fFatal(str::u8::Build(u8"[", pSelf, u8"] ", str::u8::Format(fmt, args...)));
+			fFatal(str::u8::Build(pFormat, str::u8::Format(fmt, args...)));
 		}
 	};
 }

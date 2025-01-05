@@ -13,7 +13,8 @@ host::LogLevel host::GetLogLevel() {
 
 
 host::Logger::Logger(std::u8string_view self) {
-	pSelf = str::u8::Format(u8"{: <14}", self);
+	if (!self.empty())
+		pFormat = str::u8::Format(u8"[{: <14}] ", self);
 }
 void host::Logger::fLog(std::u8string_view msg) const {
 	host_print_u8(msg.data(), uint32_t(msg.size()));

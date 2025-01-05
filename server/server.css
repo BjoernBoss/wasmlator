@@ -1,0 +1,162 @@
+body,
+html {
+	background-color: black;
+	overflow: hidden;
+	margin: 0;
+	height: 100%;
+}
+
+.container {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	flex-wrap: nowrap;
+}
+
+.output {
+	overflow-y: auto;
+	overflow-x: hidden;
+	flex-grow: 1;
+	min-height: 10em;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.output ::selection {
+	color: #000000;
+	background-color: #ffffff;
+}
+
+.bar {
+	flex-shrink: 0;
+	background-color: #404040;
+	padding: 10px;
+	width: calc(100% - 20px);
+	overflow: hidden;
+	display: flex;
+	user-select: none;
+}
+
+.top {
+	flex-direction: row;
+	border-style: solid;
+	border-color: #808080;
+	border-width: 0 0 2px 0;
+}
+
+.bottom {
+	flex-direction: column;
+	border-style: solid;
+	border-color: #808080;
+	border-width: 2px 0 0 0;
+}
+
+.text {
+	font-family: monospace;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 15px;
+}
+
+.sep {
+	width: 10px;
+}
+
+.button {
+	background-color: #404040;
+	padding: 4px;
+	border-style: solid;
+	border-radius: 3px;
+	border-width: 1px;
+	border-color: #808080;
+	width: 60px;
+	text-align: center;
+}
+
+.button:hover:not(.locked) {
+	background-color: #505050;
+}
+
+.active {
+	background-color: #606060;
+}
+
+.active:hover:not(.locked) {
+	background-color: #707070;
+}
+
+.input-busy {
+	color: #f08080;
+	margin: 10px 0 0 0;
+	visibility: visible;
+}
+
+.input {
+	color: black;
+	flex-grow: 1;
+	background-color: #505050;
+	border-style: solid;
+	border-radius: 3px;
+	border-width: 1px;
+	border-color: #808080;
+	outline: none;
+	resize: none;
+	field-sizing: content;
+}
+
+.input:focus {
+	background-color: #585858;
+}
+
+.trace {
+	color: #a4deff;
+}
+
+.debug {
+	color: #bfffab;
+}
+
+.log {
+	color: #ffffff;
+}
+
+.info {
+	color: #fffd78;
+}
+
+.warn {
+	color: #ffc340;
+}
+
+.error {
+	color: #ff9696;
+}
+
+.fatal {
+	color: #ff3030;
+}
+
+.htrace {
+	display: block;
+}
+
+.hdebug {
+	display: block;
+}
+
+.hlog {
+	display: block;
+}
+
+.hinfo {
+	display: block;
+}
+
+.hwarn {
+	display: block;
+}
+
+.herror {
+	display: block;
+}
