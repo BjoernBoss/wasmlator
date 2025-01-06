@@ -63,6 +63,7 @@ namespace env {
 
 	public:
 		void shutdown();
+		uint32_t getId() const;
 		const env::Context& context() const;
 		env::Context& context();
 		const env::Memory& memory() const;

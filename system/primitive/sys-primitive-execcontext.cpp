@@ -15,6 +15,24 @@ void sys::detail::PrimitiveExecContext::fHandleSyscall() {
 	case sys::SyscallIndex::write:
 		logger.log(u8"Syscall write invoked");
 		break;
+	case sys::SyscallIndex::getuid:
+		logger.debug(u8"Syscall [getuid]");
+		pPrimitive->pCpu->setSyscallResult(uint16_t(env::Instance()->getId()));
+		return;
+	case sys::SyscallIndex::geteuid:
+		logger.debug(u8"Syscall [geteuid]");
+		pPrimitive->pCpu->setSyscallResult(uint16_t(env::Instance()->getId()));
+		return;
+	case sys::SyscallIndex::getgid:
+		logger.debug(u8"Syscall [getgid]");
+		pPrimitive->pCpu->setSyscallResult(uint16_t(env::Instance()->getId()));
+		return;
+	case sys::SyscallIndex::getegid:
+		logger.debug(u8"Syscall [getegid]");
+		pPrimitive->pCpu->setSyscallResult(uint16_t(env::Instance()->getId()));
+		return;
+	case sys::SyscallIndex::brk:
+		break;
 	case sys::SyscallIndex::unknown:
 		throw detail::UnknownSyscall{ pSyscall.address, call.rawIndex };
 		break;

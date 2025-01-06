@@ -218,6 +218,9 @@ void env::Process::startNewBlock() {
 void env::Process::shutdown() {
 	pSystem->shutdown();
 }
+uint32_t env::Process::getId() const {
+	return global::ProcId;
+}
 const env::Context& env::Process::context() const {
 	return pContext;
 }

@@ -96,6 +96,21 @@ sys::UserSpaceSyscall rv64::Cpu::getSyscallArgs() const {
 	case 64:
 		call.index = sys::SyscallIndex::write;
 		break;
+	case 174:
+		call.index = sys::SyscallIndex::getuid;
+		break;
+	case 175:
+		call.index = sys::SyscallIndex::geteuid;
+		break;
+	case 176:
+		call.index = sys::SyscallIndex::getgid;
+		break;
+	case 177:
+		call.index = sys::SyscallIndex::getegid;
+		break;
+	case 214:
+		call.index = sys::SyscallIndex::brk;
+		break;
 	default:
 		call.index = sys::SyscallIndex::unknown;
 		break;

@@ -16,7 +16,14 @@ namespace sys {
 	enum class SyscallIndex : uint32_t {
 		unknown,
 		read,
-		write
+		write,
+
+		brk,
+
+		getuid,
+		geteuid,
+		getgid,
+		getegid,
 	};
 	struct UserSpaceSyscall {
 	public:
