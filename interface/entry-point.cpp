@@ -79,12 +79,98 @@ static arger::Config Commands{
 		arger::Description{ L"Step for the number of instructions." },
 		arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to execute.", arger::Value{ 1 } },
 	},
+	arger::Group{ L"run", L"",
+		arger::Abbreviation{ L'r' },
+		arger::Description{ L"Continue running until a breakpoint or other exception occurs." },
+	},
+	arger::Group{ L"inspect", L"",
+		arger::Abbreviation{ L'i' },
+		arger::Description{ L"Inspect the state of the current cpu." },
+		arger::Group{ L"reg", L"in-reg",
+			arger::Abbreviation{ L'r' },
+			arger::Description{ L"Print the current register bank." },
+		},
+		arger::Group{ L"breaks", L"in-breaks",
+			arger::Abbreviation{ L'b' },
+			arger::Description{ L"Print the set breakpoints." },
+		},
+		arger::Group{ L"instructions", L"in-inst",
+			arger::Abbreviation{ L'i' },
+			arger::Description{ L"Print the upcoming instructions." },
+			arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to print.", arger::Value{ 1 } },
+		},
+	},
+	arger::Group{ L"break", L"",
+		arger::Abbreviation{ L'b' },
+		arger::Description{ L"Interact with the currently set breakpoints." },
+		arger::Group{ L"add", L"br-add",
+			arger::Description{ L"Add a breakpoint to the given address." },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Address of the breakpoint." },
+		},
+		arger::Group{ L"remove", L"br-remove",
+			arger::Description{ L"Remove a breakpoint from the given address." },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Address of the breakpoint." },
+		},
+	},
 };
 
 static host::Logger logger{ u8"" };
 
+static int8_t HandleDebug(const arger::Parsed& out) {
+	/* check if the program should take a number of steps */
+	if (out.groupId() == L"step") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->step(out.positional(0).value().unum());
+		return 1;
+	}
+
+	/* check if the program should just run */
+	if (out.groupId() == L"run") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->run();
+		return 1;
+	}
+
+	/* check if breakpoints should be interacted with */
+	if (out.groupId() == L"br-add") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->addBreak(out.positional(0).value().unum());
+		return 1;
+	}
+	if (out.groupId() == L"br-remove") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->dropBreak(out.positional(0).value().unum());
+		return 1;
+	}
+
+	/* check if the state should be inspected */
+	if (out.groupId() == L"in-reg") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->printState();
+		return 1;
+	}
+	if (out.groupId() == L"in-inst") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->printInstructions(out.positional(0).value().unum());
+		return 1;
+	}
+	if (out.groupId() == L"in-breaks") {
+		if (sys::Instance() == 0)
+			return -1;
+		sys::Instance()->printBreaks();
+		return 1;
+	}
+	return 0;
+}
+
 void HandleCommand(std::u8string_view cmd) {
-	logger.info(u8"Handling: ", cmd);
+	logger.log(u8"Input> ", cmd);
 	arger::Parsed out;
 
 	/* parse the next command */
@@ -101,12 +187,13 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 
 	/* handle the debug instructions */
-	if (out.groupId() == L"step") {
-		if (sys::Instance() == 0) {
-			logger.error(u8"No debugger attached.");
-			return;
-		}
-		sys::Instance()->step(out.positional(0).value().unum());
+	switch (HandleDebug(out)) {
+	case 0:
+		break;
+	case -1:
+		logger.error(u8"No debugger attached.");
+		[[fallthrough]];
+	case 1:
 		return;
 	}
 

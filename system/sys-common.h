@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <utility>
+#include <unordered_set>
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
