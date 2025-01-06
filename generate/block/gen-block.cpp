@@ -43,9 +43,19 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 
 	/* iterate over the instruction stream and look for the end of the current strand */
 	gen::Instruction inst{};
-	do {
-		inst = detail::GeneratorAccess::Get()->fetch(block.nextFetch());
-	} while (block.push(inst));
+	try {
+		do {
+			inst = detail::GeneratorAccess::Get()->fetch(block.nextFetch());
+		} while (block.push(inst));
+	}
+
+	/* check if a memory-fault occurred (i.e. trying to execute non-executable memory - no
+	*	need to add separate handling if the memory changes afterwards, as this would require
+	*	flushing of the instruction-cache, thereby removing this stub as well - invalid
+	*	instructions will not be passed to the translator, therefore self can just be null) */
+	catch (const env::MemoryFault&) {
+		block.readFailure();
+	}
 
 	/* setup the ranges of the super-block */
 	block.setupRanges();

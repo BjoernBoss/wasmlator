@@ -4,6 +4,34 @@ static host::Logger logger{ u8"rv64::cpu" };
 
 rv64::Cpu::Cpu() : sys::Cpu{ rv64::MemoryCaches, sizeof(rv64::Context) } {}
 
+rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
+	rv64::Instruction inst;
+
+	/* check that the address is 2-byte aligned */
+	if ((address & 0x01) != 0) {
+		inst.opcode = rv64::Opcode::misaligned;
+		inst.size = 1;
+		return inst;
+	}
+
+	/* decode the next instruction (first as compressed, and afterwards as large, in order to
+	*	prevent potential memory-alignment issues - keep in mind that reading the memory may
+	*	throw an exception, therefore handle the instruction such that each read could abort) */
+	uint32_t code = env::Instance()->memory().code<uint16_t>(address);
+	inst = rv64::Decode16(uint16_t(code));
+	if (inst.opcode != rv64::Opcode::_invalid)
+		return inst;
+
+	/* decode the instruction as 32-bit instruction */
+	code |= (env::Instance()->memory().code<uint16_t>(address + 2) << 16);
+	inst = rv64::Decode32(code);
+
+	/* check if the instruction is invalid and patch its size to be 0 */
+	if (inst.opcode == rv64::Opcode::_invalid)
+		inst.size = 0;
+	return inst;
+}
+
 std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
 	return std::unique_ptr<rv64::Cpu>{ new rv64::Cpu{} };
 }
@@ -54,28 +82,18 @@ void rv64::Cpu::completed() {
 	pTranslator.resetAll(0);
 }
 gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
-	/* check that the address is 2-byte aligned */
-	if ((address & 0x01) != 0) {
-		rv64::Instruction& inst = (pDecoded.emplace_back() = rv64::Instruction{});
-		inst.opcode = rv64::Opcode::misaligned;
-		inst.size = 1;
-		return gen::Instruction{ gen::InstType::endOfBlock, inst.size, 0 };
-	}
-
-	/* decode the next instruction (first as compressed, and afterwards as
-	*	large, in order to prevent potential memory-alignment issues) */
-	uint32_t code = env::Instance()->memory().code<uint16_t>(address);
-	rv64::Instruction& inst = (pDecoded.emplace_back() = rv64::Decode16(code));
-	if (inst.opcode == rv64::Opcode::_invalid) {
-		code |= (env::Instance()->memory().code<uint16_t>(address + 2) << 16);
-		inst = rv64::Decode32(code);
-	}
-	logger.fmtTrace(u8"RV64: {:#018x}:{:#010x} {}", address, code, rv64::ToString(inst));
+	/* decode the next instruction (keep i nmind that fFetch may throw a memory-exception) */
+	rv64::Instruction inst = fFetch(address);
+	logger.fmtTrace(u8"RV64: {:#018x} {}", address, rv64::ToString(inst));
+	pDecoded.push_back(inst);
 
 	/* translate the instruction to the generated instruction-type */
 	gen::InstType type = gen::InstType::primitive;
 	env::guest_t target = 0;
 	switch (inst.opcode) {
+	case rv64::Opcode::misaligned:
+		type = gen::InstType::endOfBlock;
+		break;
 	case rv64::Opcode::_invalid:
 		type = gen::InstType::invalid;
 		break;
@@ -119,4 +137,26 @@ void rv64::Cpu::produce(env::guest_t address, const uintptr_t* self, size_t coun
 	pTranslator.start(address);
 	for (size_t i = 0; i < count; ++i)
 		pTranslator.next(pDecoded[self[i]]);
+}
+std::vector<std::u8string> rv64::Cpu::queryNames() const {
+	return {
+		u8"ra", u8"sp", u8"gp", u8"tp",
+		u8"t0", u8"t1", u8"t2", u8"fp",
+		u8"s1", u8"a0", u8"a1", u8"a2",
+		u8"a3", u8"a4", u8"a5",u8"a6",
+		u8"a7", u8"s2", u8"s3",u8"s4",
+		u8"s5", u8"s6", u8"s7", u8"s8",
+		u8"s9", u8"s1", u8"s1", u8"t3",
+		u8"t4", u8"t5", u8"t6"
+	};
+}
+uintptr_t rv64::Cpu::getValue(size_t index) const {
+	return env::Instance()->context().get<uint64_t[32]>()[index + 1];
+}
+std::pair<std::u8string, uint8_t> rv64::Cpu::decode(uintptr_t address) const {
+	rv64::Instruction inst = fFetch(address);
+	return { rv64::ToString(inst), inst.size };
+}
+void rv64::Cpu::setValue(size_t index, uintptr_t value) {
+	env::Instance()->context().get<uint64_t[32]>()[index + 1] = value;
 }

@@ -5,6 +5,14 @@
 #include "context-bridge.h"
 
 namespace env {
+	namespace detail {
+		enum class CodeExceptions : uint8_t {
+			notDecodable,
+			notReadable,
+			notReachable
+		};
+	}
+
 	class Context {
 		friend struct detail::ContextBridge;
 		friend struct detail::ContextAccess;
@@ -21,8 +29,7 @@ namespace env {
 
 	private:
 		void fTerminate(int32_t code, env::guest_t address);
-		void fNotDecodable(env::guest_t address);
-		void fNotReachable(env::guest_t address);
+		void fCodeException(env::guest_t address, detail::CodeExceptions id);
 
 	public:
 		template <class Type>

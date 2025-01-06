@@ -49,6 +49,7 @@ namespace gen::detail {
 			env::guest_t target = 0;
 			bool branches = false;
 			bool invalid = false;
+			bool readFailure = false;
 		};
 
 	private:
@@ -74,6 +75,7 @@ namespace gen::detail {
 
 	public:
 		bool push(const gen::Instruction& inst);
+		void readFailure();
 		void setupRanges();
 		env::guest_t nextFetch() const;
 

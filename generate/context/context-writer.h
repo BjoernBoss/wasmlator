@@ -23,6 +23,7 @@ namespace gen::detail {
 		void makeWrite(uint32_t offset, gen::MemoryType type) const;
 		void makeTerminate(env::guest_t address) const;
 		void makeNotDecodable(env::guest_t address) const;
+		void makeNotReadable(env::guest_t address) const;
 		void makeNotReachable(env::guest_t address) const;
 	};
 }

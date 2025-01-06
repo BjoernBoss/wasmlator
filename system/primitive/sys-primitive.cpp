@@ -100,8 +100,8 @@ void sys::Primitive::fExecute() {
 		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",
 			e.address, e.accessed, e.usedUsage, e.actualUsage);
 	}
-	catch (const env::NotDecodable& e) {
-		logger.fatal(u8"NotDecodable caught: [", str::As{ U"#018x", e.address }, u8']');
+	catch (const env::Decoding& e) {
+		logger.fatal(u8"Decoding caught: [", str::As{ U"#018x", e.address }, u8"] - [", (e.memoryFault ? u8"Memory-Fault" : u8"Decoding-Fault"), u8']');
 	}
 	catch (const env::Translate& e) {
 		if (!pDebug)

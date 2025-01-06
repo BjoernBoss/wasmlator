@@ -5,21 +5,18 @@
 namespace gen::detail {
 	struct ContextState {
 		wasm::Function terminate;
-		wasm::Function notDecodable;
-		wasm::Function notReachable;
+		wasm::Function codeException;
 		wasm::Memory memory;
 	};
 
 	/*
 	*	Core-Imports:
 	*		void main.main_terminate(i32 code, i64 address);
-	*		void main.main_not_decodable(i64 address);
-	*		void main.main_not_reachable(i64 address);
+	*		void main.main_code_exception(i64 address, i32 id);
 	*
 	*	Body-Imports:
 	*		void ctx.main_terminate(i32 code, i64 address);
-	*		void ctx.main_not_decodable(i64 address);
-	*		void ctx.main_not_reachable(i64 address);
+	*		void ctx.main_code_exception(i64 address, i32 id);
 	*/
 
 	class ContextBuilder {

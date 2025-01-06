@@ -1,9 +1,9 @@
 #pragma once
 
-#include <unordered_map>
 #include <vector>
 #include <string>
 #include <memory>
+#include <utility>
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
@@ -71,6 +71,18 @@ namespace sys {
 		/* convert the exception of the given id to a descriptive string */
 		virtual std::u8string getExceptionText(uint64_t id) const = 0;
 
+		/* fetch the name of all supported registers */
+		virtual std::vector<std::u8string> queryNames() const = 0;
+
+		/* read the current cpu value (index matches the queried name-index) */
+		virtual uintptr_t getValue(size_t index) const = 0;
+
+		/* decode the instruction at the address and return its size (size of null implicates decoding failure, may throw env::MemoryFault) */
+		virtual std::pair<std::u8string, uint8_t> decode(uintptr_t address) const = 0;
+
+		/* set a value of the current cpu state (index matches the queried name-index) */
+		virtual void setValue(size_t index, uintptr_t value) = 0;
+
 	public:
 		constexpr uint32_t memoryCaches() const {
 			return pMemoryCaches;
@@ -88,17 +100,11 @@ namespace sys {
 		virtual ~Debuggable() = default;
 
 	public:
-		/* read the current cpu state */
-		virtual void getState(std::unordered_map<std::u8string, uintptr_t>& state) const = 0;
+		/* fetch the current cpu implementation */
+		virtual sys::Cpu* getCpu() const = 0;
 
 		/* get the current pc */
 		virtual env::guest_t getPC() const = 0;
-
-		/* decode the instruction at the address */
-		virtual std::u8string decode(uintptr_t address) const = 0;
-
-		/* set a value of the current cpu state */
-		virtual void setValue(std::u8string_view name, uintptr_t value) = 0;
 
 		/* set the current pc */
 		virtual void setPC(env::guest_t pc) = 0;

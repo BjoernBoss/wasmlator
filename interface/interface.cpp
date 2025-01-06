@@ -62,11 +62,8 @@ void main_block_loaded(uint32_t process) {
 void main_terminate(int32_t code, uint64_t address) {
 	env::detail::ContextBridge::Terminate(code, address);
 }
-void main_not_decodable(uint64_t address) {
-	env::detail::ContextBridge::NotDecodable(address);
-}
-void main_not_reachable(uint64_t address) {
-	env::detail::ContextBridge::NotReachable(address);
+void main_code_exception(uint64_t address, uint32_t id) {
+	env::detail::ContextBridge::CodeException(address, id);
 }
 
 uint32_t main_resolve(uint64_t address) {

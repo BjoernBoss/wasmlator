@@ -118,8 +118,11 @@ namespace env {
 	};
 
 	/* thrown whenever an undecodable instruction is to be executed */
-	struct NotDecodable : public env::Exception {
+	struct Decoding : public env::Exception {
 	public:
-		NotDecodable(env::guest_t address) : env::Exception{ address } {}
+		bool memoryFault = false;
+
+	public:
+		Decoding(env::guest_t address, bool memoryFault) : env::Exception{ address }, memoryFault{ memoryFault } {}
 	};
 }

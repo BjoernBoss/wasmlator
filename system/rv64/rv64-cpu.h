@@ -16,6 +16,9 @@ namespace rv64 {
 	private:
 		Cpu();
 
+	private:
+		rv64::Instruction fFetch(env::guest_t address) const;
+
 	public:
 		static std::unique_ptr<sys::Cpu> New();
 
@@ -28,5 +31,9 @@ namespace rv64 {
 		void completed() final;
 		gen::Instruction fetch(env::guest_t address) final;
 		void produce(env::guest_t address, const uintptr_t* self, size_t count) final;
+		std::vector<std::u8string> queryNames() const final;
+		uintptr_t getValue(size_t index) const final;
+		std::pair<std::u8string, uint8_t> decode(uintptr_t address) const final;
+		void setValue(size_t index, uintptr_t value) final;
 	};
 }

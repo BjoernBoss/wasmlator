@@ -41,8 +41,7 @@ extern "C" {
 extern "C" {
 	/* exports */
 	void main_terminate(int32_t code, uint64_t address);
-	void main_not_decodable(uint64_t address);
-	void main_not_reachable(uint64_t address);
+	void main_code_exception(uint64_t address, uint32_t id);
 }
 
 /* environment/mapping/mapping-bridge interactions */

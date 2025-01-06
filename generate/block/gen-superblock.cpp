@@ -153,6 +153,7 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 	entry.target = inst.target;
 	entry.branches = (inst.type == gen::InstType::conditionalDirect || inst.type == gen::InstType::jumpDirect);
 	entry.invalid = (inst.type == gen::InstType::invalid);
+	entry.readFailure = false;
 
 	/* check if its an invalid instruction, in which case the block will be ended */
 	if (inst.type == gen::InstType::invalid) {
@@ -185,6 +186,17 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 			return true;
 	}
 	return false;
+}
+void gen::detail::SuperBlock::readFailure() {
+	/* configure the new instruction-entry */
+	Entry& entry = pList.emplace_back();
+	entry.self = 0;
+	entry.address = pNextAddress;
+	entry.target = 0;
+	entry.branches = false;
+	entry.invalid = true;
+	entry.readFailure = true;
+	logger.debug(u8"Unable read memory for instruction [", str::As{ U"#018x", pNextAddress }, u8']');
 }
 void gen::detail::SuperBlock::setupRanges() {
 	/* check if this is single-step mode, in which case the iterators can just be reset */
@@ -245,9 +257,12 @@ bool gen::detail::SuperBlock::next() {
 	if (lastAndInvalid || pIndex >= pList.size()) {
 		pStack.clear();
 
-		/* check if the not-decodable stub needs to be added */
+		/* check if the not-decodable/not-readable stub needs to be added */
 		if (lastAndInvalid) {
-			pContext.makeNotDecodable(pNextAddress);
+			if (pList[pIndex].readFailure)
+				pContext.makeNotReadable(pNextAddress);
+			else
+				pContext.makeNotDecodable(pNextAddress);
 			gen::Add[I::Unreachable()];
 		}
 

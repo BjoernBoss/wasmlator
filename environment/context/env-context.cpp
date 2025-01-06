@@ -10,9 +10,16 @@ void env::Context::fCheck(uint32_t size) const {
 void env::Context::fTerminate(int32_t code, env::guest_t address) {
 	throw env::Terminated{ address, code };
 }
-void env::Context::fNotDecodable(env::guest_t address) {
-	throw env::NotDecodable{ address };
-}
-void env::Context::fNotReachable(env::guest_t address) {
-	logger.fatal(u8"Execution reached address [", str::As{ U"#018x", address }, u8"] which was considered not reachable by super-block");
+void env::Context::fCodeException(env::guest_t address, detail::CodeExceptions id) {
+	switch (id) {
+	case detail::CodeExceptions::notReachable:
+		logger.fatal(u8"Execution reached address [", str::As{ U"#018x", address }, u8"] which was considered not reachable by super-block");
+		break;
+	case detail::CodeExceptions::notDecodable:
+		throw env::Decoding{ address, false };
+	case detail::CodeExceptions::notReadable:
+		throw env::Decoding{ address, true };
+	default:
+		logger.fatal(u8"Unknown coding-exception [", size_t(id), u8"] encountered");
+	}
 }

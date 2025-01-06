@@ -1,5 +1,5 @@
 #include "../generate.h"
-#include "../environment/context/context-access.h"
+#include "../environment/context/env-context.h"
 
 static host::Logger logger{ u8"gen::context" };
 
@@ -174,9 +174,16 @@ void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {
 }
 void gen::detail::ContextWriter::makeNotDecodable(env::guest_t address) const {
 	gen::Add[I::U64::Const(address)];
-	gen::Add[I::Call::Direct(pState.notDecodable)];
+	gen::Add[I::U32::Const(env::detail::CodeExceptions::notDecodable)];
+	gen::Add[I::Call::Direct(pState.codeException)];
+}
+void gen::detail::ContextWriter::makeNotReadable(env::guest_t address) const {
+	gen::Add[I::U64::Const(address)];
+	gen::Add[I::U32::Const(env::detail::CodeExceptions::notReadable)];
+	gen::Add[I::Call::Direct(pState.codeException)];
 }
 void gen::detail::ContextWriter::makeNotReachable(env::guest_t address) const {
 	gen::Add[I::U64::Const(address)];
-	gen::Add[I::Call::Direct(pState.notReachable)];
+	gen::Add[I::U32::Const(env::detail::CodeExceptions::notReachable)];
+	gen::Add[I::Call::Direct(pState.codeException)];
 }
