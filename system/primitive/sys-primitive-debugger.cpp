@@ -4,7 +4,7 @@ static host::Logger logger{ u8"sys::primitive" };
 
 sys::detail::PrimitiveDebugger::PrimitiveDebugger(sys::Primitive* primitive) : pPrimitive{ primitive } {}
 
-std::unique_ptr<sys::Debuggable> sys::detail::PrimitiveDebugger::New(sys::Primitive* primitive) {
+std::unique_ptr<sys::detail::PrimitiveDebugger> sys::detail::PrimitiveDebugger::New(sys::Primitive* primitive) {
 	return std::unique_ptr<detail::PrimitiveDebugger>(new detail::PrimitiveDebugger{ primitive });
 }
 

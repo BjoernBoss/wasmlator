@@ -14,7 +14,7 @@ namespace sys {
 			PrimitiveDebugger(sys::Primitive* primitive);
 
 		public:
-			static std::unique_ptr<sys::Debuggable> New(sys::Primitive* primitive);
+			static std::unique_ptr<sys::detail::PrimitiveDebugger> New(sys::Primitive* primitive);
 
 		public:
 			sys::Cpu* getCpu() const final;

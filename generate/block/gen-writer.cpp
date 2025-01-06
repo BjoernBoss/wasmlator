@@ -45,6 +45,12 @@ void gen::Writer::get(uint32_t offset, gen::MemoryType type) const {
 void gen::Writer::set(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeWrite(offset, type);
 }
+void gen::Writer::readHost(const void* host, gen::MemoryType type) const {
+	pContext.makeHostRead(host, type);
+}
+void gen::Writer::writeHost(void* host, gen::MemoryType type) const {
+	pContext.makeHostWrite(host, type);
+}
 void gen::Writer::terminate(env::guest_t instAddress) const {
 	pContext.makeTerminate(instAddress);
 }

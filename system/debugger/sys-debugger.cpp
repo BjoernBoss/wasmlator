@@ -51,7 +51,7 @@ bool sys::Debugger::fSetup(std::unique_ptr<sys::Debuggable>&& debuggable) {
 void sys::Debugger::fHalted() {
 	pMode = Mode::none;
 }
-bool sys::Debugger::completed(env::guest_t address) {
+bool sys::Debugger::advance(env::guest_t address) {
 	/* check if a breakpoint has been hit */
 	if (pBreakPoints.contains(address)) {
 		fHalted();

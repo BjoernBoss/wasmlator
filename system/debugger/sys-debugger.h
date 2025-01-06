@@ -38,7 +38,7 @@ namespace sys {
 
 	public:
 		/* to be executed after an instruction has been executed and returns true, if another step should be taken */
-		bool completed(env::guest_t address);
+		bool advance(env::guest_t address);
 
 	public:
 		void step(size_t count);

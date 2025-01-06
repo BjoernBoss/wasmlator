@@ -23,13 +23,9 @@ namespace sys {
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
+		detail::PrimitiveExecContext* pExecContext = 0;
 		sys::Cpu* pCpu = 0;
 		env::guest_t pAddress = 0;
-		struct {
-			uint32_t flushInst = 0;
-			uint32_t syscall = 0;
-			uint32_t exception = 0;
-		} pRegistered;
 		bool pDebug = false;
 
 	public:

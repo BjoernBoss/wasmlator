@@ -35,12 +35,9 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 	if (offset > size)
 		logger.fatal(u8"Cannot read [", offset, u8"] bytes from context of size [", size, u8']');
 }
-
-void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type) const {
-	fCheckRange(offset, type);
-
+void gen::detail::ContextWriter::fMakeHostRead(uintptr_t host, gen::MemoryType type) const {
 	/* write the offset to the stack */
-	gen::Add[I::U32::Const(env::detail::ContextAccess::ContextAddress() + offset)];
+	gen::Add[I::U32::Const(host)];
 
 	/* read the value onto the stack */
 	switch (type) {
@@ -88,9 +85,7 @@ void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type)
 		break;
 	}
 }
-void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type) const {
-	fCheckRange(offset, type);
-
+void gen::detail::ContextWriter::fMakeHostWrite(uintptr_t host, gen::MemoryType type) const {
 	wasm::Variable value;
 
 	/* fetch the variable to be used for caching */
@@ -129,7 +124,7 @@ void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type
 
 	/* cache the value (as it must be placed after the address) and prepare the stack */
 	gen::Add[I::Local::Set(value)];
-	gen::Add[I::U32::Const(env::detail::ContextAccess::ContextAddress() + offset)];
+	gen::Add[I::U32::Const(host)];
 	gen::Add[I::Local::Get(value)];
 
 	/* write the value to the context */
@@ -167,6 +162,21 @@ void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type
 		gen::Add[I::F64::Store(pState.memory)];
 		break;
 	}
+}
+
+void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type) const {
+	fCheckRange(offset, type);
+	fMakeHostRead(env::detail::ContextAccess::ContextAddress() + offset, type);
+}
+void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type) const {
+	fCheckRange(offset, type);
+	fMakeHostWrite(env::detail::ContextAccess::ContextAddress() + offset, type);
+}
+void gen::detail::ContextWriter::makeHostRead(const void* host, gen::MemoryType type) const {
+	fMakeHostRead(reinterpret_cast<uintptr_t>(host), type);
+}
+void gen::detail::ContextWriter::makeHostWrite(void* host, gen::MemoryType type) const {
+	fMakeHostWrite(reinterpret_cast<uintptr_t>(host), type);
 }
 void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {
 	gen::Add[I::U64::Const(address)];

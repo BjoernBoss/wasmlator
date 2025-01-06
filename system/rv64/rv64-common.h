@@ -13,135 +13,138 @@ namespace rv64 {
 	static constexpr uint32_t MemoryCaches = 32;
 
 	/* throw exception if jump-target is not 4-byte aligned */
-	struct Context {
-		union {
-			uint64_t x00 = 0;
-			uint64_t _zero;
-		};
-		union {
-			uint64_t x01 = 0;
-			uint64_t ra;
-		};
-		union {
-			uint64_t x02 = 0;
-			uint64_t sp;
-		};
-		union {
-			uint64_t x03 = 0;
-			uint64_t gp;
-		};
-		union {
-			uint64_t x04 = 0;
-			uint64_t tp;
-		};
-		union {
-			uint64_t x05 = 0;
-			uint64_t t0;
-		};
-		union {
-			uint64_t x06 = 0;
-			uint64_t t1;
-		};
-		union {
-			uint64_t x07 = 0;
-			uint64_t t2;
-		};
-		union {
-			uint64_t x08 = 0;
-			uint64_t fp;
-			uint64_t s0;
-		};
-		union {
-			uint64_t x09 = 0;
-			uint64_t s1;
-		};
-		union {
-			uint64_t x10 = 0;
-			uint64_t a0;
-		};
-		union {
-			uint64_t x11 = 0;
-			uint64_t a1;
-		};
-		union {
-			uint64_t x12 = 0;
-			uint64_t a2;
-		};
-		union {
-			uint64_t x13 = 0;
-			uint64_t a3;
-		};
-		union {
-			uint64_t x14 = 0;
-			uint64_t a4;
-		};
-		union {
-			uint64_t x15 = 0;
-			uint64_t a5;
-		};
-		union {
-			uint64_t x16 = 0;
-			uint64_t a6;
-		};
-		union {
-			uint64_t x17 = 0;
-			uint64_t a7;
-		};
-		union {
-			uint64_t x18 = 0;
-			uint64_t s2;
-		};
-		union {
-			uint64_t x19 = 0;
-			uint64_t s3;
-		};
-		union {
-			uint64_t x20 = 0;
-			uint64_t s4;
-		};
-		union {
-			uint64_t x21 = 0;
-			uint64_t s5;
-		};
-		union {
-			uint64_t x22 = 0;
-			uint64_t s6;
-		};
-		union {
-			uint64_t x23 = 0;
-			uint64_t s7;
-		};
-		union {
-			uint64_t x24 = 0;
-			uint64_t s8;
-		};
-		union {
-			uint64_t x25 = 0;
-			uint64_t s9;
-		};
-		union {
-			uint64_t x26 = 0;
-			uint64_t s10;
-		};
-		union {
-			uint64_t x27 = 0;
-			uint64_t s11;
-		};
-		union {
-			uint64_t x28 = 0;
-			uint64_t t3;
-		};
-		union {
-			uint64_t x29 = 0;
-			uint64_t t4;
-		};
-		union {
-			uint64_t x30 = 0;
-			uint64_t t5;
-		};
-		union {
-			uint64_t x31 = 0;
-			uint64_t t6;
+	union Context {
+		uint64_t regs[32] = { 0 };
+		struct {
+			union {
+				uint64_t x00;
+				uint64_t _zero;
+			};
+			union {
+				uint64_t x01;
+				uint64_t ra;
+			};
+			union {
+				uint64_t x02;
+				uint64_t sp;
+			};
+			union {
+				uint64_t x03;
+				uint64_t gp;
+			};
+			union {
+				uint64_t x04;
+				uint64_t tp;
+			};
+			union {
+				uint64_t x05;
+				uint64_t t0;
+			};
+			union {
+				uint64_t x06;
+				uint64_t t1;
+			};
+			union {
+				uint64_t x07;
+				uint64_t t2;
+			};
+			union {
+				uint64_t x08;
+				uint64_t fp;
+				uint64_t s0;
+			};
+			union {
+				uint64_t x09;
+				uint64_t s1;
+			};
+			union {
+				uint64_t x10;
+				uint64_t a0;
+			};
+			union {
+				uint64_t x11;
+				uint64_t a1;
+			};
+			union {
+				uint64_t x12;
+				uint64_t a2;
+			};
+			union {
+				uint64_t x13;
+				uint64_t a3;
+			};
+			union {
+				uint64_t x14;
+				uint64_t a4;
+			};
+			union {
+				uint64_t x15;
+				uint64_t a5;
+			};
+			union {
+				uint64_t x16;
+				uint64_t a6;
+			};
+			union {
+				uint64_t x17;
+				uint64_t a7;
+			};
+			union {
+				uint64_t x18;
+				uint64_t s2;
+			};
+			union {
+				uint64_t x19;
+				uint64_t s3;
+			};
+			union {
+				uint64_t x20;
+				uint64_t s4;
+			};
+			union {
+				uint64_t x21;
+				uint64_t s5;
+			};
+			union {
+				uint64_t x22;
+				uint64_t s6;
+			};
+			union {
+				uint64_t x23;
+				uint64_t s7;
+			};
+			union {
+				uint64_t x24;
+				uint64_t s8;
+			};
+			union {
+				uint64_t x25;
+				uint64_t s9;
+			};
+			union {
+				uint64_t x26;
+				uint64_t s10;
+			};
+			union {
+				uint64_t x27;
+				uint64_t s11;
+			};
+			union {
+				uint64_t x28;
+				uint64_t t3;
+			};
+			union {
+				uint64_t x29;
+				uint64_t t4;
+			};
+			union {
+				uint64_t x30;
+				uint64_t t5;
+			};
+			union {
+				uint64_t x31;
+				uint64_t t6;
+			};
 		};
 	};
 
@@ -257,6 +260,15 @@ namespace rv64 {
 		static constexpr uint8_t X1 = 1;
 		static constexpr uint8_t X2 = 2;
 		static constexpr uint8_t X5 = 5;
+
+		static constexpr uint8_t A0 = 10;
+		static constexpr uint8_t A1 = 11;
+		static constexpr uint8_t A2 = 12;
+		static constexpr uint8_t A3 = 13;
+		static constexpr uint8_t A4 = 14;
+		static constexpr uint8_t A5 = 15;
+		static constexpr uint8_t A6 = 16;
+		static constexpr uint8_t A7 = 17;
 	}
 
 	struct Instruction {

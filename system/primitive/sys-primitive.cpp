@@ -91,7 +91,7 @@ void sys::Primitive::fExecute() {
 	try {
 		do {
 			pAddress = env::Instance()->mapping().execute(pAddress);
-		} while (!pDebug || sys::Instance()->completed(pAddress));
+		} while (!pDebug || sys::Instance()->advance(pAddress));
 	}
 	catch (const env::Terminated& e) {
 		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
@@ -109,6 +109,21 @@ void sys::Primitive::fExecute() {
 		pAddress = e.address;
 		env::Instance()->startNewBlock();
 	}
+	catch (const detail::FlushInstCache& e) {
+		logger.debug(u8"Flushing instruction cache");
+		env::Instance()->mapping().flush();
+		pAddress = e.address;
+
+		/* check if the execution should halt */
+		if (!pDebug || sys::Instance()->advance(pAddress))
+			env::Instance()->startNewBlock();
+	}
+	catch (const detail::CpuException& e) {
+		logger.fatal(u8"CPU Exception caught: [", str::As{ U"#018x", e.address }, u8"] - [", pCpu->getExceptionText(e.id), u8']');
+	}
+	catch (const detail::UnknownSyscall& e) {
+		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
+	}
 }
 bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
@@ -122,17 +137,19 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	for (size_t i = 0; i < envs.size(); ++i)
 		logger.info(u8"    [", i, u8"]: ", envs[i]);
 
-	/* allocate the primitive object and configure the cpu itself */
+	/* allocate the primitive object populate it */
 	std::unique_ptr<sys::Primitive> system = std::make_unique<sys::Primitive>();
 	sys::Primitive* self = system.get();
-	if (!cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(self))))
-		return false;
+	std::unique_ptr<detail::PrimitiveExecContext> execContext = detail::PrimitiveExecContext::New(self);
+	self->pArgs = args;
+	self->pEnvs = envs;
+	self->pCpu = cpu.get();
+	self->pDebug = debug;
+	self->pExecContext = execContext.get();
 
-	/* construct the primitive env-system object */
-	system->pArgs = args;
-	system->pEnvs = envs;
-	system->pCpu = cpu.get();
-	system->pDebug = debug;
+	/* construct the new cpu object */
+	if (!cpu->setupCpu(std::move(execContext)))
+		return false;
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
 	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug))
@@ -177,20 +194,12 @@ bool sys::Primitive::coreLoaded() {
 		return false;
 	logger.debug(L"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
-	/* register the functions to be invoked by the execution-environment */
-	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
-		throw detail::FlushInstCache{ address };
-		return 0;
-		});
-	pRegistered.syscall = env::Instance()->interact().defineCallback([]() {
-		logger.fatal(u8"Syscall invoked");
-		});
-	pRegistered.exception = env::Instance()->interact().defineCallback([]() {
-		logger.fatal(u8"Exception caught");
-		});
-
 	/* initialize the context */
 	if (!pCpu->setupContext(pAddress, spAddress))
+		return false;
+
+	/* initialize the execution-context */
+	if (!pExecContext->coreLoaded())
 		return false;
 
 	/* check if this is debug-mode, in which case no block needs to be translated

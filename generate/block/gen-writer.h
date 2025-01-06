@@ -68,6 +68,12 @@ namespace gen {
 		/* expectes value on top of stack and writes it to the context */
 		void set(uint32_t offset, gen::MemoryType type) const;
 
+		/* writes value from host to the stack */
+		void readHost(const void* host, gen::MemoryType type) const;
+
+		/* expects value on top of stack and writes it to the host at the given address */
+		void writeHost(void* host, gen::MemoryType type) const;
+
 		/* expects [i32] result-code on top of stack
 		*	Note: generated code will abort the control-flow */
 		void terminate(env::guest_t instAddress) const;
