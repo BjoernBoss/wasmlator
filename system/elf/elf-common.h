@@ -5,7 +5,6 @@
 #include <type_traits>
 
 #include "../../environment/environment.h"
-#include "../../interface/host.h"
 
 namespace elf {
 	enum class ElfType : uint16_t {

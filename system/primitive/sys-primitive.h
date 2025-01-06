@@ -1,40 +1,11 @@
 #pragma once
 
-#include <vector>
-#include <string>
-
-#include "../environment/environment.h"
-#include "../generate/generate.h"
-
-#include "sys-cpu.h"
-#include "sys-execcontext.h"
+#include "../sys-common.h"
+#include "sys-primitive-debugger.h"
+#include "sys-primitive-execcontext.h"
 
 namespace sys {
 	class Primitive;
-
-	namespace detail {
-		class PrimitiveExecContext final : public sys::ExecContext {
-		private:
-			sys::Primitive* pPrimitive = 0;
-
-		private:
-			PrimitiveExecContext(sys::Primitive* primitive);
-
-		public:
-			static std::unique_ptr<sys::ExecContext> New(sys::Primitive* primitive);
-
-		public:
-			void syscall(env::guest_t address, env::guest_t nextAddress) final;
-			void throwException(uint64_t id, env::guest_t address, env::guest_t nextAddress) final;
-			void flushMemCache(env::guest_t address, env::guest_t nextAddress) final;
-			void flushInstCache(env::guest_t address, env::guest_t nextAddress) final;
-		};
-
-		struct FlushInstCache : public env::Exception {
-		public:
-			FlushInstCache(env::guest_t address) : env::Exception{ address } {}
-		};
-	}
 
 	/* primitive single-threaded system, which set up an environment, loads a static-elf
 	*	file to be executed, and passes the calls to the cpu implementation, as well as
@@ -42,6 +13,7 @@ namespace sys {
 	*	Note: The assumption is made, that the stack grows downwards */
 	class Primitive final : public env::System {
 		friend class detail::PrimitiveExecContext;
+		friend class detail::PrimitiveDebugger;
 	private:
 		static constexpr env::guest_t StartOfStackAlignment = 128;
 		static constexpr env::guest_t StackSize = 0x40'0000;
@@ -58,6 +30,7 @@ namespace sys {
 			uint32_t syscall = 0;
 			uint32_t exception = 0;
 		} pRegistered;
+		bool pDebug = false;
 
 	public:
 		Primitive() = default;
@@ -67,6 +40,7 @@ namespace sys {
 
 	private:
 		env::guest_t fPrepareStack() const;
+		void fExecute();
 
 	public:
 		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug);

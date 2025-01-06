@@ -1,9 +1,8 @@
 #include <arger/arger.h>
 #include "../interface/interface.h"
-#include "../interface/host.h"
+#include "../interface/logger.h"
 #include "../environment/environment.h"
-#include "../system/sys-primitive.h"
-#include "../system/rv64/rv64-cpu.h"
+#include "../system/system.h"
 
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
@@ -75,6 +74,11 @@ static arger::Config Commands{
 		arger::HelpFlag{},
 		arger::Description{ L"Print this help menu." },
 	},
+	arger::Group{ L"step", L"",
+		arger::Abbreviation{ L's' },
+		arger::Description{ L"Step for the number of instructions." },
+		arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to execute.", arger::Value{ 0 } },
+	},
 };
 
 static host::Logger logger{ u8"" };
@@ -93,6 +97,16 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 	catch (const arger::ParsingException& e) {
 		logger.error(e.what(), u8" Use 'help' for more information.");
+		return;
+	}
+
+	/* handle the debug instructions */
+	if (out.groupId() == L"step") {
+		if (sys::Instance() == 0) {
+			logger.error(u8"No debugger attached.");
+			return;
+		}
+		sys::Instance()->step(out.positional(0).value().unum());
 		return;
 	}
 
@@ -133,7 +147,7 @@ void HandleCommand(std::u8string_view cmd) {
 		if (env::Instance() == 0)
 			logger.error(u8"No process is currently running.");
 		else
-			env::Instance()->system()->shutdown();
+			env::Instance()->shutdown();
 		return;
 	}
 }

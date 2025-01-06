@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gen-common.h"
-#include "generator/generator.h"
+#include "generator/gen-generator.h"
 #include "core/gen-core.h"
 #include "block/gen-block.h"
 #include "block/gen-writer.h"

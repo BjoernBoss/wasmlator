@@ -1,4 +1,4 @@
-#include "host.h"
+#include "logger.h"
 #include "../interface/interface.h"
 
 static host::LogLevel GlobalLevel = host::LogLevel::trace;

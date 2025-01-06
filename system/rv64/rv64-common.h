@@ -5,11 +5,7 @@
 #include <memory>
 #include <vector>
 
-#include "../../interface/host.h"
-#include "../../environment/environment.h"
-#include "../../generate/generate.h"
-#include "../sys-cpu.h"
-#include "../sys-execcontext.h"
+#include "../sys-common.h"
 
 /* riscv 64-bit */
 namespace rv64 {
@@ -151,7 +147,7 @@ namespace rv64 {
 
 	enum class Opcode : uint16_t {
 		misaligned,
-		
+
 		load_upper_imm,
 		add_upper_imm_pc,
 		jump_and_link_imm,

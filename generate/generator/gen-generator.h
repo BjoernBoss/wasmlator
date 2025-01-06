@@ -7,6 +7,7 @@ namespace gen {
 		struct GeneratorAccess {
 			static bool Setup(gen::Generator& generator, std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep);
 			static void SetWriter(gen::Writer* writer);
+			static gen::Translator* Get();
 		};
 	}
 
@@ -29,8 +30,6 @@ namespace gen {
 		bool fSetup(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep);
 
 	public:
-		const gen::Translator* translator() const;
-		gen::Translator* translator();
 		uint32_t translationDepth() const;
 		bool singleStep() const;
 		wasm::Module* setModule(wasm::Module* mod);

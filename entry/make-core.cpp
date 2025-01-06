@@ -2,7 +2,6 @@
 #include <wasgen/wasm.h>
 #include <fstream>
 
-#include "../interface/host.h"
 #include "../environment/environment.h"
 #include "../generate/generate.h"
 #include "null-interface.h"

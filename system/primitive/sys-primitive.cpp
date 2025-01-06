@@ -1,29 +1,9 @@
-#include "sys-primitive.h"
+#include "../system.h"
 
-#include "elf/elf-static.h"
+#include "../elf/elf-static.h"
 #include "../riscv-buffer.h"
 
 static host::Logger logger{ u8"sys::primitive" };
-
-sys::detail::PrimitiveExecContext::PrimitiveExecContext(sys::Primitive* primitive) : sys::ExecContext{ false, true }, pPrimitive{ primitive } {}
-std::unique_ptr<sys::ExecContext> sys::detail::PrimitiveExecContext::New(sys::Primitive* primitive) {
-	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{ primitive });
-}
-void sys::detail::PrimitiveExecContext::syscall(env::guest_t address, env::guest_t nextAddress) {
-	gen::Make->invokeVoid(pPrimitive->pRegistered.syscall);
-}
-void sys::detail::PrimitiveExecContext::throwException(uint64_t id, env::guest_t address, env::guest_t nextAddress) {
-	gen::Make->invokeVoid(pPrimitive->pRegistered.exception);
-}
-void sys::detail::PrimitiveExecContext::flushMemCache(env::guest_t address, env::guest_t nextAddress) {
-	/* nothing to be done here, as the system is considered single-threaded */
-}
-void sys::detail::PrimitiveExecContext::flushInstCache(env::guest_t address, env::guest_t nextAddress) {
-	gen::Add[I::U64::Const(pPrimitive->pRegistered.flushInst)];
-	gen::Make->invokeParam(pPrimitive->pRegistered.flushInst);
-	gen::Add[I::Drop()];
-}
-
 
 env::guest_t sys::Primitive::fPrepareStack() const {
 	env::Memory& mem = env::Instance()->memory();
@@ -106,6 +86,29 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
 }
+void sys::Primitive::fExecute() {
+	/* start execution of the next address and catch/handle any incoming exceptions */
+	try {
+		while (!pDebug || !sys::Instance()->completed())
+			pAddress = env::Instance()->mapping().execute(pAddress);
+	}
+	catch (const env::Terminated& e) {
+		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
+	}
+	catch (const env::MemoryFault& e) {
+		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",
+			e.address, e.accessed, e.usedUsage, e.actualUsage);
+	}
+	catch (const env::NotDecodable& e) {
+		logger.fatal(u8"NotDecodable caught: [", str::As{ U"#018x", e.address }, u8']');
+	}
+	catch (const env::Translate& e) {
+		if (!pDebug)
+			logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
+		pAddress = e.address;
+		env::Instance()->startNewBlock();
+	}
+}
 bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
@@ -120,19 +123,28 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 
 	/* allocate the primitive object and configure the cpu itself */
 	std::unique_ptr<sys::Primitive> system = std::make_unique<sys::Primitive>();
-	if (!cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(system.get()))))
+	sys::Primitive* self = system.get();
+	if (!cpu->setupCpu(std::move(detail::PrimitiveExecContext::New(self))))
 		return false;
 
 	/* construct the primitive env-system object */
 	system->pArgs = args;
 	system->pEnvs = envs;
 	system->pCpu = cpu.get();
+	system->pDebug = debug;
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
 	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug))
 		return false;
-	if (env::SetInstance(std::move(system), Primitive::PageSize, caches, context, debug))
+	if (!env::SetInstance(std::move(system), Primitive::PageSize, caches, context, debug)) {
+		gen::ClearInstance();
+		return false;
+	}
+
+	/* check if the debugger should be attached */
+	if (!debug || sys::SetInstance(detail::PrimitiveDebugger::New(self)))
 		return true;
+	env::ClearInstance();
 	gen::ClearInstance();
 	return false;
 }
@@ -180,8 +192,10 @@ bool sys::Primitive::coreLoaded() {
 	if (!pCpu->setupContext(pAddress, spAddress))
 		return false;
 
-	/* request the translation of the first block */
-	env::Instance()->startNewBlock();
+	/* check if this is debug-mode, in which case no block needs to be translated
+	*	yet, otherwise immediately startup the translation and execution */
+	if (!pDebug)
+		env::Instance()->startNewBlock();
 	return true;
 }
 std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
@@ -195,28 +209,12 @@ std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
 	return translator.close();
 }
 void sys::Primitive::blockLoaded() {
-	/* start execution of the next address and catch/handle any incoming exceptions */
-	try {
-		env::Instance()->mapping().execute(pAddress);
-	}
-	catch (const env::Terminated& e) {
-		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
-	}
-	catch (const env::MemoryFault& e) {
-		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",
-			e.address, e.accessed, e.usedUsage, e.actualUsage);
-	}
-	catch (const env::NotDecodable& e) {
-		logger.fatal(u8"NotDecodable caught: [", str::As{ U"#018x", e.address }, u8']');
-	}
-	catch (const env::Translate& e) {
-		logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
-		pAddress = e.address;
-		env::Instance()->startNewBlock();
-	}
+	fExecute();
 }
 void sys::Primitive::shutdown() {
 	/* clearing the system-reference will also release this object */
+	if (pDebug)
+		sys::ClearInstance();
 	gen::ClearInstance();
 	env::ClearInstance();
 }

@@ -39,12 +39,12 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	detail::GeneratorAccess::SetWriter(&writer);
 
 	/* notify the interface about the newly starting block */
-	gen::Instance()->translator()->started(next.address);
+	detail::GeneratorAccess::Get()->started(next.address);
 
 	/* iterate over the instruction stream and look for the end of the current strand */
 	gen::Instruction inst{};
 	do {
-		inst = gen::Instance()->translator()->fetch(block.nextFetch());
+		inst = detail::GeneratorAccess::Get()->fetch(block.nextFetch());
 	} while (block.push(inst));
 
 	/* setup the ranges of the super-block */
@@ -54,11 +54,11 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	while (block.next()) {
 		env::guest_t address = block.chunkStart();
 		const std::vector<uintptr_t>& chunk = block.chunk();
-		gen::Instance()->translator()->produce(address, chunk.data(), chunk.size());
+		detail::GeneratorAccess::Get()->produce(address, chunk.data(), chunk.size());
 	}
 
 	/* notify the interface about the completed block */
-	gen::Instance()->translator()->completed();
+	detail::GeneratorAccess::Get()->completed();
 	logger.debug(u8"Block at [", str::As{ U"#018x", next.address }, u8"] completed");
 
 	/* remove the writer and sink from the generator */

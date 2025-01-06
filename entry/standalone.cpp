@@ -1,4 +1,4 @@
-#include "../interface/host.h"
+#include "../interface/logger.h"
 #include "../interface/interface.h"
 
 int main() {

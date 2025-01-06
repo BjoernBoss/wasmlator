@@ -7,6 +7,37 @@ namespace global {
 	static uint32_t ProcId = 0;
 }
 
+env::Process* env::Instance() {
+	return global::Instance.get();
+}
+bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
+	if (global::Instance.get() != 0) {
+		logger.error(u8"Cannot create process as only one process can exist at a time");
+		return false;
+	}
+
+	/* allocate the new instance */
+	logger.log(u8"Creating new process...");
+	global::Instance = std::make_unique<env::Process>();
+
+	/* configure the instance */
+	if (detail::ProcessAccess::Setup(*global::Instance.get(), std::move(system), pageSize, memoryCaches, contextSize, logBlocks)) {
+		logger.log(u8"Process created");
+		return true;
+	}
+	global::Instance.reset();
+	return false;
+}
+void env::ClearInstance() {
+	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
+
+	/* reset all mapped core-functions and release the current instance */
+	detail::ProcessBridge::ResetCoreMap();
+	global::Instance.reset();
+	logger.log(u8"Process destroyed");
+}
+
+
 bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
 	/* apply the configuration */
 	pSystem = std::move(system);
@@ -183,11 +214,8 @@ void env::Process::startNewBlock() {
 	fLoadBlock();
 }
 
-const env::System* env::Process::system() const {
-	return pSystem.get();
-}
-env::System* env::Process::system() {
-	return pSystem.get();
+void env::Process::shutdown() {
+	pSystem->shutdown();
 }
 const env::Context& env::Process::context() const {
 	return pContext;
@@ -221,35 +249,4 @@ uint32_t env::Process::memoryCaches() const {
 }
 uint32_t env::Process::contextSize() const {
 	return pContextSize;
-}
-
-
-env::Process* env::Instance() {
-	return global::Instance.get();
-}
-bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
-	if (global::Instance.get() != 0) {
-		logger.error(u8"Cannot create process as only one process can exist at a time");
-		return false;
-	}
-
-	/* allocate the new instance */
-	logger.log(u8"Creating new process...");
-	global::Instance = std::make_unique<env::Process>();
-
-	/* configure the instance */
-	if (detail::ProcessAccess::Setup(*global::Instance.get(), std::move(system), pageSize, memoryCaches, contextSize, logBlocks)) {
-		logger.log(u8"Process created");
-		return true;
-	}
-	global::Instance.reset();
-	return false;
-}
-void env::ClearInstance() {
-	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
-
-	/* reset all mapped core-functions and release the current instance */
-	detail::ProcessBridge::ResetCoreMap();
-	global::Instance.reset();
-	logger.log(u8"Process destroyed");
 }

@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "../environment/env-common.h"
-#include "../interface/host.h"
+#include "../interface/logger.h"
 
 namespace I = wasm::inst;
 
