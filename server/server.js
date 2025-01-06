@@ -25,6 +25,8 @@ window.onload = function () {
 
 	/* logger function to write the logs to the ui */
 	let logMessage = function (m, failure) {
+		if (failure)
+			console.error(m);
 		let e = document.createElement('div');
 		htmlOutput.appendChild(e);
 

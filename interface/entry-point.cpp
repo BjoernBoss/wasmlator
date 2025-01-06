@@ -77,7 +77,7 @@ static arger::Config Commands{
 	arger::Group{ L"step", L"",
 		arger::Abbreviation{ L's' },
 		arger::Description{ L"Step for the number of instructions." },
-		arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to execute.", arger::Value{ 0 } },
+		arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to execute.", arger::Value{ 1 } },
 	},
 };
 

@@ -33,7 +33,6 @@ bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t tr
 }
 void gen::ClearInstance() {
 	logger.log(u8"Destroying generator...");
-
 	global::Instance.reset();
 	logger.log(u8"Generator destroyed");
 }

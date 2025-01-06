@@ -89,8 +89,9 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 void sys::Primitive::fExecute() {
 	/* start execution of the next address and catch/handle any incoming exceptions */
 	try {
-		while (!pDebug || !sys::Instance()->completed())
+		do {
 			pAddress = env::Instance()->mapping().execute(pAddress);
+		} while (!pDebug || sys::Instance()->completed(pAddress));
 	}
 	catch (const env::Terminated& e) {
 		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);

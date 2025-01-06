@@ -5,9 +5,13 @@
 
 struct NullSystem final : public env::System {
 	NullSystem() {}
-	void setupCore(wasm::Module& mod) final {}
+	bool setupCore(wasm::Module& mod) final {
+		return true;
+	}
+	bool coreLoaded() final {
+		return true;
+	}
 	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) final { return {}; }
-	void coreLoaded() final {}
 	void blockLoaded() final {}
 	void shutdown() final {}
 };

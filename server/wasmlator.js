@@ -41,8 +41,10 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* start the official busy-area, as the creation is considered being busy */
 	_state.start(() => {
-		if (_state.loadState == 'loaded')
+		if (_state.loadState == 'loaded') {
+			logPrint('Wasmlator.js: Note: system might not work correctly anymore after a fatal error occurred', false);
 			logPrint('Wasmlator.js: Loaded successfully and ready...', false);
+		}
 		else
 			logPrint('Wasmlator.js: Failed to load properly', true);
 		if (cb != null)
@@ -59,17 +61,13 @@ setup_wasmlator = function (logPrint, cb) {
 		try {
 			fn();
 		} catch (e) {
-			if (e instanceof Error) {
-				console.error(e);
-				logPrint(e.stack, true);
-			}
-			else {
-				console.error(`Unhandled exception occurred: ${e.stack}`);
-				logPrint(e.stack, true);
-			}
+			if (!(e instanceof FatalError) && !(e instanceof LoadError))
+				logPrint(`Unhandled exception occurred: ${e.stack}`, true);
 		}
 	}
 	_state.throwException = function (e) {
+		/* log the error immediately to ensure it is printed, even if another nested exception is thrown */
+		logPrint(e.stack, true);
 		throw e;
 	}
 
@@ -152,7 +150,10 @@ setup_wasmlator = function (logPrint, cb) {
 		/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 		imports.env.emscripten_notify_memory_growth = function () { };
 		imports.wasi_snapshot_preview1.proc_exit = function (code) {
-			_state.throwException(new UnknownExitError(`WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`));
+			/* do not throw the exception, as this function is also called for nested exceptions (i.e. nested exception in main will
+			*	call this, will trigger another exception, which is another nested exception, and will call this function again...) */
+			let e = new UnknownExitError(`WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`);
+			logPrint(e.stack, true);
 		};
 
 		/* setup the remaining host-imports */
