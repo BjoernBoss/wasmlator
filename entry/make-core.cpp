@@ -10,6 +10,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 	try {
 		wasm::Module mod{ writer };
 		gen::Core _core{ mod };
+		_core.close();
 	}
 	catch (const wasm::Exception& e) {
 		str::PrintWLn(L"Exception: ", e.what());

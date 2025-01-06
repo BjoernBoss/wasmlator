@@ -10,7 +10,6 @@
 #include <bit>
 #include <memory>
 #include <limits>
-#include <exception>
 #include <optional>
 
 #include "../interface/logger.h"

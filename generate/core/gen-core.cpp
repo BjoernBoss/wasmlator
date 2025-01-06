@@ -25,10 +25,6 @@ gen::Core::Core(wasm::Module& mod) {
 	_mapping.setupCoreBody(memory);
 	pProcess.setupCoreBody();
 }
-gen::Core::~Core() noexcept(false) {
-	if (std::uncaught_exceptions() == 0)
-		fClose();
-}
 
 void gen::Core::fClose() {
 	if (pClosed)

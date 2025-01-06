@@ -33,7 +33,13 @@ bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t tr
 }
 void gen::ClearInstance() {
 	logger.log(u8"Destroying generator...");
+
+	/* also reset the global references, as an exception might have triggered
+	*	the generator-cleanup, thereby not properly resetting the references */
 	global::Instance.reset();
+	gen::Module = 0;
+	gen::Sink = 0;
+	gen::Make = 0;
 	logger.log(u8"Generator destroyed");
 }
 

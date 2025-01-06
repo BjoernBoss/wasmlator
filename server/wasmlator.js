@@ -152,7 +152,7 @@ setup_wasmlator = function (logPrint, cb) {
 		imports.wasi_snapshot_preview1.proc_exit = function (code) {
 			/* do not throw the exception, as this function is also called for nested exceptions (i.e. nested exception in main will
 			*	call this, will trigger another exception, which is another nested exception, and will call this function again...) */
-			let e = new UnknownExitError(`F:WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`);
+			let e = new UnknownExitError(`F:WasmLator.js: Main module terminated itself with exit-code [${code}] - (Unhandled exception?)`);
 			logPrint(e.stack);
 		};
 

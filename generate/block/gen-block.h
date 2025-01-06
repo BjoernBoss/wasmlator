@@ -12,7 +12,8 @@
 
 namespace gen {
 	/* env::Process instance and gen::Generator instance must be created
-	*	Note: blocks must not be flushed mid block-creation */
+	*	Note: blocks must not be flushed mid block-creation
+	*	Note: after closing the block, no changes can be made to the block anymore */
 	class Block {
 	private:
 		detail::Addresses pAddresses;

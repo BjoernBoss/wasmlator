@@ -83,6 +83,7 @@ bool env::Process::fLoadCore() {
 		wasm::Module mod{ &binOutput };
 		if (!pSystem->setupCore(mod))
 			return false;
+		mod.close();
 	}
 	catch (const wasm::Exception& e) {
 		logger.error(u8"WASM exception occurred while creating the core module: ", e.what());
