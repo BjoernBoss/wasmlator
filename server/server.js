@@ -24,9 +24,7 @@ window.onload = function () {
 	}
 
 	/* logger function to write the logs to the ui */
-	let logMessage = function (m, failure) {
-		if (failure)
-			console.error(m);
+	let logMessage = function (m) {
 		let e = document.createElement('div');
 		htmlOutput.appendChild(e);
 
@@ -37,14 +35,15 @@ window.onload = function () {
 			'L:': 'log',
 			'I:': 'info',
 			'W:': 'warn',
-			'E:': 'error'
+			'E:': 'error',
+			'F:': 'fatal'
 		}[m.substr(0, 2)];
 
 		/* update the string and patch the types and visibility */
 		if (name !== undefined)
 			m = m.substr(2);
 		else
-			name = (failure ? 'fatal' : 'log');
+			name = 'log';
 		if (!buttonState[name])
 			e.style.display = 'none';
 
@@ -52,6 +51,10 @@ window.onload = function () {
 		e.classList.add(name);
 		e.innerText = m;
 		e.scrollIntoView(true);
+
+		/* check if its a failure and log it to the console */
+		if (name == 'fatal')
+			console.error(m);
 	};
 
 	/* load the web-worker, which runs the wasmlator */
@@ -66,9 +69,9 @@ window.onload = function () {
 			workerBusy = false;
 		}
 		else if (data.cmd == 'log')
-			logMessage(data.msg, data.failure);
+			logMessage(data.msg);
 		else
-			logMessage(`Unknown command [${data.cmd}] received from service worker.`, true);
+			logMessage(`F:Unknown command [${data.cmd}] received from service worker.`);
 	};
 
 	/* register the handler for creating the history behavior and committing the commands */

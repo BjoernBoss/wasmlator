@@ -42,11 +42,11 @@ setup_wasmlator = function (logPrint, cb) {
 	/* start the official busy-area, as the creation is considered being busy */
 	_state.start(() => {
 		if (_state.loadState == 'loaded') {
-			logPrint('Wasmlator.js: Note: system might not work correctly anymore after a fatal error occurred', false);
-			logPrint('Wasmlator.js: Loaded successfully and ready...', false);
+			logPrint('L:Wasmlator.js: Note: system might not work correctly anymore after a fatal error occurred');
+			logPrint('L:Wasmlator.js: Loaded successfully and ready...');
 		}
 		else
-			logPrint('Wasmlator.js: Failed to load properly', true);
+			logPrint('F:Wasmlator.js: Failed to load properly');
 		if (cb != null)
 			cb();
 	});
@@ -54,20 +54,20 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* execute the callback in a new execution-context where controlled-aborts will not be considered uncaught
 	*	exceptions, but all other exceptions will, and exceptions do not trigger other catch-handlers */
-	class FatalError extends Error { constructor(m) { super(m); this.name = 'FatalError'; } };
 	class LoadError extends Error { constructor(m) { super(m); this.name = 'LoadError'; } };
-	class UnknownExitError extends Error { constructor(m) { super(m); this.name = 'UnknownExitError'; } };
+	class FatalError extends Error { constructor(m) { super(m); this.name = ''; } };
+	class UnknownExitError extends Error { constructor(m) { super(m); this.name = ''; } };
 	_state.controlled = function (fn) {
 		try {
 			fn();
 		} catch (e) {
-			if (!(e instanceof FatalError) && !(e instanceof LoadError))
-				logPrint(`Unhandled exception occurred: ${e.stack}`, true);
+			if (!(e instanceof LoadError))
+				logPrint(`F:Unhandled exception occurred: ${e.stack}`);
 		}
 	}
 	_state.throwException = function (e) {
 		/* log the error immediately to ensure it is printed, even if another nested exception is thrown */
-		logPrint(e.stack, true);
+		logPrint(`F:${e.stack}`);
 		throw e;
 	}
 
@@ -84,7 +84,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* load the initial glue module and afterwards the main application */
 	_state.load_glue = function () {
-		logPrint(`WasmLator.js: Loading glue module...`, false);
+		logPrint(`L:WasmLator.js: Loading glue module...`);
 
 		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
@@ -120,7 +120,7 @@ setup_wasmlator = function (logPrint, cb) {
 				return WebAssembly.instantiateStreaming(resp, imports);
 			})
 			.then((instance) => {
-				logPrint(`WasmLator.js: Glue module loaded`, false);
+				logPrint(`L:WasmLator.js: Glue module loaded`);
 				_state.glue.exports = instance.instance.exports;
 				_state.glue.memory = _state.glue.exports.memory;
 
@@ -135,7 +135,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* load the actual primary application once the glue module has been loaded and compiled */
 	_state.load_main = function () {
-		logPrint(`WasmLator.js: Loading main module...`, false);
+		logPrint(`L:WasmLator.js: Loading main module...`);
 
 		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
@@ -152,16 +152,19 @@ setup_wasmlator = function (logPrint, cb) {
 		imports.wasi_snapshot_preview1.proc_exit = function (code) {
 			/* do not throw the exception, as this function is also called for nested exceptions (i.e. nested exception in main will
 			*	call this, will trigger another exception, which is another nested exception, and will call this function again...) */
-			let e = new UnknownExitError(`WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`);
-			logPrint(e.stack, true);
+			let e = new UnknownExitError(`F:WasmLator.js: Main module terminated itself with [${code}] - (Unhandled exception?)`);
+			logPrint(e.stack);
 		};
 
 		/* setup the remaining host-imports */
-		imports.env.host_print_u8 = function (ptr, size) {
-			logPrint(_state.load_string(ptr, size, true), false);
-		};
-		imports.env.host_fatal_u8 = function (ptr, size) {
-			_state.throwException(new FatalError(`Wasmlator.js: ${_state.load_string(ptr, size, true)}`));
+		imports.env.host_print_u8 = function (ptr, size, failure) {
+			let msg = _state.load_string(ptr, size, true);
+			if (failure) {
+				let e = new FatalError(msg);
+				logPrint(e.stack);
+			}
+			else
+				logPrint(msg);
 		};
 		imports.env.host_load_core = function (ptr, size, process) {
 			return _state.load_core(_state.make_buffer(ptr, size), process);
@@ -178,16 +181,16 @@ setup_wasmlator = function (logPrint, cb) {
 				return WebAssembly.instantiateStreaming(resp, imports);
 			})
 			.then((instance) => {
-				logPrint(`WasmLator.js: Main module loaded`, false);
+				logPrint(`L:WasmLator.js: Main module loaded`);
 				_state.main.exports = instance.instance.exports;
 				_state.main.memory = _state.main.exports.memory;
 
 				/* startup the main application, which requires the internal _initialize to be invoked */
 				_state.controlled(() => {
-					logPrint(`WasmLator.js: Starting up main module...`, false);
+					logPrint(`L:WasmLator.js: Starting up main module...`);
 					_state.main.exports._initialize();
 					_state.loadState = 'loaded';
-					logPrint(`WasmLator.js: Main module initialized`, false);
+					logPrint(`L:WasmLator.js: Main module initialized`);
 				});
 			})
 			.catch((err) => _state.controlled(() => _state.throwException(new LoadError(`Failed to load main module: ${err}`))))

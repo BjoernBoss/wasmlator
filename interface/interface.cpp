@@ -21,8 +21,13 @@ void main_command(char8_t* ptr, uint32_t size) {
 
 		HandleCommand(command);
 	}
+
+	/* catch fatal exceptions and ignore them, as they will already have been
+	*	logged and otherwise log the occurrance of the unknown exception */
+	catch (const host::FatalException&) {}
 	catch (...) {
-		logger.fatal(u8"Unhandled exception caught [main_command]");
+		/* log with level to ensure no fatal-exception is thrown again */
+		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_command]");
 	}
 }
 
@@ -30,8 +35,13 @@ void main_core_loaded(uint32_t process) {
 	try {
 		env::detail::ProcessBridge::CoreLoaded(process);
 	}
+
+	/* catch fatal exceptions and ignore them, as they will already have been
+	*	logged and otherwise log the occurrance of the unknown exception */
+	catch (const host::FatalException&) {}
 	catch (...) {
-		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");
+		/* log with level to ensure no fatal-exception is thrown again */
+		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_core_loaded]");
 	}
 }
 
@@ -39,8 +49,13 @@ void main_block_loaded(uint32_t process) {
 	try {
 		env::detail::ProcessBridge::BlockLoaded(process);
 	}
+
+	/* catch fatal exceptions and ignore them, as they will already have been
+	*	logged and otherwise log the occurrance of the unknown exception */
+	catch (const host::FatalException&) {}
 	catch (...) {
-		logger.fatal(u8"Unhandled exception caught [main_core_loaded]");
+		/* log with level to ensure no fatal-exception is thrown again */
+		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_core_loaded]");
 	}
 }
 

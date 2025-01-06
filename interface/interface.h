@@ -18,8 +18,7 @@ extern "C" {
 	/* imports */
 	uint32_t host_load_core(const uint8_t* data, uint32_t size, uint32_t process);
 	uint32_t host_load_block(const uint8_t* data, uint32_t size, uint32_t process);
-	void host_print_u8(const char8_t* data, uint32_t size);
-	void host_fatal_u8 [[noreturn]] (const char8_t* data, uint32_t size);
+	void host_print_u8(const char8_t* data, uint32_t size, bool failure);
 	uint32_t glue_setup_core_map();
 	void glue_reset_core_map();
 }

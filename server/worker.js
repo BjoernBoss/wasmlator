@@ -5,7 +5,7 @@ importScripts("./wasmlator.js")
 let completed = () => postMessage({ cmd: 'ready' });
 
 /* handler to receive logs from wasmlator */
-let logger = (msg, failure) => postMessage({ cmd: 'log', msg: msg, failure: failure });
+let logger = (msg) => postMessage({ cmd: 'log', msg: msg });
 
 /* construct the actual wasmlator */
 let wasmlator = setup_wasmlator(logger, completed);
@@ -16,9 +16,9 @@ onmessage = function (m) {
 		wasmlator(m.data, completed);
 	} catch (e) {
 		if (e instanceof BusyError)
-			logger(e.toString(), true);
+			logger(`F:${e.toString()}`);
 		else
-			logger(`Unknown exception encountered: ${e.stack}`, true);
+			logger(`F:Unknown exception encountered: ${e.stack}`);
 		completed();
 	}
 };
