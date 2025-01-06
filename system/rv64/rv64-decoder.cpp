@@ -612,7 +612,7 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 			| (uint64_t(detail::GetU<2, 2>(data)) << 5)
 			| (uint64_t(detail::GetU<11, 11>(data)) << 4)
 			| (uint64_t(detail::GetU<3, 5>(data)) << 1);
-		out.opcode = rv64::Opcode::jump_and_link_reg;
+		out.opcode = rv64::Opcode::jump_and_link_imm;
 		out.dest = reg::Zero;
 		break;
 	case 0x06:
