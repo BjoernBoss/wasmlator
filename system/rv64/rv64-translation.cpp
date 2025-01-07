@@ -1,4 +1,5 @@
 #include "rv64-translation.h"
+#include "rv64-print.h"
 
 static host::Logger logger{ u8"rv64::cpu" };
 
@@ -49,9 +50,14 @@ void rv64::Translate::fMakeJAL() {
 		wasm::Variable addr = fTemp64(0);
 
 		/* write the target address to the stack */
-		gen::Add[I::I64::Const(pInst->imm)];
-		if (fLoadSrc1(false, false))
-			gen::Add[I::I64::Add()];
+		if (fLoadSrc1(false, false)) {
+			if (pInst->imm != 0) {
+				gen::Add[I::I64::Const(pInst->imm)];
+				gen::Add[I::I64::Add()];
+			}
+		}
+		else
+			gen::Add[I::I64::Const(pInst->imm)];
 
 		/* perform the alignment validation */
 		gen::Add[I::Local::Tee(addr)];
@@ -884,6 +890,10 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	pAddress = pNextAddress;
 	pNextAddress += inst.size;
 	pInst = &inst;
+
+	/* check if a comment should be added */
+	if (env::Instance()->logBlocks())
+		gen::Sink->comment(str::u8::Build(str::As{ U"#018x", pAddress }, u8": ", rv64::ToString(inst)));
 
 	/* perform the actual translation */
 	switch (pInst->opcode) {

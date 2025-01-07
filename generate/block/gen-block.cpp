@@ -1,6 +1,22 @@
 #include "../generate.h"
+#include "../environment/environment.h"
 
 static host::Logger logger{ u8"gen::block" };
+
+bool gen::detail::BlockAccess::Setup(detail::BlockState& state) {
+	if (!gen::Instance()->trace())
+		return true;
+	state.blockCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
+		logger.debug(u8"Block Trace [", str::As{ U"#018x", addr }, u8']');
+		return 0;
+		});
+	state.chunkCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
+		logger.debug(u8"Chunk Trace [", str::As{ U"#018x", addr }, u8']');
+		return 0;
+		});
+	return true;
+}
+
 
 gen::Block::Block(wasm::Module& mod) {
 	detail::MemoryBuilder _memory;
@@ -27,7 +43,7 @@ gen::Block::Block(wasm::Module& mod) {
 }
 
 void gen::Block::fProcess(const detail::OpenAddress& next) {
-	logger.debug(u8"Processing block at [", str::As{ U"#018x", next.address }, u8']');
+	logger.trace(u8"Processing block at [", str::As{ U"#018x", next.address }, u8']');
 
 	/* setup the actual sink */
 	wasm::Sink sink{ next.function };
@@ -37,6 +53,13 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	detail::SuperBlock block{ pContext, next.address };
 	gen::Writer writer{ block, pMemory, pContext, pMapping, pAddresses, pInteract };
 	detail::GeneratorAccess::SetWriter(&writer);
+
+	/* check if block-tracing is enabled */
+	if (gen::Instance()->trace()) {
+		gen::Add[I::U64::Const(next.address)];
+		gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->blockCallbackId);
+		gen::Add[I::Drop()];
+	}
 
 	/* notify the interface about the newly starting block */
 	detail::GeneratorAccess::Get()->started(next.address);
@@ -63,13 +86,20 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	/* iterate over the chunks of the super-block and produce them */
 	while (block.next()) {
 		env::guest_t address = block.chunkStart();
+
+		/* check if chunk-tracing is enabled */
+		if (gen::Instance()->trace()) {
+			gen::Add[I::U64::Const(address)];
+			gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->chunkCallbackId);
+			gen::Add[I::Drop()];
+		}
+
 		const std::vector<uintptr_t>& chunk = block.chunk();
 		detail::GeneratorAccess::Get()->produce(address, chunk.data(), chunk.size());
 	}
 
 	/* notify the interface about the completed block */
 	detail::GeneratorAccess::Get()->completed();
-	logger.debug(u8"Block at [", str::As{ U"#018x", next.address }, u8"] completed");
 
 	/* remove the writer and sink from the generator */
 	detail::GeneratorAccess::SetWriter(0);

@@ -132,8 +132,9 @@ void rv64::Cpu::completed() {
 gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	/* decode the next instruction (keep i nmind that fFetch may throw a memory-exception) */
 	rv64::Instruction inst = fFetch(address);
-	logger.fmtTrace(u8"RV64: {:#018x} {}", address, rv64::ToString(inst));
 	pDecoded.push_back(inst);
+	if (env::Instance()->logBlocks())
+		logger.fmtTrace(u8"RV64: {:#018x} {}", address, rv64::ToString(inst));
 
 	/* translate the instruction to the generated instruction-type */
 	gen::InstType type = gen::InstType::primitive;

@@ -254,3 +254,6 @@ uint32_t env::Process::memoryCaches() const {
 uint32_t env::Process::contextSize() const {
 	return pContextSize;
 }
+bool env::Process::logBlocks() const {
+	return pLogBlocks;
+}

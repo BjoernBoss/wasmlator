@@ -17,10 +17,7 @@ namespace gen {
 	public:
 		Core(wasm::Module& mod);
 
-	private:
-		void fClose();
-
 	public:
-		void close();
+		bool close();
 	};
 }

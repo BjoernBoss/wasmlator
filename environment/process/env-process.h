@@ -75,5 +75,6 @@ namespace env {
 		uint32_t pageSize() const;
 		uint32_t memoryCaches() const;
 		uint32_t contextSize() const;
+		bool logBlocks() const;
 	};
 }

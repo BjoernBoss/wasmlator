@@ -66,6 +66,14 @@ static arger::Config Commands{
 				arger::Value{ L"rv64" }
 			},
 		},
+		arger::Option{ L"log",
+			arger::Abbreviation{ L'l' },
+			arger::Description{ L"Log all WAT blocks being generated." },
+		},
+		arger::Option{ L"trace",
+			arger::Abbreviation{ L't' },
+			arger::Description{ L"Log the address of all blocks being entered." },
+		},
 	},
 	arger::Group{ L"destroy", L"",
 		arger::Description{ L"Destroy the currently configured translation process." },
@@ -207,8 +215,8 @@ void HandleCommand(std::u8string_view cmd) {
 		/* system can currently only be 'primitive' and cpu can only be 'rv64' */
 		std::wstring system = out.option(L"system").value().str();
 		std::wstring cpu = out.option(L"cpu").value().str();
-		bool debug = out.flag(L"debug");
-		logger.log(u8"Setting up system: [", system, u8"] with cpu: [", cpu, u8"] in configuration [", (debug ? u8"debug]" : u8"normal]"));
+		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log"), trace = out.flag(L"trace");
+		logger.log(u8"Setting up system: [", system, u8"] with cpu: [", cpu, u8"]");
 
 		/* collect the argument vector */
 		std::vector<std::u8string> args;
@@ -222,7 +230,7 @@ void HandleCommand(std::u8string_view cmd) {
 			envs.push_back(str::u8::To(out.option(L"environment", i).value().str()));
 
 		/* try to setup the primitive system */
-		if (!sys::Primitive::Create(rv64::Cpu::New(), args, envs, debug))
+		if (!sys::Primitive::Create(rv64::Cpu::New(), args, envs, debug, logBlocks, trace))
 			logger.error(u8"Failed to create process");
 		else
 			logger.log(u8"Process creation completed");

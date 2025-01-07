@@ -125,11 +125,13 @@ void sys::Primitive::fExecute() {
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
 }
-bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug) {
+bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* log the configuration */
 	logger.info(u8"  Debug       : ", str::As{ U"S", debug });
+	logger.info(u8"  Log Blocks  : ", str::As{ U"S", logBlocks });
+	logger.info(u8"  Trace Blocks: ", str::As{ U"S", traceBlocks });
 	logger.info(u8"  Arguments   : ", args.size());
 	for (size_t i = 0; i < args.size(); ++i)
 		logger.info(u8"    [", i, u8"]: ", args[i]);
@@ -152,9 +154,9 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 		return false;
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
-	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug))
+	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug, traceBlocks))
 		return false;
-	if (!env::SetInstance(std::move(system), Primitive::PageSize, caches, context, debug)) {
+	if (!env::SetInstance(std::move(system), Primitive::PageSize, caches, context, logBlocks)) {
 		gen::ClearInstance();
 		return false;
 	}
@@ -175,8 +177,7 @@ bool sys::Primitive::setupCore(wasm::Module& mod) {
 		return false;
 
 	/* finalize the actual core */
-	core.close();
-	return true;
+	return core.close();
 }
 bool sys::Primitive::coreLoaded() {
 	/* load the static elf-image and configure the startup-address */

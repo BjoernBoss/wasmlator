@@ -13,7 +13,7 @@ gen::Writer* gen::Make = 0;
 gen::Generator* gen::Instance() {
 	return global::Instance.get();
 }
-bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep) {
+bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep, bool trace) {
 	if (global::Instance.get() != 0) {
 		logger.error(u8"Cannot create generator as only one generator can exist at a time");
 		return false;
@@ -24,7 +24,7 @@ bool gen::SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t tr
 	global::Instance = std::make_unique<gen::Generator>();
 
 	/* configure the instance */
-	if (detail::GeneratorAccess::Setup(*global::Instance.get(), std::move(translator), translationDepth, singleStep)) {
+	if (detail::GeneratorAccess::Setup(*global::Instance.get(), std::move(translator), translationDepth, singleStep, trace)) {
 		logger.log(u8"Generator created");
 		return true;
 	}
@@ -44,8 +44,8 @@ void gen::ClearInstance() {
 }
 
 
-bool gen::detail::GeneratorAccess::Setup(gen::Generator& generator, std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep) {
-	return generator.fSetup(std::move(translator), translationDepth, singleStep);
+bool gen::detail::GeneratorAccess::Setup(gen::Generator& generator, std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep, bool trace) {
+	return generator.fSetup(std::move(translator), translationDepth, singleStep, trace);
 }
 void gen::detail::GeneratorAccess::SetWriter(gen::Writer* writer) {
 	if (gen::Make != 0 && writer != 0)
@@ -55,23 +55,40 @@ void gen::detail::GeneratorAccess::SetWriter(gen::Writer* writer) {
 gen::Translator* gen::detail::GeneratorAccess::Get() {
 	return gen::Instance()->pTranslator.get();
 }
+gen::detail::BlockState* gen::detail::GeneratorAccess::GetBlock() {
+	return &global::Instance->pBlockState;
+}
+bool gen::detail::GeneratorAccess::CoreCreated() {
+	return global::Instance->fFinalize();
+}
 
 
-bool gen::Generator::fSetup(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep) {
+bool gen::Generator::fSetup(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep, bool trace) {
 	pTranslator = std::move(translator);
 	pTranslationDepth = translationDepth;
 	pSingleStep = singleStep;
+	pTrace = trace;
 
 	/* log the new configuration */
 	logger.info(u8"  Translation Depth: ", pTranslationDepth);
 	logger.info(u8"  Single Step      : ", str::As{ U"S", pSingleStep });
+	logger.info(u8"  Trace            : ", str::As{ U"S", pTrace });
+
+	/* check if a trace-callback needs to be registered */
+
 	return true;
+}
+bool gen::Generator::fFinalize() {
+	return detail::BlockAccess::Setup(pBlockState);
 }
 uint32_t gen::Generator::translationDepth() const {
 	return pTranslationDepth;
 }
 bool gen::Generator::singleStep() const {
 	return pSingleStep;
+}
+bool gen::Generator::trace() const {
+	return pTrace;
 }
 wasm::Module* gen::Generator::setModule(wasm::Module* mod) {
 	if (mod != 0 && pModule != 0)

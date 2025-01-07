@@ -26,19 +26,20 @@ gen::Core::Core(wasm::Module& mod) {
 	pProcess.setupCoreBody();
 }
 
-void gen::Core::fClose() {
+bool gen::Core::close() {
 	if (pClosed)
-		return;
+		return true;
 	pClosed = true;
 
 	/* finalize the components */
 	pInteract.finalizeCoreBody();
 	pProcess.finalizeCoreBody();
 
+	/* notify the generator about the completed core */
+	if (!detail::GeneratorAccess::CoreCreated())
+		return false;
+
 	/* unbind the module and close it (as a precaution) */
 	gen::Instance()->setModule(0)->close();
-}
-
-void gen::Core::close() {
-	fClose();
+	return true;
 }

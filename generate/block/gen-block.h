@@ -11,10 +11,22 @@
 #include "../core/core-builder.h"
 
 namespace gen {
+	namespace detail {
+		struct BlockState {
+			uint32_t blockCallbackId = 0;
+			uint32_t chunkCallbackId = 0;
+		};
+
+		struct BlockAccess {
+			static bool Setup(detail::BlockState& state);
+		};
+	}
+
 	/* env::Process instance and gen::Generator instance must be created
 	*	Note: blocks must not be flushed mid block-creation
 	*	Note: after closing the block, no changes can be made to the block anymore */
 	class Block {
+		friend struct detail::BlockAccess;
 	private:
 		detail::Addresses pAddresses;
 		detail::MemoryState pMemory;

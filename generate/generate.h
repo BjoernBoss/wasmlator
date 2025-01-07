@@ -11,7 +11,7 @@ namespace gen {
 	/* Many generation operations require a generator instance to be configured.
 	*	Note: shutdown must be performed through env::System::shutdown, and must only be exeucted from within external calls */
 	gen::Generator* Instance();
-	bool SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep);
+	bool SetInstance(std::unique_ptr<gen::Translator>&& translator, uint32_t translationDepth, bool singleStep, bool trace);
 	void ClearInstance();
 
 	/* maps to gen::Instance()->setModule() */
