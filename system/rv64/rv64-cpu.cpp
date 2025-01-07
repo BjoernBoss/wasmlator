@@ -196,7 +196,7 @@ std::vector<std::u8string> rv64::Cpu::queryNames() const {
 		u8"a3", u8"a4", u8"a5",u8"a6",
 		u8"a7", u8"s2", u8"s3",u8"s4",
 		u8"s5", u8"s6", u8"s7", u8"s8",
-		u8"s9", u8"s1", u8"s1", u8"t3",
+		u8"s9", u8"s10", u8"s11", u8"t3",
 		u8"t4", u8"t5", u8"t6"
 	};
 }

@@ -17,7 +17,7 @@ namespace sys {
 	private:
 		static constexpr env::guest_t StartOfStackAlignment = 128;
 		static constexpr env::guest_t StackSize = 0x40'0000;
-		static constexpr uint32_t TranslationDepth = 4;
+		static constexpr uint32_t TranslationDepth = 3;
 		static constexpr uint32_t PageSize = 0x1000;
 
 	private:

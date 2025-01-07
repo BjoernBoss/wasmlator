@@ -7,7 +7,7 @@ bool gen::detail::BlockAccess::Setup(detail::BlockState& state) {
 	if (!gen::Instance()->trace())
 		return true;
 	state.blockCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
-		logger.debug(u8"Block Trace [", str::As{ U"#018x", addr }, u8']');
+		logger.debug(u8"Entering Block [", str::As{ U"#018x", addr }, u8']');
 		return 0;
 		});
 	state.chunkCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {

@@ -32,6 +32,7 @@ void sys::detail::PrimitiveExecContext::fHandleSyscall() {
 		pPrimitive->pCpu->setSyscallResult(uint16_t(env::Instance()->getId()));
 		return;
 	case sys::SyscallIndex::brk:
+		logger.log(u8"Syscall [brk]");
 		break;
 	case sys::SyscallIndex::unknown:
 		throw detail::UnknownSyscall{ pSyscall.address, call.rawIndex };

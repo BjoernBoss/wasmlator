@@ -4,28 +4,33 @@
 #include "../context/context-writer.h"
 
 namespace gen::detail {
+	enum class RangeType : uint8_t {
+		backwards,
+		conditional,
+		forwards
+	};
 	struct InstRange {
 	public:
 		size_t first = 0;
 		size_t last = 0;
-		size_t target = 0;
-		bool backwards = false;
+		detail::RangeType type = detail::RangeType::backwards;
 
 	public:
-		/* must be sorted such that for two ranges with the same start, the larger one comes first */
+		/* must be sorted such that for two ranges with the same start, the larger one comes
+		*	first, and for identical ranges, backwards < conditional < forwards */
 		friend bool operator<(const detail::InstRange& l, const detail::InstRange& r) {
 			if (l.first != r.first)
 				return (l.first < r.first);
 			if (l.last != r.last)
 				return (l.last > r.last);
-			if (l.target != r.target)
-				return (l.target < r.target);
-			return (!l.backwards && r.backwards);
+			return (l.type < r.type);
 		}
 	};
 	struct InstTarget {
 		const wasm::Target* target = 0;
-		bool directJump = false;
+		size_t preNulls = 0;
+		size_t postNulls = 0;
+		bool conditional = false;
 	};
 
 	using RangeIt = std::set<detail::InstRange>::iterator;
@@ -34,14 +39,18 @@ namespace gen::detail {
 	private:
 		struct Stack {
 			wasm::Target target;
-			env::guest_t address = 0;
+			size_t first = 0;
 			size_t last = 0;
-			bool internal = false;
+			detail::RangeType type = detail::RangeType::backwards;
 		};
 		struct Target {
-			wasm::Variable cfg;
 			env::guest_t address = 0;
-			bool irreducible = false;
+			size_t stack = 0;
+			size_t first = 0;
+			size_t preNulls = 0;
+			size_t postNulls = 0;
+			bool conditional = false;
+			bool active = false;
 		};
 		struct Entry {
 			uintptr_t self = 0;
@@ -71,7 +80,12 @@ namespace gen::detail {
 		size_t fLookup(env::guest_t address) const;
 		std::set<detail::InstRange> fSetupRanges() const;
 		size_t fIrreducibleConflicts(detail::RangeIt test, detail::RangeIt begin, detail::RangeIt end) const;
-		detail::RangeIt fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last);
+		void fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last);
+
+	private:
+		void fFinalizeBlock(bool lastAndInvalid);
+		void fPrepareStack();
+		void fPrepareChunk();
 
 	public:
 		bool push(const gen::Instruction& inst);
