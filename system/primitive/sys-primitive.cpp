@@ -193,8 +193,12 @@ bool sys::Primitive::setupCore(wasm::Module& mod) {
 }
 bool sys::Primitive::coreLoaded() {
 	/* load the static elf-image and configure the startup-address */
+	elf::Output loaded;
 	try {
-		pAddress = elf::LoadStatic(fileBuffer, sizeof(fileBuffer));
+		loaded = elf::LoadStatic(fileBuffer, sizeof(fileBuffer));
+		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
+		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
+		pAddress = loaded.start;
 	}
 	catch (const elf::Exception& e) {
 		logger.error(u8"Failed to load static elf: ", e.what());
@@ -205,14 +209,14 @@ bool sys::Primitive::coreLoaded() {
 	env::guest_t spAddress = fPrepareStack();
 	if (spAddress == 0)
 		return false;
-	logger.debug(L"Stack loaded to: ", str::As{ U"#018x", spAddress });
+	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* initialize the context */
 	if (!pCpu->setupContext(pAddress, spAddress))
 		return false;
 
 	/* initialize the execution-context */
-	if (!pExecContext->coreLoaded())
+	if (!pExecContext->coreLoaded(loaded.endOfData))
 		return false;
 
 	/* check if this is debug-mode, in which case no block needs to be translated

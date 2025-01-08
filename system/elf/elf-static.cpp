@@ -42,7 +42,7 @@ static void ValidateElfHeader(const elf::ElfHeader<BaseType>* header) {
 }
 
 template <class BaseType>
-static void UnpackElfFile(const elf::Reader& reader) {
+static env::guest_t UnpackElfFile(const elf::Reader& reader) {
 	using ElfType = elf::ElfHeader<BaseType>;
 	using SecType = elf::SectionHeader<BaseType>;
 	using ProType = elf::ProgramHeader<BaseType>;
@@ -62,6 +62,7 @@ static void UnpackElfFile(const elf::Reader& reader) {
 
 	/* write all program-headers to be loaded to the guest environment */
 	env::guest_t pageSize = env::Instance()->pageSize();
+	env::guest_t endOfData = 0;
 	for (size_t i = 0; i < programHeaderCount; ++i) {
 		if (programs[i].type != elf::ProgramType::load)
 			continue;
@@ -101,22 +102,26 @@ static void UnpackElfFile(const elf::Reader& reader) {
 		/* update the protection flags to match the actual flags */
 		if (!env::Instance()->memory().mprotect(address, size, usage))
 			throw elf::Exception{ L"Failed to change the protection for program-header [", i, L']' };
+
+		/* update the end-of-data address */
+		endOfData = std::max(endOfData, address + size);
 	}
+	return endOfData;
 }
 
 template <class BaseType>
-static env::guest_t LoadStaticElf(const elf::Reader& reader) {
+static elf::Output LoadStaticElf(const elf::Reader& reader) {
 	const elf::ElfHeader<BaseType>* header = reader.get<elf::ElfHeader<BaseType>>(0);
 
 	/* validate the overall elf-header and unpack the elf-file */
 	ValidateElfHeader<BaseType>(header);
-	UnpackElfFile<BaseType>(reader);
+	env::guest_t endOfData = UnpackElfFile<BaseType>(reader);
 
 	/* return the entry-point */
-	return header->entry;
+	return { header->entry, endOfData };
 }
 
-env::guest_t elf::LoadStatic(const uint8_t* data, size_t size) {
+elf::Output elf::LoadStatic(const uint8_t* data, size_t size) {
 	elf::Reader reader{ data, size };
 
 	/* validate the raw file-header (bit-width agnostic) */

@@ -33,7 +33,7 @@ namespace sys {
 			void flushInstCache(env::guest_t address, env::guest_t nextAddress) final;
 
 		public:
-			bool coreLoaded();
+			bool coreLoaded(env::guest_t endOfData);
 		};
 
 		struct FlushInstCache : public env::Exception {

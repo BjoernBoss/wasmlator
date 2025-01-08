@@ -11,6 +11,7 @@
 #include <memory>
 #include <limits>
 #include <optional>
+#include <algorithm>
 
 #include "../interface/logger.h"
 

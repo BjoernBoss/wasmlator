@@ -31,7 +31,7 @@ void sys::detail::PrimitiveExecContext::flushInstCache(env::guest_t address, env
 	gen::Make->invokeParam(pRegistered.flushInst);
 	gen::Add[I::Drop()];
 }
-bool sys::detail::PrimitiveExecContext::coreLoaded() {
+bool sys::detail::PrimitiveExecContext::coreLoaded(env::guest_t endOfData) {
 	/* register the functions to be invoked by the execution-environment */
 	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
 		throw detail::FlushInstCache{ address };
@@ -42,7 +42,7 @@ bool sys::detail::PrimitiveExecContext::coreLoaded() {
 		});
 
 	/* setup the syscall handler */
-	pSyscall = sys::Syscall::New(detail::PrimitiveSyscall::New(pPrimitive));
+	pSyscall = sys::Syscall::New(detail::PrimitiveSyscall::New(pPrimitive), endOfData);
 	if (pSyscall.get() == 0)
 		logger.error(u8"Failed to attach syscall handler (supported by cpu?)");
 	return (pSyscall.get() != 0);
