@@ -291,32 +291,38 @@ void rv64::Translate::fMakeALUReg() const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::add_reg:
 		fLoadSrc1(false, false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
+		fLoadSrc2(false, false);
+		if (pInst->src1 != reg::Zero && pInst->src2 != reg::Zero)
 			gen::Add[I::U64::Add()];
 		break;
 	case rv64::Opcode::add_reg_half:
 		fLoadSrc1(false, true);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false, true))
+		fLoadSrc2(false, true);
+		if (pInst->src1 != reg::Zero && pInst->src2 != reg::Zero)
 			gen::Add[I::U32::Add()];
 		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::sub_reg:
-		if (fLoadSrc1(true, false) && fLoadSrc2(false, false))
+		fLoadSrc1(true, false);
+		if (fLoadSrc2(false, false))
 			gen::Add[I::U64::Sub()];
 		break;
 	case rv64::Opcode::sub_reg_half:
-		if (fLoadSrc1(true, true) && fLoadSrc2(false, true))
+		fLoadSrc1(true, true);
+		if (fLoadSrc2(false, true))
 			gen::Add[I::U32::Sub()];
 		gen::Add[I::I32::Expand()];
 		break;
 	case rv64::Opcode::xor_reg:
 		fLoadSrc1(false, false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
+		fLoadSrc2(false, false);
+		if (pInst->src1 != reg::Zero && pInst->src2 != reg::Zero)
 			gen::Add[I::U64::XOr()];
 		break;
 	case rv64::Opcode::or_reg:
 		fLoadSrc1(false, false);
-		if (pInst->src1 != reg::Zero && fLoadSrc2(false, false))
+		fLoadSrc2(false, false);
+		if (pInst->src1 != reg::Zero && pInst->src2 != reg::Zero)
 			gen::Add[I::U64::Or()];
 		break;
 	case rv64::Opcode::and_reg:

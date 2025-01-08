@@ -33,9 +33,9 @@ namespace rv64 {
 
 		public:
 			std::vector<std::u8string> queryNames() const final;
-			std::pair<std::u8string, uint8_t> decode(uintptr_t address) const final;
-			uintptr_t getValue(size_t index) const final;
-			void setValue(size_t index, uintptr_t value) final;
+			std::pair<std::u8string, uint8_t> decode(env::guest_t address) const final;
+			uint64_t getValue(size_t index) const final;
+			void setValue(size_t index, uint64_t value) final;
 		};
 	}
 

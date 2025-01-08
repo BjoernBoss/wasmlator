@@ -70,14 +70,14 @@ std::vector<std::u8string> rv64::detail::CpuDebug::queryNames() const {
 		u8"t4", u8"t5", u8"t6"
 	};
 }
-std::pair<std::u8string, uint8_t> rv64::detail::CpuDebug::decode(uintptr_t address) const {
+std::pair<std::u8string, uint8_t> rv64::detail::CpuDebug::decode(env::guest_t address) const {
 	rv64::Instruction inst = pCpu->fFetch(address);
 	return { rv64::ToString(inst), inst.size };
 }
-uintptr_t rv64::detail::CpuDebug::getValue(size_t index) const {
+uint64_t rv64::detail::CpuDebug::getValue(size_t index) const {
 	return env::Instance()->context().get<rv64::Context>().regs[index + 1];
 }
-void rv64::detail::CpuDebug::setValue(size_t index, uintptr_t value) {
+void rv64::detail::CpuDebug::setValue(size_t index, uint64_t value) {
 	env::Instance()->context().get<rv64::Context>().regs[index + 1] = value;
 }
 

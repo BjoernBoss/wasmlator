@@ -11,8 +11,8 @@ static arger::Config Commands{
 		arger::HelpFlag{},
 		arger::Description{ L"Print this help menu." },
 	},
-	arger::Group{ L"setup", L"",
-		arger::Description{ L"Setup a translation process." },
+	arger::Group{ L"start", L"",
+		arger::Description{ L"Start a translation process." },
 		arger::Positional{ L"args",
 			arger::Primitive::any,
 			L"Arguments to be passed to the process."
@@ -207,7 +207,7 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 
 	/* handle the create command */
-	if (out.groupId() == L"setup") {
+	if (out.groupId() == L"start") {
 		if (env::Instance() != 0) {
 			logger.error(u8"Process is already loaded.");
 			return;

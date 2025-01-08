@@ -61,7 +61,7 @@ void sys::Debugger::run() {
 void sys::Debugger::printState() const {
 	/* print all registers */
 	for (size_t i = 0; i < pRegisters.size(); ++i) {
-		uintptr_t value = pCpu->getValue(i);
+		uint64_t value = pCpu->getValue(i);
 		outLog.log(pRegisters[i], u8": ", str::As{ U"#018x", value }, u8" (", value, u8')');
 	}
 
