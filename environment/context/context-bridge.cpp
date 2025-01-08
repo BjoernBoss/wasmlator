@@ -1,5 +1,5 @@
 #include "../environment.h"
-#include "../../interface/interface.h"
+#include "../../host/interface.h"
 
 void env::detail::ContextBridge::Terminate(int32_t code, uint64_t address) {
 	env::Instance()->context().fTerminate(code, address);

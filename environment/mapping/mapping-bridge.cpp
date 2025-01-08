@@ -1,5 +1,5 @@
 #include "../environment.h"
-#include "../../interface/interface.h"
+#include "../../host/interface.h"
 
 uint32_t env::detail::MappingBridge::Resolve(uint64_t address) {
 	return env::Instance()->mapping().fResolve(address);

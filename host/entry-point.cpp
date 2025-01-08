@@ -1,6 +1,6 @@
 #include <arger/arger.h>
-#include "../interface/interface.h"
-#include "../interface/logger.h"
+#include "../host/interface.h"
+#include "../host/host-logger.h"
 #include "../environment/environment.h"
 #include "../system/system.h"
 

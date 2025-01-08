@@ -1,5 +1,5 @@
 #include "../system.h"
-#include "../../interface/random.h"
+#include "../../host/host-random.h"
 
 #include "../riscv-buffer.h"
 

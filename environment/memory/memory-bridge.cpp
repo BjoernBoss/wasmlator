@@ -1,5 +1,5 @@
 #include "../environment.h"
-#include "../../interface/interface.h"
+#include "../../host/interface.h"
 
 void env::detail::MemoryBridge::Lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache) {
 	env::Instance()->memory().fCacheLookup(address, access, size, usage, cache);

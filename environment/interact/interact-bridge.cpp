@@ -1,5 +1,5 @@
 #include "../environment.h"
-#include "../../interface/interface.h"
+#include "../../host/interface.h"
 
 void env::detail::InteractBridge::InvokeVoid(uint32_t index) {
 	env::Instance()->interact().fInvoke(index);

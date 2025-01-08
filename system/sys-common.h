@@ -8,7 +8,7 @@
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
-#include "../interface/logger.h"
+#include "../host/host-logger.h"
 #include "syscall/sys-syscallable.h"
 #include "debugger/sys-debuggable.h"
 
