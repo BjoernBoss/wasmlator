@@ -42,7 +42,7 @@ static void ValidateElfHeader(const elf::ElfHeader<BaseType>* header) {
 }
 
 template <class BaseType>
-static env::guest_t UnpackElfFile(const elf::Reader& reader) {
+static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const elf::Reader& reader) {
 	using ElfType = elf::ElfHeader<BaseType>;
 	using SecType = elf::SectionHeader<BaseType>;
 	using ProType = elf::ProgramHeader<BaseType>;
@@ -60,9 +60,9 @@ static env::guest_t UnpackElfFile(const elf::Reader& reader) {
 			throw elf::Exception{ L"Interpreter required to load binary" };
 	}
 
-	/* write all program-headers to be loaded to the guest environment */
+	/* write all program-headers to be loaded to the guest environment and find the end of the data and address of the actual program-header table) */
 	env::guest_t pageSize = env::Instance()->pageSize();
-	env::guest_t endOfData = 0;
+	env::guest_t endOfData = 0, phAddress = 0;
 	for (size_t i = 0; i < programHeaderCount; ++i) {
 		if (programs[i].type != elf::ProgramType::load)
 			continue;
@@ -103,10 +103,12 @@ static env::guest_t UnpackElfFile(const elf::Reader& reader) {
 		if (!env::Instance()->memory().mprotect(address, size, usage))
 			throw elf::Exception{ L"Failed to change the protection for program-header [", i, L']' };
 
-		/* update the end-of-data address */
+		/* update the end-of-data address and check if this block contained the program header table */
 		endOfData = std::max(endOfData, address + size);
+		if (programs[i].offset <= header->phOffset && programs[i].offset + programs[i].fileSize >= header->phOffset + programHeaderCount * sizeof(ProType))
+			phAddress = programs[i].vAddress + (header->phOffset - programs[i].offset);
 	}
-	return endOfData;
+	return { endOfData, phAddress };
 }
 
 template <class BaseType>
@@ -115,10 +117,17 @@ static elf::Output LoadStaticElf(const elf::Reader& reader) {
 
 	/* validate the overall elf-header and unpack the elf-file */
 	ValidateElfHeader<BaseType>(header);
-	env::guest_t endOfData = UnpackElfFile<BaseType>(reader);
+	auto [endOfData, phAddress] = UnpackElfFile<BaseType>(reader);
 
-	/* return the entry-point */
-	return { header->entry, endOfData };
+	/* finalize the output state and return it */
+	elf::Output output;
+	output.start = header->entry;
+	output.phCount = header->phCount;
+	output.phEntrySize = header->phEntrySize;
+	output.endOfData = endOfData;
+	output.is64Bit = (sizeof(BaseType) == 8);
+	output.phAddress = phAddress;
+	return output;
 }
 
 elf::Output elf::LoadStatic(const uint8_t* data, size_t size) {

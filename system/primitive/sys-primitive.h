@@ -4,11 +4,12 @@
 #include "sys-primitive-debugger.h"
 #include "sys-primitive-syscall.h"
 #include "sys-primitive-execcontext.h"
+#include "../elf/elf-static.h"
 
 namespace sys {
 	/* primitive single-threaded system, which set up an environment, loads a static-elf
 	*	file to be executed, and passes the calls to the cpu implementation, as well as
-	*	a system-v ABI conform initial stack configuration
+	*	a system-v ABI conform initial stack configuration (only 64 bit support)
 	*	Note: The assumption is made, that the stack grows downwards */
 	class Primitive final : public env::System {
 		friend class detail::PrimitiveExecContext;
@@ -35,7 +36,7 @@ namespace sys {
 		~Primitive() = default;
 
 	private:
-		env::guest_t fPrepareStack() const;
+		env::guest_t fPrepareStack(const elf::Output& loaded) const;
 		void fExecute();
 
 	public:

@@ -1,15 +1,16 @@
 #include "../system.h"
+#include "../../interface/random.h"
 
-#include "../elf/elf-static.h"
 #include "../riscv-buffer.h"
 
 static host::Logger logger{ u8"sys::primitive" };
 
-env::guest_t sys::Primitive::fPrepareStack() const {
+env::guest_t sys::Primitive::fPrepareStack(const elf::Output& loaded) const {
 	env::Memory& mem = env::Instance()->memory();
+	size_t wordWidth = (loaded.is64Bit ? 8 : 4);
 
-	/* count the size of the blob of data at the end */
-	size_t blobSize = 0;
+	/* count the size of the blob of data at the end (16 bytes for random data) */
+	size_t blobSize = 16;
 	for (size_t i = 0; i < pArgs.size(); ++i)
 		blobSize += pArgs[i].size() + 1;
 	for (size_t i = 0; i < pEnvs.size(); ++i)
@@ -18,11 +19,11 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 	/* compute the size of the structured stack-data
 	*	Args: one pointer for each argument plus count plus null-entry
 	*	Envs: one pointer for each environment plus null-entry
-	*	Auxiliary: one null-entry */
+	*	Auxiliary: (AT_PHDR/AT_PHNUM/AT_PHENT/AT_ENTRY/AT_RANDOM/AT_PAGESZ) one null-entry */
 	size_t structSize = 0;
-	structSize += sizeof(uint64_t) * (pArgs.size() + 2);
-	structSize += sizeof(uint64_t) * (pEnvs.size() + 1);
-	structSize += sizeof(uint64_t);
+	structSize += wordWidth * (pArgs.size() + 2);
+	structSize += wordWidth * (pEnvs.size() + 1);
+	structSize += wordWidth * 12 + wordWidth;
 
 	/* validate the stack dimensions (aligned to the corresponding boundaries) */
 	size_t totalSize = (blobSize + structSize + Primitive::StartOfStackAlignment - 1) & ~(Primitive::StartOfStackAlignment - 1);
@@ -42,43 +43,67 @@ env::guest_t sys::Primitive::fPrepareStack() const {
 
 	/* initialize the content for the stack */
 	std::vector<uint8_t> content;
-	auto write = [&](const void* data, size_t size) {
+	auto writeBytes = [&](const void* data, size_t size) {
 		const uint8_t* d = static_cast<const uint8_t*>(data);
 		content.insert(content.end(), d, d + size);
+		};
+	auto writeWord = [&](uint64_t value) {
+		const uint8_t* d = reinterpret_cast<const uint8_t*>(&value);
+		content.insert(content.end(), d, d + wordWidth);
 		};
 	env::guest_t blobPtr = stackBase + Primitive::StackSize - blobSize;
 
 	/* write the argument-count out */
-	uint64_t count = pArgs.size(), nullValue = 0;
-	write(&count, sizeof(count));
+	writeWord(pArgs.size());
 
 	/* write the argument pointers out and the trailing null-entry */
 	for (size_t i = 0; i < pArgs.size(); ++i) {
-		write(&blobPtr, sizeof(blobPtr));
+		writeWord(blobPtr);
 		blobPtr += pArgs[i].size() + 1;
 	}
-	write(&nullValue, sizeof(nullValue));
+	writeWord(0);
 
 	/* write the environment pointers out and the trailing null-entry */
 	for (size_t i = 0; i < pEnvs.size(); ++i) {
-		write(&blobPtr, sizeof(blobPtr));
+		writeWord(blobPtr);
 		blobPtr += pEnvs[i].size() + 1;
 	}
-	write(&nullValue, sizeof(nullValue));
+	writeWord(0);
 
-	/* write the empty auxiliary vector out */
-	write(&nullValue, sizeof(nullValue));
+	/* write the auxiliary vector entries out */
+	writeWord(uint64_t(elf::AuxiliaryType::phAddress));
+	writeWord(loaded.phAddress);
+	writeWord(uint64_t(elf::AuxiliaryType::phCount));
+	writeWord(loaded.phCount);
+	writeWord(uint64_t(elf::AuxiliaryType::phEntrySize));
+	writeWord(loaded.phEntrySize);
+	writeWord(uint64_t(elf::AuxiliaryType::entry));
+	writeWord(loaded.start);
+	writeWord(uint64_t(elf::AuxiliaryType::random));
+	writeWord(blobPtr);
+	blobPtr += 16;
+	writeWord(uint64_t(elf::AuxiliaryType::pageSize));
+	writeWord(env::Instance()->pageSize());
+
+	/* write the auxiliary vector null-entry out */
+	writeWord(0);
 
 	/* write the padding out */
 	content.insert(content.end(), padding, 0);
 
 	/* write the actual args to the blob */
 	for (size_t i = 0; i < pArgs.size(); ++i)
-		write(pArgs[i].data(), pArgs[i].size() + 1);
+		writeBytes(pArgs[i].data(), pArgs[i].size() + 1);
 
 	/* write the actual envs to the blob */
 	for (size_t i = 0; i < pEnvs.size(); ++i)
-		write(pEnvs[i].data(), pEnvs[i].size() + 1);
+		writeBytes(pEnvs[i].data(), pEnvs[i].size() + 1);
+
+	/* write the random bytes out */
+	for (size_t i = 0; i < 4; ++i) {
+		uint32_t tmp = host::Random();
+		writeBytes(&tmp, 4);
+	}
 
 	/* write the prepared content to the acutal stack and return the pointer to
 	*	the argument-count (ptr must not be zero, as this indicates failure) */
@@ -205,8 +230,15 @@ bool sys::Primitive::coreLoaded() {
 		return false;
 	}
 
+	/* validate the word-width (necessary, as env::Memory's allocate function currently
+	*	allocates into the unreachable portion of the 32 bit address space) */
+	if (!loaded.is64Bit) {
+		logger.error(u8"Only 64 bit static elf binaries are supported");
+		return false;
+	}
+
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
-	env::guest_t spAddress = fPrepareStack();
+	env::guest_t spAddress = fPrepareStack(loaded);
 	if (spAddress == 0)
 		return false;
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });

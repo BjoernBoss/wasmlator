@@ -218,9 +218,6 @@ void env::Process::startNewBlock() {
 void env::Process::shutdown() {
 	pSystem->shutdown();
 }
-uint32_t env::Process::getId() const {
-	return global::ProcId;
-}
 const env::Context& env::Process::context() const {
 	return pContext;
 }
@@ -244,6 +241,10 @@ const env::Interact& env::Process::interact() const {
 }
 env::Interact& env::Process::interact() {
 	return pInteract;
+}
+
+uint32_t env::Process::getId() const {
+	return global::ProcId;
 }
 uint32_t env::Process::pageSize() const {
 	return pPageSize;

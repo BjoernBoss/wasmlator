@@ -18,6 +18,8 @@ void host_print_u8(const char8_t* data, uint32_t size, bool failure) {
 	else
 		str::BuildTo(std::cout, std::u8string_view{ data, size }, '\n');
 }
+uint32_t host_random() { return 123; }
+
 uint32_t glue_setup_core_map() { return 1; }
 void glue_reset_core_map() {}
 

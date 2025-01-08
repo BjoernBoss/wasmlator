@@ -161,6 +161,9 @@ setup_wasmlator = function (logPrint, cb) {
 			else
 				logPrint(msg);
 		};
+		imports.env.host_random = function () {
+			return Math.floor(Math.random() * 0x1_0000_0000);
+		};
 		imports.env.host_load_core = function (ptr, size, process) {
 			return _state.load_core(_state.make_buffer(ptr, size), process);
 		};

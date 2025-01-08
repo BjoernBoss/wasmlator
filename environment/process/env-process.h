@@ -63,7 +63,6 @@ namespace env {
 
 	public:
 		void shutdown();
-		uint32_t getId() const;
 		const env::Context& context() const;
 		env::Context& context();
 		const env::Memory& memory() const;
@@ -72,6 +71,9 @@ namespace env {
 		env::Mapping& mapping();
 		const env::Interact& interact() const;
 		env::Interact& interact();
+
+	public:
+		uint32_t getId() const;
 		uint32_t pageSize() const;
 		uint32_t memoryCaches() const;
 		uint32_t contextSize() const;

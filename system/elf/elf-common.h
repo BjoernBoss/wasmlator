@@ -45,6 +45,27 @@ namespace elf {
 		relocationNoAddends = 9,
 		dynamicSymbols = 11
 	};
+	enum class AuxiliaryType : uint32_t {
+		null = 0,
+		ignore = 1,
+		executableFd = 2,
+		phAddress = 3,
+		phEntrySize = 4,
+		phCount = 5,
+		pageSize = 6,
+		baseInterpreter = 7,
+		flags = 8,
+		entry = 9,
+		notELF = 10,
+		uid = 11,
+		euid = 12,
+		gid = 13,
+		egid = 14,
+		clockTick = 17,
+		secure = 23,
+		random = 25,
+		executableFilename = 31
+	};
 
 	namespace ident {
 		static constexpr uint8_t _0Magic = 0x7f;
