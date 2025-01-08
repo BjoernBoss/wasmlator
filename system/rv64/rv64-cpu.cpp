@@ -28,6 +28,9 @@ sys::SyscallArgs rv64::detail::CpuSyscall::getArgs() const {
 	case 64:
 		call.index = sys::SyscallIndex::write;
 		break;
+	case 160:
+		call.index = sys::SyscallIndex::uname;
+		break;
 	case 174:
 		call.index = sys::SyscallIndex::getuid;
 		break;

@@ -11,10 +11,10 @@ bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
 void env::detail::MemoryBridge::MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) {
 	mem_move_physical(dest, source, size);
 }
-void env::detail::MemoryBridge::WriteToPhysical(detail::physical_t dest, const uint8_t* source, uint32_t size) {
+void env::detail::MemoryBridge::WriteToPhysical(detail::physical_t dest, const void* source, uint32_t size) {
 	mem_write_to_physical(dest, source, size);
 }
-void env::detail::MemoryBridge::ReadFromPhysical(uint8_t* dest, detail::physical_t source, uint32_t size) {
+void env::detail::MemoryBridge::ReadFromPhysical(void* dest, detail::physical_t source, uint32_t size) {
 	mem_read_from_physical(dest, source, size);
 }
 void env::detail::MemoryBridge::ClearPhysical(detail::physical_t dest, uint32_t size) {

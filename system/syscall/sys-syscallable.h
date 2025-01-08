@@ -3,6 +3,11 @@
 #include "../sys-common.h"
 
 namespace sys {
+	namespace errCode {
+		static constexpr uint64_t eSuccess = 0;
+		static constexpr uint64_t eFault = 14;
+	}
+
 	enum class SyscallIndex : uint32_t {
 		unknown,
 		read,
@@ -11,7 +16,8 @@ namespace sys {
 		getuid,
 		geteuid,
 		getgid,
-		getegid
+		getegid,
+		uname
 	};
 
 	struct SyscallArgs {

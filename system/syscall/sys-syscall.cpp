@@ -28,11 +28,14 @@ void sys::Syscall::fHandle() {
 	case sys::SyscallIndex::brk:
 		pCpu->setResult(fHandleBrk(call.args[0]));
 		break;
+	case sys::SyscallIndex::uname:
+		fHandleUName(call.args[0]);
+		break;
 	case sys::SyscallIndex::unknown:
 		throw sys::UnknownSyscall{ pActive.address, call.rawIndex };
 		break;
 	default:
-		logger.fatal(u8"Unknown syscall index encountered");
+		logger.fatal(u8"Syscall currently not implemented");
 		break;
 	}
 }
@@ -75,6 +78,40 @@ env::guest_t sys::Syscall::fHandleBrk(env::guest_t addr) {
 	pBrk.current = addr;
 	logger.debug(u8"result: ", str::As{ U"#018x", pBrk.current });
 	return pBrk.current;
+}
+uint64_t sys::Syscall::fHandleUName(env::guest_t addr) const {
+	logger.debug(u8"Syscall [uname](", str::As{ U"#018x", addr }, u8") - Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");
+
+	/* validate the address */
+	if (addr == 0) {
+		logger.debug(u8"result: ", errCode::eFault);
+		return errCode::eFault;
+	}
+
+	try {
+		/* write the systemname out */
+		env::Instance()->memory().mwrite(addr + 0 * 65llu, u8"wasmlator", 10, env::Usage::Write);
+
+		/* write the nodename out */
+		env::Instance()->memory().mwrite(addr + 1 * 65llu, u8"", 1, env::Usage::Write);
+
+		/* write the release out */
+		env::Instance()->memory().mwrite(addr + 2 * 65llu, u8"1.0.0-wasmlator", 16, env::Usage::Write);
+
+		/* write the version out */
+		env::Instance()->memory().mwrite(addr + 3 * 65llu, u8"1.0.0-userspace-wasmlator", 26, env::Usage::Write);
+
+		/* write the machine out */
+		env::Instance()->memory().mwrite(addr + 4 * 65llu, u8"wasm", 5, env::Usage::Write);
+	}
+	catch (const env::MemoryFault& e) {
+		logger.debug(u8"result: ", errCode::eFault);
+		return errCode::eFault;
+	}
+
+	/* return the successful write */
+	logger.debug(u8"result: ", errCode::eSuccess);
+	return errCode::eSuccess;
 }
 
 std::unique_ptr<sys::Syscall> sys::Syscall::New(std::unique_ptr<sys::Syscallable> provider, env::guest_t endOfData) {

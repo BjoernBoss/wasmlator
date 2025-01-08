@@ -104,8 +104,8 @@ namespace env {
 		bool mmap(env::guest_t address, uint32_t size, uint32_t usage);
 		bool munmap(env::guest_t address, uint32_t size);
 		bool mprotect(env::guest_t address, uint32_t size, uint32_t usage);
-		void mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const;
-		void mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage);
+		void mread(void* dest, env::guest_t source, uint32_t size, uint32_t usage) const;
+		void mwrite(env::guest_t dest, const void* source, uint32_t size, uint32_t usage);
 		void mclear(env::guest_t dest, uint32_t size, uint32_t usage);
 		template <class Type>
 		Type read(env::guest_t address) const {

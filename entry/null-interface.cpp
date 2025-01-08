@@ -35,11 +35,13 @@ uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address) { retu
 uint64_t map_execute(uint64_t address) { return {}; }
 
 static std::vector<uint8_t> memory = std::vector<uint8_t>(env::detail::PhysPageSize * env::detail::InitAllocPages);
-void mem_write_to_physical(uint32_t dest, const uint8_t* source, uint32_t size) {
-	std::copy(source, source + size, memory.begin() + dest);
+void mem_write_to_physical(uint32_t dest, const void* source, uint32_t size) {
+	const uint8_t* _source = static_cast<const uint8_t*>(source);
+	std::copy(_source, _source + size, memory.begin() + dest);
 }
-void mem_read_from_physical(uint8_t* dest, uint32_t source, uint32_t size) {
-	std::copy(memory.begin() + source, memory.begin() + source + size, dest);
+void mem_read_from_physical(void* dest, uint32_t source, uint32_t size) {
+	uint8_t* _dest = static_cast<uint8_t*>(dest);
+	std::copy(memory.begin() + source, memory.begin() + source + size, _dest);
 }
 void mem_clear_physical(uint32_t dest, uint32_t size) {
 	std::fill(memory.begin() + dest, memory.begin() + dest + size, 0);
@@ -53,15 +55,15 @@ void mem_move_physical(uint32_t dest, uint32_t source, uint32_t size) {
 }
 uint64_t mem_read(uint64_t address, uint32_t size) {
 	uint64_t buffer = 0;
-	env::Instance()->memory().mread(reinterpret_cast<uint8_t*>(&buffer), address, size, env::Usage::Read);
+	env::Instance()->memory().mread(reinterpret_cast<void*>(&buffer), address, size, env::Usage::Read);
 	return buffer;
 }
 void mem_write(uint64_t address, uint32_t size, uint64_t value) {
-	env::Instance()->memory().mwrite(address, reinterpret_cast<const uint8_t*>(&value), size, env::Usage::Write);
+	env::Instance()->memory().mwrite(address, reinterpret_cast<const void*>(&value), size, env::Usage::Write);
 }
 uint64_t mem_code(uint64_t address, uint32_t size) {
 	uint64_t buffer = 0;
-	env::Instance()->memory().mread(reinterpret_cast<uint8_t*>(&buffer), address, size, env::Usage::Execute);
+	env::Instance()->memory().mread(reinterpret_cast<void*>(&buffer), address, size, env::Usage::Execute);
 	return buffer;
 }
 

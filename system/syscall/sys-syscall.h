@@ -30,6 +30,7 @@ namespace sys {
 		void fHandle();
 		uint64_t fHandleId(std::u8string_view name) const;
 		env::guest_t fHandleBrk(env::guest_t addr);
+		uint64_t fHandleUName(env::guest_t addr) const;
 
 	public:
 		static std::unique_ptr<sys::Syscall> New(std::unique_ptr<sys::Syscallable> provider, env::guest_t endOfData);

@@ -908,7 +908,7 @@ bool env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) 
 	fFlushCaches();
 	return true;
 }
-void env::Memory::mread(uint8_t* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
+void env::Memory::mread(void* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
 	logger.fmtDebug(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
@@ -919,7 +919,7 @@ void env::Memory::mread(uint8_t* dest, env::guest_t source, uint32_t size, uint3
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, source, size, usage);
 	detail::MemoryBridge::ReadFromPhysical(dest, lookup.physical + detail::physical_t(source - lookup.address), size);
 }
-void env::Memory::mwrite(env::guest_t dest, const uint8_t* source, uint32_t size, uint32_t usage) {
+void env::Memory::mwrite(env::guest_t dest, const void* source, uint32_t size, uint32_t usage) {
 	logger.fmtDebug(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),

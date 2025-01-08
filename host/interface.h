@@ -63,8 +63,8 @@ extern "C" {
 	void main_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache);
 
 	/* imports */
-	void mem_write_to_physical(uint32_t dest, const uint8_t* source, uint32_t size);
-	void mem_read_from_physical(uint8_t* dest, uint32_t source, uint32_t size);
+	void mem_write_to_physical(uint32_t dest, const void* source, uint32_t size);
+	void mem_read_from_physical(void* dest, uint32_t source, uint32_t size);
 	void mem_clear_physical(uint32_t dest, uint32_t size);
 	uint32_t mem_expand_physical(uint32_t pages);
 	void mem_move_physical(uint32_t dest, uint32_t source, uint32_t size);
