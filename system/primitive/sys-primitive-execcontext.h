@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../sys-common.h"
+#include "../syscall/sys-syscall.h"
 
 namespace sys {
 	class Primitive;
@@ -9,25 +10,18 @@ namespace sys {
 		class PrimitiveExecContext final : public sys::ExecContext {
 		private:
 			sys::Primitive* pPrimitive = 0;
+			std::unique_ptr<sys::Syscall> pSyscall;
 			struct {
 				uint64_t id = 0;
 				env::guest_t address = 0;
 			} pException;
 			struct {
-				env::guest_t address = 0;
-				env::guest_t next = 0;
-			} pSyscall;
-			struct {
 				uint32_t flushInst = 0;
 				uint32_t exception = 0;
-				uint32_t syscall = 0;
 			} pRegistered;
 
 		private:
 			PrimitiveExecContext(sys::Primitive* primitive);
-
-		private:
-			void fHandleSyscall();
 
 		public:
 			static std::unique_ptr<sys::detail::PrimitiveExecContext> New(sys::Primitive* primitive);
@@ -42,6 +36,22 @@ namespace sys {
 			bool coreLoaded();
 		};
 
+		class PrimitiveSyscall final : public sys::Syscallable {
+		private:
+			sys::Primitive* pPrimitive = 0;
+
+		private:
+			PrimitiveSyscall(sys::Primitive* primitive);
+
+		public:
+			static std::unique_ptr<sys::detail::PrimitiveSyscall> New(sys::Primitive* primitive);
+
+		public:
+			sys::SyscallArgs getArgs() const final;
+			void setResult(uint64_t value) final;
+			void run(env::guest_t address) final;
+		};
+
 		struct FlushInstCache : public env::Exception {
 		public:
 			FlushInstCache(env::guest_t address) : env::Exception{ address } {}
@@ -53,14 +63,6 @@ namespace sys {
 
 		public:
 			CpuException(env::guest_t address, uint64_t id) : env::Exception{ address }, id{ id } {}
-		};
-
-		struct UnknownSyscall : public env::Exception {
-		public:
-			uint64_t index = 0;
-
-		public:
-			UnknownSyscall(env::guest_t address, uint64_t index) : env::Exception{ address }, index{ index } {}
 		};
 	}
 }

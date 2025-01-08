@@ -89,7 +89,7 @@ namespace env {
 		Exception(env::guest_t address) : address{ address } {}
 	};
 
-	/* thrown the guest terminates */
+	/* thrown when the guest terminates */
 	struct Terminated : public env::Exception {
 	public:
 		int32_t code = 0;

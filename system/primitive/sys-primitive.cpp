@@ -121,7 +121,7 @@ void sys::Primitive::fExecute() {
 	catch (const detail::CpuException& e) {
 		logger.fatal(u8"CPU Exception caught: [", str::As{ U"#018x", e.address }, u8"] - [", pCpu->getExceptionText(e.id), u8']');
 	}
-	catch (const detail::UnknownSyscall& e) {
+	catch (const sys::UnknownSyscall& e) {
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
 }

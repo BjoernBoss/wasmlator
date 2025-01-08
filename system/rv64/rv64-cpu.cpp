@@ -73,14 +73,14 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 		return u8"%unknown%";
 	}
 }
-sys::UserSpaceSyscall rv64::Cpu::getSyscallArgs() const {
+sys::SyscallArgs rv64::Cpu::getSyscallArgs() const {
 	/*
 	*	syscall calling convention:
 	*	args in [a0, ..., a5]
 	*	syscall-index in [a7]
 	*	result into a0
 	*/
-	sys::UserSpaceSyscall call;
+	sys::SyscallArgs call;
 	const rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
 
 	/* fetch the arguments */

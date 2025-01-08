@@ -4,6 +4,7 @@
 #include "rv64/rv64-cpu.h"
 #include "debugger/sys-debugger.h"
 #include "primitive/sys-primitive.h"
+#include "syscall/sys-syscall.h"
 
 namespace sys {
 	/* Many operations on the debugger require both the system instance and core to be loaded properly.

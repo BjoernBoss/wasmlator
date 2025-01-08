@@ -13,6 +13,7 @@ namespace sys {
 	*	Note: The assumption is made, that the stack grows downwards */
 	class Primitive final : public env::System {
 		friend class detail::PrimitiveExecContext;
+		friend class detail::PrimitiveSyscall;
 		friend class detail::PrimitiveDebugger;
 	private:
 		static constexpr env::guest_t StartOfStackAlignment = 128;

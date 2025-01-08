@@ -9,30 +9,11 @@
 #include "../environment/environment.h"
 #include "../generate/generate.h"
 #include "../interface/logger.h"
+#include "syscall/sys-syscallable.h"
 
 namespace sys {
 	class Debugger;
-
-	enum class SyscallIndex : uint32_t {
-		unknown,
-		read,
-		write,
-
-		brk,
-
-		getuid,
-		geteuid,
-		getgid,
-		getegid,
-	};
-	struct UserSpaceSyscall {
-	public:
-
-	public:
-		uint64_t args[6] = { 0 };
-		uint64_t rawIndex = 0;
-		sys::SyscallIndex index = sys::SyscallIndex::unknown;
-	};
+	struct SyscallArgs;
 
 	class ExecContext {
 	private:
@@ -94,14 +75,6 @@ namespace sys {
 		/* convert the exception of the given id to a descriptive string */
 		virtual std::u8string getExceptionText(uint64_t id) const = 0;
 
-		/* fetch the arguments for a unix syscall
-		*	Note: will only be called in response to the ExecContext::syscall construction for userspace execution-contexts */
-		virtual sys::UserSpaceSyscall getSyscallArgs() const = 0;
-
-		/* set the result of the last syscall being performed
-		*	Note: will only be called in response to the ExecContext::syscall construction for userspace execution-contexts */
-		virtual void setSyscallResult(uint64_t value) = 0;
-
 		/* fetch the name of all supported registers */
 		virtual std::vector<std::u8string> queryNames() const = 0;
 
@@ -113,6 +86,11 @@ namespace sys {
 
 		/* set a value of the current cpu state (index matches the queried name-index) */
 		virtual void setValue(size_t index, uintptr_t value) = 0;
+
+	public:
+		/* only used for userspace syscall interactions */
+		virtual sys::SyscallArgs getSyscallArgs() const = 0;
+		virtual void setSyscallResult(uint64_t value) = 0;
 
 	public:
 		constexpr uint32_t memoryCaches() const {

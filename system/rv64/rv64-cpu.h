@@ -27,7 +27,7 @@ namespace rv64 {
 		bool setupCore(wasm::Module& mod) final;
 		bool setupContext(env::guest_t pcAddress, env::guest_t spAddress) final;
 		std::u8string getExceptionText(uint64_t id) const final;
-		sys::UserSpaceSyscall getSyscallArgs() const final;
+		sys::SyscallArgs getSyscallArgs() const final;
 		void setSyscallResult(uint64_t value) final;
 
 	public:
