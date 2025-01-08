@@ -123,55 +123,56 @@ static arger::Config Commands{
 };
 
 static host::Logger logger{ u8"" };
+static sys::Debugger* debugger = 0;
 
 static int8_t HandleDebug(const arger::Parsed& out) {
 	/* check if the program should take a number of steps */
 	if (out.groupId() == L"step") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->step(out.positional(0).value().unum());
+		debugger->step(out.positional(0).value().unum());
 		return 1;
 	}
 
 	/* check if the program should just run */
 	if (out.groupId() == L"run") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->run();
+		debugger->run();
 		return 1;
 	}
 
 	/* check if breakpoints should be interacted with */
 	if (out.groupId() == L"br-add") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->addBreak(out.positional(0).value().unum());
+		debugger->addBreak(out.positional(0).value().unum());
 		return 1;
 	}
 	if (out.groupId() == L"br-remove") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->dropBreak(out.positional(0).value().unum());
+		debugger->dropBreak(out.positional(0).value().unum());
 		return 1;
 	}
 
 	/* check if the state should be inspected */
 	if (out.groupId() == L"in-reg") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->printState();
+		debugger->printState();
 		return 1;
 	}
 	if (out.groupId() == L"in-inst") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->printInstructions(out.positional(0).value().unum());
+		debugger->printInstructions(out.positional(0).value().unum());
 		return 1;
 	}
 	if (out.groupId() == L"in-breaks") {
-		if (sys::Instance() == 0)
+		if (debugger == 0)
 			return -1;
-		sys::Instance()->printBreaks();
+		debugger->printBreaks();
 		return 1;
 	}
 	return 0;
@@ -230,7 +231,8 @@ void HandleCommand(std::u8string_view cmd) {
 			envs.push_back(str::u8::To(out.option(L"environment", i).value().str()));
 
 		/* try to setup the primitive system */
-		if (!sys::Primitive::Create(rv64::Cpu::New(), args, envs, debug, logBlocks, trace))
+		debugger = 0;
+		if (!sys::Primitive::Create(rv64::Cpu::New(), args, envs, debug, logBlocks, trace, &debugger))
 			logger.error(u8"Failed to create process");
 		else
 			logger.log(u8"Process creation completed");
@@ -239,6 +241,7 @@ void HandleCommand(std::u8string_view cmd) {
 
 	/* handle the destroy command */
 	if (out.groupId() == L"destroy") {
+		debugger = 0;
 		if (env::Instance() == 0)
 			logger.error(u8"No process is currently running.");
 		else

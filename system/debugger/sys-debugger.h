@@ -1,16 +1,10 @@
 #pragma once
 
-#include "../sys-common.h"
+#include "sys-debuggable.h"
 
 namespace sys {
-	namespace detail {
-		struct DebuggerAccess {
-			static bool Setup(sys::Debugger& debugger, std::unique_ptr<sys::Debuggable>&& debuggable);
-		};
-	}
-
+	/* Note: returns nullptr on construction failure */
 	class Debugger {
-		friend struct detail::DebuggerAccess;
 	private:
 		enum class Mode : uint8_t {
 			none,
@@ -19,22 +13,22 @@ namespace sys {
 		};
 
 	private:
-		std::unique_ptr<sys::Debuggable> pDebuggable;
+		std::unique_ptr<sys::Debuggable> pProvider;
 		std::unordered_set<env::guest_t> pBreakPoints;
 		std::vector<std::u8string> pRegisters;
-		sys::Cpu* pCpu = 0;
 		size_t pCount = 0;
 		Mode pMode = Mode::none;
 
-	public:
+	private:
 		Debugger() = default;
 		Debugger(sys::Debugger&&) = delete;
 		Debugger(const sys::Debugger&) = delete;
-		~Debugger() = default;
 
 	private:
-		bool fSetup(std::unique_ptr<sys::Debuggable>&& debuggable);
 		void fHalted();
+
+	public:
+		static std::unique_ptr<sys::Debugger> New(std::unique_ptr<sys::Debuggable> provider);
 
 	public:
 		/* to be executed after an instruction has been executed and returns true, if another step should be taken */

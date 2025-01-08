@@ -19,9 +19,6 @@ namespace sys {
 		Syscall(sys::Syscall&&) = delete;
 		Syscall(const sys::Syscall&) = delete;
 
-	public:
-		~Syscall() = default;
-
 	private:
 		void fHandle();
 

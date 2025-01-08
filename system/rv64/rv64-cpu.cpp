@@ -73,53 +73,6 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 		return u8"%unknown%";
 	}
 }
-sys::SyscallArgs rv64::Cpu::getSyscallArgs() const {
-	/*
-	*	syscall calling convention:
-	*	args in [a0, ..., a5]
-	*	syscall-index in [a7]
-	*	result into a0
-	*/
-	sys::SyscallArgs call;
-	const rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
-
-	/* fetch the arguments */
-	for (size_t i = 0; i < 6; ++i)
-		call.args[i] = ctx.regs[reg::A0 + i];
-	call.rawIndex = ctx.a7;
-
-	/* map the index */
-	switch (call.rawIndex) {
-	case 63:
-		call.index = sys::SyscallIndex::read;
-		break;
-	case 64:
-		call.index = sys::SyscallIndex::write;
-		break;
-	case 174:
-		call.index = sys::SyscallIndex::getuid;
-		break;
-	case 175:
-		call.index = sys::SyscallIndex::geteuid;
-		break;
-	case 176:
-		call.index = sys::SyscallIndex::getgid;
-		break;
-	case 177:
-		call.index = sys::SyscallIndex::getegid;
-		break;
-	case 214:
-		call.index = sys::SyscallIndex::brk;
-		break;
-	default:
-		call.index = sys::SyscallIndex::unknown;
-		break;
-	}
-	return call;
-}
-void rv64::Cpu::setSyscallResult(uint64_t value) {
-	env::Instance()->context().get<rv64::Context>().a0 = value;
-}
 
 void rv64::Cpu::started(env::guest_t address) {
 	pDecoded.clear();
@@ -188,7 +141,55 @@ void rv64::Cpu::produce(env::guest_t address, const uintptr_t* self, size_t coun
 		pTranslator.next(pDecoded[self[i]]);
 }
 
-std::vector<std::u8string> rv64::Cpu::queryNames() const {
+sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
+	/*
+	*	syscall calling convention:
+	*	args in [a0, ..., a5]
+	*	syscall-index in [a7]
+	*	result into a0
+	*/
+	sys::SyscallArgs call;
+	const rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
+
+	/* fetch the arguments */
+	for (size_t i = 0; i < 6; ++i)
+		call.args[i] = ctx.regs[reg::A0 + i];
+	call.rawIndex = ctx.a7;
+
+	/* map the index */
+	switch (call.rawIndex) {
+	case 63:
+		call.index = sys::SyscallIndex::read;
+		break;
+	case 64:
+		call.index = sys::SyscallIndex::write;
+		break;
+	case 174:
+		call.index = sys::SyscallIndex::getuid;
+		break;
+	case 175:
+		call.index = sys::SyscallIndex::geteuid;
+		break;
+	case 176:
+		call.index = sys::SyscallIndex::getgid;
+		break;
+	case 177:
+		call.index = sys::SyscallIndex::getegid;
+		break;
+	case 214:
+		call.index = sys::SyscallIndex::brk;
+		break;
+	default:
+		call.index = sys::SyscallIndex::unknown;
+		break;
+	}
+	return call;
+}
+void rv64::Cpu::syscallSetResult(uint64_t value) {
+	env::Instance()->context().get<rv64::Context>().a0 = value;
+}
+
+std::vector<std::u8string> rv64::Cpu::debugQueryNames() const {
 	return {
 		u8"ra", u8"sp", u8"gp", u8"tp",
 		u8"t0", u8"t1", u8"t2", u8"fp",
@@ -200,13 +201,13 @@ std::vector<std::u8string> rv64::Cpu::queryNames() const {
 		u8"t4", u8"t5", u8"t6"
 	};
 }
-std::pair<std::u8string, uint8_t> rv64::Cpu::decode(uintptr_t address) const {
+std::pair<std::u8string, uint8_t> rv64::Cpu::debugDecode(uintptr_t address) const {
 	rv64::Instruction inst = fFetch(address);
 	return { rv64::ToString(inst), inst.size };
 }
-uintptr_t rv64::Cpu::getValue(size_t index) const {
+uintptr_t rv64::Cpu::debugGetValue(size_t index) const {
 	return env::Instance()->context().get<rv64::Context>().regs[index + 1];
 }
-void rv64::Cpu::setValue(size_t index, uintptr_t value) {
+void rv64::Cpu::debugSetValue(size_t index, uintptr_t value) {
 	env::Instance()->context().get<rv64::Context>().regs[index + 1] = value;
 }

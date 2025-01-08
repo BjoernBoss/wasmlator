@@ -2,6 +2,7 @@
 
 #include "../sys-common.h"
 #include "sys-primitive-debugger.h"
+#include "sys-primitive-syscall.h"
 #include "sys-primitive-execcontext.h"
 
 namespace sys {
@@ -13,8 +14,8 @@ namespace sys {
 	*	Note: The assumption is made, that the stack grows downwards */
 	class Primitive final : public env::System {
 		friend class detail::PrimitiveExecContext;
-		friend class detail::PrimitiveSyscall;
 		friend class detail::PrimitiveDebugger;
+		friend class detail::PrimitiveSyscall;
 	private:
 		static constexpr env::guest_t StartOfStackAlignment = 128;
 		static constexpr env::guest_t StackSize = 0x40'0000;
@@ -24,10 +25,10 @@ namespace sys {
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
+		std::unique_ptr<sys::Debugger> pDebugger;
 		detail::PrimitiveExecContext* pExecContext = 0;
 		sys::Cpu* pCpu = 0;
 		env::guest_t pAddress = 0;
-		bool pDebug = false;
 
 	public:
 		Primitive() = default;
@@ -40,7 +41,7 @@ namespace sys {
 		void fExecute();
 
 	public:
-		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks);
+		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks, sys::Debugger** debugger);
 
 	public:
 		bool setupCore(wasm::Module& mod) final;

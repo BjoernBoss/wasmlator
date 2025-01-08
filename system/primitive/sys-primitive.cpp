@@ -91,7 +91,7 @@ void sys::Primitive::fExecute() {
 	try {
 		do {
 			pAddress = env::Instance()->mapping().execute(pAddress);
-		} while (!pDebug || sys::Instance()->advance(pAddress));
+		} while (pDebugger.get() == 0 || pDebugger->advance(pAddress));
 	}
 	catch (const env::Terminated& e) {
 		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
@@ -104,7 +104,7 @@ void sys::Primitive::fExecute() {
 		logger.fatal(u8"Decoding caught: [", str::As{ U"#018x", e.address }, u8"] - [", (e.memoryFault ? u8"Memory-Fault" : u8"Decoding-Fault"), u8']');
 	}
 	catch (const env::Translate& e) {
-		if (!pDebug)
+		if (pDebugger.get() == 0)
 			logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
 		pAddress = e.address;
 		env::Instance()->startNewBlock();
@@ -115,7 +115,7 @@ void sys::Primitive::fExecute() {
 		pAddress = e.address;
 
 		/* check if the execution should halt */
-		if (!pDebug || sys::Instance()->advance(pAddress))
+		if (pDebugger.get() == 0 || pDebugger->advance(pAddress))
 			env::Instance()->startNewBlock();
 	}
 	catch (const detail::CpuException& e) {
@@ -125,7 +125,7 @@ void sys::Primitive::fExecute() {
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
 }
-bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks) {
+bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* log the configuration */
@@ -146,8 +146,12 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	self->pArgs = args;
 	self->pEnvs = envs;
 	self->pCpu = cpu.get();
-	self->pDebug = debug;
+	self->pDebugger = (debug ? sys::Debugger::New(detail::PrimitiveDebugger::New(self)) : 0);
 	self->pExecContext = execContext.get();
+
+	/* check if the debugger could be created */
+	if (debug && self->pDebugger.get() == 0)
+		return false;
 
 	/* construct the new cpu object */
 	if (!cpu->setupCpu(std::move(execContext)))
@@ -161,12 +165,10 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 		return false;
 	}
 
-	/* check if the debugger should be attached */
-	if (!debug || sys::SetInstance(detail::PrimitiveDebugger::New(self)))
-		return true;
-	env::ClearInstance();
-	gen::ClearInstance();
-	return false;
+	/* check if a reference to the debugger should be returned */
+	if (debugger != 0)
+		*debugger = self->pDebugger.get();
+	return true;
 }
 bool sys::Primitive::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
@@ -205,7 +207,7 @@ bool sys::Primitive::coreLoaded() {
 
 	/* check if this is debug-mode, in which case no block needs to be translated
 	*	yet, otherwise immediately startup the translation and execution */
-	if (!pDebug)
+	if (pDebugger.get() == 0)
 		env::Instance()->startNewBlock();
 	return true;
 }
@@ -224,8 +226,6 @@ void sys::Primitive::blockLoaded() {
 }
 void sys::Primitive::shutdown() {
 	/* clearing the system-reference will also release this object */
-	if (pDebug)
-		sys::ClearInstance();
 	gen::ClearInstance();
 	env::ClearInstance();
 }

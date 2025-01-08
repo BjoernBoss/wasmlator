@@ -1,4 +1,4 @@
-#include "../system.h"
+#include "sys-primitive.h"
 
 static host::Logger logger{ u8"sys::primitive" };
 
@@ -42,20 +42,4 @@ bool sys::detail::PrimitiveExecContext::coreLoaded() {
 	/* setup the syscall handler */
 	pSyscall = sys::Syscall::New(detail::PrimitiveSyscall::New(pPrimitive));
 	return (pSyscall.get() != 0);
-}
-
-
-sys::detail::PrimitiveSyscall::PrimitiveSyscall(sys::Primitive* primitive) : pPrimitive{ primitive } {}
-std::unique_ptr<sys::detail::PrimitiveSyscall> sys::detail::PrimitiveSyscall::New(sys::Primitive* primitive) {
-	return std::unique_ptr<detail::PrimitiveSyscall>(new detail::PrimitiveSyscall{ primitive });
-}
-sys::SyscallArgs sys::detail::PrimitiveSyscall::getArgs() const {
-	return pPrimitive->pCpu->getSyscallArgs();
-}
-void sys::detail::PrimitiveSyscall::setResult(uint64_t value) {
-	pPrimitive->pCpu->setSyscallResult(value);
-}
-void sys::detail::PrimitiveSyscall::run(env::guest_t address) {
-	pPrimitive->pAddress = address;
-	pPrimitive->fExecute();
 }
