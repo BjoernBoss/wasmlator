@@ -24,7 +24,7 @@ namespace sys {
 			PrimitiveExecContext(sys::Primitive* primitive);
 
 		public:
-			static std::unique_ptr<sys::detail::PrimitiveExecContext> New(sys::Primitive* primitive);
+			static std::unique_ptr<detail::PrimitiveExecContext> New(sys::Primitive* primitive);
 
 		public:
 			void syscall(env::guest_t address, env::guest_t nextAddress) final;

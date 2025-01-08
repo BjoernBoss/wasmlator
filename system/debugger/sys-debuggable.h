@@ -3,23 +3,14 @@
 #include "../sys-common.h"
 
 namespace sys {
-	class Debuggable {
+	class CpuDebuggable {
 	protected:
-		Debuggable() = default;
+		CpuDebuggable() = default;
 
 	public:
-		virtual ~Debuggable() = default;
+		virtual ~CpuDebuggable() = default;
 
 	public:
-		/* get the current pc */
-		virtual env::guest_t getPC() const = 0;
-
-		/* set the current pc */
-		virtual void setPC(env::guest_t pc) = 0;
-
-		/* continue execution until the debugger returns true for completed */
-		virtual void run() = 0;
-
 		/* fetch the name of all supported registers */
 		virtual std::vector<std::u8string> queryNames() const = 0;
 
@@ -31,5 +22,26 @@ namespace sys {
 
 		/* set a value of the current cpu state (index matches the queried name-index) */
 		virtual void setValue(size_t index, uintptr_t value) = 0;
+	};
+
+	class Debuggable {
+	protected:
+		Debuggable() = default;
+
+	public:
+		virtual ~Debuggable() = default;
+
+	public:
+		/* get the debug-interface to the cpu (return nullptr if not supported) */
+		virtual std::unique_ptr<sys::CpuDebuggable> getCpu() = 0;
+
+		/* get the current pc */
+		virtual env::guest_t getPC() const = 0;
+
+		/* set the current pc */
+		virtual void setPC(env::guest_t pc) = 0;
+
+		/* continue execution until the debugger returns true for completed */
+		virtual void run() = 0;
 	};
 }

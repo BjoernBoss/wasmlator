@@ -3,9 +3,11 @@
 static host::Logger logger{ u8"sys::primitive" };
 
 sys::detail::PrimitiveExecContext::PrimitiveExecContext(sys::Primitive* primitive) : sys::ExecContext{ false, true }, pPrimitive{ primitive } {}
+
 std::unique_ptr<sys::detail::PrimitiveExecContext> sys::detail::PrimitiveExecContext::New(sys::Primitive* primitive) {
 	return std::unique_ptr<detail::PrimitiveExecContext>(new detail::PrimitiveExecContext{ primitive });
 }
+
 void sys::detail::PrimitiveExecContext::syscall(env::guest_t address, env::guest_t nextAddress) {
 	pSyscall->makeSyscall(address, nextAddress);
 }
@@ -41,5 +43,7 @@ bool sys::detail::PrimitiveExecContext::coreLoaded() {
 
 	/* setup the syscall handler */
 	pSyscall = sys::Syscall::New(detail::PrimitiveSyscall::New(pPrimitive));
+	if (pSyscall.get() == 0)
+		logger.error(u8"Failed to attach syscall handler (supported by cpu?)");
 	return (pSyscall.get() != 0);
 }

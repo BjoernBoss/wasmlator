@@ -6,8 +6,43 @@
 #include "rv64-decoder.h"
 
 namespace rv64 {
+	class Cpu;
+
+	namespace detail {
+		class CpuSyscall final : public sys::CpuSyscallable {
+		private:
+			CpuSyscall() = default;
+
+		public:
+			static std::unique_ptr<detail::CpuSyscall> New();
+
+		public:
+			sys::SyscallArgs getArgs() const final;
+			void setResult(uint64_t value) final;
+		};
+
+		class CpuDebug final : public sys::CpuDebuggable {
+		private:
+			rv64::Cpu* pCpu = 0;
+
+		private:
+			CpuDebug(rv64::Cpu* cpu);
+
+		public:
+			static std::unique_ptr<detail::CpuDebug> New(rv64::Cpu* cpu);
+
+		public:
+			std::vector<std::u8string> queryNames() const final;
+			std::pair<std::u8string, uint8_t> decode(uintptr_t address) const final;
+			uintptr_t getValue(size_t index) const final;
+			void setValue(size_t index, uintptr_t value) final;
+		};
+	}
+
 	/* riscv 64-bit */
 	class Cpu final : public sys::Cpu {
+		friend class detail::CpuSyscall;
+		friend class detail::CpuDebug;
 	private:
 		std::vector<rv64::Instruction> pDecoded;
 		std::unique_ptr<sys::ExecContext> pContext;
@@ -35,13 +70,7 @@ namespace rv64 {
 		void produce(env::guest_t address, const uintptr_t* self, size_t count) final;
 
 	public:
-		sys::SyscallArgs syscallGetArgs() const final;
-		void syscallSetResult(uint64_t value) final;
-
-	public:
-		std::vector<std::u8string> debugQueryNames() const final;
-		std::pair<std::u8string, uint8_t> debugDecode(uintptr_t address) const final;
-		uintptr_t debugGetValue(size_t index) const final;
-		void debugSetValue(size_t index, uintptr_t value) final;
+		std::unique_ptr<sys::CpuSyscallable> getSyscall() final;
+		std::unique_ptr<sys::CpuDebuggable> getDebug() final;
 	};
 }

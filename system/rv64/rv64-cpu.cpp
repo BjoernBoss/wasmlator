@@ -2,7 +2,87 @@
 
 static host::Logger logger{ u8"rv64::cpu" };
 
-rv64::Cpu::Cpu() : sys::Cpu{ rv64::MemoryCaches, sizeof(rv64::Context) } {}
+std::unique_ptr<rv64::detail::CpuSyscall> rv64::detail::CpuSyscall::New() {
+	return std::unique_ptr<detail::CpuSyscall>(new detail::CpuSyscall{});
+}
+sys::SyscallArgs rv64::detail::CpuSyscall::getArgs() const {
+	/*
+	*	syscall calling convention:
+	*	args in [a0, ..., a5]
+	*	syscall-index in [a7]
+	*	result into a0
+	*/
+	sys::SyscallArgs call;
+	const rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
+
+	/* fetch the arguments */
+	for (size_t i = 0; i < 6; ++i)
+		call.args[i] = ctx.regs[reg::A0 + i];
+	call.rawIndex = ctx.a7;
+
+	/* map the index */
+	switch (call.rawIndex) {
+	case 63:
+		call.index = sys::SyscallIndex::read;
+		break;
+	case 64:
+		call.index = sys::SyscallIndex::write;
+		break;
+	case 174:
+		call.index = sys::SyscallIndex::getuid;
+		break;
+	case 175:
+		call.index = sys::SyscallIndex::geteuid;
+		break;
+	case 176:
+		call.index = sys::SyscallIndex::getgid;
+		break;
+	case 177:
+		call.index = sys::SyscallIndex::getegid;
+		break;
+	case 214:
+		call.index = sys::SyscallIndex::brk;
+		break;
+	default:
+		call.index = sys::SyscallIndex::unknown;
+		break;
+	}
+	return call;
+}
+void rv64::detail::CpuSyscall::setResult(uint64_t value) {
+	env::Instance()->context().get<rv64::Context>().a0 = value;
+}
+
+
+rv64::detail::CpuDebug::CpuDebug(rv64::Cpu* cpu) : pCpu{ cpu } {}
+std::unique_ptr<rv64::detail::CpuDebug> rv64::detail::CpuDebug::New(rv64::Cpu* cpu) {
+	return std::unique_ptr<detail::CpuDebug>(new detail::CpuDebug{ cpu });
+}
+std::vector<std::u8string> rv64::detail::CpuDebug::queryNames() const {
+	return {
+		u8"ra", u8"sp", u8"gp", u8"tp",
+		u8"t0", u8"t1", u8"t2", u8"fp",
+		u8"s1", u8"a0", u8"a1", u8"a2",
+		u8"a3", u8"a4", u8"a5",u8"a6",
+		u8"a7", u8"s2", u8"s3",u8"s4",
+		u8"s5", u8"s6", u8"s7", u8"s8",
+		u8"s9", u8"s10", u8"s11", u8"t3",
+		u8"t4", u8"t5", u8"t6"
+	};
+}
+std::pair<std::u8string, uint8_t> rv64::detail::CpuDebug::decode(uintptr_t address) const {
+	rv64::Instruction inst = pCpu->fFetch(address);
+	return { rv64::ToString(inst), inst.size };
+}
+uintptr_t rv64::detail::CpuDebug::getValue(size_t index) const {
+	return env::Instance()->context().get<rv64::Context>().regs[index + 1];
+}
+void rv64::detail::CpuDebug::setValue(size_t index, uintptr_t value) {
+	env::Instance()->context().get<rv64::Context>().regs[index + 1] = value;
+}
+
+
+rv64::Cpu::Cpu() : sys::Cpu{ u8"RISC-V 64", rv64::MemoryCaches, sizeof(rv64::Context) } {}
 
 rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
 	rv64::Instruction inst;
@@ -141,73 +221,9 @@ void rv64::Cpu::produce(env::guest_t address, const uintptr_t* self, size_t coun
 		pTranslator.next(pDecoded[self[i]]);
 }
 
-sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
-	/*
-	*	syscall calling convention:
-	*	args in [a0, ..., a5]
-	*	syscall-index in [a7]
-	*	result into a0
-	*/
-	sys::SyscallArgs call;
-	const rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
-
-	/* fetch the arguments */
-	for (size_t i = 0; i < 6; ++i)
-		call.args[i] = ctx.regs[reg::A0 + i];
-	call.rawIndex = ctx.a7;
-
-	/* map the index */
-	switch (call.rawIndex) {
-	case 63:
-		call.index = sys::SyscallIndex::read;
-		break;
-	case 64:
-		call.index = sys::SyscallIndex::write;
-		break;
-	case 174:
-		call.index = sys::SyscallIndex::getuid;
-		break;
-	case 175:
-		call.index = sys::SyscallIndex::geteuid;
-		break;
-	case 176:
-		call.index = sys::SyscallIndex::getgid;
-		break;
-	case 177:
-		call.index = sys::SyscallIndex::getegid;
-		break;
-	case 214:
-		call.index = sys::SyscallIndex::brk;
-		break;
-	default:
-		call.index = sys::SyscallIndex::unknown;
-		break;
-	}
-	return call;
+std::unique_ptr<sys::CpuSyscallable> rv64::Cpu::getSyscall() {
+	return detail::CpuSyscall::New();
 }
-void rv64::Cpu::syscallSetResult(uint64_t value) {
-	env::Instance()->context().get<rv64::Context>().a0 = value;
-}
-
-std::vector<std::u8string> rv64::Cpu::debugQueryNames() const {
-	return {
-		u8"ra", u8"sp", u8"gp", u8"tp",
-		u8"t0", u8"t1", u8"t2", u8"fp",
-		u8"s1", u8"a0", u8"a1", u8"a2",
-		u8"a3", u8"a4", u8"a5",u8"a6",
-		u8"a7", u8"s2", u8"s3",u8"s4",
-		u8"s5", u8"s6", u8"s7", u8"s8",
-		u8"s9", u8"s10", u8"s11", u8"t3",
-		u8"t4", u8"t5", u8"t6"
-	};
-}
-std::pair<std::u8string, uint8_t> rv64::Cpu::debugDecode(uintptr_t address) const {
-	rv64::Instruction inst = fFetch(address);
-	return { rv64::ToString(inst), inst.size };
-}
-uintptr_t rv64::Cpu::debugGetValue(size_t index) const {
-	return env::Instance()->context().get<rv64::Context>().regs[index + 1];
-}
-void rv64::Cpu::debugSetValue(size_t index, uintptr_t value) {
-	env::Instance()->context().get<rv64::Context>().regs[index + 1] = value;
+std::unique_ptr<sys::CpuDebuggable> rv64::Cpu::getDebug() {
+	return detail::CpuDebug::New(this);
 }

@@ -1,4 +1,4 @@
-#include "../system.h"
+#include "sys-debugger.h"
 
 static host::Logger logger{ u8"sys::debugger" };
 static host::Logger outLog{ u8"" };
@@ -12,7 +12,10 @@ std::unique_ptr<sys::Debugger> sys::Debugger::New(std::unique_ptr<sys::Debuggabl
 
 	/* setup the debugger host */
 	debugger->pProvider = std::move(provider);
-	debugger->pRegisters = debugger->pProvider->queryNames();
+	debugger->pCpu = debugger->pProvider->getCpu();
+	if (debugger->pCpu.get() == 0)
+		return 0;
+	debugger->pRegisters = debugger->pCpu->queryNames();
 	return debugger;
 }
 
@@ -58,7 +61,7 @@ void sys::Debugger::run() {
 void sys::Debugger::printState() const {
 	/* print all registers */
 	for (size_t i = 0; i < pRegisters.size(); ++i) {
-		uintptr_t value = pProvider->getValue(i);
+		uintptr_t value = pCpu->getValue(i);
 		outLog.log(pRegisters[i], u8": ", str::As{ U"#018x", value }, u8" (", value, u8')');
 	}
 
@@ -76,7 +79,7 @@ void sys::Debugger::printInstructions(size_t count) const {
 	try {
 		while (count-- > 0) {
 			/* decode the next instruction and check if the decoding failed */
-			auto [str, size] = pProvider->decode(addr);
+			auto [str, size] = pCpu->decode(addr);
 			if (size == 0) {
 				outLog.fmtLog(u8"[{:#018x}]: Unable to decode", addr);
 				break;

@@ -8,6 +8,9 @@ std::unique_ptr<sys::detail::PrimitiveDebugger> sys::detail::PrimitiveDebugger::
 	return std::unique_ptr<detail::PrimitiveDebugger>(new detail::PrimitiveDebugger{ primitive });
 }
 
+std::unique_ptr<sys::CpuDebuggable> sys::detail::PrimitiveDebugger::getCpu() {
+	return pPrimitive->pCpu->getDebug();
+}
 env::guest_t sys::detail::PrimitiveDebugger::getPC() const {
 	return pPrimitive->pAddress;
 }
@@ -17,16 +20,4 @@ void sys::detail::PrimitiveDebugger::setPC(env::guest_t pc) {
 void sys::detail::PrimitiveDebugger::run() {
 	/* execute will internally check the debugger-completed state */
 	pPrimitive->fExecute();
-}
-std::vector<std::u8string> sys::detail::PrimitiveDebugger::queryNames() const {
-	return pPrimitive->pCpu->debugQueryNames();
-}
-std::pair<std::u8string, uint8_t> sys::detail::PrimitiveDebugger::decode(uintptr_t address) const {
-	return pPrimitive->pCpu->debugDecode(address);
-}
-uintptr_t sys::detail::PrimitiveDebugger::getValue(size_t index) const {
-	return pPrimitive->pCpu->debugGetValue(index);
-}
-void sys::detail::PrimitiveDebugger::setValue(size_t index, uintptr_t value) {
-	pPrimitive->pCpu->debugSetValue(index, value);
 }

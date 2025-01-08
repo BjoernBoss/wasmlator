@@ -20,12 +20,12 @@ namespace sys {
 		sys::SyscallIndex index = sys::SyscallIndex::unknown;
 	};
 
-	class Syscallable {
+	class CpuSyscallable {
 	protected:
-		Syscallable() = default;
+		CpuSyscallable() = default;
 
 	public:
-		virtual ~Syscallable() = default;
+		virtual ~CpuSyscallable() = default;
 
 	public:
 		/* fetch the arguments for a unix syscall
@@ -35,6 +35,18 @@ namespace sys {
 		/* set the result of the last syscall being performed
 		*	Note: will always be called after fetching the syscall-arguments, before resuming the execution */
 		virtual void setResult(uint64_t value) = 0;
+	};
+
+	class Syscallable {
+	protected:
+		Syscallable() = default;
+
+	public:
+		virtual ~Syscallable() = default;
+
+	public:
+		/* get the syscall-interface to the cpu (return nullptr if not supported) */
+		virtual std::unique_ptr<sys::CpuSyscallable> getCpu() = 0;
 
 		/* continue execution after a blocking syscall has completed (address is the next address after the syscall) */
 		virtual void run(env::guest_t address) = 0;

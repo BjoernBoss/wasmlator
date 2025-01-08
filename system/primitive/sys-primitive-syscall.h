@@ -14,11 +14,10 @@ namespace sys {
 			PrimitiveSyscall(sys::Primitive* primitive);
 
 		public:
-			static std::unique_ptr<sys::detail::PrimitiveSyscall> New(sys::Primitive* primitive);
+			static std::unique_ptr<detail::PrimitiveSyscall> New(sys::Primitive* primitive);
 
 		public:
-			sys::SyscallArgs getArgs() const final;
-			void setResult(uint64_t value) final;
+			std::unique_ptr<sys::CpuSyscallable> getCpu() final;
 			void run(env::guest_t address) final;
 		};
 	}

@@ -8,6 +8,7 @@ namespace sys {
 	class Syscall {
 	private:
 		std::unique_ptr<sys::Syscallable> pProvider;
+		std::unique_ptr<sys::CpuSyscallable> pCpu;
 		struct {
 			env::guest_t address = 0;
 			env::guest_t next = 0;

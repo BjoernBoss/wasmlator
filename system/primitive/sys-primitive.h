@@ -6,8 +6,6 @@
 #include "sys-primitive-execcontext.h"
 
 namespace sys {
-	class Primitive;
-
 	/* primitive single-threaded system, which set up an environment, loads a static-elf
 	*	file to be executed, and passes the calls to the cpu implementation, as well as
 	*	a system-v ABI conform initial stack configuration

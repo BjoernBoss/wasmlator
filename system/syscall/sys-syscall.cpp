@@ -3,7 +3,7 @@
 static host::Logger logger{ u8"sys::Syscall" };
 
 void sys::Syscall::fHandle() {
-	sys::SyscallArgs call = pProvider->getArgs();
+	sys::SyscallArgs call = pCpu->getArgs();
 
 	/* check if the syscall can be handled in-place */
 	switch (call.index) {
@@ -15,19 +15,19 @@ void sys::Syscall::fHandle() {
 		break;
 	case sys::SyscallIndex::getuid:
 		logger.debug(u8"Syscall [getuid]");
-		pProvider->setResult(uint16_t(env::Instance()->getId()));
+		pCpu->setResult(uint16_t(env::Instance()->getId()));
 		return;
 	case sys::SyscallIndex::geteuid:
 		logger.debug(u8"Syscall [geteuid]");
-		pProvider->setResult(uint16_t(env::Instance()->getId()));
+		pCpu->setResult(uint16_t(env::Instance()->getId()));
 		return;
 	case sys::SyscallIndex::getgid:
 		logger.debug(u8"Syscall [getgid]");
-		pProvider->setResult(uint16_t(env::Instance()->getId()));
+		pCpu->setResult(uint16_t(env::Instance()->getId()));
 		return;
 	case sys::SyscallIndex::getegid:
 		logger.debug(u8"Syscall [getegid]");
-		pProvider->setResult(uint16_t(env::Instance()->getId()));
+		pCpu->setResult(uint16_t(env::Instance()->getId()));
 		return;
 	case sys::SyscallIndex::brk:
 		logger.debug(u8"Syscall [brk]");
@@ -46,6 +46,11 @@ std::unique_ptr<sys::Syscall> sys::Syscall::New(std::unique_ptr<sys::Syscallable
 
 	/* setup the syscall host with the handler id */
 	syscall->pProvider = std::move(provider);
+	syscall->pCpu = syscall->pProvider->getCpu();
+	if (syscall->pCpu.get() == 0)
+		return 0;
+
+	/* register the callback-function to the syscall-handler */
 	syscall->pSyscallHandlerId = env::Instance()->interact().defineCallback([_this = syscall.get()]() {
 		_this->fHandle();
 		});

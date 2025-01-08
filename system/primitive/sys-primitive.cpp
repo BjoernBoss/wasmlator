@@ -94,41 +94,48 @@ void sys::Primitive::fExecute() {
 		} while (pDebugger.get() == 0 || pDebugger->advance(pAddress));
 	}
 	catch (const env::Terminated& e) {
+		pAddress = e.address;
 		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
 	}
 	catch (const env::MemoryFault& e) {
+		pAddress = e.address;
 		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",
 			e.address, e.accessed, e.usedUsage, e.actualUsage);
 	}
 	catch (const env::Decoding& e) {
+		pAddress = e.address;
 		logger.fatal(u8"Decoding caught: [", str::As{ U"#018x", e.address }, u8"] - [", (e.memoryFault ? u8"Memory-Fault" : u8"Decoding-Fault"), u8']');
 	}
 	catch (const env::Translate& e) {
+		pAddress = e.address;
 		if (pDebugger.get() == 0)
 			logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
-		pAddress = e.address;
 		env::Instance()->startNewBlock();
 	}
 	catch (const detail::FlushInstCache& e) {
+		pAddress = e.address;
 		logger.debug(u8"Flushing instruction cache");
 		env::Instance()->mapping().flush();
-		pAddress = e.address;
 
 		/* check if the execution should halt */
 		if (pDebugger.get() == 0 || pDebugger->advance(pAddress))
 			env::Instance()->startNewBlock();
 	}
 	catch (const detail::CpuException& e) {
+		pAddress = e.address;
 		logger.fatal(u8"CPU Exception caught: [", str::As{ U"#018x", e.address }, u8"] - [", pCpu->getExceptionText(e.id), u8']');
 	}
 	catch (const sys::UnknownSyscall& e) {
+		pAddress = e.address;
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
 }
+
 bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* log the configuration */
+	logger.info(u8"  Cpu         : [", cpu->name(), u8']');
 	logger.info(u8"  Debug       : ", str::As{ U"S", debug });
 	logger.info(u8"  Log Blocks  : ", str::As{ U"S", logBlocks });
 	logger.info(u8"  Trace Blocks: ", str::As{ U"S", traceBlocks });
@@ -150,8 +157,10 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	self->pExecContext = execContext.get();
 
 	/* check if the debugger could be created */
-	if (debug && self->pDebugger.get() == 0)
+	if (debug && self->pDebugger.get() == 0) {
+		logger.error(u8"Failed to attach debugger (supported by cpu?)");
 		return false;
+	}
 
 	/* construct the new cpu object */
 	if (!cpu->setupCpu(std::move(execContext)))
@@ -170,6 +179,7 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 		*debugger = self->pDebugger.get();
 	return true;
 }
+
 bool sys::Primitive::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
 	gen::Core core{ mod };

@@ -14,6 +14,7 @@ namespace sys {
 
 	private:
 		std::unique_ptr<sys::Debuggable> pProvider;
+		std::unique_ptr<sys::CpuDebuggable> pCpu;
 		std::unordered_set<env::guest_t> pBreakPoints;
 		std::vector<std::u8string> pRegisters;
 		size_t pCount = 0;

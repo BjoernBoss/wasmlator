@@ -10,10 +10,11 @@
 #include "../generate/generate.h"
 #include "../interface/logger.h"
 #include "syscall/sys-syscallable.h"
+#include "debugger/sys-debuggable.h"
 
 namespace sys {
-	class Debugger;
-	struct SyscallArgs;
+	class CpuSyscallable;
+	class CpuDebuggable;
 
 	class ExecContext {
 	private:
@@ -28,7 +29,6 @@ namespace sys {
 
 	public:
 		/* generate the code to perform a syscall (must not be called from non-userspace applications)
-		*	Note: will call sys::Cpu::getSyscallArgs and sys::Cpu::setSyscallResult
 		*	Note: may abort the control-flow */
 		virtual void syscall(env::guest_t address, env::guest_t nextAddress) = 0;
 
@@ -55,11 +55,12 @@ namespace sys {
 
 	class Cpu : public gen::Translator {
 	private:
+		std::u8string pName;
 		uint32_t pMemoryCaches = 0;
 		uint32_t pContextSize = 0;
 
 	protected:
-		constexpr Cpu(uint32_t memoryCaches, uint32_t contextSize) : pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {}
+		constexpr Cpu(std::u8string name, uint32_t memoryCaches, uint32_t contextSize) : pName{ name }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize } {}
 
 	public:
 		/* configure the cpu based on the given execution-context */
@@ -76,18 +77,17 @@ namespace sys {
 		virtual std::u8string getExceptionText(uint64_t id) const = 0;
 
 	public:
-		/* only used for userspace syscall interactions */
-		virtual sys::SyscallArgs syscallGetArgs() const = 0;
-		virtual void syscallSetResult(uint64_t value) = 0;
+		/* provide access for userspace syscall interactions (return null if not supported)
+		*	Note: will only be called for userspace execution-contexts */
+		virtual std::unique_ptr<sys::CpuSyscallable> getSyscall() = 0;
+
+		/* provide access for debugger interactions (return null if not supported) */
+		virtual std::unique_ptr<sys::CpuDebuggable> getDebug() = 0;
 
 	public:
-		/* used only for debugging */
-		virtual std::vector<std::u8string> debugQueryNames() const = 0;
-		virtual std::pair<std::u8string, uint8_t> debugDecode(uintptr_t address) const = 0;
-		virtual uintptr_t debugGetValue(size_t index) const = 0;
-		virtual void debugSetValue(size_t index, uintptr_t value) = 0;
-
-	public:
+		constexpr std::u8string name() const {
+			return pName;
+		}
 		constexpr uint32_t memoryCaches() const {
 			return pMemoryCaches;
 		}
