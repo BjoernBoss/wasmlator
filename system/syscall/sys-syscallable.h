@@ -5,7 +5,12 @@
 namespace sys {
 	namespace errCode {
 		static constexpr uint64_t eSuccess = 0;
+		static constexpr uint64_t eNoEntry = 2;
+		static constexpr uint64_t eBadFd = 9;
+		static constexpr uint64_t eAccess = 13;
 		static constexpr uint64_t eFault = 14;
+		static constexpr uint64_t eIsDir = 21;
+		static constexpr uint64_t eInvalid = 22;
 	}
 
 	enum class SyscallIndex : uint32_t {
@@ -17,7 +22,8 @@ namespace sys {
 		geteuid,
 		getgid,
 		getegid,
-		uname
+		uname,
+		openat
 	};
 
 	struct SyscallArgs {

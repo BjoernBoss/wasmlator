@@ -22,6 +22,9 @@ sys::SyscallArgs rv64::detail::CpuSyscall::getArgs() const {
 
 	/* map the index */
 	switch (call.rawIndex) {
+	case 56:
+		call.index = sys::SyscallIndex::openat;
+		break;
 	case 63:
 		call.index = sys::SyscallIndex::read;
 		break;

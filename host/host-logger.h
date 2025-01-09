@@ -4,7 +4,6 @@
 
 namespace host {
 	enum class LogLevel : uint8_t {
-		none,
 		fatal,
 		error,
 		warn,
@@ -44,7 +43,7 @@ namespace host {
 			bool fatal = (level == host::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (host::GetLogLevel() >= level && level != host::LogLevel::none)
+			if (host::GetLogLevel() >= level)
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, args...), fatal);
 		}
 		template <class... Args>
@@ -52,7 +51,7 @@ namespace host {
 			bool fatal = (level == host::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (host::GetLogLevel() >= level && level != host::LogLevel::none)
+			if (host::GetLogLevel() >= level)
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, str::u8::Format(fmt, args...)), fatal);
 		}
 
