@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-#include "../sys-common.h"
+#include "../system.h"
 
 /* riscv 64-bit */
 namespace rv64 {

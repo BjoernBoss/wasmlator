@@ -8,8 +8,6 @@
 #include "../interact/interact-writer.h"
 
 namespace gen {
-	class Block;
-
 	class Writer {
 		friend class gen::Block;
 	private:
@@ -21,8 +19,6 @@ namespace gen {
 
 	private:
 		Writer(detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact);
-
-	public:
 		Writer(gen::Writer&&) = delete;
 		Writer(const gen::Writer&) = delete;
 

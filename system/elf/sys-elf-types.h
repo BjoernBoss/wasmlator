@@ -1,12 +1,8 @@
 #pragma once
 
-#include <ustring/ustring.h>
-#include <cinttypes>
-#include <type_traits>
+#include "../sys-common.h"
 
-#include "../../environment/environment.h"
-
-namespace elf {
+namespace sys::elf {
 	enum class ElfType : uint16_t {
 		none = 0,
 		relocatable = 1,

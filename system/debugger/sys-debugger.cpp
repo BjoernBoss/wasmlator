@@ -1,25 +1,20 @@
-#include "sys-debugger.h"
+#include "../system.h"
 
 static host::Logger logger{ u8"sys::debugger" };
 static host::Logger outLog{ u8"" };
 
-void sys::Debugger::fHalted() {
-	pMode = Mode::none;
+bool sys::Debugger::fActive() const {
+	return (pMode != Mode::disabled);
 }
-
-std::unique_ptr<sys::Debugger> sys::Debugger::New(std::unique_ptr<sys::Debuggable> provider) {
-	std::unique_ptr<sys::Debugger> debugger{ new sys::Debugger() };
-
-	/* setup the debugger host */
-	debugger->pProvider = std::move(provider);
-	debugger->pCpu = debugger->pProvider->getCpu();
-	if (debugger->pCpu.get() == 0)
-		return 0;
-	debugger->pRegisters = debugger->pCpu->queryNames();
-	return debugger;
+bool sys::Debugger::fSetup(sys::Userspace* userspace) {
+	pUserspace = userspace;
+	pRegisters = pUserspace->cpu()->debugQueryNames();
+	return true;
 }
+bool sys::Debugger::fAdvance(env::guest_t address) {
+	if (pMode == Mode::disabled)
+		return true;
 
-bool sys::Debugger::advance(env::guest_t address) {
 	/* check if a breakpoint has been hit */
 	if (pBreakPoints.contains(address)) {
 		fHalted();
@@ -42,10 +37,14 @@ bool sys::Debugger::advance(env::guest_t address) {
 	fHalted();
 	return false;
 }
+void sys::Debugger::fHalted() {
+	pMode = Mode::none;
+}
+
 void sys::Debugger::step(size_t count) {
 	pMode = Mode::step;
 	if ((pCount = count) > 0)
-		pProvider->run();
+		pUserspace->execute();
 }
 void sys::Debugger::addBreak(env::guest_t address) {
 	pBreakPoints.insert(address);
@@ -55,18 +54,20 @@ void sys::Debugger::dropBreak(env::guest_t address) {
 }
 void sys::Debugger::run() {
 	pMode = Mode::run;
-	pProvider->run();
+	pUserspace->execute();
 }
 
 void sys::Debugger::printState() const {
+	sys::Cpu* cpu = pUserspace->cpu();
+
 	/* print all registers */
 	for (size_t i = 0; i < pRegisters.size(); ++i) {
-		uint64_t value = pCpu->getValue(i);
+		uint64_t value = cpu->debugGetValue(i);
 		outLog.log(pRegisters[i], u8": ", str::As{ U"#018x", value }, u8" (", value, u8')');
 	}
 
 	/* print the pc */
-	env::guest_t addr = pProvider->getPC();
+	env::guest_t addr = pUserspace->getPC();
 	outLog.log(u8"pc: ", str::As{ U"#018x", addr }, u8" (", addr, u8')');
 }
 void sys::Debugger::printBreaks() const {
@@ -74,12 +75,13 @@ void sys::Debugger::printBreaks() const {
 		outLog.log(str::As{ U"#018x", addr });
 }
 void sys::Debugger::printInstructions(size_t count) const {
-	env::guest_t addr = pProvider->getPC();
+	env::guest_t addr = pUserspace->getPC();
+	sys::Cpu* cpu = pUserspace->cpu();
 
 	try {
 		while (count-- > 0) {
 			/* decode the next instruction and check if the decoding failed */
-			auto [str, size] = pCpu->decode(addr);
+			auto [str, size] = cpu->debugDecode(addr);
 			if (size == 0) {
 				outLog.fmtLog(u8"[{:#018x}]: Unable to decode", addr);
 				break;

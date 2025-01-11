@@ -66,7 +66,7 @@ void rv64::Translate::fMakeJAL() {
 		gen::Add[I::U32::And()];
 		{
 			wasm::IfThen _if{ gen::Sink };
-			pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+			pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 		}
 		gen::Add[I::Local::Get(addr)];
 
@@ -87,7 +87,7 @@ void rv64::Translate::fMakeJAL() {
 	/* check if the target is misaligned and add the misalignment-exception */
 	env::guest_t address = (pAddress + pInst->imm);
 	if (pInst->isMisAligned(pAddress))
-		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 
 	/* add the instruction as normal direct call or jump */
 	else if (pInst->isCall())
@@ -100,7 +100,7 @@ void rv64::Translate::fMakeBranch() const {
 
 	/* check if the branch can be discarded, as it is misaligned */
 	if (pInst->isMisAligned(pAddress)) {
-		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 		return;
 	}
 
@@ -597,7 +597,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
 	/* perform the reading of the original value and write it immediately to the destination */
@@ -728,7 +728,7 @@ void rv64::Translate::fMakeAMOLR() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
 	/* write the value from memory to the register */
@@ -755,7 +755,7 @@ void rv64::Translate::fMakeAMOSC() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
 	/* write the source value to the address (assumption that reservation is always valid) */
@@ -882,10 +882,10 @@ void rv64::Translate::fMakeMul() {
 	fStoreDest();
 }
 
-void rv64::Translate::resetAll(sys::ExecContext* context) {
+void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
 		var = wasm::Variable{};
-	pContext = context;
+	pWriter = writer;
 }
 void rv64::Translate::start(env::guest_t address) {
 	pAddress = address;
@@ -904,7 +904,7 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* perform the actual translation */
 	switch (pInst->opcode) {
 	case rv64::Opcode::misaligned:
-		pContext->throwException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::load_upper_imm:
 		if (pInst->dest != reg::Zero) {
@@ -980,16 +980,16 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeStore();
 		break;
 	case rv64::Opcode::ecall:
-		pContext->syscall(pAddress, pNextAddress);
+		pWriter->makeSyscall(pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::ebreak:
-		pContext->throwException(Translate::EBreakException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::EBreakException, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::fence:
-		pContext->flushMemCache(pAddress, pNextAddress);
+		pWriter->makeFlushMemCache(pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::fence_inst:
-		pContext->flushInstCache(pAddress, pNextAddress);
+		pWriter->makeFlushInstCache(pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::mul_high_s_reg:
 	case rv64::Opcode::mul_high_s_u_reg:

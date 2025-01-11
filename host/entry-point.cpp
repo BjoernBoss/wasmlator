@@ -3,6 +3,7 @@
 #include "../host/host-logger.h"
 #include "../environment/environment.h"
 #include "../system/system.h"
+#include "../system/rv64/rv64-cpu.h"
 
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
@@ -230,9 +231,9 @@ void HandleCommand(std::u8string_view cmd) {
 		for (size_t i = 0; i < envCount; ++i)
 			envs.push_back(str::u8::To(out.option(L"environment", i).value().str()));
 
-		/* try to setup the primitive system */
+		/* try to setup the userspace system */
 		debugger = 0;
-		if (!sys::Primitive::Create(rv64::Cpu::New(), args, envs, debug, logBlocks, trace, &debugger))
+		if (!sys::Userspace::Create(rv64::Cpu::New(), args, envs, logBlocks, trace, (debug ? &debugger : 0)))
 			logger.error(u8"Failed to create process");
 		else
 			logger.log(u8"Process creation completed");

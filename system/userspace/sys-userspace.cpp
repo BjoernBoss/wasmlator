@@ -1,11 +1,10 @@
 #include "../system.h"
 #include "../../host/host-random.h"
-
 #include "../riscv-buffer.h"
 
-static host::Logger logger{ u8"sys::primitive" };
+static host::Logger logger{ u8"sys::userspace" };
 
-env::guest_t sys::Primitive::fPrepareStack(const elf::Output& loaded) const {
+env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	env::Memory& mem = env::Instance()->memory();
 	size_t wordWidth = (loaded.is64Bit ? 8 : 4);
 
@@ -26,20 +25,20 @@ env::guest_t sys::Primitive::fPrepareStack(const elf::Output& loaded) const {
 	structSize += wordWidth * 12 + wordWidth;
 
 	/* validate the stack dimensions (aligned to the corresponding boundaries) */
-	size_t totalSize = (blobSize + structSize + Primitive::StartOfStackAlignment - 1) & ~(Primitive::StartOfStackAlignment - 1);
+	size_t totalSize = (blobSize + structSize + Userspace::StartOfStackAlignment - 1) & ~(Userspace::StartOfStackAlignment - 1);
 	size_t padding = totalSize - (blobSize + structSize);
-	if (totalSize > Primitive::StackSize) {
-		logger.error(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Primitive::StackSize, u8']');
+	if (totalSize > Userspace::StackSize) {
+		logger.error(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Userspace::StackSize, u8']');
 		return 0;
 	}
 
 	/* allocate the new stack */
-	env::guest_t stackBase = mem.alloc(Primitive::StackSize, env::Usage::ReadWrite);
+	env::guest_t stackBase = mem.alloc(Userspace::StackSize, env::Usage::ReadWrite);
 	if (stackBase == 0) {
 		logger.error(u8"Failed to allocate initial stack");
 		return 0;
 	}
-	logger.debug(u8"Stack allocated to [", str::As{ U"#018x", stackBase }, u8"] with size [", str::As{ U"#010x", Primitive::StackSize }, u8']');
+	logger.debug(u8"Stack allocated to [", str::As{ U"#018x", stackBase }, u8"] with size [", str::As{ U"#010x", Userspace::StackSize }, u8']');
 
 	/* initialize the content for the stack */
 	std::vector<uint8_t> content;
@@ -51,7 +50,7 @@ env::guest_t sys::Primitive::fPrepareStack(const elf::Output& loaded) const {
 		const uint8_t* d = reinterpret_cast<const uint8_t*>(&value);
 		content.insert(content.end(), d, d + wordWidth);
 		};
-	env::guest_t blobPtr = stackBase + Primitive::StackSize - blobSize;
+	env::guest_t blobPtr = stackBase + Userspace::StackSize - blobSize;
 
 	/* write the argument-count out */
 	writeWord(pArgs.size());
@@ -107,16 +106,16 @@ env::guest_t sys::Primitive::fPrepareStack(const elf::Output& loaded) const {
 
 	/* write the prepared content to the acutal stack and return the pointer to
 	*	the argument-count (ptr must not be zero, as this indicates failure) */
-	env::guest_t stack = stackBase + Primitive::StackSize - totalSize;
+	env::guest_t stack = stackBase + Userspace::StackSize - totalSize;
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
 }
-void sys::Primitive::fExecute() {
+void sys::Userspace::fExecute() {
 	/* start execution of the next address and catch/handle any incoming exceptions */
 	try {
 		do {
 			pAddress = env::Instance()->mapping().execute(pAddress);
-		} while (pDebugger.get() == 0 || pDebugger->advance(pAddress));
+		} while (pDebugger.fAdvance(pAddress));
 	}
 	catch (const env::Terminated& e) {
 		pAddress = e.address;
@@ -133,7 +132,7 @@ void sys::Primitive::fExecute() {
 	}
 	catch (const env::Translate& e) {
 		pAddress = e.address;
-		if (pDebugger.get() == 0)
+		if (!pDebugger.fActive())
 			logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
 		env::Instance()->startNewBlock();
 	}
@@ -143,25 +142,25 @@ void sys::Primitive::fExecute() {
 		env::Instance()->mapping().flush();
 
 		/* check if the execution should halt */
-		if (pDebugger.get() == 0 || pDebugger->advance(pAddress))
+		if (pDebugger.fAdvance(pAddress))
 			env::Instance()->startNewBlock();
 	}
 	catch (const detail::CpuException& e) {
 		pAddress = e.address;
 		logger.fatal(u8"CPU Exception caught: [", str::As{ U"#018x", e.address }, u8"] - [", pCpu->getExceptionText(e.id), u8']');
 	}
-	catch (const sys::UnknownSyscall& e) {
+	catch (const detail::UnknownSyscall& e) {
 		pAddress = e.address;
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
 }
 
-bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool debug, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
+bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* log the configuration */
 	logger.info(u8"  Cpu         : [", cpu->name(), u8']');
-	logger.info(u8"  Debug       : ", str::As{ U"S", debug });
+	logger.info(u8"  Debug       : ", str::As{ U"S", (debugger != 0) });
 	logger.info(u8"  Log Blocks  : ", str::As{ U"S", logBlocks });
 	logger.info(u8"  Trace Blocks: ", str::As{ U"S", traceBlocks });
 	logger.info(u8"  Arguments   : ", args.size());
@@ -171,43 +170,57 @@ bool sys::Primitive::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	for (size_t i = 0; i < envs.size(); ++i)
 		logger.info(u8"    [", i, u8"]: ", envs[i]);
 
-	/* allocate the primitive object populate it */
-	std::unique_ptr<sys::Primitive> system = std::make_unique<sys::Primitive>();
-	sys::Primitive* self = system.get();
-	std::unique_ptr<detail::PrimitiveExecContext> execContext = detail::PrimitiveExecContext::New(self);
-	self->pArgs = args;
-	self->pEnvs = envs;
-	self->pCpu = cpu.get();
-	self->pDebugger = (debug ? sys::Debugger::New(detail::PrimitiveDebugger::New(self)) : 0);
-	self->pExecContext = execContext.get();
+	/* allocate the userspace object populate it */
+	std::unique_ptr<sys::Userspace> system{ new sys::Userspace() };
+	system->pArgs = args;
+	system->pEnvs = envs;
+	system->pCpu = cpu.get();
 
-	/* check if the debugger could be created */
-	if (debug && self->pDebugger.get() == 0) {
-		logger.error(u8"Failed to attach debugger (supported by cpu?)");
+	/* check if the cpu can be set up */
+	if (!system->pCpu->setupCpu(&system->pWriter)) {
+		logger.error(u8"Failed to setup cpu [", cpu->name(), u8"] for userspace execution");
 		return false;
 	}
+	if (system->pCpu->multiThreaded())
+		logger.warn(u8"Userspace currently does not support true multiple threads");
 
-	/* construct the new cpu object */
-	if (!cpu->setupCpu(std::move(execContext)))
-		return false;
+	/* check if the debugger could be created */
+	sys::Debugger* debugObject = 0;
+	if (debugger != 0) {
+		if (system->pDebugger.fSetup(system.get())) {
+			logger.info(u8"Debugger attached successfully");
+			debugObject = &system->pDebugger;
+		}
+		else {
+			logger.warn(u8"Failed to attach debugger");
+			*debugger = 0;
+			debugger = 0;
+		}
+	}
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
-	if (!gen::SetInstance(std::move(cpu), Primitive::TranslationDepth, debug, traceBlocks))
+	if (!gen::SetInstance(std::move(cpu), Userspace::TranslationDepth, (debugger != 0), traceBlocks))
 		return false;
-	if (!env::SetInstance(std::move(system), Primitive::PageSize, caches, context, logBlocks)) {
+	if (!env::SetInstance(std::move(system), Userspace::PageSize, caches, context, logBlocks)) {
 		gen::ClearInstance();
 		return false;
 	}
 
 	/* check if a reference to the debugger should be returned */
 	if (debugger != 0)
-		*debugger = self->pDebugger.get();
+		*debugger = debugObject;
 	return true;
 }
 
-bool sys::Primitive::setupCore(wasm::Module& mod) {
+bool sys::Userspace::setupCore(wasm::Module& mod) {
 	/* setup the actual core */
 	gen::Core core{ mod };
+
+	/* setup the writer object (before setting up cpu, as it might use the writer) */
+	if (!pWriter.fSetup(&pSyscall)) {
+		logger.error(u8"Failed to setup the userspace-writer");
+		return false;
+	}
 
 	/* perform the cpu-configuration of the core */
 	if (!pCpu->setupCore(mod))
@@ -216,11 +229,11 @@ bool sys::Primitive::setupCore(wasm::Module& mod) {
 	/* finalize the actual core */
 	return core.close();
 }
-bool sys::Primitive::coreLoaded() {
+bool sys::Userspace::coreLoaded() {
 	/* load the static elf-image and configure the startup-address */
-	elf::Output loaded;
+	sys::ElfLoaded loaded;
 	try {
-		loaded = elf::LoadStatic(fileBuffer, sizeof(fileBuffer));
+		loaded = sys::LoadElfStatic(fileBuffer, sizeof(fileBuffer));
 		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
 		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
 		pAddress = loaded.start;
@@ -243,21 +256,23 @@ bool sys::Primitive::coreLoaded() {
 		return false;
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
+	/* initialize the syscall environment */
+	if (!pSyscall.setup(this, loaded.endOfData)) {
+		logger.error(u8"Failed to setup the userspace syscalls");
+		return false;
+	}
+
 	/* initialize the context */
 	if (!pCpu->setupContext(pAddress, spAddress))
 		return false;
 
-	/* initialize the execution-context */
-	if (!pExecContext->coreLoaded(loaded.endOfData))
-		return false;
-
 	/* check if this is debug-mode, in which case no block needs to be translated
 	*	yet, otherwise immediately startup the translation and execution */
-	if (pDebugger.get() == 0)
+	if (!pDebugger.fActive())
 		env::Instance()->startNewBlock();
 	return true;
 }
-std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
+std::vector<env::BlockExport> sys::Userspace::setupBlock(wasm::Module& mod) {
 	/* setup the translator */
 	gen::Block translator{ mod };
 
@@ -267,11 +282,27 @@ std::vector<env::BlockExport> sys::Primitive::setupBlock(wasm::Module& mod) {
 	/* finalize the translation */
 	return translator.close();
 }
-void sys::Primitive::blockLoaded() {
+void sys::Userspace::blockLoaded() {
 	fExecute();
 }
-void sys::Primitive::shutdown() {
+void sys::Userspace::shutdown() {
 	/* clearing the system-reference will also release this object */
 	gen::ClearInstance();
 	env::ClearInstance();
+}
+
+const sys::Cpu* sys::Userspace::cpu() const {
+	return pCpu;
+}
+sys::Cpu* sys::Userspace::cpu() {
+	return pCpu;
+}
+env::guest_t sys::Userspace::getPC() const {
+	return pAddress;
+}
+void sys::Userspace::setPC(env::guest_t address) {
+	pAddress = address;
+}
+void sys::Userspace::execute() {
+	fExecute();
 }

@@ -26,7 +26,7 @@ namespace host {
 
 	class Logger {
 	private:
-		static constexpr const char8_t LevelMap[] = { u8'?', u8'F', u8'E', u8'W', u8'L', u8'I', u8'D', u8'T' };
+		static constexpr const char8_t LevelMap[] = { u8'F', u8'E', u8'W', u8'L', u8'I', u8'D', u8'T' };
 
 	private:
 		std::u8string pFormat;

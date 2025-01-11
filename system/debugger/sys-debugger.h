@@ -1,24 +1,24 @@
 #pragma once
 
-#include "sys-debuggable.h"
+#include "../sys-common.h"
 
 namespace sys {
-	/* Note: returns nullptr on construction failure */
 	class Debugger {
+		friend class sys::Userspace;
 	private:
 		enum class Mode : uint8_t {
+			disabled,
 			none,
 			step,
 			run
 		};
 
 	private:
-		std::unique_ptr<sys::Debuggable> pProvider;
-		std::unique_ptr<sys::CpuDebuggable> pCpu;
+		sys::Userspace* pUserspace = 0;
 		std::unordered_set<env::guest_t> pBreakPoints;
 		std::vector<std::u8string> pRegisters;
 		size_t pCount = 0;
-		Mode pMode = Mode::none;
+		Mode pMode = Mode::disabled;
 
 	private:
 		Debugger() = default;
@@ -26,14 +26,10 @@ namespace sys {
 		Debugger(const sys::Debugger&) = delete;
 
 	private:
+		bool fActive() const;
+		bool fSetup(sys::Userspace* userspace);
+		bool fAdvance(env::guest_t address);
 		void fHalted();
-
-	public:
-		static std::unique_ptr<sys::Debugger> New(std::unique_ptr<sys::Debuggable> provider);
-
-	public:
-		/* to be executed after an instruction has been executed and returns true, if another step should be taken */
-		bool advance(env::guest_t address);
 
 	public:
 		void step(size_t count);

@@ -1,8 +1,8 @@
-#include "sys-syscall.h"
+#include "../system.h"
 
 static host::Logger logger{ u8"sys::Syscall" };
 
-std::u8string sys::Syscall::fReadString(env::guest_t address) const {
+std::u8string sys::detail::Syscall::fReadString(env::guest_t address) const {
 	env::Memory& mem = env::Instance()->memory();
 	std::u8string out;
 
@@ -13,58 +13,57 @@ std::u8string sys::Syscall::fReadString(env::guest_t address) const {
 	return out;
 }
 
-void sys::Syscall::fHandle() {
-	sys::SyscallArgs call = pCpu->getArgs();
+void sys::detail::Syscall::fHandle(env::guest_t address) {
+	sys::Cpu* cpu = pUserspace->cpu();
 
-	/* handle any memory errors */
+	/* catch any potential memory errors */
 	try {
-		/* check if the syscall can be handled in-place */
-		switch (call.index) {
-		case sys::SyscallIndex::read:
-			logger.fatal(u8"Syscall [read] not implemented");
-			break;
-		case sys::SyscallIndex::write:
-			logger.fatal(u8"Syscall [write] not implemented");
-			break;
-		case sys::SyscallIndex::getuid:
-			pCpu->setResult(fHandleIds(u8"getuid"));
-			return;
-		case sys::SyscallIndex::geteuid:
-			pCpu->setResult(fHandleIds(u8"geteuid"));
-			return;
-		case sys::SyscallIndex::getgid:
-			pCpu->setResult(fHandleIds(u8"getgid"));
-			return;
-		case sys::SyscallIndex::getegid:
-			pCpu->setResult(fHandleIds(u8"getegid"));
-			return;
-		case sys::SyscallIndex::brk:
-			pCpu->setResult(fHandleBrk(call.args[0]));
-			break;
-		case sys::SyscallIndex::uname:
-			pCpu->setResult(fHandleUName(call.args[0]));
-			break;
-		case sys::SyscallIndex::openat:
-			pCpu->setResult(fHandleOpenAt(call.args[0], call.args[1], call.args[2], call.args[3]));
-			break;
-		case sys::SyscallIndex::unknown:
-			throw sys::UnknownSyscall{ pActive.address, call.rawIndex };
-			break;
-		default:
-			logger.fatal(u8"Syscall currently not implemented");
-			break;
-		}
+		cpu->syscallSetResult(fWrapped(address, cpu->syscallGetArgs()));
 	}
 	catch (const env::MemoryFault& e) {
 		logger.debug(u8"Memory fault at [", str::As{ U"#018x", e.accessed }, u8"] while handling syscall - returning: ", errCode::eFault);
-		pCpu->setResult(errCode::eFault);
+		cpu->syscallSetResult(errCode::eFault);
 	}
 }
-uint64_t sys::Syscall::fHandleIds(std::u8string_view name) const {
+uint64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::SyscallArgs& args) {
+	/* check if the syscall can be handled in-place */
+	switch (args.index) {
+	case sys::SyscallIndex::read:
+		logger.fatal(u8"Syscall [read] not implemented");
+		break;
+	case sys::SyscallIndex::write:
+		logger.fatal(u8"Syscall [write] not implemented");
+		break;
+	case sys::SyscallIndex::getuid:
+		return fHandleIds(u8"getuid");
+	case sys::SyscallIndex::geteuid:
+		return fHandleIds(u8"geteuid");
+	case sys::SyscallIndex::getgid:
+		return fHandleIds(u8"getgid");
+	case sys::SyscallIndex::getegid:
+		return fHandleIds(u8"getegid");
+	case sys::SyscallIndex::brk:
+		return fHandleBrk(args.args[0]);
+	case sys::SyscallIndex::uname:
+		return fHandleUName(args.args[0]);
+	case sys::SyscallIndex::openat:
+		return fHandleOpenAt(args.args[0], args.args[1], args.args[2], args.args[3]);
+	case sys::SyscallIndex::unknown:
+		throw detail::UnknownSyscall{ address, args.rawIndex };
+		break;
+	default:
+		logger.fatal(u8"Syscall currently not implemented");
+		break;
+	}
+
+	/* should never be reached */
+	return errCode::eUnknown;
+}
+uint64_t sys::detail::Syscall::fHandleIds(std::u8string_view name) const {
 	logger.debug(u8"Syscall [", name, u8"] = ", env::Instance()->getId());
 	return uint16_t(env::Instance()->getId());
 }
-env::guest_t sys::Syscall::fHandleBrk(env::guest_t addr) {
+env::guest_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
 	logger.debug(u8"Syscall [brk](", str::As{ U"#018x", addr }, u8')');
 
 	/* check if the address lies beneath the initial address, in which case
@@ -100,7 +99,7 @@ env::guest_t sys::Syscall::fHandleBrk(env::guest_t addr) {
 	logger.debug(u8"result: ", str::As{ U"#018x", pBrk.current });
 	return pBrk.current;
 }
-uint64_t sys::Syscall::fHandleUName(env::guest_t addr) const {
+uint64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	/* Note: memory errors will be handled automatically */
 	logger.debug(u8"Syscall [uname](", str::As{ U"#018x", addr }, u8") - Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");
 
@@ -129,7 +128,7 @@ uint64_t sys::Syscall::fHandleUName(env::guest_t addr) const {
 	logger.debug(u8"result: ", errCode::eSuccess);
 	return errCode::eSuccess;
 }
-uint64_t sys::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode) const {
+uint64_t sys::detail::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode) const {
 	/* Note: memory errors will be handled automatically */
 	logger.debug(u8"Syscall [openat](", dirfd, u8", ", str::As{ U"#018x", pathname }, u8", ", flags, u8", ", mode, u8')');
 	std::u8string path = fReadString(pathname);
@@ -138,37 +137,20 @@ uint64_t sys::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint6
 	return errCode::eNoEntry;
 }
 
-std::unique_ptr<sys::Syscall> sys::Syscall::New(std::unique_ptr<sys::Syscallable> provider, env::guest_t endOfData) {
-	std::unique_ptr<sys::Syscall> syscall{ new sys::Syscall() };
+bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData) {
+	pUserspace = userspace;
 
 	/* setup the syscall host with the handler id */
-	syscall->pProvider = std::move(provider);
-	syscall->pCpu = syscall->pProvider->getCpu();
-	syscall->pBrk = { endOfData, endOfData, endOfData };
-	syscall->pPageSize = env::Instance()->pageSize();
-	if (syscall->pCpu.get() == 0)
-		return 0;
+	pBrk = { endOfData, endOfData, endOfData };
+	pPageSize = env::Instance()->pageSize();
 
 	/* validate the alignment of the break */
-	if ((syscall->pBrk.aligned & (syscall->pPageSize - 1)) != 0) {
-		logger.fatal(u8"Initial break address [", str::As{ U"#018x", syscall->pBrk.aligned }, u8"] is not page aligned to [", str::As{ U"#010x", syscall->pPageSize }, u8']');
-		return 0;
+	if ((pBrk.aligned & (pPageSize - 1)) != 0) {
+		logger.error(u8"Initial break address [", str::As{ U"#018x", pBrk.aligned }, u8"] is not page aligned to [", str::As{ U"#010x", pPageSize }, u8']');
+		return false;
 	}
-
-	/* register the callback-function to the syscall-handler */
-	syscall->pSyscallHandlerId = env::Instance()->interact().defineCallback([_this = syscall.get()]() {
-		_this->fHandle();
-		});
-
-	return syscall;
+	return true;
 }
-void sys::Syscall::makeSyscall(env::guest_t address, env::guest_t nextAddress) {
-	/* cache the current address and next address */
-	gen::Add[I::U64::Const(address)];
-	gen::Make->writeHost(&pActive.address, gen::MemoryType::i64);
-	gen::Add[I::U64::Const(nextAddress)];
-	gen::Make->writeHost(&pActive.next, gen::MemoryType::i64);
-
-	/* perform the actual syscall */
-	gen::Make->invokeVoid(pSyscallHandlerId);
+void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress) {
+	fHandle(address);
 }

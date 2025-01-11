@@ -1,6 +1,8 @@
-#include "elf-static.h"
+#include "sys-static-elf.h"
 
-static host::Logger logger{ u8"elf::static" };
+static host::Logger logger{ u8"sys::elf" };
+
+namespace elf = sys::elf;
 
 static uint32_t ValidateElfIdentifier(const uint8_t* data, size_t size) {
 	if (size < 9)
@@ -112,7 +114,7 @@ static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const elf::Reader& re
 }
 
 template <class BaseType>
-static elf::Output LoadStaticElf(const elf::Reader& reader) {
+static sys::ElfLoaded LoadStaticElf(const elf::Reader& reader) {
 	const elf::ElfHeader<BaseType>* header = reader.get<elf::ElfHeader<BaseType>>(0);
 
 	/* validate the overall elf-header and unpack the elf-file */
@@ -120,7 +122,7 @@ static elf::Output LoadStaticElf(const elf::Reader& reader) {
 	auto [endOfData, phAddress] = UnpackElfFile<BaseType>(reader);
 
 	/* finalize the output state and return it */
-	elf::Output output;
+	sys::ElfLoaded output;
 	output.start = header->entry;
 	output.phCount = header->phCount;
 	output.phEntrySize = header->phEntrySize;
@@ -130,7 +132,7 @@ static elf::Output LoadStaticElf(const elf::Reader& reader) {
 	return output;
 }
 
-elf::Output elf::LoadStatic(const uint8_t* data, size_t size) {
+sys::ElfLoaded sys::LoadElfStatic(const uint8_t* data, size_t size) {
 	elf::Reader reader{ data, size };
 
 	/* validate the raw file-header (bit-width agnostic) */

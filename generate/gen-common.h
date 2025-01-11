@@ -15,6 +15,7 @@
 namespace I = wasm::inst;
 
 namespace gen {
+	class Block;
 	class Writer;
 	class Generator;
 
