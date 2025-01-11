@@ -3,7 +3,7 @@
 #include "../host/host-logger.h"
 #include "../environment/environment.h"
 #include "../system/system.h"
-#include "../system/rv64/rv64-cpu.h"
+#include "../rv64/rv64-cpu.h"
 
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
@@ -46,16 +46,6 @@ static arger::Config Commands{
 				return L"";
 			}},
 			arger::Require::Any(),
-		},
-		arger::Option{ L"system",
-			arger::Abbreviation{ L's' },
-			arger::Description{ L"Configure the system to be used." },
-			arger::Payload{ L"name",
-				arger::Enum{
-					{ L"primitive", L"Setup a primitive system, which constructs a userspace execution." },
-				},
-				arger::Value{ L"primitive" }
-			},
 		},
 		arger::Option{ L"cpu",
 			arger::Abbreviation{ L'c' },
@@ -214,11 +204,10 @@ void HandleCommand(std::u8string_view cmd) {
 			return;
 		}
 
-		/* system can currently only be 'primitive' and cpu can only be 'rv64' */
-		std::wstring system = out.option(L"system").value().str();
+		/* system can currently only be 'userspace' and cpu can only be 'rv64' */
 		std::wstring cpu = out.option(L"cpu").value().str();
 		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log"), trace = out.flag(L"trace");
-		logger.log(u8"Setting up system: [", system, u8"] with cpu: [", cpu, u8"]");
+		logger.log(u8"Setting up userspace with cpu: [", cpu, u8"]");
 
 		/* collect the argument vector */
 		std::vector<std::u8string> args;
