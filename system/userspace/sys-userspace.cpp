@@ -257,7 +257,7 @@ bool sys::Userspace::coreLoaded() {
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* initialize the syscall environment */
-	if (!pSyscall.setup(this, loaded.endOfData)) {
+	if (!pSyscall.setup(this, loaded.endOfData, u8"/system/fs")) {
 		logger.error(u8"Failed to setup the userspace syscalls");
 		return false;
 	}

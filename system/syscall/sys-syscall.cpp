@@ -17,13 +17,18 @@ void sys::detail::Syscall::fHandle(env::guest_t address) {
 	sys::Cpu* cpu = pUserspace->cpu();
 
 	/* catch any potential memory errors */
+	uint64_t result = 0;
 	try {
-		cpu->syscallSetResult(fWrapped(address, cpu->syscallGetArgs()));
+		result = fWrapped(address, cpu->syscallGetArgs());
 	}
 	catch (const env::MemoryFault& e) {
-		logger.debug(u8"Memory fault at [", str::As{ U"#018x", e.accessed }, u8"] while handling syscall - returning: ", errCode::eFault);
-		cpu->syscallSetResult(errCode::eFault);
+		logger.debug(u8"Memory fault at [", str::As{ U"#018x", e.accessed }, u8"] while handling syscall");
+		result = errCode::eFault;
 	}
+
+	/* write the result out to the process */
+	logger.debug(u8"result: ", str::As{ U"#018x", int64_t(result) });
+	cpu->syscallSetResult(result);
 }
 uint64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::SyscallArgs& args) {
 	/* check if the syscall can be handled in-place */
@@ -60,18 +65,16 @@ uint64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::Syscall
 	return errCode::eUnknown;
 }
 uint64_t sys::detail::Syscall::fHandleIds(std::u8string_view name) const {
-	logger.debug(u8"Syscall [", name, u8"] = ", env::Instance()->getId());
+	logger.debug(u8"Syscall ", name, u8"()");
 	return uint16_t(env::Instance()->getId());
 }
 env::guest_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
-	logger.debug(u8"Syscall [brk](", str::As{ U"#018x", addr }, u8')');
+	logger.debug(u8"Syscall brk(", str::As{ U"#018x", addr }, u8')');
 
 	/* check if the address lies beneath the initial address, in which case
 	*	the current break can just be returned, as no changes will be made */
-	if (addr < pBrk.init) {
-		logger.debug(u8"result: ", str::As{ U"#018x", pBrk.current });
+	if (addr < pBrk.init)
 		return pBrk.current;
-	}
 
 	/* page-align the actual address to determine if allocations need to be made or not */
 	env::guest_t aligned = ((addr + pPageSize - 1) & ~(pPageSize - 1));
@@ -88,7 +91,6 @@ env::guest_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
 	else if (aligned > pBrk.aligned) {
 		if (!env::Instance()->memory().mmap(pBrk.aligned, uint32_t(aligned - pBrk.aligned), env::Usage::ReadWrite)) {
 			logger.warn(u8"Unable to allocate break-memory");
-			logger.debug(u8"result: ", str::As{ U"#018x", pBrk.current });
 			return pBrk.current;
 		}
 		pBrk.aligned = aligned;
@@ -96,18 +98,15 @@ env::guest_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
 
 	/* update the current break-address to match the requested address */
 	pBrk.current = addr;
-	logger.debug(u8"result: ", str::As{ U"#018x", pBrk.current });
 	return pBrk.current;
 }
 uint64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	/* Note: memory errors will be handled automatically */
-	logger.debug(u8"Syscall [uname](", str::As{ U"#018x", addr }, u8") - Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");
+	logger.debug(u8"Syscall uname(", str::As{ U"#018x", addr }, u8") - Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");
 
 	/* validate the address */
-	if (addr == 0) {
-		logger.debug(u8"result: ", errCode::eFault);
+	if (addr == 0)
 		return errCode::eFault;
-	}
 
 	/* write the systemname out */
 	env::Instance()->memory().mwrite(addr + 0 * 65llu, u8"wasmlator", 10, env::Usage::Write);
@@ -123,21 +122,16 @@ uint64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 
 	/* write the machine out */
 	env::Instance()->memory().mwrite(addr + 4 * 65llu, u8"wasm", 5, env::Usage::Write);
-
-	/* return the successful write */
-	logger.debug(u8"result: ", errCode::eSuccess);
 	return errCode::eSuccess;
 }
-uint64_t sys::detail::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode) const {
-	/* Note: memory errors will be handled automatically */
-	logger.debug(u8"Syscall [openat](", dirfd, u8", ", str::As{ U"#018x", pathname }, u8", ", flags, u8", ", mode, u8')');
+uint64_t sys::detail::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode) {
+	logger.debug(u8"Syscall openat(", dirfd, u8", ", str::As{ U"#018x", pathname }, u8", ", flags, u8", ", mode, u8')');
 	std::u8string path = fReadString(pathname);
 	logger.debug(u8"pathname: [", path, u8"]");
-
-	return errCode::eNoEntry;
+	return pFileIO.openat(dirfd, path, flags, mode);
 }
 
-bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData) {
+bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string currentDirectory) {
 	pUserspace = userspace;
 
 	/* setup the syscall host with the handler id */
@@ -149,6 +143,10 @@ bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfDa
 		logger.error(u8"Initial break address [", str::As{ U"#018x", pBrk.aligned }, u8"] is not page aligned to [", str::As{ U"#010x", pPageSize }, u8']');
 		return false;
 	}
+
+	/* setup the file-io */
+	if (!pFileIO.setup(currentDirectory))
+		return false;
 	return true;
 }
 void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress) {

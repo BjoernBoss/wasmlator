@@ -20,6 +20,20 @@ namespace sys {
 	}
 
 	namespace detail {
+		namespace errCode {
+			static constexpr int64_t eSuccess = 0;
+			static constexpr int64_t eNoEntry = 2;
+			static constexpr int64_t eBadFd = 9;
+			static constexpr int64_t eAccess = 13;
+			static constexpr int64_t eFault = 14;
+			static constexpr int64_t eNotDirectory = 20;
+			static constexpr int64_t eIsDir = 21;
+			static constexpr int64_t eInvalid = 22;
+
+			/* custom error (not mapped to any linux errors) */
+			static constexpr uint64_t eUnknown = 0xffff;
+		}
+
 		struct FlushInstCache : public env::Exception {
 		public:
 			FlushInstCache(env::guest_t address) : env::Exception{ address } {}
@@ -40,19 +54,6 @@ namespace sys {
 		public:
 			UnknownSyscall(env::guest_t address, uint64_t index) : env::Exception{ address }, index{ index } {}
 		};
-	}
-
-	namespace errCode {
-		static constexpr uint64_t eSuccess = 0;
-		static constexpr uint64_t eNoEntry = 2;
-		static constexpr uint64_t eBadFd = 9;
-		static constexpr uint64_t eAccess = 13;
-		static constexpr uint64_t eFault = 14;
-		static constexpr uint64_t eIsDir = 21;
-		static constexpr uint64_t eInvalid = 22;
-
-		/* custom error (not mapped to any linux errors) */
-		static constexpr uint64_t eUnknown = 0xffff;
 	}
 
 	enum class SyscallIndex : uint32_t {
