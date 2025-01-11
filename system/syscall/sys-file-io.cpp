@@ -107,7 +107,7 @@ uint64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string path, uint64_
 	else if (path == u8"/dev/stderr")
 		file = detail::FileState::errOut;
 	if (file == detail::FileState::none)
-		return uint64_t(-errCode::eInvalid);
+		return uint64_t(-errCode::eNoEntry);
 
 	/* allocate the next slot (skip the first 3, as they will never be re-assigned) */
 	for (size_t i = 2; i < pFiles.size(); ++i) {

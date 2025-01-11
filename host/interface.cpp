@@ -8,16 +8,12 @@
 
 static host::Logger logger{ u8"interface" };
 
-char8_t* main_allocate_command(uint32_t size) {
-	/* allocate a raw buffer of the given size and return it */
-	return new char8_t[size];
-}
 void main_command(char8_t* ptr, uint32_t size) {
 	try {
 		/* first write the raw buffer to a std::u8string, in order for exceptions
 		*	to free the memory properly, and pass it to the handler */
 		std::u8string command{ ptr, size };
-		delete[] ptr;
+		free_allocated(ptr);
 
 		HandleCommand(command);
 	}
@@ -30,6 +26,14 @@ void main_command(char8_t* ptr, uint32_t size) {
 		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_command]");
 	}
 }
+void* main_allocate(uint32_t size) {
+	/* allocate a raw buffer of the given size and return it */
+	return new uint8_t[size];
+}
+void free_allocated(void* ptr) {
+	delete[] static_cast<uint8_t*>(ptr);
+}
+
 
 void main_core_loaded(uint32_t process) {
 	try {

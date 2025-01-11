@@ -9,8 +9,11 @@ void HandleCommand(std::u8string_view commcmdand);
 /* environment/entry-point interactions */
 extern "C" {
 	/* exports */
-	char8_t* main_allocate_command(uint32_t size);
 	void main_command(char8_t* ptr, uint32_t size);
+	void* main_allocate(uint32_t size);
+
+	/* helper */
+	void free_allocated(void* ptr);
 }
 
 /* glue/host interactions */

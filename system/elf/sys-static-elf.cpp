@@ -41,6 +41,9 @@ static void ValidateElfHeader(const elf::ElfHeader<BaseType>* header) {
 		throw elf::Exception{ L"Issue with program-headers detected" };
 	if (header->ehsize != sizeof(elf::ElfHeader<BaseType>))
 		throw elf::Exception{ "Issue with executable-header detected" };
+
+	/* log the machine type */
+	logger.info(u8"Machine type: ", uint64_t(header->machine));
 }
 
 template <class BaseType>

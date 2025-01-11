@@ -224,6 +224,12 @@ const env::Context& env::Process::context() const {
 env::Context& env::Process::context() {
 	return pContext;
 }
+const env::FileSystem& env::Process::filesystem() const {
+	return pFileSystem;
+}
+env::FileSystem& env::Process::filesystem() {
+	return pFileSystem;
+}
 const env::Memory& env::Process::memory() const {
 	return pMemory;
 }

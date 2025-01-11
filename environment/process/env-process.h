@@ -5,6 +5,7 @@
 #include "process-access.h"
 #include "../context/env-context.h"
 #include "../mapping/env-mapping.h"
+#include "../filesystem/env-filesystem.h"
 #include "../memory/env-memory.h"
 #include "../interact/env-interact.h"
 
@@ -30,6 +31,7 @@ namespace env {
 		std::unordered_map<std::u8string, std::vector<Binding>> pBindings;
 		env::Context pContext;
 		env::Memory pMemory;
+		env::FileSystem pFileSystem;
 		env::Mapping pMapping;
 		env::Interact pInteract;
 		std::u8string pBlockImportName;
@@ -65,6 +67,8 @@ namespace env {
 		void shutdown();
 		const env::Context& context() const;
 		env::Context& context();
+		const env::FileSystem& filesystem() const;
+		env::FileSystem& filesystem();
 		const env::Memory& memory() const;
 		env::Memory& memory();
 		const env::Mapping& mapping() const;

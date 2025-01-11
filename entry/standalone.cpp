@@ -1,5 +1,5 @@
-#include "../interface/logger.h"
-#include "../interface/interface.h"
+#include "../host/host-logger.h"
+#include "../host/interface.h"
 
 int main() {
 	host::SetLogLevel(host::LogLevel::trace);
