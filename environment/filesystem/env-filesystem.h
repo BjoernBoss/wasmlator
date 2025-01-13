@@ -16,8 +16,8 @@ namespace env {
 	struct FileStats {
 		std::u8string name;
 		std::u8string link;
-		uint64_t timeModified = 0;
-		uint64_t timeAccessed = 0;
+		uint64_t timeModifiedUS = 0;
+		uint64_t timeAccessedUS = 0;
 		uint64_t size = 0;
 		env::FileType type = env::FileType::none;
 	};
@@ -31,17 +31,18 @@ namespace env {
 
 	class FileSystem {
 		friend struct detail::FileSystemAccess;
+
 	private:
-		std::vector<uint64_t> pOpen;
+		std::vector<std::optional<uint64_t>> pOpen;
 		size_t pLinkCount = 0;
 
 	public:
-		FileSystem();
+		FileSystem() = default;
 		FileSystem(env::FileSystem&&) = delete;
 		FileSystem(const env::FileSystem&) = delete;
 
 	private:
-		void fCheck(uint64_t id) const;
+		bool fCheck(uint64_t id) const;
 		std::u8string fPrepare(std::u8string_view path) const;
 		bool fHandleTask(const std::u8string& task, std::function<void(bool)> callback);
 		bool fHandleTask(const std::u8string& task, std::function<void(json::Reader<std::u8string_view>)> callback);
@@ -67,5 +68,6 @@ namespace env {
 		void writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(bool)> callback);
 		void truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);
 		void closeFile(uint64_t id);
+		bool checkFile(uint64_t id) const;
 	};
 }

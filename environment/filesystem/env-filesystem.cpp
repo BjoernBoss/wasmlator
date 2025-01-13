@@ -3,14 +3,8 @@
 
 static host::Logger logger{ u8"env::filesystem" };
 
-env::FileSystem::FileSystem() {
-	/* add the blocked null-open-entry */
-	pOpen.push_back(0);
-}
-
-void env::FileSystem::fCheck(uint64_t id) const {
-	if (id >= pOpen.size() || pOpen[id] == 0)
-		logger.fatal(u8"File id [", id, u8"] is not a valid file-system id");
+bool env::FileSystem::fCheck(uint64_t id) const {
+	return (id < pOpen.size() && pOpen[id].has_value());
 }
 std::u8string env::FileSystem::fPrepare(std::u8string_view path) const {
 	/* ensure that the path is absolute */
@@ -43,12 +37,12 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 
 	/* iterate over the attributes and apply them */
 	for (const auto& [key, value] : obj) {
-		if (key == L"mtime") {
-			out.timeModified = value.unum();
+		if (key == L"mtime_us") {
+			out.timeModifiedUS = value.unum();
 			tmMod = true;
 		}
-		else if (key == L"atime") {
-			out.timeAccessed = value.unum();
+		else if (key == L"atime_us") {
+			out.timeAccessedUS = value.unum();
 			tmAcc = true;
 		}
 		else if (key == L"size") {
@@ -56,9 +50,15 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 			size = true;
 		}
 		else if (key == L"type") {
-			out.type = static_cast<env::FileType>(value.unum());
-			if (out.type >= env::FileType::_last || out.type == env::FileType::none)
-				logger.fatal(u8"Received invalid file-type [", size_t(out.type), u8']');
+			const std::wstring& _type = value.str();
+			if (_type == L"file")
+				out.type = env::FileType::file;
+			else if (_type == L"dir")
+				out.type = env::FileType::directory;
+			else if (_type == L"link")
+				out.type = env::FileType::link;
+			else
+				logger.fatal(u8"Received invalid file-type [", _type, u8']');
 			type = true;
 		}
 		else if (key == L"name") {
@@ -77,12 +77,9 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 	return out;
 }
 void env::FileSystem::fCloseAll() {
-	while (!pOpen.empty()) {
-		if (pOpen.back() == 0)
-			pOpen.pop_back();
-		else
-			fCloseFile(pOpen.back());
-	}
+	/* the value must exist, as close would otherwise have released it */
+	while (!pOpen.empty())
+		fCloseFile(pOpen.back().value());
 }
 
 void env::FileSystem::fFollowLinks(std::u8string_view path, bool first, std::function<void(std::u8string_view, const env::FileStats*)> callback) {
@@ -129,11 +126,11 @@ void env::FileSystem::fReadStats(std::u8string_view path, std::function<void(con
 		});
 }
 void env::FileSystem::fCloseFile(uint64_t id) {
-	/* queue the task to close the file and cleanup the id */
-	bool inplace = fHandleTask(str::u8::Build(u8"close:", id), [=, this](bool success) {
-		/* cleanup the id (operation cannot fail) */
-		pOpen[id] = 0;
-		while (pOpen.size() > 1 && pOpen.back() == 0)
+	/* queue the task to close the file and cleanup the id (operation cannot fail) */
+	bool inplace = fHandleTask(str::u8::Build(u8"close:", pOpen[id].value()), [=, this](bool success) {
+		/* cleanup the id */
+		pOpen[id] = std::nullopt;
+		while (!pOpen.empty() && !pOpen.back().has_value())
 			pOpen.pop_back();
 		});
 
@@ -143,14 +140,17 @@ void env::FileSystem::fCloseFile(uint64_t id) {
 }
 
 void env::FileSystem::followLinks(std::u8string_view path, std::function<void(std::u8string_view, const env::FileStats*)> callback) {
+	logger.debug(u8"Resolving symlink [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fFollowLinks(actual, true, callback);
 }
 void env::FileSystem::readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
+	logger.debug(u8"Reading stats of [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fReadStats(actual, callback);
 }
 void env::FileSystem::readDir(std::u8string_view path, std::function<void(bool, const std::vector<env::FileStats>&)> callback) {
+	logger.debug(u8"Reading directory [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fHandleTask(str::u8::Build(u8"list:", actual), [=, this](json::Reader<std::u8string_view> resp) {
 		/* check if the operation succeded */
@@ -168,19 +168,23 @@ void env::FileSystem::readDir(std::u8string_view path, std::function<void(bool, 
 		});
 }
 void env::FileSystem::createDir(std::u8string_view path, std::function<void(bool)> callback) {
+	logger.debug(u8"Creating directory [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fHandleTask(str::u8::Build(u8"mkdir:", actual), callback);
 }
 void env::FileSystem::deleteDir(std::u8string_view path, std::function<void(bool)> callback) {
+	logger.debug(u8"Removing directory [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fHandleTask(str::u8::Build(u8"rmdir:", actual), callback);
 }
 void env::FileSystem::deleteFile(std::u8string_view path, std::function<void(bool)> callback) {
+	logger.debug(u8"Removing file [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fHandleTask(str::u8::Build(u8"rmfile:", actual), callback);
 }
 
 void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
+	logger.debug(u8"Opening file [", path, u8']');
 	std::u8string actual = fPrepare(path);
 
 	/* setup the task */
@@ -210,13 +214,13 @@ void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, std:
 		uint64_t id = 0;
 		env::FileStats stats;
 
-		/* read the stat and id */
+		/* read the stats and id */
 		for (const auto& [key, value] : resp.obj()) {
 			if (key == L"id" && !value.isNull()) {
 				id = value.unum();
 				hasId = true;
 			}
-			else if (key == L"stat" && !value.isNull()) {
+			else if (key == L"stats" && !value.isNull()) {
 				stats = fParseStats(value.obj());
 				hasStats = true;
 			}
@@ -224,12 +228,12 @@ void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, std:
 
 		/* check if the call itself succeded and register the id */
 		if (hasId) {
-			/* lookup the id-slot to be used (skip the first blocked slot) */
-			uint64_t slot = 1;
-			while (slot < pOpen.size() && pOpen[slot] == 0)
+			/* lookup the id-slot to be used */
+			uint64_t slot = 0;
+			while (slot < pOpen.size() && pOpen[slot].has_value())
 				++slot;
 			if (slot >= pOpen.size())
-				pOpen.push_back(0);
+				pOpen.push_back(std::nullopt);
 
 			/* register the id and notify the callback */
 			pOpen[slot] = id;
@@ -242,20 +246,23 @@ void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, std:
 		});
 }
 void env::FileSystem::readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, bool all, std::function<void(uint64_t)> callback) {
-	fCheck(id);
-	fHandleTask(str::u8::Build((all ? u8"all:" : u8"read:"), id, u8":0x", data, u8':', str::As{ U"#x", size }), [=](json::Reader<std::u8string_view> resp) {
+	if (fCheck(id))
+		fHandleTask(str::u8::Build((all ? u8"all:" : u8"read:"), pOpen[id].value(), u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [=](json::Reader<std::u8string_view> resp) {
 		callback(resp.unum());
-		});
+			});
 }
 void env::FileSystem::writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(bool)> callback) {
-	fCheck(id);
-	fHandleTask(str::u8::Build(u8"write:", id, u8":0x", data, u8':', str::As{ U"#x", size }), callback);
+	if (fCheck(id))
+		fHandleTask(str::u8::Build(u8"write:", pOpen[id].value(), u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), callback);
 }
 void env::FileSystem::truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback) {
-	fCheck(id);
-	fHandleTask(str::u8::Build(u8"trunc:", id, u8':', str::As{ U"#x", size }), callback);
+	if (fCheck(id))
+		fHandleTask(str::u8::Build(u8"trunc:", pOpen[id].value(), u8':', str::As{ U"#x", size }), callback);
 }
 void env::FileSystem::closeFile(uint64_t id) {
-	fCheck(id);
-	fCloseFile(id);
+	if (fCheck(id))
+		fCloseFile(pOpen[id].value());
+}
+bool env::FileSystem::checkFile(uint64_t id) const {
+	return fCheck(id);
 }

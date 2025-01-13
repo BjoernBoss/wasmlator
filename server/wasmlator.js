@@ -82,22 +82,27 @@ setup_wasmlator = function (logPrint, cb) {
 	};
 
 	/* helper to write the result of a task to the application */
-	_state.task_completed = function (process, buffer) {
+	_state.task_completed = function (process, payload) {
 		let addr = 0, size = 0;
 
 		/* write the result to the main application */
-		if (buffer != null) {
+		if (payload != null) {
+			let buffer = new TextEncoder('utf-8').encode(JSON.stringify(payload));
 			addr = _state.main.exports.main_allocate(buffer.byteLength);
 			size = buffer.byteLength;
 			new Uint8Array(_state.main.memory, addr, size).set(new Uint8Array(buffer));
 		}
 
-		/* invoke the callback */
+		/* invoke the callback and mark the critical section as completed */
 		_state.controlled(() => _state.main.exports.main_task_completed(process, addr, size));
+		_state.leave();
 	};
 
 	/* task dispatcher for the primary application */
 	_state.handle_task = function (task, process) {
+		/* enter the callback and leave it once the command has been completed */
+		_state.enter();
+
 		/* extract the next command */
 		let cmd = task, i = 0, payload = '';
 		if ((i = task.indexOf(':')) >= 0) {
@@ -120,12 +125,12 @@ setup_wasmlator = function (logPrint, cb) {
 		/* handle the file-system commands */
 		else if (cmd == 'stats')
 			_state.fs.getStats(payload, (s) => _state.task_completed(process, s));
+		else if (cmd == 'opexisting')
+			_state.fs.openFile(payload, false, true, false, (id, s) => _state.task_completed(process, { id: id, stats: s }));
 
 		/* default catch-handler for unknown commands */
-		else {
+		else
 			_state.selfFail(new PrintStack(`Received unknown task [${cmd}]`).stack);
-			_state.task_completed(process, null);
-		}
 	};
 
 	/* load the initial glue module and afterwards the main application */
@@ -194,7 +199,9 @@ setup_wasmlator = function (logPrint, cb) {
 		imports.env = { ..._state.glue.exports };
 
 		/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
-		imports.env.emscripten_notify_memory_growth = function () { };
+		imports.env.emscripten_notify_memory_growth = function () {
+			_state.main.memory = _state.main.exports.memory.buffer;
+		};
 		imports.wasi_snapshot_preview1.proc_exit = function (code) {
 			_state.selfFail(new PrintStack(`Main module terminated itself with exit-code [${code}] - (Unhandled exception?)`).stack);
 		};
