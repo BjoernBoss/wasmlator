@@ -1,5 +1,3 @@
-#include <ustring/ustring.h>
-#include <wasgen/wasm.h>
 #include <fstream>
 
 #include "../environment/environment.h"

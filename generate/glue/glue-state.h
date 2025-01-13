@@ -8,23 +8,23 @@ namespace gen::detail {
 	*		ext_func host.host_get_function(ext_ref instance, i32 name, i32 size, i32 main_memory);
 	*		ext_ref host.host_get_export(ext_ref instance, i32 name, i32 size);
 	*		ext_ref host.host_make_object();
-	*		ext_ref host.host_set_member(ext_ref obj, i32 name, i32 size, ext_ref value);
+	*		void host.host_set_member(ext_ref obj, i32 name, i32 size, ext_ref value);
 	*
 	*	Exports to Main:
 	*		as defined by the builders
+	*		i32 glue_setup_core_map();
+	*		void glue_reset_core_map();
 	*
 	*	Exports to Core:
 	*		ext_ref glue_get_export(i32 name, i32 size);
 	*		ext_func glue_get_function(i32 name, i32 size);
-	*		i32 glue_setup_core_map();
-	*		void glue_reset_core_map();
 	*		ext_ref glue_make_object();
 	*		void glue_assign(ext_ref obj, i32 name, i32 size, ext_ref value);
 	*		void glue_set_imports(ext_ref obj);
 	*
 	*	Exports to Host:
 	*		uint8_t memory[...];
-	*		void set_last_instance(ext_ref instance);
+	*		void set_last_instance(ext_ref object);
 	*		ext_ref get_imports();
 	*/
 

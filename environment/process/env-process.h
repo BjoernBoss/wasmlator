@@ -29,6 +29,7 @@ namespace env {
 		std::unique_ptr<env::System> pSystem;
 		std::vector<env::BlockExport> pExports;
 		std::unordered_map<std::u8string, std::vector<Binding>> pBindings;
+		std::function<void(std::u8string_view)> pTaskCallback;
 		env::Context pContext;
 		env::Memory pMemory;
 		env::FileSystem pFileSystem;
@@ -43,6 +44,7 @@ namespace env {
 		State pState = State::none;
 		bool pBindingsClosed = false;
 		bool pLogBlocks = false;
+		bool pTaskActive = false;
 
 	public:
 		Process() = default;
@@ -52,11 +54,15 @@ namespace env {
 
 	private:
 		bool fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks);
-		bool fLoadCore();
-		bool fCoreLoaded(uint32_t process);
-		void fLoadBlock();
-		bool fBlockLoaded(uint32_t process);
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
+		void fHandleTask(const std::u8string& task, std::function<void(std::u8string_view)> callback);
+		bool fTaskCompleted(uint32_t process, std::u8string_view response);
+
+	private:
+		bool fLoadCore();
+		void fCoreLoaded();
+		void fLoadBlock();
+		void fBlockLoaded();
 
 	public:
 		const std::u8string& blockImportModule() const;

@@ -167,9 +167,9 @@ void gen::detail::GlueState::complete() {
 		sink[I::Global::Get(impObject)];
 	}
 
-	/* add the set-last-instance function */
+	/* add the set-payload function */
 	{
-		wasm::Prototype prototype = pModule.prototype(u8"set_last_instance_type", { { u8"instance", wasm::Type::refExtern } }, {});
+		wasm::Prototype prototype = pModule.prototype(u8"set_last_instance_type", { { u8"object", wasm::Type::refExtern } }, {});
 		wasm::Sink sink{ pModule.function(u8"set_last_instance", prototype, wasm::Export{}) };
 
 		/* write the reference to the global */

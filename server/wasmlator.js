@@ -1,4 +1,4 @@
-class BusyError extends Error { constructor(m) { super(m); this.name = 'BusyError'; } };
+class BusyError extends Error { constructor(m) { super(m); this.name = ''; } };
 
 setup_wasmlator = function (logPrint, cb) {
 	/* local state of all loaded wasmlator-content */
@@ -21,9 +21,9 @@ setup_wasmlator = function (logPrint, cb) {
 	/* interact with the busy-areas (to prevent nested execution of commands) */
 	_state.start = function (cb) {
 		if (_state.loadState != 'none' && _state.loadState != 'loaded')
-			throw new BusyError('Wasmlator.js failed to be loaded properly and is in an inoperable state');
+			throw new BusyError('Wasmlator.js: Failed to be loaded properly and is in an inoperable state');
 		if (_state.busy > 0)
-			throw new BusyError('Wasmlator.js is currently busy with another operation');
+			throw new BusyError('Wasmlator.js: Currently busy with another operation');
 
 		/* setup the busy-state and configure the completed-callback */
 		_state.busy = 1;
@@ -41,10 +41,8 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* start the official busy-area, as the creation is considered being busy */
 	_state.start(() => {
-		if (_state.loadState == 'loaded') {
-			_state.log('Wasmlator.js: Note: system might not work correctly anymore after a fatal error occurred');
+		if (_state.loadState == 'loaded')
 			_state.log('Wasmlator.js: Loaded successfully and ready...');
-		}
 		else
 			_state.failure('Wasmlator.js: Failed to load properly...', true, false);
 		if (cb != null)
@@ -75,12 +73,23 @@ setup_wasmlator = function (logPrint, cb) {
 	_state.load_string = function (ptr, size, main_memory) {
 		let view = new DataView((main_memory ? _state.main.memory.buffer : _state.glue.memory.buffer), ptr, size);
 		return new TextDecoder('utf-8').decode(view);
-	}
+	};
 
 	/* create a buffer (newly allocated) from the data at ptr in the main application */
 	_state.make_buffer = function (ptr, size) {
 		return _state.main.memory.buffer.slice(ptr, ptr + size);
-	}
+	};
+
+	/* task dispatcher for the primary application */
+	_state.dispatch = function (task, process) {
+		let args = task.split(':');
+		if (args[0] == 'core')
+			_state.load_core(_state.make_buffer(parseInt(args[1]), parseInt(args[2])), process);
+		else if (args[0] == 'block')
+			_state.load_block(_state.make_buffer(parseInt(args[1]), parseInt(args[2])), process);
+		else
+			_state.failure(`Received unknown task [${args[0]}]`, true, true);
+	};
 
 	/* load the initial glue module and afterwards the main application */
 	_state.load_glue = function () {
@@ -131,7 +140,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
-	}
+	};
 
 	/* load the actual primary application once the glue module has been loaded and compiled */
 	_state.load_main = function () {
@@ -154,21 +163,17 @@ setup_wasmlator = function (logPrint, cb) {
 		};
 
 		/* setup the remaining host-imports */
-		imports.env.host_print_u8 = function (ptr, size, failure) {
-			let msg = _state.load_string(ptr, size, true);
-			if (failure)
-				_state.failure(msg, false, true);
-			else
-				logPrint(msg);
+		imports.env.host_task = function (ptr, size, process) {
+			_state.dispatch(_state.load_string(ptr, size, true), process);
+		};
+		imports.env.host_message = function (ptr, size) {
+			logPrint(_state.load_string(ptr, size, true));
+		};
+		imports.env.host_failure = function (ptr, size) {
+			_state.failure(_state.load_string(ptr, size, true), false, true);
 		};
 		imports.env.host_random = function () {
 			return Math.floor(Math.random() * 0x1_0000_0000);
-		};
-		imports.env.host_load_core = function (ptr, size, process) {
-			return _state.load_core(_state.make_buffer(ptr, size), process);
-		};
-		imports.env.host_load_block = function (ptr, size, process) {
-			return _state.load_block(_state.make_buffer(ptr, size), process);
 		};
 
 		/* fetch the main application javascript-wrapper */
@@ -195,7 +200,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
-	}
+	};
 
 	/* load a core module */
 	_state.load_core = function (buffer, process) {
@@ -213,15 +218,14 @@ setup_wasmlator = function (logPrint, cb) {
 				/* set the last-instance, invoke the handler, and then reset the last-instance
 				*	again, in order to ensure unused instances can be garbage-collected */
 				_state.glue.exports.set_last_instance(instance.instance);
-				_state.main.exports.main_core_loaded(process);
+				_state.main.exports.main_task_completed(process, 0, 0);
 				_state.glue.exports.set_last_instance(null);
 			}))
 			.catch((err) => _state.failure(`WasmLator.js: Failed to load core: ${err}`, true, false))
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
-		return 1;
-	}
+	};
 
 	/* load a block module */
 	_state.load_block = function (buffer, process) {
@@ -237,15 +241,14 @@ setup_wasmlator = function (logPrint, cb) {
 				/* set the last-instance, invoke the handler, and then reset the last-instance
 				*	again, in order to ensure unused instances can be garbage-collected */
 				_state.glue.exports.set_last_instance(instance.instance);
-				_state.main.exports.main_block_loaded(process);
+				_state.main.exports.main_task_completed(process, 0, 0);
 				_state.glue.exports.set_last_instance(null);
 			}))
 			.catch((err) => _state.failure(`WasmLator.js: Failed to load block: ${err}`, true, false))
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
-		return 1;
-	}
+	};
 
 	/* start loading the glue-module (will also load the main-application) */
 	_state.load_glue();
@@ -263,14 +266,14 @@ setup_wasmlator = function (logPrint, cb) {
 			let buf = new TextEncoder('utf-8').encode(command);
 
 			/* allocate a buffer for the string in the main-application and write the string to it */
-			let ptr = _state.main.exports.main_allocate_command(buf.length);
+			let ptr = _state.main.exports.main_allocate(buf.length);
 			new Uint8Array(_state.main.memory.buffer, ptr, buf.length).set(buf);
 
 			/* perform the actual execution of the command (will ensure to free it) */
-			_state.main.exports.main_command(ptr, buf.length);
+			_state.main.exports.main_user_command(ptr, buf.length);
 		});
 
 		/* leave the busy-section (may execute the callback) */
 		_state.leave();
-	}
+	};
 }

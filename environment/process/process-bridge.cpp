@@ -3,20 +3,13 @@
 
 static host::Logger logger{ u8"env::process" };
 
-void env::detail::ProcessBridge::CoreLoaded(uint32_t process) {
-	if (env::Instance() == 0 || !env::Instance()->fCoreLoaded(process))
-		logger.warn(u8"Old core-load for [", process, u8"] silently discarded");
-}
-void env::detail::ProcessBridge::BlockLoaded(uint32_t process) {
-	if (env::Instance() == 0 || !env::Instance()->fBlockLoaded(process))
-		logger.warn(u8"Old block-load for [", process, u8"] silently discarded");
+void env::detail::ProcessBridge::TaskCompleted(uint32_t process, std::u8string_view response) {
+	if (env::Instance() == 0 || !env::Instance()->fTaskCompleted(process, response))
+		logger.warn(u8"Old task for [", process, u8"] silently discarded");
 }
 
-bool env::detail::ProcessBridge::LoadCore(const std::vector<uint8_t>& data, uint32_t process) {
-	return (host_load_core(data.data(), uint32_t(data.size()), process) > 0);
-}
-bool env::detail::ProcessBridge::LoadBlock(const std::vector<uint8_t>& data, uint32_t process) {
-	return (host_load_block(data.data(), uint32_t(data.size()), process) > 0);
+void env::detail::ProcessBridge::HandleTask(const std::u8string& task, uint32_t process) {
+	host_task(task.data(), uint32_t(task.size()), process);
 }
 bool env::detail::ProcessBridge::SetExport(const std::u8string& name, uint32_t index) {
 	return (proc_export(name.data(), uint32_t(name.size()), index) > 0);

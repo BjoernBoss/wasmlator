@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ustring/ustring.h>
+#include <jsonify/jsonify.h>
 #include <wasgen/wasm.h>
 #include <cinttypes>
 #include <type_traits>
@@ -12,6 +13,7 @@
 #include <limits>
 #include <optional>
 #include <algorithm>
+#include <vector>
 
 #include "../host/host-logger.h"
 

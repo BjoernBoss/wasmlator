@@ -73,6 +73,35 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 	/* setup the core module */
 	return fLoadCore();
 }
+void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& name) {
+	if (pBindingsClosed)
+		logger.fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
+	pBindings[mod].push_back({ name, 0 });
+}
+void env::Process::fHandleTask(const std::u8string& task, std::function<void(std::u8string_view)> callback) {
+	/* check if a task is currently active, in which case no other task can be processed */
+	if (pTaskActive)
+		logger.fatal(u8"Can only process one task at a time");
+	logger.debug(u8"Handling task [", task, u8"] for [", global::ProcId, u8"]...");
+
+	/* setup the task and pass it out (can be handled in-place, in which case the callback will be called immediately again) */
+	pTaskActive = true;
+	pTaskCallback = callback;
+	detail::ProcessBridge::HandleTask(task, global::ProcId);
+}
+bool env::Process::fTaskCompleted(uint32_t process, std::u8string_view response) {
+	/* check if the ids still match and otherwise simply discard the call (will not affect any internal states) */
+	if (process != global::ProcId)
+		return false;
+	logger.debug(u8"Task sucessfully completed for [", global::ProcId, u8"] with response: [", response.substr(0, 20), (response.size() > 20 ? u8"...]" : u8"]"));
+
+	/* invoke the task-callback */
+	std::function<void(std::u8string_view)> callback = pTaskCallback;
+	pTaskActive = false;
+	callback(response);
+	return true;
+}
+
 bool env::Process::fLoadCore() {
 	logger.debug(u8"Loading core for [", global::ProcId, u8"]...");
 	wasm::BinaryWriter binOutput;
@@ -90,24 +119,21 @@ bool env::Process::fLoadCore() {
 		return false;
 	}
 
-	/* setup the core loading */
-	if (detail::ProcessBridge::LoadCore(binOutput.output(), global::ProcId))
-		return true;
-	logger.error(u8"Failed initiating loading of core for [", global::ProcId, u8']');
-	return false;
+	/* setup the core loading task */
+	const std::vector<uint8_t>& data = binOutput.output();
+	fHandleTask(str::u8::Build(u8"core:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view) {
+		fCoreLoaded();
+		});
+	return true;
 }
-bool env::Process::fCoreLoaded(uint32_t process) {
-	/* check if the ids still match and otherwise simply discard the call (no need to update
-	*	the loading-state, as it will not be affected by a process of a different id) */
-	if (process != global::ProcId)
-		return false;
+void env::Process::fCoreLoaded() {
 	logger.debug(u8"Core loading succeeded for [", global::ProcId, u8']');
 
 	/* setup the core-function mappings */
 	if (!detail::ProcessBridge::SetupCoreMap()) {
 		logger.error(u8"Failed to import all core-functions accessed by the main application");
 		pSystem->shutdown();
-		return true;
+		return;
 	}
 
 	/* register all core bindings */
@@ -121,7 +147,7 @@ bool env::Process::fCoreLoaded(uint32_t process) {
 			/* log the error and shutdown the created system */
 			logger.error(u8"Failed to setup binding for [", name, u8"] of object exported by core to blocks");
 			pSystem->shutdown();
-			return true;
+			return;
 		}
 	}
 
@@ -132,7 +158,6 @@ bool env::Process::fCoreLoaded(uint32_t process) {
 	/* notify the the system about the loaded core and check if the setup failed */
 	if (!pSystem->coreLoaded())
 		pSystem->shutdown();
-	return true;
 }
 void env::Process::fLoadBlock() {
 	logger.debug(u8"Loading block for [", global::ProcId, u8"]...");
@@ -164,29 +189,28 @@ void env::Process::fLoadBlock() {
 	}
 
 	/* check if the exports are valid */
-	if (detail::MappingAccess::CheckLoadable(pExports)) {
-		/* construct the imports-object for the block */
-		detail::ProcessBridge::BlockImportsPrepare();
-		for (const auto& [mod, bindings] : pBindings) {
-			detail::ProcessBridge::BlockImportsNextMember(mod);
-			for (const auto& [name, index] : bindings)
-				detail::ProcessBridge::BlockImportsSetValue(name, index);
-		}
-		detail::ProcessBridge::BlockImportsCommit(false);
+	if (!detail::MappingAccess::CheckLoadable(pExports))
+		logger.fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
 
-		/* try to load the actual block and clear the imports-reference (to allow garbage collection to occur) */
-		bool loading = detail::ProcessBridge::LoadBlock(binOutput.output(), global::ProcId);
-		detail::ProcessBridge::BlockImportsCommit(true);
-		if (loading)
-			return;
+	/* construct the imports-object for the block */
+	detail::ProcessBridge::BlockImportsPrepare();
+	for (const auto& [mod, bindings] : pBindings) {
+		detail::ProcessBridge::BlockImportsNextMember(mod);
+		for (const auto& [name, index] : bindings)
+			detail::ProcessBridge::BlockImportsSetValue(name, index);
 	}
-	logger.fatal(u8"Failed initiating loading of block for [", global::ProcId, u8']');
+	detail::ProcessBridge::BlockImportsCommit(false);
+
+	/* setup the block loading task */
+	const std::vector<uint8_t>& data = binOutput.output();
+	fHandleTask(str::u8::Build(u8"block:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view) {
+		fBlockLoaded();
+		});
+
+	/* clear the imports-reference (to allow garbage collection to occur) */
+	detail::ProcessBridge::BlockImportsCommit(true);
 }
-bool env::Process::fBlockLoaded(uint32_t process) {
-	/* check if the ids still match and otherwise simply discard the call (no need to update
-	*	the loading-state, as it will not be affected by a process of a different id) */
-	if (process != global::ProcId)
-		return false;
+void env::Process::fBlockLoaded() {
 	logger.debug(u8"Block loading succeeded for [", global::ProcId, u8']');
 
 	/* register all exports and update the loading-state */
@@ -197,12 +221,6 @@ bool env::Process::fBlockLoaded(uint32_t process) {
 	/* notify the the system about the loaded core (do not perform
 	*	any other operations, as the process might have be destroyed) */
 	pSystem->blockLoaded();
-	return true;
-}
-void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& name) {
-	if (pBindingsClosed)
-		logger.fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
-	pBindings[mod].push_back({ name, 0 });
 }
 
 const std::u8string& env::Process::blockImportModule() const {

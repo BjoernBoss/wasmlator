@@ -4,37 +4,29 @@
 #include <string>
 
 /* primary application entry point */
-void HandleCommand(std::u8string_view commcmdand);
+void HandleCommand(std::u8string_view cmd);
 
-/* environment/entry-point interactions */
+/* environment/host interactions */
 extern "C" {
 	/* exports */
-	void main_command(char8_t* ptr, uint32_t size);
+	void main_user_command(const char8_t* ptr, uint32_t size);
+	void main_task_completed(uint32_t process, const char8_t* ptr, uint32_t size);
 	void* main_allocate(uint32_t size);
 
-	/* helper */
-	void free_allocated(void* ptr);
-}
-
-/* glue/host interactions */
-extern "C" {
 	/* imports */
-	uint32_t host_load_core(const uint8_t* data, uint32_t size, uint32_t process);
-	uint32_t host_load_block(const uint8_t* data, uint32_t size, uint32_t process);
-	void host_print_u8(const char8_t* data, uint32_t size, bool failure);
+	void host_task(const char8_t* task, uint32_t size, uint32_t process);
+	void host_message(const char8_t* data, uint32_t size);
+	void host_failure(const char8_t* data, uint32_t size);
+	void host_stdout(const char8_t* data, uint32_t size);
+	void host_stderr(const char8_t* data, uint32_t size);
 	uint32_t host_random();
-
-	uint32_t glue_setup_core_map();
-	void glue_reset_core_map();
 }
 
 /* environment/process/process-bridge interactions */
 extern "C" {
-	/* exports */
-	void main_core_loaded(uint32_t process);
-	void main_block_loaded(uint32_t process);
-
 	/* imports */
+	uint32_t glue_setup_core_map();
+	void glue_reset_core_map();
 	uint32_t proc_export(const char8_t* name, uint32_t size, uint32_t index);
 	void proc_block_imports_prepare();
 	void proc_block_imports_next_member(const char8_t* name, uint32_t size);

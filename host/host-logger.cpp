@@ -3,6 +3,13 @@
 
 static host::LogLevel GlobalLevel = host::LogLevel::trace;
 
+void host::GuestStd(std::u8string_view msg) {
+	host_stdout(msg.data(), uint32_t(msg.size()));
+}
+void host::GuestErr(std::u8string_view msg) {
+	host_stderr(msg.data(), uint32_t(msg.size()));
+}
+
 void host::SetLogLevel(host::LogLevel level) {
 	GlobalLevel = level;
 }
@@ -17,5 +24,5 @@ host::Logger::Logger(std::u8string_view self) {
 		pFormat = str::u8::Format(u8"[{: <16}] ", self);
 }
 void host::Logger::fLog(std::u8string_view msg, bool fatal) const {
-	host_print_u8(msg.data(), uint32_t(msg.size()), fatal);
+	(fatal ? host_failure : host_message)(msg.data(), uint32_t(msg.size()));
 }

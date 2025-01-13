@@ -7,3 +7,6 @@
 [submodule "repos/arger"]
 	path = repos/arger
 	url = git@github.com:BjoernBoss/arger.git
+[submodule "repos/jsonify"]
+	path = repos/jsonify
+	url = git@github.com:BjoernBoss/jsonify.git

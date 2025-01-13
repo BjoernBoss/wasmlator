@@ -8,14 +8,18 @@
 
 static host::Logger logger{ u8"interface" };
 
-void main_command(char8_t* ptr, uint32_t size) {
-	try {
-		/* first write the raw buffer to a std::u8string, in order for exceptions
-		*	to free the memory properly, and pass it to the handler */
-		std::u8string command{ ptr, size };
-		free_allocated(ptr);
+struct Cleanup {
+	const void* ptr = 0;
+	Cleanup(const void* ptr) : ptr{ ptr } {}
+	~Cleanup() { if (ptr != 0) delete[] static_cast<const uint8_t*>(ptr); }
+};
 
-		HandleCommand(command);
+void main_user_command(const char8_t* ptr, uint32_t size) {
+	Cleanup _cleanup{ ptr };
+
+	/* pass the command to the command-handler */
+	try {
+		HandleCommand(std::u8string_view{ ptr, size });
 	}
 
 	/* catch fatal exceptions and ignore them, as they will already have been
@@ -26,41 +30,25 @@ void main_command(char8_t* ptr, uint32_t size) {
 		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_command]");
 	}
 }
+void main_task_completed(uint32_t process, const char8_t* ptr, uint32_t size) {
+	Cleanup _cleanup{ ptr };
+
+	/* pass the task to the current process */
+	try {
+		env::detail::ProcessBridge::TaskCompleted(process, std::u8string_view{ ptr, size });
+	}
+
+	/* catch fatal exceptions and ignore them, as they will already have been
+	*	logged and otherwise log the occurrance of the unknown exception */
+	catch (const host::FatalException&) {}
+	catch (...) {
+		/* log with level to ensure no fatal-exception is thrown again */
+		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_task_completed]");
+	}
+}
 void* main_allocate(uint32_t size) {
 	/* allocate a raw buffer of the given size and return it */
 	return new uint8_t[size];
-}
-void free_allocated(void* ptr) {
-	delete[] static_cast<uint8_t*>(ptr);
-}
-
-
-void main_core_loaded(uint32_t process) {
-	try {
-		env::detail::ProcessBridge::CoreLoaded(process);
-	}
-
-	/* catch fatal exceptions and ignore them, as they will already have been
-	*	logged and otherwise log the occurrance of the unknown exception */
-	catch (const host::FatalException&) {}
-	catch (...) {
-		/* log with level to ensure no fatal-exception is thrown again */
-		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_core_loaded]");
-	}
-}
-
-void main_block_loaded(uint32_t process) {
-	try {
-		env::detail::ProcessBridge::BlockLoaded(process);
-	}
-
-	/* catch fatal exceptions and ignore them, as they will already have been
-	*	logged and otherwise log the occurrance of the unknown exception */
-	catch (const host::FatalException&) {}
-	catch (...) {
-		/* log with level to ensure no fatal-exception is thrown again */
-		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_core_loaded]");
-	}
 }
 
 void main_terminate(int32_t code, uint64_t address) {

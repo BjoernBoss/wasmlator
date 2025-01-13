@@ -3,6 +3,10 @@
 #include <ustring/ustring.h>
 
 namespace host {
+	/* logs performed by the guest */
+	void GuestStd(std::u8string_view msg);
+	void GuestErr(std::u8string_view msg);
+
 	enum class LogLevel : uint8_t {
 		fatal,
 		error,

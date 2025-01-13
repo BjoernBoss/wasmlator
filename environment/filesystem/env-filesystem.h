@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../env-common.h"
-#include "filesystem-bridge.h"
 
 namespace env {
 	struct FileStats {
@@ -20,11 +19,8 @@ namespace env {
 	};
 
 	class FileSystem {
-		friend detail::FileSystemBridge;
 	private:
-		std::function<void(bool)> pCallback;
 		std::vector<uint64_t> pOpen;
-		uint64_t pActive = 0;
 
 	public:
 		FileSystem();
@@ -32,11 +28,10 @@ namespace env {
 		FileSystem(const env::FileSystem&) = delete;
 
 	private:
-		void fCheck() const;
 		void fCheck(uint64_t id) const;
-		void fCompleted(uint64_t id);
-		void fQueueTask(std::u8string task, std::function<void(bool)> callback);
-		env::FileStats fReadStat(size_t index) const;
+		void fHandleTask(const std::u8string& task, std::function<void(bool)> callback);
+		void fHandleTask(const std::u8string& task, std::function<void(json::Reader<std::u8string_view>)> callback);
+		env::FileStats fReadStat(json::ObjReader<std::u8string_view> obj) const;
 
 	public:
 		void readStats(std::u8string path, std::function<void(bool, const env::FileStats&)> callback);
