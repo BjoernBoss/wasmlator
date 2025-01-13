@@ -312,7 +312,7 @@ void sys::Userspace::coreLoaded() {
 
 			/* allocate the buffer for the file-content and read it into memory */
 			uint8_t* buffer = new uint8_t[stats->size];
-			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, true, [=, this](uint64_t count) {
+			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [=, this](uint64_t count) {
 				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
 
 				/* close the file again, as no more data will be read */

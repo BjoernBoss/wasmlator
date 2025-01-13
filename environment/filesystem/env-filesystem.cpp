@@ -245,9 +245,9 @@ void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, std:
 		callback(false, 0, (hasStats ? &stats : 0));
 		});
 }
-void env::FileSystem::readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, bool all, std::function<void(uint64_t)> callback) {
+void env::FileSystem::readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(uint64_t)> callback) {
 	if (fCheck(id))
-		fHandleTask(str::u8::Build((all ? u8"all:" : u8"read:"), pOpen[id].value(), u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [=](json::Reader<std::u8string_view> resp) {
+		fHandleTask(str::u8::Build(u8"read:", pOpen[id].value(), u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [=](json::Reader<std::u8string_view> resp) {
 		callback(resp.unum());
 			});
 }

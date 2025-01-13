@@ -1,9 +1,25 @@
-class OpenFile {
-	constructor(path) {
-		this.path = path;
-		this.users = 1;
-		this.dirty = false;
-		this.data = new ArrayBuffer(0, { maxByteLength: 100_000_000 });
+class FileNode {
+	constructor(stats) {
+		this.dataDirty = false;
+		this.metaDirty = false;
+		this.stats = stats;
+		this.users = 0;
+		this.data = null;
+	}
+
+	addUser() {
+		if (this.users == 0)
+			this.data = new ArrayBuffer(0, { maxByteLength: 100_000_000 });
+		this.users += 1;
+	}
+	read() {
+		this.metaDirty = true;
+		this.stats.atime_us = Date.now() * 1000;
+	}
+	written() {
+		this.dataDirty = true;
+		this.metaDirty = true;
+		this.stats.mtime_us = Date.now() * 1000;
 	}
 }
 
@@ -12,17 +28,17 @@ class FSHost {
 		this._log = log;
 		this._err = err;
 
-		/* list of all open files */
-		this._open = [];
+		/* set of all open or queried files */
+		this._files = {};
 
-		/* stats-cache (all raw array buffers) */
-		this._cache = {};
+		/* map of ids to file nodes */
+		this._open = [];
 	}
 
 	_getStats(path, cb) {
 		/* check if the path exists in the cache */
-		if (path in this._cache) {
-			cb(this._cache[path]);
+		if (path in this._files) {
+			cb(this._files[path].stats);
 			return;
 		}
 		this._log(`Fetching stats for [${path}]...`);
@@ -37,7 +53,7 @@ class FSHost {
 			})
 			.then((json) => {
 				this._log(`Stats for [${path}] received`);
-				this._cache[path] = json;
+				this._files[path] = new FileNode(json);
 				cb(json);
 			})
 			.catch((err) => {
@@ -67,53 +83,52 @@ class FSHost {
 			return;
 		}
 
-		/* check if the file is already open */
-		let index = null;
-		for (let i = 0; i < this._open.length; ++i) {
-			if (this._open[i].path != path)
-				continue;
-			index = i;
-			break;
-		}
+		/* lookup the corresponding file-node */
+		let node = null;
+		if (path in this._files)
+			node = this._files[path];
 
 		/* check if the file should be truncated or a new file created */
 		if (truncate || stats == null) {
-			/* check if the file already exists and reset it */
-			if (index != null) {
-				if (this._open[index].data.byteLength > 0)
-					this._open[index].dirty = true;
-				this._open[index].data.resize(0);
-				this._open[index].users += 1;
+			/* check if the file-node needs to be created */
+			if (stats == null) {
+				stats = {};
+				stats.name = path.substr(path.lastIndexOf('/') + 1);
+				stats.link = '';
+				stats.size = 0;
+				stats.atime_us = Date.now() * 1000;
+				stats.mtime_us = stats.atime_us;
+				stats.type = 'file';
+				node = (this._files[path] = new FileNode(stats));
+				node.addUser();
 			}
 
-			/* create the completely new file and stats */
+			/* truncate the existing file */
 			else {
-				/* setup the new stats */
-				if (stats == null) {
-					stats = (this._cache[path] = {});
-					stats.name = path.substr(path.lastIndexOf('/') + 1);
-					stats.link = '';
-					stats.size = 0;
-					stats.atime_us = Date.now() * 1000;
-					stats.mtime_us = stats.atime;
-					stats.type = 'file';
-				}
+				if (node == null)
+					node = (this._files[path] = new FileNode(stats));
+				node.addUser();
 
-				/* create the new empty entry */
-				index = this._open.length;
-				this._open.push(new OpenFile(path));
-				this._open[index].dirty = (stats.size > 0);
+				if (node.data.byteLength > 0 || node.stats.size > 0) {
+					node.stats.size = 0;
+					node.data.resize(0);
+					node.written();
+				}
 			}
+
+			/* allocate the index in the open-map */
+			this._open.push(node);
 
 			/* notify the callback about the opened file */
-			cb(index, stats);
+			cb(this._open.length - 1, node.stats);
 			return;
 		}
 
 		/* check if the file does not need to be read again */
-		if (index != null) {
-			this._open[index].users += 1;
-			cb(index, stats);
+		if (node.data != null) {
+			node.addUser();
+			this._open.push(node);
+			cb(this._open.length - 1, node.stats);
 			return;
 		}
 
@@ -131,13 +146,17 @@ class FSHost {
 			.then((buf) => {
 				this._log(`Data of [${path}] received`);
 
-				/* update the stats and write the data to the file entry */
-				stats.size = buf.byteLength;
-				index = this._open.length;
-				this._open.push(new OpenFile(path));
-				this._open[index].data.resize(stats.size);
-				new Uint8Array(this._open[index].data).set(new Uint8Array(buf));
-				cb(index, stats);
+				/* setup the new file-node */
+				if (node == null)
+					node = (this._files[path] = new FileNode(stats));
+				node.addUser();
+				node.stats.size = buf.byteLength;
+				this._open.push(node);
+
+				/* write the data to the node */
+				node.data.resize(buf.byteLength);
+				new Uint8Array(node.data).set(new Uint8Array(buf));
+				cb(this._open.length - 1, node.stats);
 			})
 			.catch((err) => {
 				this._err(`Failed to fetch stats for [${path}]: ${err}`);
@@ -177,6 +196,29 @@ class FSHost {
 				this._openFile(null, path, create, open, truncate, cb);
 			});
 		});
+	}
+
+	/* cb(read): returns number of bytes read or null on failure */
+	readFile(id, buffer, offset, cb) {
+		/* validate the id */
+		if (id >= this._open.length || this._open[id] == null) {
+			cb(0);
+			return;
+		}
+
+		/* compute the number of bytes to read */
+		let count = Math.min(buffer.byteLength, this._open[id].data.byteLength - offset);
+		if (count <= 0) {
+			cb(0);
+			return;
+		}
+
+		/* read the data to the buffer */
+		buffer.set(new Uint8Array(this._open[id].data, offset, count));
+
+		/* update the meta-data and notify the caller */
+		this._open[id].read();
+		cb(count);
 	}
 
 	closeAll() {

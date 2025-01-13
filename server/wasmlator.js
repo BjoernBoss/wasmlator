@@ -112,8 +112,6 @@ setup_wasmlator = function (logPrint, cb) {
 
 		/* handle the core and block creation handling */
 		if (cmd == 'core') {
-			/* close all files, as there might have been some previously opened files remaining from the last core */
-			_state.fs.closeAll();
 			let args = payload.split(':');
 			_state.load_core(_state.make_buffer(parseInt(args[0]), parseInt(args[1])), process);
 		}
@@ -127,6 +125,11 @@ setup_wasmlator = function (logPrint, cb) {
 			_state.fs.getStats(payload, (s) => _state.task_completed(process, s));
 		else if (cmd == 'opexisting')
 			_state.fs.openFile(payload, false, true, false, (id, s) => _state.task_completed(process, { id: id, stats: s }));
+		else if (cmd == 'read') {
+			let args = payload.split(':');
+			let buf = new Uint8Array(_state.main.memory, parseInt(args[1]), parseInt(args[3]));
+			_state.fs.readFile(parseInt(args[0]), buf, parseInt(args[2]), (r) => _state.task_completed(process, r));
+		}
 
 		/* default catch-handler for unknown commands */
 		else
