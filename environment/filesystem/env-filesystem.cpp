@@ -27,6 +27,8 @@ bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(
 }
 bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(json::Reader<std::u8string_view>)> callback) {
 	return detail::ProcessAccess::HandleTask(task, [=](std::u8string_view response, bool) {
+		if (response.empty())
+			response = u8"null";
 		try {
 			callback(json::Read(response));
 		}
@@ -55,8 +57,8 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 		}
 		else if (key == L"type") {
 			out.type = static_cast<env::FileType>(value.unum());
-			if (out.type >= env::FileType::_last)
-				logger.fatal(u8"Received unknown file-type [", size_t(out.type), u8']');
+			if (out.type >= env::FileType::_last || out.type == env::FileType::none)
+				logger.fatal(u8"Received invalid file-type [", size_t(out.type), u8']');
 			type = true;
 		}
 		else if (key == L"name") {
@@ -96,7 +98,7 @@ void env::FileSystem::fFollowLinks(std::u8string_view path, bool first, std::fun
 	}
 
 	/* read the stats and check if they need to be expanded */
-	fReadStats(path, [=, this](const env::FileStats* stats) {
+	fReadStats(path, [path = std::u8string(path), callback, this](const env::FileStats* stats) {
 		/* check if the reading failed */
 		if (stats == 0) {
 			callback(u8"", 0);

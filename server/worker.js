@@ -1,5 +1,6 @@
-/* import the main wasmlator system */
-importScripts("./wasmlator.js")
+/* import the main wasmlator system and filesystem */
+importScripts("./filesystem.js");
+importScripts("./wasmlator.js");
 
 /* handler to signal that wasmlator is not busy anymore */
 let completed = () => postMessage({ cmd: 'ready' });

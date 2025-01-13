@@ -1,4 +1,5 @@
 build
 server/wasm/*
 server/wat/*
+server/fs/*
 .vscode/**

@@ -301,8 +301,8 @@ void sys::Userspace::coreLoaded() {
 			return;
 		}
 
-		/* setup the opening of the file */
-		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, [=, this](bool success, uint64_t id, const env::FileStats* stats) {
+		/* setup the opening of the file (create a copy of the path-object as it will be released after this call is done) */
+		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, [path = std::u8string{ path }, this](bool success, uint64_t id, const env::FileStats* stats) {
 			/* check if the file could be opened */
 			if (!success) {
 				logger.error(u8"Failed to open file [", path, u8"] for reading");

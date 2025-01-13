@@ -106,7 +106,7 @@ bool env::Process::fTaskCompleted(uint32_t process, std::u8string_view response)
 	/* check if the ids still match and otherwise simply discard the call (will not affect any internal states) */
 	if (process != global::ProcId)
 		return false;
-	logger.debug(u8"Task sucessfully completed for [", global::ProcId, u8"] with stamp [", pTaskStamp, u8"] and response: [", response.substr(0, 32), (response.size() > 32 ? u8"...]" : u8"]"));
+	logger.debug(u8"Task completed for [", global::ProcId, u8"] with stamp [", pTaskStamp, u8"] and response: [", str::As{ U"e", response.substr(0, 32) }, (response.size() > 32 ? u8"...]" : u8"]"));
 
 	/* fetch the callback and reset the task-state */
 	std::function<void(std::u8string_view, bool)> callback = pTaskCallback;

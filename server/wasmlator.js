@@ -15,7 +15,8 @@ setup_wasmlator = function (logPrint, cb) {
 		},
 		loadState: 'none', // none, loading, loaded
 		busy: 0,
-		completed: null
+		completed: null,
+		fs: null
 	};
 
 	/* interact with the busy-areas (to prevent nested execution of commands) */
@@ -42,58 +43,94 @@ setup_wasmlator = function (logPrint, cb) {
 	/* start the official busy-area, as the creation is considered being busy */
 	_state.start(() => {
 		if (_state.loadState == 'loaded')
-			_state.log('Wasmlator.js: Loaded successfully and ready...');
+			_state.selfLog('Loaded successfully and ready...');
 		else
-			_state.failure('Wasmlator.js: Failed to load properly...', true, false);
+			_state.selfFail('Failed to load properly...');
 		if (cb != null)
 			cb();
 	});
 	_state.loadState = 'loading';
 
 	/* execute the callback in a catch-handler to log any potential unhandled exceptions being thrown */
-	class PrintError extends Error { constructor(m) { super(m); this.name = ''; } };
+	class PrintStack extends Error { constructor(m) { super(m); this.name = ''; } };
 	_state.controlled = function (fn) {
 		try {
 			fn();
 		} catch (e) {
-			_state.failure(`Wasmlator.js: Unhandled exception occurred: ${e.stack}`, true, true);
+			_state.selfFail(`Unhandled exception occurred: ${e.stack}`);
 		}
 	}
-	_state.log = function (msg) {
-		logPrint(`L:${msg}`);
+	_state.selfLog = function (msg) {
+		console.log(`WasmLator.js: ${msg}`);
 	};
-	_state.failure = function (msg, addHint, withStack) {
-		if (withStack)
-			logPrint(`${addHint ? 'F:' : ''}${new PrintError(msg).stack}`);
-		else
-			logPrint(`${addHint ? 'F:' : ''}${msg}`);
+	_state.selfFail = function (msg) {
+		logPrint(`F:WasmLator.js: ${msg}`);
 	};
+
+	/* setup the new filesystem host */
+	_state.fs = new FSHost((msg) => _state.selfLog(msg), (msg) => _state.selfFail(msg));
 
 	/* create a string from the utf-8 encoded data at ptr in the main application or the glue-module */
 	_state.load_string = function (ptr, size, main_memory) {
-		let view = new DataView((main_memory ? _state.main.memory.buffer : _state.glue.memory.buffer), ptr, size);
+		let view = new DataView((main_memory ? _state.main.memory : _state.glue.memory), ptr, size);
 		return new TextDecoder('utf-8').decode(view);
 	};
 
 	/* create a buffer (newly allocated) from the data at ptr in the main application */
 	_state.make_buffer = function (ptr, size) {
-		return _state.main.memory.buffer.slice(ptr, ptr + size);
+		return _state.main.memory.slice(ptr, ptr + size);
+	};
+
+	/* helper to write the result of a task to the application */
+	_state.task_completed = function (process, buffer) {
+		let addr = 0, size = 0;
+
+		/* write the result to the main application */
+		if (buffer != null) {
+			addr = _state.main.exports.main_allocate(buffer.byteLength);
+			size = buffer.byteLength;
+			new Uint8Array(_state.main.memory, addr, size).set(new Uint8Array(buffer));
+		}
+
+		/* invoke the callback */
+		_state.controlled(() => _state.main.exports.main_task_completed(process, addr, size));
 	};
 
 	/* task dispatcher for the primary application */
-	_state.dispatch = function (task, process) {
-		let args = task.split(':');
-		if (args[0] == 'core')
-			_state.load_core(_state.make_buffer(parseInt(args[1]), parseInt(args[2])), process);
-		else if (args[0] == 'block')
-			_state.load_block(_state.make_buffer(parseInt(args[1]), parseInt(args[2])), process);
-		else
-			_state.failure(`Received unknown task [${args[0]}]`, true, true);
+	_state.handle_task = function (task, process) {
+		/* extract the next command */
+		let cmd = task, i = 0, payload = '';
+		if ((i = task.indexOf(':')) >= 0) {
+			cmd = task.substring(0, i);
+			payload = task.substring(i + 1);
+		}
+
+		/* handle the core and block creation handling */
+		if (cmd == 'core') {
+			/* close all files, as there might have been some previously opened files remaining from the last core */
+			_state.fs.closeAll();
+			let args = payload.split(':');
+			_state.load_core(_state.make_buffer(parseInt(args[0]), parseInt(args[1])), process);
+		}
+		else if (cmd == 'block') {
+			let args = payload.split(':');
+			_state.load_block(_state.make_buffer(parseInt(args[0]), parseInt(args[1])), process);
+
+		}
+		/* handle the file-system commands */
+		else if (cmd == 'stats')
+			_state.fs.getStats(payload, (s) => _state.task_completed(process, s));
+
+		/* default catch-handler for unknown commands */
+		else {
+			_state.selfFail(new PrintStack(`Received unknown task [${cmd}]`).stack);
+			_state.task_completed(process, null);
+		}
 	};
 
 	/* load the initial glue module and afterwards the main application */
 	_state.load_glue = function () {
-		_state.log(`WasmLator.js: Loading glue module...`);
+		_state.selfLog(`Loading glue module...`);
 
 		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
@@ -129,14 +166,14 @@ setup_wasmlator = function (logPrint, cb) {
 				return WebAssembly.instantiateStreaming(resp, imports);
 			})
 			.then((instance) => {
-				_state.log(`WasmLator.js: Glue module loaded`);
+				_state.selfLog(`Glue module loaded`);
 				_state.glue.exports = instance.instance.exports;
-				_state.glue.memory = _state.glue.exports.memory;
+				_state.glue.memory = _state.glue.exports.memory.buffer;
 
 				/* load the main module, which will then startup the wasmlator */
 				_state.controlled(() => _state.load_main());
 			})
-			.catch((err) => _state.failure(`Wasmlator.js: Failed to load glue module: ${err}`, true, false))
+			.catch((err) => _state.selfFail(`Failed to load glue module: ${err}`))
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
@@ -144,7 +181,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 	/* load the actual primary application once the glue module has been loaded and compiled */
 	_state.load_main = function () {
-		_state.log(`WasmLator.js: Loading main module...`);
+		_state.selfLog(`Loading main module...`);
 
 		/* enter the busy-area (will be left once the glue module has been loaded successfully or failed) */
 		_state.enter();
@@ -159,18 +196,18 @@ setup_wasmlator = function (logPrint, cb) {
 		/* setup the main imports (env.emscripten_notify_memory_growth and wasi_snapshot_preview1.proc_exit required by wasm-standalone module) */
 		imports.env.emscripten_notify_memory_growth = function () { };
 		imports.wasi_snapshot_preview1.proc_exit = function (code) {
-			_state.failure(`WasmLator.js: Main module terminated itself with exit-code [${code}] - (Unhandled exception?)`, true, true);
+			_state.selfFail(new PrintStack(`Main module terminated itself with exit-code [${code}] - (Unhandled exception?)`).stack);
 		};
 
 		/* setup the remaining host-imports */
 		imports.env.host_task = function (ptr, size, process) {
-			_state.dispatch(_state.load_string(ptr, size, true), process);
+			_state.handle_task(_state.load_string(ptr, size, true), process);
 		};
 		imports.env.host_message = function (ptr, size) {
 			logPrint(_state.load_string(ptr, size, true));
 		};
 		imports.env.host_failure = function (ptr, size) {
-			_state.failure(_state.load_string(ptr, size, true), false, true);
+			logPrint(new PrintStack(_state.load_string(ptr, size, true)).stack);
 		};
 		imports.env.host_random = function () {
 			return Math.floor(Math.random() * 0x1_0000_0000);
@@ -184,19 +221,19 @@ setup_wasmlator = function (logPrint, cb) {
 				return WebAssembly.instantiateStreaming(resp, imports);
 			})
 			.then((instance) => {
-				_state.log(`WasmLator.js: Main module loaded`);
+				_state.selfLog(`Main module loaded`);
 				_state.main.exports = instance.instance.exports;
-				_state.main.memory = _state.main.exports.memory;
+				_state.main.memory = _state.main.exports.memory.buffer;
 
 				/* startup the main application, which requires the internal _initialize to be invoked */
 				_state.controlled(() => {
-					_state.log(`WasmLator.js: Starting up main module...`);
+					_state.selfLog(`Starting up main module...`);
 					_state.main.exports._initialize();
 					_state.loadState = 'loaded';
-					_state.log(`WasmLator.js: Main module initialized`);
+					_state.selfLog(`Main module initialized`);
 				});
 			})
-			.catch((err) => _state.failure(`Wasmlator.js: Failed to load main module: ${err}`, true, false))
+			.catch((err) => _state.selfFail(`Failed to load main module: ${err}`))
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
@@ -218,10 +255,10 @@ setup_wasmlator = function (logPrint, cb) {
 				/* set the last-instance, invoke the handler, and then reset the last-instance
 				*	again, in order to ensure unused instances can be garbage-collected */
 				_state.glue.exports.set_last_instance(instance.instance);
-				_state.main.exports.main_task_completed(process, 0, 0);
+				_state.task_completed(process);
 				_state.glue.exports.set_last_instance(null);
 			}))
-			.catch((err) => _state.failure(`WasmLator.js: Failed to load core: ${err}`, true, false))
+			.catch((err) => _state.selfFail(`Failed to load core: ${err}`))
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
@@ -241,10 +278,10 @@ setup_wasmlator = function (logPrint, cb) {
 				/* set the last-instance, invoke the handler, and then reset the last-instance
 				*	again, in order to ensure unused instances can be garbage-collected */
 				_state.glue.exports.set_last_instance(instance.instance);
-				_state.main.exports.main_task_completed(process, 0, 0);
+				_state.task_completed(process);
 				_state.glue.exports.set_last_instance(null);
 			}))
-			.catch((err) => _state.failure(`WasmLator.js: Failed to load block: ${err}`, true, false))
+			.catch((err) => _state.selfFail(`Failed to load block: ${err}`))
 
 			/* leave the busy-area (may execute the completed callback - no matter if the controlled execution succeeded or failed) */
 			.finally(() => _state.leave());
@@ -267,7 +304,7 @@ setup_wasmlator = function (logPrint, cb) {
 
 			/* allocate a buffer for the string in the main-application and write the string to it */
 			let ptr = _state.main.exports.main_allocate(buf.length);
-			new Uint8Array(_state.main.memory.buffer, ptr, buf.length).set(buf);
+			new Uint8Array(_state.main.memory, ptr, buf.length).set(buf);
 
 			/* perform the actual execution of the command (will ensure to free it) */
 			_state.main.exports.main_user_command(ptr, buf.length);
