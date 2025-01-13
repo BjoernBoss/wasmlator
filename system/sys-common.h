@@ -24,16 +24,17 @@ namespace sys {
 	namespace detail {
 		namespace errCode {
 			static constexpr int64_t eSuccess = 0;
-			static constexpr int64_t eNoEntry = 2;
-			static constexpr int64_t eBadFd = 9;
-			static constexpr int64_t eAccess = 13;
-			static constexpr int64_t eFault = 14;
-			static constexpr int64_t eNotDirectory = 20;
-			static constexpr int64_t eIsDir = 21;
-			static constexpr int64_t eInvalid = 22;
+			static constexpr int64_t eNoEntry = -2;
+			static constexpr int64_t eIO = -5;
+			static constexpr int64_t eBadFd = -9;
+			static constexpr int64_t eAccess = -13;
+			static constexpr int64_t eFault = -14;
+			static constexpr int64_t eNotDirectory = -20;
+			static constexpr int64_t eIsDir = -21;
+			static constexpr int64_t eInvalid = -22;
 
 			/* custom error (not mapped to any linux errors) */
-			static constexpr uint64_t eUnknown = 0xffff;
+			static constexpr int64_t eUnknown = -0xffff;
 		}
 
 		struct FlushInstCache : public env::Exception {
@@ -60,15 +61,18 @@ namespace sys {
 
 	enum class SyscallIndex : uint32_t {
 		unknown,
-		read,
-		write,
 		brk,
 		getuid,
 		geteuid,
 		getgid,
 		getegid,
 		uname,
-		openat
+		openat,
+		open,
+		read,
+		readv,
+		write,
+		writev
 	};
 
 	struct SyscallArgs {

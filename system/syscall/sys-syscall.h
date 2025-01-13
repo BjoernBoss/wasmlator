@@ -24,11 +24,12 @@ namespace sys::detail {
 
 	private:
 		void fHandle(env::guest_t address);
-		uint64_t fWrapped(env::guest_t address, const sys::SyscallArgs& args);
-		uint64_t fHandleIds(std::u8string_view name) const;
-		env::guest_t fHandleBrk(env::guest_t addr);
-		uint64_t fHandleUName(env::guest_t addr) const;
-		uint64_t fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode);
+		int64_t fWrapped(env::guest_t address, const sys::SyscallArgs& args);
+		int64_t fHandleIds(std::u8string_view name) const;
+		int64_t fHandleBrk(env::guest_t addr);
+		int64_t fHandleUName(env::guest_t addr) const;
+		int64_t fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode);
+		int64_t fHandleOpen(env::guest_t pathname, uint64_t flags, uint64_t mode);
 
 	public:
 		bool setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view currentDirectory);

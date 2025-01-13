@@ -43,6 +43,8 @@ namespace sys::detail {
 	struct FileEntry {
 		std::u8string path;
 		detail::FileState state = detail::FileState::none;
+		bool read = false;
+		bool write = false;
 	};
 
 	class FileIO {
@@ -54,11 +56,21 @@ namespace sys::detail {
 		FileIO() = default;
 
 	private:
-		uint64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
+		int64_t fCheckRead(int64_t fd) const;
+		int64_t fCheckWrite(int64_t fd) const;
+
+	private:
+		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
+		int64_t fRead(detail::FileEntry& entry, std::vector<uint8_t>& buffer);
+		int64_t fWrite(detail::FileEntry& entry, const std::vector<uint8_t>& buffer);
 
 	public:
 		bool setup(std::u8string_view currentDirectory);
-		uint64_t openat(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
-		uint64_t open(std::u8string_view path, uint64_t flags, uint64_t mode);
+		int64_t openat(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
+		int64_t open(std::u8string_view path, uint64_t flags, uint64_t mode);
+		int64_t read(int64_t fd, env::guest_t address, uint64_t size);
+		int64_t readv(int64_t fd, env::guest_t vec, uint64_t count);
+		int64_t write(int64_t fd, env::guest_t address, uint64_t size);
+		int64_t writev(int64_t fd, env::guest_t vec, uint64_t count);
 	};
 }

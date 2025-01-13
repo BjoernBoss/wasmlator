@@ -17,7 +17,7 @@ void sys::detail::Syscall::fHandle(env::guest_t address) {
 	sys::Cpu* cpu = pUserspace->cpu();
 
 	/* catch any potential memory errors */
-	uint64_t result = 0;
+	int64_t result = 0;
 	try {
 		result = fWrapped(address, cpu->syscallGetArgs());
 	}
@@ -27,18 +27,12 @@ void sys::detail::Syscall::fHandle(env::guest_t address) {
 	}
 
 	/* write the result out to the process */
-	logger.debug(u8"result: ", str::As{ U"#018x", int64_t(result) });
+	logger.debug(u8"result: ", str::As{ U"#018x", result });
 	cpu->syscallSetResult(result);
 }
-uint64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::SyscallArgs& args) {
+int64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::SyscallArgs& args) {
 	/* check if the syscall can be handled in-place */
 	switch (args.index) {
-	case sys::SyscallIndex::read:
-		logger.fatal(u8"Syscall [read] not implemented");
-		break;
-	case sys::SyscallIndex::write:
-		logger.fatal(u8"Syscall [write] not implemented");
-		break;
 	case sys::SyscallIndex::getuid:
 		return fHandleIds(u8"getuid");
 	case sys::SyscallIndex::geteuid:
@@ -53,6 +47,20 @@ uint64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::Syscall
 		return fHandleUName(args.args[0]);
 	case sys::SyscallIndex::openat:
 		return fHandleOpenAt(args.args[0], args.args[1], args.args[2], args.args[3]);
+	case sys::SyscallIndex::open:
+		return fHandleOpen(args.args[0], args.args[1], args.args[2]);
+	case sys::SyscallIndex::readv:
+		logger.debug(u8"Syscall readv(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
+		return pFileIO.readv(args.args[0], args.args[1], args.args[2]);
+	case sys::SyscallIndex::read:
+		logger.debug(u8"Syscall read(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
+		return pFileIO.read(args.args[0], args.args[1], args.args[2]);
+	case sys::SyscallIndex::writev:
+		logger.debug(u8"Syscall writev(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
+		return pFileIO.writev(args.args[0], args.args[1], args.args[2]);
+	case sys::SyscallIndex::write:
+		logger.debug(u8"Syscall write(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
+		return pFileIO.write(args.args[0], args.args[1], args.args[2]);
 	case sys::SyscallIndex::unknown:
 		throw detail::UnknownSyscall{ address, args.rawIndex };
 		break;
@@ -64,11 +72,11 @@ uint64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::Syscall
 	/* should never be reached */
 	return errCode::eUnknown;
 }
-uint64_t sys::detail::Syscall::fHandleIds(std::u8string_view name) const {
+int64_t sys::detail::Syscall::fHandleIds(std::u8string_view name) const {
 	logger.debug(u8"Syscall ", name, u8"()");
 	return uint16_t(env::Instance()->getId());
 }
-env::guest_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
+int64_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
 	logger.debug(u8"Syscall brk(", str::As{ U"#018x", addr }, u8')');
 
 	/* check if the address lies beneath the initial address, in which case
@@ -100,13 +108,9 @@ env::guest_t sys::detail::Syscall::fHandleBrk(env::guest_t addr) {
 	pBrk.current = addr;
 	return pBrk.current;
 }
-uint64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
+int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	/* Note: memory errors will be handled automatically */
 	logger.debug(u8"Syscall uname(", str::As{ U"#018x", addr }, u8") - Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");
-
-	/* validate the address */
-	if (addr == 0)
-		return errCode::eFault;
 
 	/* write the systemname out */
 	env::Instance()->memory().mwrite(addr + 0 * 65llu, u8"wasmlator", 10, env::Usage::Write);
@@ -124,11 +128,17 @@ uint64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	env::Instance()->memory().mwrite(addr + 4 * 65llu, u8"wasm", 5, env::Usage::Write);
 	return errCode::eSuccess;
 }
-uint64_t sys::detail::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode) {
+int64_t sys::detail::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode) {
 	logger.debug(u8"Syscall openat(", dirfd, u8", ", str::As{ U"#018x", pathname }, u8", ", flags, u8", ", mode, u8')');
 	std::u8string path = fReadString(pathname);
 	logger.debug(u8"pathname: [", path, u8"]");
 	return pFileIO.openat(dirfd, path, flags, mode);
+}
+int64_t sys::detail::Syscall::fHandleOpen(env::guest_t pathname, uint64_t flags, uint64_t mode) {
+	logger.debug(u8"Syscall open(", str::As{ U"#018x", pathname }, u8", ", flags, u8", ", mode, u8')');
+	std::u8string path = fReadString(pathname);
+	logger.debug(u8"pathname: [", path, u8"]");
+	return pFileIO.open(path, flags, mode);
 }
 
 bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view currentDirectory) {
