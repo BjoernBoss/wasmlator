@@ -8,9 +8,16 @@ class FileNode {
 	}
 
 	addUser() {
-		if (this.users == 0)
+		if (this.users++ == 0 && this.data == null)
 			this.data = new ArrayBuffer(0, { maxByteLength: 100_000_000 });
-		this.users += 1;
+	}
+	dropUser() {
+		if (--this.users > 0)
+			return;
+
+		/* check if the data should be held in memory or be discarded */
+		if (!this.dataDirty)
+			this.data = null;
 	}
 	read() {
 		this.metaDirty = true;
@@ -23,7 +30,7 @@ class FileNode {
 	}
 }
 
-class FSHost {
+class MemFileSystem {
 	constructor(log, err) {
 		this._log = log;
 		this._err = err;
@@ -221,7 +228,16 @@ class FSHost {
 		cb(count);
 	}
 
-	closeAll() {
+	/* cb(): close the file and simply return */
+	closeFile(id, cb) {
+		/* validate the id and simply discard any operations on
+		*	unknown ids and otherwise remove the user */
+		if (id < this._open.length && this._open[id] != null) {
+			this._open[id].dropUser();
+			this._open[id] = null;
+		}
 
+		/* notify the listener about the completion */
+		cb();
 	}
 }

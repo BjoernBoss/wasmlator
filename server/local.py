@@ -30,7 +30,7 @@ class FileSystemInteract:
 
 		# check if the entry is a symbolic link
 		if stat.S_ISLNK(s.st_mode):
-			out['link'] = os.readlink()
+			out['link'] = os.readlink(path)
 			out['type'] = 'link'
 		
 		# check if the entry is a file
@@ -41,7 +41,7 @@ class FileSystemInteract:
 		# check if the entry is a directory
 		elif stat.S_ISDIR(s.st_mode):
 			out['type'] = 'dir'
-		
+
 		# unknown object encountered
 		else:
 			return None
@@ -56,6 +56,7 @@ class FileSystemInteract:
 # root directory of the server
 rootPath = os.path.split(os.path.realpath(__file__))[0]
 fileSystem = FileSystemInteract(os.path.join(rootPath, './fs'))
+staticPath = os.path.join(rootPath, './static')
 
 # request handler implementation
 class SelfRequest(http.server.SimpleHTTPRequestHandler):
@@ -70,7 +71,7 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 
 	def do_read(self, body):
 		super().send_response(http.HTTPStatus.OK)
-		super().send_header('Content-Length', f'{fileSystem.getSize(self.path[5:])}')
+		super().send_header('Content-Length', f'{fileSystem.getSize(self.path[6:])}')
 		super().send_header('Content-Type', 'application/binary')
 		super().end_headers()
 		if not body:
@@ -81,27 +82,31 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 		finally:
 			f.close()
 
-	def do_GET(self):
+	def dispatch(self, body):
 		# check if the request should be handled separately
 		if self.path.startswith('/stat/'):
-			self.do_stats(True)
+			self.do_stats(body)
+			return None
 		elif self.path.startswith('/data/'):
-			self.do_read(True)
+			self.do_read(body)
+			return None
 
-		# pass the handling to super
-		else:
-			super().do_GET()
+		# dispatch the path to be used
+		if self.path.startswith('/wasm/') or self.path.startswith('/wat/'):
+			return rootPath
+		return staticPath
+
+	def do_GET(self):
+		self.directory = self.dispatch(True)
+		if self.directory is None:
+			return
+		super().do_GET()
 
 	def do_HEAD(self):
-		# check if the request should be handled separately
-		if self.path.startswith('/stat/'):
-			self.do_stats(False)
-		elif self.path.startswith('/data/'):
-			self.do_read(False)
-
-		# pass the handling to super
-		else:
-			super().do_HEAD()
+		self.directory = self.dispatch(False)
+		if self.directory is None:
+			return
+		super().do_HEAD()
 
 	def end_headers(self):
 		self.send_header('Cache-Control', 'no-cache')
@@ -110,7 +115,7 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 # local server implementation
 class SelfServer(http.server.ThreadingHTTPServer):
 	def finish_request(self, request, client_address):
-		self.RequestHandlerClass(request, client_address, self, directory=rootPath)
+		self.RequestHandlerClass(request, client_address, self)
 
 # configure the http-server daemon and start it
 print('starting server...')

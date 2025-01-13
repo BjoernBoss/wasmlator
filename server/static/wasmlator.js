@@ -67,8 +67,8 @@ setup_wasmlator = function (logPrint, cb) {
 		logPrint(`F:WasmLator.js: ${msg}`);
 	};
 
-	/* setup the new filesystem host */
-	_state.fs = new FSHost((msg) => _state.selfLog(msg), (msg) => _state.selfFail(msg));
+	/* setup the new memory-filesystem host */
+	_state.fs = new MemFileSystem((msg) => _state.selfLog(msg), (msg) => _state.selfFail(msg));
 
 	/* create a string from the utf-8 encoded data at ptr in the main application or the glue-module */
 	_state.load_string = function (ptr, size, main_memory) {
@@ -130,6 +130,8 @@ setup_wasmlator = function (logPrint, cb) {
 			let buf = new Uint8Array(_state.main.memory, parseInt(args[1]), parseInt(args[3]));
 			_state.fs.readFile(parseInt(args[0]), buf, parseInt(args[2]), (r) => _state.task_completed(process, r));
 		}
+		else if (cmd == 'close')
+			_state.fs.closeFile(parseInt(payload), () => _state.task_completed(process, null));
 
 		/* default catch-handler for unknown commands */
 		else
