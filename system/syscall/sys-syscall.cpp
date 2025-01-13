@@ -1,6 +1,6 @@
 #include "../system.h"
 
-static host::Logger logger{ u8"sys::Syscall" };
+static util::Logger logger{ u8"sys::Syscall" };
 
 std::u8string sys::detail::Syscall::fReadString(env::guest_t address) const {
 	env::Memory& mem = env::Instance()->memory();

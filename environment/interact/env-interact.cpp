@@ -1,6 +1,6 @@
 #include "env-interact.h"
 
-static host::Logger logger{ u8"env::interact" };
+static util::Logger logger{ u8"env::interact" };
 
 bool env::Interact::fCheck(uint32_t index, bool param) const {
 	return (index < (param ? pParamCallbacks.size() : pVoidCallbacks.size()));

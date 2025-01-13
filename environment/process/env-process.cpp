@@ -1,6 +1,6 @@
 #include "../environment.h"
 
-static host::Logger logger{ u8"env::process" };
+static util::Logger logger{ u8"env::process" };
 
 namespace global {
 	static std::unique_ptr<env::Process> Instance;

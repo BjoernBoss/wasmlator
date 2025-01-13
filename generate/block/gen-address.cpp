@@ -1,7 +1,7 @@
 #include "../environment/environment.h"
 #include "../generate.h"
 
-static host::Logger logger{ u8"gen::block" };
+static util::Logger logger{ u8"gen::block" };
 
 gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t address, size_t depth) {
 	/* check if the address has already been translated */

@@ -18,7 +18,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 }
 
 int main(int argc, char** argv) {
-	host::SetLogLevel(host::LogLevel::fatal);
+	util::SetLogLevel(util::LogLevel::fatal);
 	env::SetInstance(std::make_unique<NullSystem>(), 0x1000, 1, 1, false);
 	gen::SetInstance(std::make_unique<NullTranslator>(), 1, false, false);
 

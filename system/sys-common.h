@@ -11,7 +11,8 @@
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
-#include "../host/host-logger.h"
+#include "../host/host-interact.h"
+#include "../util/util-logger.h"
 #include "../util/util-path.h"
 
 namespace sys {

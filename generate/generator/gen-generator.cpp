@@ -1,6 +1,6 @@
 #include "../generate.h"
 
-static host::Logger logger{ u8"gen::generator" };
+static util::Logger logger{ u8"gen::generator" };
 
 namespace global {
 	static std::unique_ptr<gen::Generator> Instance;

@@ -1,6 +1,6 @@
 #include "env-mapping.h"
 
-static host::Logger logger{ u8"env::mapping" };
+static util::Logger logger{ u8"env::mapping" };
 
 uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	/* check if the address has already been translated */

@@ -1,8 +1,8 @@
-#include "../host/host-logger.h"
+#include "../util/util-logger.h"
 #include "../host/interface.h"
 
 int main() {
-	host::SetLogLevel(host::LogLevel::trace);
+	util::SetLogLevel(util::LogLevel::trace);
 
 	while (true) {
 		std::string cmd;

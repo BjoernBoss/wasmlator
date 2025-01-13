@@ -1,7 +1,7 @@
 #include "../system.h"
 
-static host::Logger logger{ u8"sys::debugger" };
-static host::Logger outLog{ u8"" };
+static util::Logger logger{ u8"sys::debugger" };
+static util::Logger outLog{ u8"" };
 
 bool sys::Debugger::fActive() const {
 	return (pMode != Mode::disabled);

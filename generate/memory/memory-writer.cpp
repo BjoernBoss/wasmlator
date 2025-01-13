@@ -1,7 +1,7 @@
 #include "../generate.h"
 #include "../environment/memory/env-memory.h"
 
-static host::Logger logger{ u8"gen::memory" };
+static util::Logger logger{ u8"gen::memory" };
 
 gen::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state) : pState{ state } {}
 

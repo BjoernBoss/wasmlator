@@ -1,7 +1,7 @@
 #include "../generate.h"
 #include "../environment/environment.h"
 
-static host::Logger logger{ u8"gen::block" };
+static util::Logger logger{ u8"gen::block" };
 
 bool gen::detail::BlockAccess::Setup(detail::BlockState& state) {
 	if (!gen::Instance()->trace())

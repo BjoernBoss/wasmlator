@@ -1,6 +1,6 @@
 #include "../system.h"
 
-static host::Logger logger{ u8"sys::Syscall" };
+static util::Logger logger{ u8"sys::Syscall" };
 
 uint64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
 	/* validate the dir-fd */

@@ -6,7 +6,7 @@
 #include "../environment/mapping/mapping-bridge.h"
 #include "../environment/interact/interact-bridge.h"
 
-static host::Logger logger{ u8"interface" };
+static util::Logger logger{ u8"interface" };
 
 struct Cleanup {
 	const void* ptr = 0;
@@ -24,10 +24,10 @@ void main_user_command(const char8_t* ptr, uint32_t size) {
 
 	/* catch fatal exceptions and ignore them, as they will already have been
 	*	logged and otherwise log the occurrance of the unknown exception */
-	catch (const host::FatalException&) {}
+	catch (const util::FatalException&) {}
 	catch (...) {
 		/* log with level to ensure no fatal-exception is thrown again */
-		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_command]");
+		logger.level(util::LogLevel::fatal, u8"Unhandled exception caught [main_command]");
 	}
 }
 void main_task_completed(uint32_t process, const char8_t* ptr, uint32_t size) {
@@ -40,10 +40,10 @@ void main_task_completed(uint32_t process, const char8_t* ptr, uint32_t size) {
 
 	/* catch fatal exceptions and ignore them, as they will already have been
 	*	logged and otherwise log the occurrance of the unknown exception */
-	catch (const host::FatalException&) {}
+	catch (const util::FatalException&) {}
 	catch (...) {
 		/* log with level to ensure no fatal-exception is thrown again */
-		logger.level(host::LogLevel::fatal, u8"Unhandled exception caught [main_task_completed]");
+		logger.level(util::LogLevel::fatal, u8"Unhandled exception caught [main_task_completed]");
 	}
 }
 void* main_allocate(uint32_t size) {

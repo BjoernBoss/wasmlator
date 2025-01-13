@@ -1,7 +1,7 @@
 #include "../generate.h"
 #include "../environment/context/env-context.h"
 
-static host::Logger logger{ u8"gen::context" };
+static util::Logger logger{ u8"gen::context" };
 
 gen::detail::ContextWriter::ContextWriter(const detail::ContextState& state) : pState{ state } {}
 

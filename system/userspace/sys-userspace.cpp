@@ -1,7 +1,6 @@
 #include "../system.h"
-#include "../../host/host-random.h"
 
-static host::Logger logger{ u8"sys::userspace" };
+static util::Logger logger{ u8"sys::userspace" };
 
 env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	env::Memory& mem = env::Instance()->memory();

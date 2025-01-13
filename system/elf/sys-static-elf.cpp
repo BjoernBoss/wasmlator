@@ -1,6 +1,6 @@
 #include "sys-static-elf.h"
 
-static host::Logger logger{ u8"sys::Elf" };
+static util::Logger logger{ u8"sys::Elf" };
 
 namespace elf = sys::elf;
 

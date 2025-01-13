@@ -1,6 +1,6 @@
 #include "../generate.h"
 
-static host::Logger logger{ u8"gen::block" };
+static util::Logger logger{ u8"gen::block" };
 
 gen::detail::SuperBlock::SuperBlock(const detail::ContextState& context, env::guest_t address) : pContext{ context }, pNextAddress{ address } {}
 

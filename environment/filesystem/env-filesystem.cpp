@@ -1,7 +1,7 @@
 #include "env-filesystem.h"
 #include "../process/process-access.h"
 
-static host::Logger logger{ u8"env::filesystem" };
+static util::Logger logger{ u8"env::filesystem" };
 
 bool env::FileSystem::fCheck(uint64_t id) const {
 	return (id < pOpen.size() && pOpen[id].has_value());

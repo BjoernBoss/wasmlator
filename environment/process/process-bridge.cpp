@@ -1,7 +1,7 @@
 #include "../environment.h"
 #include "../host/interface.h"
 
-static host::Logger logger{ u8"env::process" };
+static util::Logger logger{ u8"env::process" };
 
 void env::detail::ProcessBridge::TaskCompleted(uint32_t process, std::u8string_view response) {
 	if (env::Instance() == 0 || !env::Instance()->fTaskCompleted(process, response))

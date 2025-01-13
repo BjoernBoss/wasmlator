@@ -1,6 +1,6 @@
 #include "rv64-cpu.h"
 
-static host::Logger logger{ u8"rv64::cpu" };
+static util::Logger logger{ u8"rv64::cpu" };
 
 rv64::Cpu::Cpu() : sys::Cpu{ u8"RISC-V 64", rv64::MemoryCaches, sizeof(rv64::Context), false } {}
 

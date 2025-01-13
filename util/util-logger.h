@@ -2,11 +2,7 @@
 
 #include <ustring/ustring.h>
 
-namespace host {
-	/* logs performed by the guest */
-	void GuestStd(std::u8string_view msg);
-	void GuestErr(std::u8string_view msg);
-
+namespace util {
 	enum class LogLevel : uint8_t {
 		fatal,
 		error,
@@ -23,10 +19,10 @@ namespace host {
 	};
 
 	/* set the current logging level (none implies only fatal is presented) */
-	void SetLogLevel(host::LogLevel level);
+	void SetLogLevel(util::LogLevel level);
 
 	/* fetch the current logging-level */
-	host::LogLevel GetLogLevel();
+	util::LogLevel GetLogLevel();
 
 	class Logger {
 	private:
@@ -43,19 +39,19 @@ namespace host {
 
 	private:
 		template <class... Args>
-		void fBuildLevel(host::LogLevel level, const Args&... args) const {
-			bool fatal = (level == host::LogLevel::fatal);
+		void fBuildLevel(util::LogLevel level, const Args&... args) const {
+			bool fatal = (level == util::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (host::GetLogLevel() >= level)
+			if (util::GetLogLevel() >= level)
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, args...), fatal);
 		}
 		template <class... Args>
-		void fFormatLevel(host::LogLevel level, std::u8string_view fmt, const Args&... args) const {
-			bool fatal = (level == host::LogLevel::fatal);
+		void fFormatLevel(util::LogLevel level, std::u8string_view fmt, const Args&... args) const {
+			bool fatal = (level == util::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (host::GetLogLevel() >= level)
+			if (util::GetLogLevel() >= level)
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, str::u8::Format(fmt, args...)), fatal);
 		}
 
@@ -63,98 +59,98 @@ namespace host {
 		/* build the message and write it out as [trace] */
 		template <class... Args>
 		void trace(const Args&... args) const {
-			fBuildLevel(host::LogLevel::trace, args...);
+			fBuildLevel(util::LogLevel::trace, args...);
 		}
 
 		/* format the message and write it out as [trace] */
 		template <class... Args>
 		void fmtTrace(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::trace, fmt, args...);
+			fFormatLevel(util::LogLevel::trace, fmt, args...);
 		}
 
 		/* build the message and write it out as [debug] */
 		template <class... Args>
 		void debug(const Args&... args) const {
-			fBuildLevel(host::LogLevel::debug, args...);
+			fBuildLevel(util::LogLevel::debug, args...);
 		}
 
 		/* format the message and write it out as [debug] */
 		template <class... Args>
 		void fmtDebug(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::debug, fmt, args...);
+			fFormatLevel(util::LogLevel::debug, fmt, args...);
 		}
 
 		/* build the message and write it out as [log] */
 		template <class... Args>
 		void log(const Args&... args) const {
-			fBuildLevel(host::LogLevel::log, args...);
+			fBuildLevel(util::LogLevel::log, args...);
 		}
 
 		/* format the message and write it out as [log] */
 		template <class... Args>
 		void fmtLog(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::log, fmt, args...);
+			fFormatLevel(util::LogLevel::log, fmt, args...);
 		}
 
 		/* build the message and write it out as [info] */
 		template <class... Args>
 		void info(const Args&... args) const {
-			fBuildLevel(host::LogLevel::info, args...);
+			fBuildLevel(util::LogLevel::info, args...);
 		}
 
 		/* format the message and write it out as [info] */
 		template <class... Args>
 		void fmtInfo(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::info, fmt, args...);
+			fFormatLevel(util::LogLevel::info, fmt, args...);
 		}
 
 		/* build the message and write it out as [warn] */
 		template <class... Args>
 		void warn(const Args&... args) const {
-			fBuildLevel(host::LogLevel::warn, args...);
+			fBuildLevel(util::LogLevel::warn, args...);
 		}
 
 		/* format the message and write it out as [warn] */
 		template <class... Args>
 		void fmtWarn(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::warn, fmt, args...);
+			fFormatLevel(util::LogLevel::warn, fmt, args...);
 		}
 
 		/* build the message and write it out as [error] */
 		template <class... Args>
 		void error(const Args&... args) const {
-			fBuildLevel(host::LogLevel::error, args...);
+			fBuildLevel(util::LogLevel::error, args...);
 		}
 
 		/* format the message and write it out as [error] */
 		template <class... Args>
 		void fmtError(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::error, fmt, args...);
+			fFormatLevel(util::LogLevel::error, fmt, args...);
 		}
 
 		/* build the message and write it out as [fatal] and throw a fatal exception */
 		template <class... Args>
 		void fatal(const Args&... args) const {
-			fBuildLevel(host::LogLevel::fatal, args...);
-			throw host::FatalException{};
+			fBuildLevel(util::LogLevel::fatal, args...);
+			throw util::FatalException{};
 		}
 
 		/* format the message and write it out as [fatal] and throw a fatal exception */
 		template <class... Args>
 		void fmtFatal(std::u8string_view fmt, const Args&... args) const {
-			fFormatLevel(host::LogLevel::fatal, fmt, args...);
-			throw host::FatalException{};
+			fFormatLevel(util::LogLevel::fatal, fmt, args...);
+			throw util::FatalException{};
 		}
 
 		/* build the message and write it out using the given level but will not throw an exception for level=fatal */
 		template <class... Args>
-		void level(host::LogLevel level, const Args&... args) const {
+		void level(util::LogLevel level, const Args&... args) const {
 			fBuildLevel(level, args...);
 		}
 
 		/* format the message and write it out using the given level but will not throw an exception for level=fatal */
 		template <class... Args>
-		void fmtLevel(host::LogLevel level, std::u8string_view fmt, const Args&... args) const {
+		void fmtLevel(util::LogLevel level, std::u8string_view fmt, const Args&... args) const {
 			fFormatLevel(level, fmt, args...);
 		}
 	};

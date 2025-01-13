@@ -1,6 +1,6 @@
 #include "../environment.h"
 
-static host::Logger logger{ u8"env::memory" };
+static util::Logger logger{ u8"env::memory" };
 
 std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();

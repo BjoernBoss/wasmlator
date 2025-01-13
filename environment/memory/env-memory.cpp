@@ -1,6 +1,6 @@
 #include "env-memory.h"
 
-static host::Logger logger{ u8"env::memory" };
+static util::Logger logger{ u8"env::memory" };
 
 size_t env::Memory::fLookupVirtual(env::guest_t address) const {
 	size_t begin = 0, end = pVirtual.size();

@@ -1,7 +1,7 @@
 #include "rv64-translation.h"
 #include "rv64-print.h"
 
-static host::Logger logger{ u8"rv64::cpu" };
+static util::Logger logger{ u8"rv64::cpu" };
 
 wasm::Variable rv64::Translate::fTemp32(size_t index) {
 	wasm::Variable& var = pTemp[4 + index];

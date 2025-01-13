@@ -1,7 +1,5 @@
 #include <arger/arger.h>
 #include "../host/interface.h"
-#include "../host/host-logger.h"
-#include "../environment/environment.h"
 #include "../system/system.h"
 #include "../rv64/rv64-cpu.h"
 
@@ -113,7 +111,7 @@ static arger::Config Commands{
 	},
 };
 
-static host::Logger logger{ u8"" };
+static util::Logger logger{ u8"" };
 static sys::Debugger* debugger = 0;
 
 static int8_t HandleDebug(const arger::Parsed& out) {
