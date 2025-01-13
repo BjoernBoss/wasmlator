@@ -222,7 +222,7 @@ void HandleCommand(std::u8string_view cmd) {
 
 		/* try to setup the userspace system */
 		debugger = 0;
-		if (!sys::Userspace::Create(rv64::Cpu::New(), args, envs, logBlocks, trace, (debug ? &debugger : 0)))
+		if (!sys::Userspace::Create(rv64::Cpu::New(), u8"/bin/static_primes", args, envs, logBlocks, trace, (debug ? &debugger : 0)))
 			logger.error(u8"Failed to create process");
 		else
 			logger.log(u8"Process creation completed");

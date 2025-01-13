@@ -39,11 +39,6 @@ namespace sys::detail {
 		errOut,
 		directory
 	};
-	enum class PathState :uint8_t {
-		invalid,
-		absolute,
-		relative
-	};
 
 	struct FileEntry {
 		std::u8string path;
@@ -59,15 +54,11 @@ namespace sys::detail {
 		FileIO() = default;
 
 	private:
-		detail::PathState fCheckPath(std::u8string_view path) const;
-		std::u8string fMergePaths(std::u8string_view abs, std::u8string_view rel) const;
-
-	private:
-		uint64_t fOpenAt(int64_t dirfd, std::u8string path, uint64_t flags, uint64_t mode);
+		uint64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
 
 	public:
-		bool setup(std::u8string currentDirectory);
-		uint64_t openat(int64_t dirfd, std::u8string path, uint64_t flags, uint64_t mode);
-		uint64_t open(std::u8string path, uint64_t flags, uint64_t mode);
+		bool setup(std::u8string_view currentDirectory);
+		uint64_t openat(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
+		uint64_t open(std::u8string_view path, uint64_t flags, uint64_t mode);
 	};
 }

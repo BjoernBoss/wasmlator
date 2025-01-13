@@ -21,6 +21,6 @@ size_t env::detail::ProcessAccess::BindingCount() {
 		count += bindings.size();
 	return count;
 }
-void env::detail::ProcessAccess::HandleTask(const std::u8string& task, std::function<void(std::u8string_view)> callback) {
-	env::Instance()->fHandleTask(task, callback);
+bool env::detail::ProcessAccess::HandleTask(const std::u8string& task, std::function<void(std::u8string_view, bool)> callback) {
+	return env::Instance()->fHandleTask(task, callback);
 }

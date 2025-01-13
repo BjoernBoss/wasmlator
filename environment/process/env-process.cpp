@@ -31,6 +31,9 @@ bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, 
 void env::ClearInstance() {
 	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
 
+	/* reset all open files */
+	detail::FileSystemAccess::CleanupFiles();
+
 	/* reset all mapped core-functions and release the current instance */
 	detail::ProcessBridge::ResetCoreMap();
 	global::Instance.reset();
@@ -78,27 +81,40 @@ void env::Process::fAddBinding(const std::u8string& mod, const std::u8string& na
 		logger.fatal(u8"Cannot bind object [", name, u8"] as export after the core has started loading");
 	pBindings[mod].push_back({ name, 0 });
 }
-void env::Process::fHandleTask(const std::u8string& task, std::function<void(std::u8string_view)> callback) {
+bool env::Process::fHandleTask(const std::u8string& task, std::function<void(std::u8string_view, bool)> callback) {
 	/* check if a task is currently active, in which case no other task can be processed */
-	if (pTaskActive)
+	if (pTaskState != TaskState::none)
 		logger.fatal(u8"Can only process one task at a time");
-	logger.debug(u8"Handling task [", task, u8"] for [", global::ProcId, u8"]...");
+	size_t stamp = ++pTaskStamp;
+	uint32_t procId = global::ProcId;
+	logger.debug(u8"Handling task [", task, u8"] for [", global::ProcId, u8"] with stamp [", stamp, u8"]...");
 
 	/* setup the task and pass it out (can be handled in-place, in which case the callback will be called immediately again) */
-	pTaskActive = true;
+	pTaskState = TaskState::started;
 	pTaskCallback = callback;
 	detail::ProcessBridge::HandleTask(task, global::ProcId);
+
+	/* check if the task has been executed inplace (note: it could also have destroyed the process itself) */
+	if (global::Instance.get() == 0 || procId != global::ProcId)
+		return true;
+	if (pTaskState == TaskState::none || pTaskStamp != stamp)
+		return true;
+	pTaskState = TaskState::awaiting;
+	return false;
 }
 bool env::Process::fTaskCompleted(uint32_t process, std::u8string_view response) {
 	/* check if the ids still match and otherwise simply discard the call (will not affect any internal states) */
 	if (process != global::ProcId)
 		return false;
-	logger.debug(u8"Task sucessfully completed for [", global::ProcId, u8"] with response: [", response.substr(0, 20), (response.size() > 20 ? u8"...]" : u8"]"));
+	logger.debug(u8"Task sucessfully completed for [", global::ProcId, u8"] with stamp [", pTaskStamp, u8"] and response: [", response.substr(0, 32), (response.size() > 32 ? u8"...]" : u8"]"));
 
-	/* invoke the task-callback */
-	std::function<void(std::u8string_view)> callback = pTaskCallback;
-	pTaskActive = false;
-	callback(response);
+	/* fetch the callback and reset the task-state */
+	std::function<void(std::u8string_view, bool)> callback = pTaskCallback;
+	bool inplace = (pTaskState == TaskState::started);
+	pTaskState = TaskState::none;
+
+	/* invoke the actual callback */
+	callback(response, inplace);
 	return true;
 }
 
@@ -106,7 +122,7 @@ bool env::Process::fLoadCore() {
 	logger.debug(u8"Loading core for [", global::ProcId, u8"]...");
 	wasm::BinaryWriter binOutput;
 
-	pState = State::loadingCore;
+	pProcState = ProcState::loadingCore;
 	try {
 		/* setup the core module to be loaded */
 		wasm::Module mod{ &binOutput };
@@ -121,7 +137,7 @@ bool env::Process::fLoadCore() {
 
 	/* setup the core loading task */
 	const std::vector<uint8_t>& data = binOutput.output();
-	fHandleTask(str::u8::Build(u8"core:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view) {
+	fHandleTask(str::u8::Build(u8"core:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view, bool) {
 		fCoreLoaded();
 		});
 	return true;
@@ -153,22 +169,21 @@ void env::Process::fCoreLoaded() {
 
 	/* notify the core-objects about the core being loaded */
 	detail::InteractAccess::CoreLoaded();
-	pState = State::coreLoaded;
+	pProcState = ProcState::coreLoaded;
 
-	/* notify the the system about the loaded core and check if the setup failed */
-	if (!pSystem->coreLoaded())
-		pSystem->shutdown();
+	/* notify the the system about the loaded core */
+	pSystem->coreLoaded();
 }
 void env::Process::fLoadBlock() {
 	logger.debug(u8"Loading block for [", global::ProcId, u8"]...");
 	wasm::BinaryWriter binOutput;
 
 	/* check if a loading is currently in progress */
-	if (pState == State::none)
+	if (pProcState == ProcState::none)
 		logger.fatal(u8"Cannot load a block if core has not been loaded");
-	if (pState != State::coreLoaded)
+	if (pProcState != ProcState::coreLoaded)
 		logger.fatal(u8"Cannot load a block while another load is in progress");
-	pState = State::loadingBlock;
+	pProcState = ProcState::loadingBlock;
 
 	try {
 		/* setup the writer to either produce only the binary output, or the binary and text output */
@@ -203,7 +218,7 @@ void env::Process::fLoadBlock() {
 
 	/* setup the block loading task */
 	const std::vector<uint8_t>& data = binOutput.output();
-	fHandleTask(str::u8::Build(u8"block:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view) {
+	fHandleTask(str::u8::Build(u8"block:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view, bool) {
 		fBlockLoaded();
 		});
 
@@ -215,7 +230,7 @@ void env::Process::fBlockLoaded() {
 
 	/* register all exports and update the loading-state */
 	detail::MappingAccess::BlockLoaded(pExports);
-	pState = State::coreLoaded;
+	pProcState = ProcState::coreLoaded;
 	pExports.clear();
 
 	/* notify the the system about the loaded core (do not perform

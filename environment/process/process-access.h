@@ -10,6 +10,6 @@ namespace env::detail {
 		static void AddCoreBinding(const std::u8string& mod, const std::u8string& name);
 		static void LockBindings();
 		static size_t BindingCount();
-		static void HandleTask(const std::u8string& task, std::function<void(std::u8string_view)> callback);
+		static bool HandleTask(const std::u8string& task, std::function<void(std::u8string_view, bool)> callback);
 	};
 }

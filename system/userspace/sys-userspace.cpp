@@ -1,6 +1,5 @@
 #include "../system.h"
 #include "../../host/host-random.h"
-#include "../riscv-buffer.h"
 
 static host::Logger logger{ u8"sys::userspace" };
 
@@ -9,18 +8,18 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	size_t wordWidth = (loaded.is64Bit ? 8 : 4);
 
 	/* count the size of the blob of data at the end (16 bytes for random data) */
-	size_t blobSize = 16;
+	size_t blobSize = 16 + pBinary.size() + 1;
 	for (size_t i = 0; i < pArgs.size(); ++i)
 		blobSize += pArgs[i].size() + 1;
 	for (size_t i = 0; i < pEnvs.size(); ++i)
 		blobSize += pEnvs[i].size() + 1;
 
 	/* compute the size of the structured stack-data
-	*	Args: one pointer for each argument plus count plus null-entry
+	*	Args: one pointer for each argument plus count plus null-entry plus self-path
 	*	Envs: one pointer for each environment plus null-entry
 	*	Auxiliary: (AT_PHDR/AT_PHNUM/AT_PHENT/AT_ENTRY/AT_RANDOM/AT_PAGESZ) one null-entry */
 	size_t structSize = 0;
-	structSize += wordWidth * (pArgs.size() + 2);
+	structSize += wordWidth * (pArgs.size() + 3);
 	structSize += wordWidth * (pEnvs.size() + 1);
 	structSize += wordWidth * 12 + wordWidth;
 
@@ -53,7 +52,11 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	env::guest_t blobPtr = stackBase + Userspace::StackSize - blobSize;
 
 	/* write the argument-count out */
-	writeWord(pArgs.size());
+	writeWord(pArgs.size() + 1);
+
+	/* write the binary path out */
+	writeWord(blobPtr);
+	blobPtr += pBinary.size() + 1;
 
 	/* write the argument pointers out and the trailing null-entry */
 	for (size_t i = 0; i < pArgs.size(); ++i) {
@@ -90,6 +93,9 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	/* write the padding out */
 	content.insert(content.end(), padding, 0);
 
+	/* write the binary path out */
+	writeBytes(pBinary.data(), pBinary.size() + 1);
+
 	/* write the actual args to the blob */
 	for (size_t i = 0; i < pArgs.size(); ++i)
 		writeBytes(pArgs[i].data(), pArgs[i].size() + 1);
@@ -109,6 +115,50 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	env::guest_t stack = stackBase + Userspace::StackSize - totalSize;
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
+}
+bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
+	sys::ElfLoaded loaded;
+
+	/* load the static elf-image and configure the startup-address */
+	try {
+		loaded = sys::LoadElfStatic(data, size);
+		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
+		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
+		pAddress = loaded.start;
+	}
+	catch (const elf::Exception& e) {
+		logger.error(u8"Failed to load static elf: ", e.what());
+		return false;
+	}
+
+	/* validate the word-width (necessary, as env::Memory's allocate function currently
+	*	allocates into the unreachable portion of the 32 bit address space) */
+	if (!loaded.is64Bit) {
+		logger.error(u8"Only 64 bit static elf binaries are supported");
+		return false;
+	}
+
+	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
+	env::guest_t spAddress = fPrepareStack(loaded);
+	if (spAddress == 0)
+		return false;
+	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
+
+	/* initialize the syscall environment */
+	if (!pSyscall.setup(this, loaded.endOfData, util::SplitPath(pBinary).first)) {
+		logger.error(u8"Failed to setup the userspace syscalls");
+		return false;
+	}
+
+	/* initialize the context */
+	if (!pCpu->setupContext(pAddress, spAddress))
+		return false;
+
+	/* check if this is debug-mode, in which case no block needs to be translated
+	*	yet, otherwise immediately startup the translation and execution */
+	if (!pDebugger.fActive())
+		env::Instance()->startNewBlock();
+	return true;
 }
 void sys::Userspace::fExecute() {
 	/* start execution of the next address and catch/handle any incoming exceptions */
@@ -155,7 +205,7 @@ void sys::Userspace::fExecute() {
 	}
 }
 
-bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
+bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* log the configuration */
@@ -163,6 +213,7 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	logger.info(u8"  Debug       : ", str::As{ U"S", (debugger != 0) });
 	logger.info(u8"  Log Blocks  : ", str::As{ U"S", logBlocks });
 	logger.info(u8"  Trace Blocks: ", str::As{ U"S", traceBlocks });
+	logger.info(u8"  Binary      : ", binary);
 	logger.info(u8"  Arguments   : ", args.size());
 	for (size_t i = 0; i < args.size(); ++i)
 		logger.info(u8"    [", i, u8"]: ", args[i]);
@@ -174,6 +225,7 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<s
 	std::unique_ptr<sys::Userspace> system{ new sys::Userspace() };
 	system->pArgs = args;
 	system->pEnvs = envs;
+	system->pBinary = binary;
 	system->pCpu = cpu.get();
 
 	/* check if the cpu can be set up */
@@ -229,48 +281,56 @@ bool sys::Userspace::setupCore(wasm::Module& mod) {
 	/* finalize the actual core */
 	return core.close();
 }
-bool sys::Userspace::coreLoaded() {
-	/* load the static elf-image and configure the startup-address */
-	sys::ElfLoaded loaded;
-	try {
-		loaded = sys::LoadElfStatic(fileBuffer, sizeof(fileBuffer));
-		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
-		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
-		pAddress = loaded.start;
-	}
-	catch (const elf::Exception& e) {
-		logger.error(u8"Failed to load static elf: ", e.what());
-		return false;
-	}
+void sys::Userspace::coreLoaded() {
+	/* load the binary */
+	env::Instance()->filesystem().followLinks(pBinary, [this](std::u8string_view path, const env::FileStats* stats) {
+		/* check if the file could be resolved */
+		if (stats == 0) {
+			logger.error(u8"Failed to resolve path [", pBinary, u8']');
+			env::Instance()->shutdown();
+			return;
+		}
 
-	/* validate the word-width (necessary, as env::Memory's allocate function currently
-	*	allocates into the unreachable portion of the 32 bit address space) */
-	if (!loaded.is64Bit) {
-		logger.error(u8"Only 64 bit static elf binaries are supported");
-		return false;
-	}
+		/* do not reset the binary to the actual path, as both the current directory and binary-path for the guest should be the original path */
+		logger.debug(u8"Path [", pBinary, u8"] expanded to [", path, u8']');
 
-	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
-	env::guest_t spAddress = fPrepareStack(loaded);
-	if (spAddress == 0)
-		return false;
-	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
+		/* check the file-type */
+		if (stats->type != env::FileType::file) {
+			logger.error(u8"Path [", path, u8"] is not a file");
+			env::Instance()->shutdown();
+			return;
+		}
 
-	/* initialize the syscall environment */
-	if (!pSyscall.setup(this, loaded.endOfData, u8"/system/fs")) {
-		logger.error(u8"Failed to setup the userspace syscalls");
-		return false;
-	}
+		/* setup the opening of the file */
+		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, [=, this](bool success, uint64_t id, const env::FileStats* stats) {
+			/* check if the file could be opened */
+			if (!success) {
+				logger.error(u8"Failed to open file [", path, u8"] for reading");
+				env::Instance()->shutdown();
+				return;
+			}
 
-	/* initialize the context */
-	if (!pCpu->setupContext(pAddress, spAddress))
-		return false;
+			/* allocate the buffer for the file-content and read it into memory */
+			uint8_t* buffer = new uint8_t[stats->size];
+			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, true, [=, this](uint64_t count) {
+				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
 
-	/* check if this is debug-mode, in which case no block needs to be translated
-	*	yet, otherwise immediately startup the translation and execution */
-	if (!pDebugger.fActive())
-		env::Instance()->startNewBlock();
-	return true;
+				/* close the file again, as no more data will be read */
+				env::Instance()->filesystem().closeFile(id);
+
+				/* check if the size still matches */
+				if (count != stats->size) {
+					logger.error(u8"File size does not match expected size");
+					env::Instance()->shutdown();
+					return;
+				}
+
+				/* perform the actual loading of the file */
+				if (!fBinaryLoaded(buffer, stats->size))
+					env::Instance()->shutdown();
+				});
+			});
+		});
 }
 std::vector<env::BlockExport> sys::Userspace::setupBlock(wasm::Module& mod) {
 	/* setup the translator */

@@ -24,6 +24,7 @@ namespace sys {
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
+		std::u8string pBinary;
 		detail::Syscall pSyscall;
 		sys::Debugger pDebugger;
 		sys::Writer pWriter;
@@ -37,14 +38,15 @@ namespace sys {
 
 	private:
 		env::guest_t fPrepareStack(const sys::ElfLoaded& loaded) const;
+		bool fBinaryLoaded(const uint8_t* data, size_t size);
 		void fExecute();
 
 	public:
-		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger);
+		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger);
 
 	public:
 		bool setupCore(wasm::Module& mod) final;
-		bool coreLoaded() final;
+		void coreLoaded() final;
 		std::vector<env::BlockExport> setupBlock(wasm::Module& mod) final;
 		void blockLoaded() final;
 		void shutdown() final;

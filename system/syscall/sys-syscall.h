@@ -31,7 +31,7 @@ namespace sys::detail {
 		uint64_t fHandleOpenAt(int64_t dirfd, env::guest_t pathname, uint64_t flags, uint64_t mode);
 
 	public:
-		bool setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string currentDirectory);
+		bool setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view currentDirectory);
 		void handle(env::guest_t address, env::guest_t nextAddress);
 	};
 }

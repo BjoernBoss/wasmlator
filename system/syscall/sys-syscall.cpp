@@ -131,7 +131,7 @@ uint64_t sys::detail::Syscall::fHandleOpenAt(int64_t dirfd, env::guest_t pathnam
 	return pFileIO.openat(dirfd, path, flags, mode);
 }
 
-bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string currentDirectory) {
+bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view currentDirectory) {
 	pUserspace = userspace;
 
 	/* setup the syscall host with the handler id */

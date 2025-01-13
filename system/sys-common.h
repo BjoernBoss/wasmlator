@@ -12,6 +12,7 @@
 #include "../environment/environment.h"
 #include "../generate/generate.h"
 #include "../host/host-logger.h"
+#include "../util/util-path.h"
 
 namespace sys {
 	class Userspace;

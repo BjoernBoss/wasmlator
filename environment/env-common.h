@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "../host/host-logger.h"
+#include "../util/util-path.h"
 
 namespace env {
 	class Process;
@@ -69,9 +70,8 @@ namespace env {
 		/* invoked once when the core module is supposed to be configured */
 		virtual bool setupCore(wasm::Module& mod) = 0;
 
-		/* invoked when the configured core module has been loaded
-		*	Note: returning false will indicate failure of setup and teardown the system */
-		virtual bool coreLoaded() = 0;
+		/* invoked when the configured core module has been loaded */
+		virtual void coreLoaded() = 0;
 
 		/* invoked for every new block module to be configured, after being triggered to be created */
 		virtual std::vector<env::BlockExport> setupBlock(wasm::Module& mod) = 0;
