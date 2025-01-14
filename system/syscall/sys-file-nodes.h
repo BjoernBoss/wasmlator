@@ -20,12 +20,15 @@ namespace sys::detail {
 		FileNode(std::u8string_view path, bool directory);
 
 	public:
-		virtual void setup(std::function<void(bool)> callback) = 0;
+		virtual ~FileNode() = default;
+
+	public:
+		virtual int64_t setup(std::function<int64_t(int64_t)> callback) = 0;
 		virtual int64_t close(std::function<int64_t(int64_t)> callback) = 0;
 		virtual int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) = 0;
 		virtual int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) = 0;
 		virtual int64_t stats(std::function<int64_t(int64_t, const detail::NodeStats&)> callback) = 0;
-		virtual void configure(bool blocking) = 0;
+		virtual void modify(bool blocking) = 0;
 
 	public:
 		const std::u8string& path() const;
@@ -45,11 +48,12 @@ namespace sys::detail {
 			Terminal();
 
 		public:
+			int64_t setup(std::function<int64_t(int64_t)> callback) final;
 			int64_t close(std::function<int64_t(int64_t)> callback) final;
 			int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 			int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 			int64_t stats(std::function<int64_t(int64_t, const detail::NodeStats&)> callback) final;
-			void configure(bool blocking) final;
+			void modify(bool blocking) final;
 		};
 	}
 }

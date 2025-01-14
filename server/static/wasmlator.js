@@ -221,16 +221,15 @@ setup_wasmlator = function (logPrint, cb) {
 		imports.env.host_failure = function (ptr, size) {
 			logPrint(new PrintStack(_state.load_string(ptr, size, true)).stack);
 		};
-		imports.env.host_stdout = function (ptr, size) {
+		imports.env.host_guest_out = function (ptr, size) {
 			let msg = _state.load_string(ptr, size, true);
 			logPrint(`L:Guest: [${msg.trim()}]`);
 		};
-		imports.env.host_stderr = function (ptr, size) {
-			let msg = _state.load_string(ptr, size, true);
-			logPrint(`E:Guest: [${msg.trim()}]`);
-		};
 		imports.env.host_random = function () {
 			return Math.floor(Math.random() * 0x1_0000_0000);
+		};
+		imports.env.host_time_us = function () {
+			return BigInt(Date.now() * 1000);
 		};
 
 		/* fetch the main application javascript-wrapper */

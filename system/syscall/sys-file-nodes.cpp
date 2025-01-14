@@ -20,6 +20,9 @@ sys::detail::impl::Terminal::Terminal() : detail::FileNode{ u8"/dev/tty", false 
 	pLastRead = (pLastWrite = host::GetStampUS());
 	pBlocking = true;
 }
+int64_t sys::detail::impl::Terminal::setup(std::function<int64_t(int64_t)> callback) {
+	return callback(errCode::eSuccess);
+}
 int64_t sys::detail::impl::Terminal::close(std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eSuccess);
 }
@@ -49,6 +52,6 @@ int64_t sys::detail::impl::Terminal::stats(std::function<int64_t(int64_t, const 
 
 	return callback(errCode::eSuccess, stats);
 }
-void sys::detail::impl::Terminal::configure(bool blocking) {
+void sys::detail::impl::Terminal::modify(bool blocking) {
 	pBlocking = blocking;
 }

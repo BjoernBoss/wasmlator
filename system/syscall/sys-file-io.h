@@ -63,7 +63,7 @@ namespace sys::detail {
 		int64_t fCheckWrite(int64_t fd) const;
 
 	private:
-		detail::FileNode* fCreateNode(std::u8string_view path, bool follow);
+		int64_t fCreateNode(std::u8string_view path, bool follow, std::function<int64_t(int64_t, detail::FileNode*)> callback);
 		int64_t fCreateFile(detail::FileNode* node, bool read, bool write, bool modify);
 		void fDropNode(detail::FileNode* node);
 

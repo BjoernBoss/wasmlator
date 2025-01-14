@@ -17,7 +17,7 @@ int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
 	return 0;
 }
 
-sys::detail::FileNode* sys::detail::FileIO::fCreateNode(std::u8string_view path, bool follow) {
+int64_t sys::detail::FileIO::fCreateNode(std::u8string_view path, bool follow, std::function<int64_t(int64_t, detail::FileNode*)> callback) {
 	std::unique_ptr<detail::FileNode> node;
 
 	/* check if the terminal has explicitly been created */
@@ -37,7 +37,14 @@ sys::detail::FileNode* sys::detail::FileIO::fCreateNode(std::u8string_view path,
 	pNodes[index].user = 1;
 	pNodes[index].node = std::move(node);
 	pNodes[index].node->bind(index);
-	return pNodes[index].node.get();
+
+	/* setup the node itself (will at all times be invoked) */
+	return pNodes[index].node->setup([=, this](int64_t result) -> int64_t {
+		if (result == errCode::eSuccess)
+			return callback(result, pNodes[index].node.get());
+		fDropNode(pNodes[index].node.get());
+		return callback(result, 0);
+		});
 }
 int64_t sys::detail::FileIO::fCreateFile(detail::FileNode* node, bool read, bool write, bool modify) {
 	/* lookup the next free file-descriptor */
@@ -77,6 +84,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	bool read = ((flags & fileFlags::readWrite) == fileFlags::readWrite) || ((flags & fileFlags::writeOnly) != fileFlags::writeOnly);
 	bool write = ((flags & fileFlags::readWrite) == fileFlags::readWrite) || ((flags & fileFlags::writeOnly) == fileFlags::writeOnly);
 	bool modify = ((flags & fileFlags::openOnly) != fileFlags::openOnly);
+	bool follow = ((flags & fileFlags::noSymlinkFollow) != fileFlags::noSymlinkFollow);
 
 	/* validate the path */
 	util::PathState state = util::TestPath(path);
@@ -88,39 +96,17 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		return errCode::eNotDirectory;
 	std::u8string actual = util::MergePaths(dirfd == detail::fdWDirectory ? pWDirectory : pFiles[dirfd].node->path(), path);
 
-	/* callback for successful creation */
+	/* create the new file node */
+	return fCreateNode(actual, follow, [=, this](int64_t result, detail::FileNode* node) -> int64_t {
+		/* check if the creation failed */
+		if (node == 0)
+			return result;
 
-	/* check if its a special purpose file */
-	if (actual == u8"/dev/tty") {
-
-	}
-
-
-	/* check if its a special purpose file */
-	detail::FileState file = detail::FileState::none;
-	if (actual == u8"/dev/stdin")
-		file = detail::FileState::stdIn;
-	else if (actual == u8"/dev/stdout" || actual == u8"/dev/tty")
-		file = detail::FileState::stdOut;
-	else if (actual == u8"/dev/stderr")
-		file = detail::FileState::errOut;
-	if (file == detail::FileState::none) {
-		logger.fatal(u8"Currently not implemented (same as non-blocking for /dev/stdin)");
-		return errCode::eNoEntry;
-	}
-
-	/* allocate the next slot (skip the first 3, as they will never be re-assigned) */
-	for (size_t i = 3; i < pFiles.size(); ++i) {
-		if (pFiles[i].state != detail::FileState::none)
-			continue;
-		pFiles[i].state = file;
-		pFiles[i].path = actual;
-		pFiles[i].read = read;
-		pFiles[i].write = write;
-		return i;
-	}
-	pFiles.push_back({ actual, file, read, write });
-	return pFiles.size() - 1;
+		/* register the node as new file and remvoe this created user */
+		result = fCreateFile(node, read, write, modify);
+		fDropNode(node);
+		return result;
+		});
 }
 int64_t sys::detail::FileIO::fRead(detail::FileNode* node, std::function<int64_t(int64_t)> callback) {
 	return node->read(pBuffer, callback);
@@ -147,30 +133,37 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 	std::u8string actual = util::MergePaths(dirfd == detail::fdWDirectory ? pWDirectory : pFiles[dirfd].node->path(), path);
 
 	/* create the node and perform the stat-read */
-	detail::FileNode* node = fCreateNode(actual, false);
-	return node->stats([=, this](int64_t result, const detail::NodeStats& stats) -> int64_t {
-		fDropNode(node);
-
-		/* check if the reading succeeded */
-		if (result != errCode::eSuccess)
+	return fCreateNode(actual, false, [=, this](int64_t result, detail::FileNode* node) -> int64_t {
+		/* check if the creation failed */
+		if (node == 0)
 			return result;
 
-		/* check if the destination is a symbolic link */
-		if (stats.type != env::FileType::link)
-			return errCode::eInvalid;
+		/* perform the stat-read */
+		return node->stats([=, this](int64_t result, const detail::NodeStats& stats) -> int64_t {
+			fDropNode(node);
 
-		/* write the link to the guest */
-		result = std::min<int64_t>(size, stats.link.size());
-		env::Instance()->memory().mwrite(address, stats.link.data(), result, env::Usage::Write);
-		return result;
+			/* check if the reading succeeded */
+			if (result != errCode::eSuccess)
+				return result;
+
+			/* check if the destination is a symbolic link */
+			if (stats.type != env::FileType::link)
+				return errCode::eInvalid;
+
+			/* write the link to the guest */
+			result = std::min<int64_t>(size, stats.link.size());
+			env::Instance()->memory().mwrite(address, stats.link.data(), uint32_t(result), env::Usage::Write);
+			return result;
+			});
 		});
 }
 
 bool sys::detail::FileIO::setup(detail::Syscall* syscall, std::u8string_view wDirectory) {
 	pSyscall = syscall;
 
-	/* setup the initial open file-entries to the terminal (stdin/stdout/stderr) */
-	detail::FileNode* terminal = fCreateNode(u8"/dev/tty", false);
+	/* setup the initial open file-entries to the terminal (stdin/stdout/stderr - terminal creation happens inplace) */
+	detail::FileNode* terminal = 0;
+	fCreateNode(u8"/dev/tty", false, [&](int64_t, detail::FileNode* node) -> int64_t { terminal = node; return 0; });
 	fCreateFile(terminal, true, false, true);
 	fCreateFile(terminal, false, true, true);
 	fCreateFile(terminal, false, true, true);
