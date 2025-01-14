@@ -34,6 +34,8 @@ namespace sys::detail {
 	}
 	static constexpr int fdWDirectory = -100;
 
+	/* Note: implements separate link-following mechanic, as symlinks might
+	*	exist, which are not part of the actual raw underlying filesystem */
 	class FileIO {
 	private:
 		struct Entry {
@@ -41,6 +43,7 @@ namespace sys::detail {
 			bool read = false;
 			bool write = false;
 			bool modify = false;
+			bool closeOnExecute = false;
 		};
 		struct Node {
 			std::unique_ptr<detail::FileNode> node;
@@ -54,6 +57,7 @@ namespace sys::detail {
 		std::vector<uint64_t> pCached;
 		std::u8string pWDirectory;
 		detail::Syscall* pSyscall = 0;
+		size_t pLinkFollow = 0;
 
 	public:
 		FileIO() = default;
@@ -63,8 +67,8 @@ namespace sys::detail {
 		int64_t fCheckWrite(int64_t fd) const;
 
 	private:
-		int64_t fCreateNode(std::u8string_view path, bool follow, std::function<int64_t(int64_t, detail::FileNode*)> callback);
-		int64_t fCreateFile(detail::FileNode* node, bool read, bool write, bool modify);
+		int64_t fCreateNode(std::u8string_view path, bool follow, bool append, std::function<int64_t(int64_t, detail::FileNode*, const env::FileStats&)> callback);
+		int64_t fCreateFile(detail::FileNode* node, bool read, bool write, bool modify, bool closeOnExecute);
 		void fDropNode(detail::FileNode* node);
 
 	private:
@@ -74,7 +78,7 @@ namespace sys::detail {
 		int64_t fReadLinkAt(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size);
 
 	public:
-		bool setup(detail::Syscall* syscall, std::u8string_view wDirectory);
+		bool setup(detail::Syscall* syscall);
 		detail::FileNode* link(int64_t fd);
 		void drop(detail::FileNode* node);
 

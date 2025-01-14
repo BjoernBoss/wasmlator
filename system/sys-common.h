@@ -34,6 +34,8 @@ namespace sys {
 			static constexpr int64_t eNotDirectory = -20;
 			static constexpr int64_t eIsDirectory = -21;
 			static constexpr int64_t eInvalid = -22;
+			static constexpr int64_t eReadOnly = -30;
+			static constexpr int64_t eLoop = -40;
 
 			/* custom error (not mapped to any linux errors) */
 			static constexpr int64_t eUnknown = -0xffff;

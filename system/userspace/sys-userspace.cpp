@@ -144,7 +144,7 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* initialize the syscall environment */
-	if (!pSyscall.setup(this, loaded.endOfData, util::SplitPath(pBinary).first)) {
+	if (!pSyscall.setup(this, loaded.endOfData, pBinary)) {
 		logger.error(u8"Failed to setup the userspace syscalls");
 		return false;
 	}

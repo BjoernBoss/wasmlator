@@ -132,11 +132,12 @@ int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	return errCode::eSuccess;
 }
 
-bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view wDirectory) {
+bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path) {
 	pUserspace = userspace;
+	pConfig.path = path;
 
 	/* setup the file-io */
-	if (!pFileIO.setup(this, wDirectory))
+	if (!pFileIO.setup(this))
 		return false;
 
 	/* setup the memory interactions */
@@ -154,6 +155,9 @@ void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress
 	fWrap([this]() { return fDispatch(); });
 }
 
+sys::detail::ProcessConfig& sys::detail::Syscall::config() {
+	return pConfig;
+}
 sys::detail::FileIO& sys::detail::Syscall::fileIO() {
 	return pFileIO;
 }

@@ -6,6 +6,10 @@
 #include "sys-mem-interact.h"
 
 namespace sys::detail {
+	struct ProcessConfig {
+		std::u8string path;
+	};
+
 	class Syscall {
 	private:
 		sys::Userspace* pUserspace = 0;
@@ -17,6 +21,7 @@ namespace sys::detail {
 			int64_t result = 0;
 			bool inplace = false;
 		} pCurrent;
+		detail::ProcessConfig pConfig;
 
 	public:
 		Syscall() = default;
@@ -31,10 +36,11 @@ namespace sys::detail {
 		int64_t fHandleUName(env::guest_t addr) const;
 
 	public:
-		bool setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view wDirectory);
+		bool setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path);
 		void handle(env::guest_t address, env::guest_t nextAddress);
 
 	public:
+		detail::ProcessConfig& config();
 		detail::FileIO& fileIO();
 		void callIncomplete();
 		void callContinue(std::function<int64_t()> callback);

@@ -22,7 +22,6 @@ class FileSystemInteract:
 		except:
 			return None
 		out = {}
-		out['name'] = os.path.split(path)[1]
 		out['link'] = ''
 		out['size'] = 0
 		out['atime_us'] = s.st_atime_ns // 1000

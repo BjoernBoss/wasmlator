@@ -33,7 +33,7 @@ bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(
 }
 env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> obj) const {
 	env::FileStats out;
-	bool tmMod = false, tmAcc = false, size = false, type = false, name = false, link = false;
+	bool tmMod = false, tmAcc = false, size = false, type = false, link = false;
 
 	/* iterate over the attributes and apply them */
 	for (const auto& [key, value] : obj) {
@@ -61,10 +61,6 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 				logger.fatal(u8"Received invalid file-type [", _type, u8']');
 			type = true;
 		}
-		else if (key == L"name") {
-			out.name = str::u8::To(value.str());
-			name = true;
-		}
 		else if (key == L"link") {
 			out.link = str::u8::To(value.str());
 			link = true;
@@ -72,7 +68,7 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 	}
 
 	/* check if all values have been received and return the parsed stats */
-	if (!tmMod || !tmAcc || !size || !type || !name || !link)
+	if (!tmMod || !tmAcc || !size || !type || !link)
 		logger.fatal(u8"Received incomplete file-stats");
 	return out;
 }
@@ -149,7 +145,7 @@ void env::FileSystem::readStats(std::u8string_view path, std::function<void(cons
 	std::u8string actual = fPrepare(path);
 	fReadStats(actual, callback);
 }
-void env::FileSystem::readDir(std::u8string_view path, std::function<void(bool, const std::vector<env::FileStats>&)> callback) {
+void env::FileSystem::readDir(std::u8string_view path, std::function<void(bool, const std::vector<std::u8string>&)> callback) {
 	logger.debug(u8"Reading directory [", path, u8']');
 	std::u8string actual = fPrepare(path);
 	fHandleTask(str::u8::Build(u8"list:", actual), [=, this](json::Reader<std::u8string_view> resp) {
@@ -160,11 +156,11 @@ void env::FileSystem::readDir(std::u8string_view path, std::function<void(bool, 
 		}
 		json::ArrReader<std::u8string_view> list = resp.arr();
 
-		/* read all of the stats */
-		std::vector<env::FileStats> stats;
+		/* read all of the children */
+		std::vector<std::u8string> children;
 		for (const auto& entry : list)
-			stats.push_back(fParseStats(entry.obj()));
-		callback(true, stats);
+			children.push_back(str::u8::To(entry.str()));
+		callback(true, children);
 		});
 }
 void env::FileSystem::createDir(std::u8string_view path, std::function<void(bool)> callback) {

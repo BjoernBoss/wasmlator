@@ -6,15 +6,17 @@
 namespace env {
 	static constexpr size_t MaxFollowSymLinks = 64;
 
+	/* Note: env::FileSystem will only ever produce file/directory/link */
 	enum class FileType : uint8_t {
 		none,
 		file,
 		directory,
 		link,
+		pipe,
+		tty,
 		_last
 	};
 	struct FileStats {
-		std::u8string name;
 		std::u8string link;
 		uint64_t timeModifiedUS = 0;
 		uint64_t timeAccessedUS = 0;
@@ -57,7 +59,7 @@ namespace env {
 	public:
 		void followLinks(std::u8string_view path, std::function<void(std::u8string_view, const env::FileStats*)> callback);
 		void readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback);
-		void readDir(std::u8string_view path, std::function<void(bool, const std::vector<env::FileStats>&)> callback);
+		void readDir(std::u8string_view path, std::function<void(bool, const std::vector<std::u8string>&)> callback);
 		void createDir(std::u8string_view path, std::function<void(bool)> callback);
 		void deleteDir(std::u8string_view path, std::function<void(bool)> callback);
 		void deleteFile(std::u8string_view path, std::function<void(bool)> callback);

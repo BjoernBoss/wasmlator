@@ -100,7 +100,6 @@ class MemFileSystem {
 			/* check if the file-node needs to be created */
 			if (stats == null) {
 				stats = {};
-				stats.name = path.substr(path.lastIndexOf('/') + 1);
 				stats.link = '';
 				stats.size = 0;
 				stats.atime_us = Date.now() * 1000;
