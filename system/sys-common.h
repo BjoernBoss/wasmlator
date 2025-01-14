@@ -27,6 +27,7 @@ namespace sys {
 			static constexpr int64_t eNoEntry = -2;
 			static constexpr int64_t eIO = -5;
 			static constexpr int64_t eBadFd = -9;
+			static constexpr int64_t eNoMemory = -12;
 			static constexpr int64_t eAccess = -13;
 			static constexpr int64_t eFault = -14;
 			static constexpr int64_t eNotDirectory = -20;
@@ -72,7 +73,8 @@ namespace sys {
 		read,
 		readv,
 		write,
-		writev
+		writev,
+		mmap
 	};
 
 	struct SyscallArgs {

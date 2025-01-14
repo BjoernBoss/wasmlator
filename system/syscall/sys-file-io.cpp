@@ -50,8 +50,10 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		file = detail::FileState::stdOut;
 	else if (actual == u8"/dev/stderr")
 		file = detail::FileState::errOut;
-	if (file == detail::FileState::none)
+	if (file == detail::FileState::none) {
+		logger.fatal(u8"Currently not implemented (same as non-blocking for /dev/stdin");
 		return errCode::eNoEntry;
+	}
 
 	/* allocate the next slot (skip the first 3, as they will never be re-assigned) */
 	for (size_t i = 3; i < pFiles.size(); ++i) {

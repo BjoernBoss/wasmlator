@@ -43,16 +43,6 @@ std::set<gen::detail::InstRange> gen::detail::SuperBlock::fSetupRanges() const {
 	}
 	return out;
 }
-size_t gen::detail::SuperBlock::fIrreducibleConflicts(detail::RangeIt test, detail::RangeIt begin, detail::RangeIt end) const {
-	size_t count = 0;
-
-	/* iterate over the ranges and find all forward ranges, which jump into the backward-range to be tested */
-	for (detail::RangeIt it = begin; it != end; ++it) {
-		if (it->type != detail::RangeType::backwards && it->last >= test->first && it->last < test->last)
-			++count;
-	}
-	return count;
-}
 void gen::detail::SuperBlock::fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last) {
 	/* the expansion-modes will also remove any duplicate ranges, which are potentially shorter, but jump
 	*	to the same address - this has to be done before adding the irreducible-conflict resolving ranges,
@@ -99,31 +89,28 @@ void gen::detail::SuperBlock::fConflictCluster(std::set<detail::InstRange>& set,
 	if (mode != Mode::none)
 		return;
 
-	/* iterate over the ranges again and find candidates for the irreducible loop to be resolved
-	*	(there must be one, as the other patterns would otherwise have resolved the issue)
+	/* find the next irreducible jump to be resolved (just pick the first one, as it does not make a difference as there
+	*	will typically only be one - there must be one, as the other patterns would otherwise have resolved the issue)
 	*
 	*	Note: due to the nature of web-assembly loop constriants, irreducible control-flows can only be resolved
 	*	by expanding a backward jump all the way to the top and adding an additional forward jump, because the other
 	*	solution would require a block, which afterwards jumps back up to the loop-start of a nested loop... */
 	detail::RangeIt irreducibleIt = end;
-	size_t irreducibleCount = 0;
 	for (detail::RangeIt it = begin; it != end; ++it) {
 		/* check if this is a candidate for a conflict */
 		if (it->type != detail::RangeType::backwards || it->last != last)
 			continue;
-		size_t count = fIrreducibleConflicts(it, begin, end);
-		if (irreducibleCount < count) {
-			irreducibleIt = it;
-			irreducibleCount = count;
-		}
+		irreducibleIt = it;
+		break;
 	}
 
-	/* insert the new separate ranges to the input and remove the resolved range (adding it
-	*	back to the input will ensure that other ranges can take advantage of the same targets) */
+	/* remove the resolved range and insert the long range to the output (it spans over the entire
+	*	conflict, and can therefore not induce another conflict) and the short range back to the
+	*	input (as it might still be part of conflicts) - output will be cleaned up afterwards */
 	size_t target = irreducibleIt->first - 1;
 	set.erase(irreducibleIt);
-	set.insert(detail::InstRange{ first, last, detail::RangeType::backwards });
 	set.insert(detail::InstRange{ first, target, detail::RangeType::conditional });
+	pRanges.insert(detail::InstRange{ first, last, detail::RangeType::backwards });
 }
 
 void gen::detail::SuperBlock::fFinalizeBlock(bool lastAndInvalid) {
@@ -220,7 +207,7 @@ void gen::detail::SuperBlock::fPrepareStack() {
 		if (pIt->type == detail::RangeType::backwards) {
 			lastBackward = pStack.size();
 			backwardConditionals = 0;
-			pStack.push_back({ wasm::Loop{ gen::Sink, u8"", types, {} }, pIt->first, pIt->last, pIt->type});
+			pStack.push_back({ wasm::Loop{ gen::Sink, u8"", types, {} }, pIt->first, pIt->last, pIt->type });
 		}
 		else
 			pStack.push_back({ wasm::Block{ gen::Sink, u8"", types, {} }, pIt->first, pIt->last, pIt->type });
@@ -348,24 +335,35 @@ void gen::detail::SuperBlock::setupRanges() {
 	while (!raw.empty()) {
 		detail::RangeIt it = raw.begin();
 		size_t last = it->last;
-		bool multi = false;
 
-		/* advance the iterator to the first non-overlapping range */
+		/* advance the iterator to the first non-overlapping range (i.e. find the end of the current overlapping cluster) */
 		detail::RangeIt lt = it;
-		for (++lt; lt != raw.end() && last >= lt->first; ++lt) {
+		for (++lt; lt != raw.end() && last >= lt->first; ++lt)
 			last = std::max(last, lt->last);
-			multi = true;
-		}
 
-		/* check if multiple conflicting ranges have been found and fix them
-		*	one by one and otherwise fush out the single range immediately */
-		if (multi)
-			fConflictCluster(raw, it, lt, it->first, last);
-		else {
-			pRanges.insert(detail::InstRange{ it->first, it->last, it->type });
-			raw.erase(it);
+		/* resolve the overlapping conflict */
+		fConflictCluster(raw, it, lt, it->first, last);
+	}
+
+	/* iterate over the ranges and remove all backward jumps, which jump to the same
+	*	target and collect all forward targets (necessary to cleanup forward jumps) */
+	std::unordered_set<size_t> forward, conditional;
+	size_t count = pRanges.size();
+	for (detail::RangeIt it = pRanges.begin(); it != pRanges.end(); ++it) {
+		/* check if this is a backward-jump to be cleaned up */
+		if (it->type != detail::RangeType::backwards)
+			continue;
+
+		/* find all useless jumps to the same target (all later ranges will automatically have a shorter reach) */
+		detail::RangeIt ot = std::next(it);
+		while (ot != pRanges.end()) {
+			if (ot->type == it->type && ot->first == it->first)
+				ot = pRanges.erase(ot);
+			else
+				++ot;
 		}
 	}
+	logger.debug(u8"Ranges: ", pRanges.size(), u8" (Reduction: ", count - pRanges.size(), u8')');
 
 	/* reset the iterator and counter */
 	pIndex = 0;

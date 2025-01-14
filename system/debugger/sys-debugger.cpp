@@ -9,6 +9,7 @@ bool sys::Debugger::fActive() const {
 bool sys::Debugger::fSetup(sys::Userspace* userspace) {
 	pUserspace = userspace;
 	pRegisters = pUserspace->cpu()->debugQueryNames();
+	pMode = Mode::none;
 	return true;
 }
 bool sys::Debugger::fAdvance(env::guest_t address) {

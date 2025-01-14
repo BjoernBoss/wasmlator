@@ -8,6 +8,7 @@
 #include <vector>
 #include <set>
 #include <memory>
+#include <iterator>
 
 #include "../environment/env-common.h"
 #include "../util/util-logger.h"

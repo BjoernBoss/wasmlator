@@ -79,7 +79,6 @@ namespace gen::detail {
 	private:
 		size_t fLookup(env::guest_t address) const;
 		std::set<detail::InstRange> fSetupRanges() const;
-		size_t fIrreducibleConflicts(detail::RangeIt test, detail::RangeIt begin, detail::RangeIt end) const;
 		void fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last);
 
 	private:
