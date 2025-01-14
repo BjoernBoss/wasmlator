@@ -6,7 +6,7 @@ gen::Writer::Writer(detail::SuperBlock& block, const detail::MemoryState& memory
 
 const wasm::Target* gen::Writer::hasTarget(env::guest_t target) const {
 	detail::InstTarget lookup = pSuperBlock.lookup(target);
-	return ((lookup.preNulls > 0 || lookup.postNulls > 0 || lookup.conditional) ? 0 : lookup.target);
+	return (lookup.conditional ? 0 : lookup.target);
 }
 void gen::Writer::jump(env::guest_t target) const {
 	/* check if a redirecting jump needs to be added */
@@ -16,13 +16,9 @@ void gen::Writer::jump(env::guest_t target) const {
 		return;
 	}
 
-	/* write the pre-nulls, conditional, and post-nulls out (in reverse, as the stack is read from top-to-bottom) */
-	for (size_t i = 0; i < lookup.postNulls; ++i)
-		gen::Add[I::U32::Const(0)];
+	/* write the index for the conditional branch out */
 	if (lookup.conditional)
-		gen::Add[I::U32::Const(1)];
-	for (size_t i = 0; i < lookup.preNulls; ++i)
-		gen::Add[I::U32::Const(0)];
+		gen::Add[I::U32::Const(lookup.index)];
 
 	/* add the direct branch to the target */
 	gen::Add[I::Branch::Direct(*lookup.target)];

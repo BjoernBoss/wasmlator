@@ -162,9 +162,7 @@ void gen::detail::SuperBlock::fPrepareStack() {
 
 		/* look for another backwards-jump on the stack, which has the same starting-index (iterate backwards to fetch the topmost value) */
 		for (size_t j = pStack.size(); j > 0; --j) {
-			if (pStack[j - 1].type == detail::RangeType::conditional)
-				++pTargets[i - 1].preNulls;
-			else if (pStack[j - 1].type == detail::RangeType::backwards && pStack[j - 1].first == pTargets[i - 1].first) {
+			if (pStack[j - 1].type == detail::RangeType::backwards && pStack[j - 1].first == pTargets[i - 1].first) {
 				pTargets[i - 1].stack = j - 1;
 				break;
 			}
@@ -188,64 +186,79 @@ void gen::detail::SuperBlock::fPrepareStack() {
 		return target;
 		};
 
-	/* count the number of conditional ranges, which start at this index, as these many initial null-values need to be pushed to the stack */
-	std::vector<wasm::Type> types;
-	auto it = pIt;
-	while (it != pRanges.end() && pIndex == it->first) {
-		if (it->type == detail::RangeType::conditional) {
-			gen::Add[I::U32::Const(0)];
-			types.push_back(wasm::Type::i32);
-		}
-		++it;
+	/* check if at least one conditional starts at this index, in which case a conditional branch needs to be inserted */
+	size_t totalConditionals = 0, seenConditionals = 0;
+	for (auto it = pIt; it != pRanges.end() && pIndex == it->first; ++it) {
+		if (it->type == detail::RangeType::conditional)
+			++totalConditionals;
 	}
 
-	/* check if the next ranges need to be opened */
-	size_t lastBackward = pStack.size(), backwardConditionals = 0;
+	/* setup the default-exit index and initial branch to the default-exit */
+	size_t defaultExit = (totalConditionals <= 1 ? 0 : totalConditionals);
+	if (totalConditionals > 0)
+		gen::Add[I::U32::Const(defaultExit)];
+
+	/* check if the next ranges need to be opened (there must always be a backward-jump before a conditional) */
+	size_t lastBackward = pStack.size(), startOfstack = pStack.size();
 	while (pIt != pRanges.end() && pIndex == pIt->first) {
+		std::initializer_list<wasm::Type> params = (seenConditionals < totalConditionals ?
+			std::initializer_list<wasm::Type>{ wasm::Type::i32 } :
+			std::initializer_list<wasm::Type>{});
+
 		/* create the next wasm-target object and setup the last-backward jump, which qualifies for
 		*	jump-target for all upcoming conditionals, or patch the number of seen backward conditionals */
 		if (pIt->type == detail::RangeType::backwards) {
 			lastBackward = pStack.size();
-			backwardConditionals = 0;
-			pStack.push_back({ wasm::Loop{ gen::Sink, u8"", types, {} }, pIt->first, pIt->last, pIt->type });
+			pStack.push_back({ wasm::Loop{ gen::Sink, u8"", params, {} }, pIt->first, pIt->last, pIt->type });
 		}
 		else
-			pStack.push_back({ wasm::Block{ gen::Sink, u8"", types, {} }, pIt->first, pIt->last, pIt->type });
+			pStack.push_back({ wasm::Block{ gen::Sink, u8"", params, {} }, pIt->first, pIt->last, pIt->type });
 
 		/* populate the target attributes with the first unconditional primitive entry */
 		Target& target = allocTarget();
 		target.address = pList[pIt->type == detail::RangeType::backwards ? pIt->first : pIt->last + 1].address;
 		target.stack = pStack.size() - 1;
 		target.first = pIt->first;
-		target.conditional = false;
+		target.index = defaultExit;
+		target.conditional = (pIt->type == detail::RangeType::backwards && seenConditionals < totalConditionals);
 		target.active = true;
-		if (pIt->type != detail::RangeType::backwards)
-			target.preNulls = (target.postNulls = 0);
-		else {
-			target.preNulls = backwardConditionals;
-			target.postNulls = types.size();
-		}
 
 		/* check if the conditional entry needs to be added as well */
 		if (pIt->type != detail::RangeType::conditional) {
 			++pIt;
 			continue;
 		}
-		types.pop_back();
 
 		/* setup the conditional entry */
 		Target& cond = allocTarget();
 		cond.address = target.address;
 		cond.stack = lastBackward;
 		cond.first = target.first;
-		cond.preNulls = backwardConditionals++;
-		cond.postNulls = types.size();
+		cond.index = (totalConditionals == 1 ? 1 : seenConditionals);
 		cond.conditional = true;
 		cond.active = true;
 		++pIt;
 
-		/* add the condition to evaluate the top-most value */
-		gen::Add[I::Branch::If(pStack.back().target)];
+		/* check if this was the last conditional, in which case the jump can now be added */
+		if (++seenConditionals < totalConditionals)
+			continue;
+
+		/* check if a single branch can be added */
+		if (totalConditionals == 1) {
+			gen::Add[I::Branch::If(pStack.back().target)];
+			continue;
+		}
+
+		/* collect the list of conditionals */
+		std::vector<wasm::WTarget> targets;
+		for (size_t i = startOfstack; i < pStack.size(); ++i) {
+			if (pStack[i].type == detail::RangeType::conditional)
+				targets.push_back(pStack[i].target);
+		}
+
+		/* add the wrapping default-exit and the conditional list of all targets */
+		wasm::Block _default{ gen::Sink, u8"", { wasm::Type::i32 }, {} };
+		gen::Add[I::Branch::Table(targets, _default)];
 	}
 }
 void gen::detail::SuperBlock::fPrepareChunk() {
@@ -375,7 +388,6 @@ env::guest_t gen::detail::SuperBlock::nextFetch() const {
 
 gen::detail::InstTarget gen::detail::SuperBlock::lookup(env::guest_t target) const {
 	size_t index = pTargets.size();
-	size_t costs = 0;
 
 	/* linear lookup as targets should never become really large */
 	for (size_t i = 0; i < pTargets.size(); ++i) {
@@ -383,21 +395,15 @@ gen::detail::InstTarget gen::detail::SuperBlock::lookup(env::guest_t target) con
 			continue;
 
 		/* check if the target can directly be used */
-		size_t tCost = (pTargets[i].preNulls + pTargets[i].postNulls + (pTargets[i].conditional ? 1 : 0));
-		if (tCost == 0)
-			return { &pStack[pTargets[i].stack].target, 0, 0, false };
-
-		/* check if the target is a better match than the currently found entry */
-		if (tCost < costs || costs == 0) {
-			costs = tCost;
-			index = i;
-		}
+		if (!pTargets[i].conditional)
+			return { &pStack[pTargets[i].stack].target, 0, false };
+		index = i;
 	}
 
 	/* check if a target has been found */
-	if (costs == 0)
-		return { 0, 0, 0, false };
-	return{ &pStack[pTargets[index].stack].target, pTargets[index].preNulls, pTargets[index].postNulls, pTargets[index].conditional };
+	if (index == pTargets.size())
+		return { 0, 0, false };
+	return{ &pStack[pTargets[index].stack].target, pTargets[index].index, pTargets[index].conditional };
 }
 bool gen::detail::SuperBlock::next() {
 	pChunk.clear();

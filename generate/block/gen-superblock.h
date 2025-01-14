@@ -28,8 +28,7 @@ namespace gen::detail {
 	};
 	struct InstTarget {
 		const wasm::Target* target = 0;
-		size_t preNulls = 0;
-		size_t postNulls = 0;
+		size_t index = 0;
 		bool conditional = false;
 	};
 
@@ -47,8 +46,7 @@ namespace gen::detail {
 			env::guest_t address = 0;
 			size_t stack = 0;
 			size_t first = 0;
-			size_t preNulls = 0;
-			size_t postNulls = 0;
+			size_t index = 0;
 			bool conditional = false;
 			bool active = false;
 		};
