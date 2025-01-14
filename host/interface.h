@@ -17,9 +17,9 @@ extern "C" {
 	void host_task(const char8_t* task, uint32_t size, uint32_t process);
 	void host_message(const char8_t* data, uint32_t size);
 	void host_failure(const char8_t* data, uint32_t size);
-	void host_stdout(const char8_t* data, uint32_t size);
-	void host_stderr(const char8_t* data, uint32_t size);
+	void host_guest_out(const char8_t* data, uint32_t size);
 	uint32_t host_random();
+	uint64_t host_time_us();
 }
 
 /* environment/process/process-bridge interactions */

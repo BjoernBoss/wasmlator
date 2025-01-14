@@ -10,13 +10,11 @@ void host_message(const char8_t* data, uint32_t size) {
 void host_failure(const char8_t* data, uint32_t size) {
 	str::BuildTo(std::cerr, u8"Fatal Exception: ", std::u8string_view{ data, size }, u8'\n');
 }
-void host_stdout(const char8_t* data, uint32_t size) {
+void host_guest_out(const char8_t* data, uint32_t size) {
 	str::BuildTo(std::cout, u8"Guest: [", std::u8string_view{ data, size }, u8"]\n");
 }
-void host_stderr(const char8_t* data, uint32_t size) {
-	str::BuildTo(std::cerr, u8"Guest: [", std::u8string_view{ data, size }, u8"]\n");
-}
 uint32_t host_random() { return 123; }
+uint64_t host_time_us() { return 0; }
 
 uint32_t glue_setup_core_map() { return 1; }
 void glue_reset_core_map() {}

@@ -202,6 +202,10 @@ void sys::Userspace::fExecute() {
 		pAddress = e.address;
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
+	catch (const detail::AwaitingSyscall& e) {
+		pAddress = e.address;
+		logger.trace(u8"Awaiting syscall result from [", str::As{ U"#018x", e.address }, u8']');
+	}
 }
 
 bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {

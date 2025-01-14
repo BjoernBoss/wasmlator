@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 #include <unordered_set>
+#include <algorithm>
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
@@ -31,7 +32,7 @@ namespace sys {
 			static constexpr int64_t eAccess = -13;
 			static constexpr int64_t eFault = -14;
 			static constexpr int64_t eNotDirectory = -20;
-			static constexpr int64_t eIsDir = -21;
+			static constexpr int64_t eIsDirectory = -21;
 			static constexpr int64_t eInvalid = -22;
 
 			/* custom error (not mapped to any linux errors) */
@@ -58,6 +59,11 @@ namespace sys {
 		public:
 			UnknownSyscall(env::guest_t address, uint64_t index) : env::Exception{ address }, index{ index } {}
 		};
+
+		struct AwaitingSyscall : public env::Exception {
+		public:
+			AwaitingSyscall(env::guest_t address) : env::Exception{ address } {}
+		};
 	}
 
 	enum class SyscallIndex : uint32_t {
@@ -74,7 +80,9 @@ namespace sys {
 		readv,
 		write,
 		writev,
-		mmap
+		mmap,
+		readlinkat,
+		readlink
 	};
 
 	struct SyscallArgs {

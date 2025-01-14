@@ -5,9 +5,10 @@ uint32_t host::Random() {
 	return host_random();
 }
 
-void host::GuestStd(std::u8string_view msg) {
-	host_stdout(msg.data(), uint32_t(msg.size()));
+uint64_t host::GetStampUS() {
+	return host_time_us();
 }
-void host::GuestErr(std::u8string_view msg) {
-	host_stderr(msg.data(), uint32_t(msg.size()));
+
+void host::GuestOut(std::u8string_view msg) {
+	host_guest_out(msg.data(), uint32_t(msg.size()));
 }

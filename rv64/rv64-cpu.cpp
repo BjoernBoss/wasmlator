@@ -153,6 +153,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 66:
 		call.index = sys::SyscallIndex::writev;
 		break;
+	case 78:
+		call.index = sys::SyscallIndex::readlinkat;
+		break;
 	case 160:
 		call.index = sys::SyscallIndex::uname;
 		break;

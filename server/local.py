@@ -32,6 +32,7 @@ class FileSystemInteract:
 		if stat.S_ISLNK(s.st_mode):
 			out['link'] = os.readlink(path)
 			out['type'] = 'link'
+			out['size'] = len(out['link'].encode('utf-8'))
 		
 		# check if the entry is a file
 		elif stat.S_ISREG(s.st_mode):

@@ -7,7 +7,9 @@ namespace host {
 	/* fetch a random 32-bit value */
 	uint32_t Random();
 
+	/* fetch the current time in [us] */
+	uint64_t GetStampUS();
+
 	/* logs performed by the guest */
-	void GuestStd(std::u8string_view msg);
-	void GuestErr(std::u8string_view msg);
+	void GuestOut(std::u8string_view msg);
 }

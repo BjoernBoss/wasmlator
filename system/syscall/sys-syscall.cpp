@@ -13,24 +13,28 @@ std::u8string sys::detail::Syscall::fReadString(env::guest_t address) const {
 	return out;
 }
 
-void sys::detail::Syscall::fHandle(env::guest_t address) {
-	sys::Cpu* cpu = pUserspace->cpu();
-
-	/* catch any potential memory errors */
-	int64_t result = 0;
+void sys::detail::Syscall::fWrap(std::function<int64_t()> callback) {
+	/* execute the wrapped call (to catch any memory exceptions) */
 	try {
-		result = fWrapped(address, cpu->syscallGetArgs());
+		pCurrent.result = callback();
 	}
 	catch (const env::MemoryFault& e) {
 		logger.debug(u8"Memory fault at [", str::As{ U"#018x", e.accessed }, u8"] while handling syscall");
-		result = errCode::eFault;
+		pCurrent.result = errCode::eFault;
 	}
 
-	/* write the result out to the process */
-	logger.debug(u8"result: ", str::As{ U"#018x", result });
-	cpu->syscallSetResult(result);
+	/* if this point is reached, the call has been completed (otherwise await-exception will be thrown) */
+	logger.debug(u8"result: ", str::As{ U"#018x", pCurrent.result });
+	pUserspace->cpu()->syscallSetResult(pCurrent.result);
+
+	/* check if this is not in-place execution, in which case the execution needs to be
+	*	restarted at the next address (pc will already be set by the await-exception) */
+	if (!pCurrent.inplace)
+		pUserspace->execute();
 }
-int64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::SyscallArgs& args) {
+int64_t sys::detail::Syscall::fDispatch() {
+	sys::SyscallArgs args = pUserspace->cpu()->syscallGetArgs();
+
 	/* check if the syscall can be handled in-place */
 	switch (args.index) {
 	case sys::SyscallIndex::getuid:
@@ -81,8 +85,20 @@ int64_t sys::detail::Syscall::fWrapped(env::guest_t address, const sys::SyscallA
 		logger.debug(u8"Syscall write(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
 		return pFileIO.write(args.args[0], args.args[1], args.args[2]);
 	}
+	case sys::SyscallIndex::readlinkat: {
+		logger.debug(u8"Syscall readlinkat(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8')');
+		std::u8string path = fReadString(args.args[1]);
+		logger.debug(u8"pathname: [", path, u8"]");
+		return pFileIO.readlinkat(args.args[0], path, args.args[2], args.args[3]);
+	}
+	case sys::SyscallIndex::readlink: {
+		logger.debug(u8"Syscall readlink(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8", ", args.args[2], u8')');
+		std::u8string path = fReadString(args.args[0]);
+		logger.debug(u8"pathname: [", path, u8"]");
+		return pFileIO.readlink(path, args.args[1], args.args[2]);
+	}
 	case sys::SyscallIndex::unknown:
-		throw detail::UnknownSyscall{ address, args.rawIndex };
+		throw detail::UnknownSyscall{ pCurrent.address, args.rawIndex };
 		break;
 	default:
 		logger.fatal(u8"Syscall currently not implemented");
@@ -116,11 +132,11 @@ int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	return errCode::eSuccess;
 }
 
-bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view currentDirectory) {
+bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view wDirectory) {
 	pUserspace = userspace;
 
 	/* setup the file-io */
-	if (!pFileIO.setup(currentDirectory))
+	if (!pFileIO.setup(this, wDirectory))
 		return false;
 
 	/* setup the memory interactions */
@@ -129,5 +145,22 @@ bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfDa
 	return true;
 }
 void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress) {
-	fHandle(address);
+	/* setup the new syscall */
+	pCurrent.address = address;
+	pCurrent.next = nextAddress;
+	pCurrent.inplace = true;
+
+	/* dispatch the call (will write the result back properly and continue execution at the right address) */
+	fWrap([this]() { return fDispatch(); });
+}
+
+sys::detail::FileIO& sys::detail::Syscall::fileIO() {
+	return pFileIO;
+}
+void sys::detail::Syscall::callIncomplete() {
+	pCurrent.inplace = false;
+	throw detail::AwaitingSyscall{ pCurrent.next };
+}
+void sys::detail::Syscall::callContinue(std::function<int64_t()> callback) {
+	fWrap(callback);
 }
