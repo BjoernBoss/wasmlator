@@ -18,7 +18,7 @@ wasm::Variable rv64::Translate::fTemp64(size_t index) {
 
 bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 	if (pInst->src1 != reg::Zero) {
-		gen::Make->get(pInst->src1 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
+		gen::Make->get(offsetof(rv64::Context, iregs) + pInst->src1 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
@@ -27,7 +27,7 @@ bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 }
 bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 	if (pInst->src2 != reg::Zero) {
-		gen::Make->get(pInst->src2 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
+		gen::Make->get(offsetof(rv64::Context, iregs) + pInst->src2 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 		return true;
 	}
 	else if (forceNull)
@@ -35,7 +35,37 @@ bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 	return false;
 }
 void rv64::Translate::fStoreDest() const {
-	gen::Make->set(pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
+	gen::Make->set(offsetof(rv64::Context, iregs) + pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
+}
+
+void rv64::Translate::fLoadFSrc1(bool half) const {
+	gen::Make->get(offsetof(rv64::Context, fregs) + pInst->src1 * sizeof(double), half ? gen::MemoryType::f32 : gen::MemoryType::f64);
+}
+void rv64::Translate::fLoadFSrc2(bool half) const {
+	gen::Make->get(offsetof(rv64::Context, fregs) + pInst->src2 * sizeof(double), half ? gen::MemoryType::f32 : gen::MemoryType::f64);
+}
+void rv64::Translate::fLoadFSrc3(bool half) const {
+	gen::Make->get(offsetof(rv64::Context, fregs) + pInst->src3 * sizeof(double), half ? gen::MemoryType::f32 : gen::MemoryType::f64);
+}
+void rv64::Translate::fStoreFDest(bool isAsInt) const {
+	if (isAsInt)
+		gen::Make->get(offsetof(rv64::Context, fregs) + pInst->dest * sizeof(double), gen::MemoryType::i64);
+	else
+		gen::Make->get(offsetof(rv64::Context, fregs) + pInst->dest * sizeof(double), gen::MemoryType::f64);
+}
+void rv64::Translate::fExpandFloat(bool isAsInt, bool leaveAsInt) const {
+	/* check if the value needs to be intereprted as an integer */
+	if (!isAsInt)
+		gen::Add[I::F32::AsInt()];
+
+	/* perform the expansion to 64-bit doubles (upper 32bits are set to 1 - NaN Boxing) */
+	gen::Add[I::U32::Expand()];
+	gen::Add[I::U64::Const(0xffff'ffff'0000'0000)];
+	gen::Add[I::U64::Or()];
+
+	/* check if the value should be converted back to a float */
+	if (!leaveAsInt)
+		gen::Add[I::U64::AsFloat()];
 }
 
 void rv64::Translate::fMakeJAL() {
@@ -138,7 +168,6 @@ void rv64::Translate::fMakeBranch() const {
 			gen::Add[I::U64::GreaterEqual()];
 			break;
 		default:
-			logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 			break;
 		}
 	}
@@ -260,7 +289,6 @@ void rv64::Translate::fMakeALUImm() const {
 			gen::Add[I::U64::Const(pInst->imm != 0 ? 1 : 0)];
 		break;
 	default:
-		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -387,7 +415,6 @@ void rv64::Translate::fMakeALUReg() const {
 		gen::Add[I::U32::Expand()];
 		break;
 	default:
-		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -428,7 +455,6 @@ void rv64::Translate::fMakeLoad() const {
 		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
-		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -442,24 +468,23 @@ void rv64::Translate::fMakeStore() const {
 		gen::Add[I::U64::Add()];
 
 	/* write the source value to the stack */
-	fLoadSrc2(true, false);
+	fLoadSrc2(true, pInst->opcode != rv64::Opcode::store_dword);
 
 	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
-		gen::Make->write(pInst->src1, gen::MemoryType::u8To64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::u8To32, pAddress);
 		break;
 	case rv64::Opcode::store_half:
-		gen::Make->write(pInst->src1, gen::MemoryType::u16To64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::u16To32, pAddress);
 		break;
 	case rv64::Opcode::store_word:
-		gen::Make->write(pInst->src1, gen::MemoryType::u32To64, pAddress);
+		gen::Make->write(pInst->src1, gen::MemoryType::i32, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
 		gen::Make->write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
-		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 }
@@ -574,7 +599,6 @@ void rv64::Translate::fMakeDivRem() {
 		gen::Add[I::I32::Expand()];
 		break;
 	default:
-		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -699,7 +723,6 @@ void rv64::Translate::fMakeAMO(bool half) {
 			gen::Add[I::Local::Get(value)];
 		break;
 	default:
-		logger.fatal(u8"Unexpected opcode [", size_t(pInst->opcode), u8"] encountered");
 		break;
 	}
 
@@ -885,6 +908,50 @@ void rv64::Translate::fMakeMul() {
 	fStoreDest();
 }
 
+void rv64::Translate::fMakeFLoad() const {
+	/* compute the destination address and write it to the stack */
+	gen::Add[I::I64::Const(pInst->imm)];
+	if (fLoadSrc1(false, false))
+		gen::Add[I::U64::Add()];
+
+	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
+	switch (pInst->opcode) {
+	case rv64::Opcode::load_float:
+		gen::Make->read(pInst->src1, gen::MemoryType::i32, pAddress);
+		fExpandFloat(true, true);
+		break;
+	case rv64::Opcode::load_double:
+		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
+		break;
+	default:
+		break;
+	}
+
+	/* write the value to the register */
+	fStoreFDest(true);
+}
+void rv64::Translate::fMakeFStore() const {
+	/* compute the destination address and write it to the stack */
+	gen::Add[I::I64::Const(pInst->imm)];
+	if (fLoadSrc1(false, false))
+		gen::Add[I::U64::Add()];
+
+	/* write the source value to the stack */
+	fLoadFSrc2(pInst->opcode == rv64::Opcode::store_float);
+
+	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
+	switch (pInst->opcode) {
+	case rv64::Opcode::store_float:
+		gen::Make->write(pInst->src1, gen::MemoryType::f32, pAddress);
+		break;
+	case rv64::Opcode::store_double:
+		gen::Make->write(pInst->src1, gen::MemoryType::f64, pAddress);
+		break;
+	default:
+		break;
+	}
+}
+
 void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
 		var = wasm::Variable{};
@@ -1047,8 +1114,17 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::csr_read_and_clear_imm:
 		fMakeCSR();
 		break;
+	case rv64::Opcode::load_float:
+	case rv64::Opcode::load_double:
+		fMakeFLoad();
+		break;
+	case rv64::Opcode::store_float:
+	case rv64::Opcode::store_double:
+		fMakeFStore();
+		break;
 
 	case rv64::Opcode::_invalid:
 		logger.fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
+		break;
 	}
 }

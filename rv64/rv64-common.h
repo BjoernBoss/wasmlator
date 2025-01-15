@@ -9,13 +9,13 @@
 
 /* riscv 64-bit */
 namespace rv64 {
-	/* one cache per register integer, used for both reading and writing, and a single cache for floats */
-	static constexpr uint32_t MemoryCaches = 33;
+	/* one cache per register used for both reading and writing */
+	static constexpr uint32_t MemoryCaches = 32;
 
 	/* throw exception if jump-target is not 4-byte aligned */
 	struct Context {
 		union {
-			uint64_t regs[32] = { 0 };
+			uint64_t iregs[32] = { 0 };
 			struct {
 				union {
 					uint64_t x00;

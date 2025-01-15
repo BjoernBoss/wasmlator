@@ -30,6 +30,13 @@ namespace rv64 {
 		void fStoreDest() const;
 
 	private:
+		void fLoadFSrc1(bool half) const;
+		void fLoadFSrc2(bool half) const;
+		void fLoadFSrc3(bool half) const;
+		void fStoreFDest(bool isAsInt) const;
+		void fExpandFloat(bool isAsInt, bool leaveAsInt) const;
+
+	private:
 		void fMakeJAL();
 		void fMakeBranch() const;
 		void fMakeALUImm() const;
@@ -42,6 +49,10 @@ namespace rv64 {
 		void fMakeAMOSC();
 		void fMakeCSR() const;
 		void fMakeMul();
+
+	private:
+		void fMakeFLoad() const;
+		void fMakeFStore() const;
 
 	public:
 		void resetAll(sys::Writer* writer);

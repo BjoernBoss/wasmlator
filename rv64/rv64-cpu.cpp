@@ -133,7 +133,7 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 
 	/* fetch the arguments */
 	for (size_t i = 0; i < 6; ++i)
-		call.args[i] = ctx.regs[reg::A0 + i];
+		call.args[i] = ctx.iregs[reg::A0 + i];
 	call.rawIndex = ctx.a7;
 
 	/* map the index */
@@ -216,8 +216,8 @@ std::pair<std::u8string, uint8_t> rv64::Cpu::debugDecode(env::guest_t address) c
 	return { rv64::ToString(inst), inst.size };
 }
 uint64_t rv64::Cpu::debugGetValue(size_t index) const {
-	return env::Instance()->context().get<rv64::Context>().regs[index + 1];
+	return env::Instance()->context().get<rv64::Context>().iregs[index + 1];
 }
 void rv64::Cpu::debugSetValue(size_t index, uint64_t value) {
-	env::Instance()->context().get<rv64::Context>().regs[index + 1] = value;
+	env::Instance()->context().get<rv64::Context>().iregs[index + 1] = value;
 }
