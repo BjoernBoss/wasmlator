@@ -600,14 +600,11 @@ void rv64::Translate::fMakeAMO(bool half) {
 		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 	}
 
-	/* perform the reading of the original value and write it immediately to the destination */
+	/* perform the reading of the original value (dont write it to the destination yet, as the destination migth also be the source) */
 	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
 	gen::Add[I::Local::Get(addr)];
 	gen::Make->read(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
-	gen::Add[I::Local::Tee(value)];
-	if (half)
-		gen::Add[I::I32::Expand()];
-	fStoreDest();
+	gen::Add[I::Local::Set(value)];
 
 	/* write the destination address to the stack */
 	gen::Add[I::Local::Get(addr)];
@@ -708,6 +705,12 @@ void rv64::Translate::fMakeAMO(bool half) {
 
 	/* write the result back to the memory */
 	gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+
+	/* write the original value back to the destination */
+	gen::Add[I::Local::Get(value)];
+	if (half)
+		gen::Add[I::I32::Expand()];
+	fStoreDest();
 }
 void rv64::Translate::fMakeAMOLR() {
 	/*
@@ -742,7 +745,7 @@ void rv64::Translate::fMakeAMOSC() {
 	*/
 
 	/* operation-checks to simplify the logic */
-	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
+	bool half = (pInst->opcode == rv64::Opcode::store_conditional_w);
 
 	/* load the source address into the temporary */
 	wasm::Variable addr = fTemp64(0);

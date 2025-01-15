@@ -14,6 +14,7 @@ enum class FormatType : uint8_t {
 	fence,
 	dst_src1_csr,
 	dst_imm_csr,
+	dst_src1_amo,
 	dst_src1_src2_amo
 };
 struct PrintOpcode {
@@ -101,7 +102,7 @@ static constexpr PrintOpcode opcodeStrings[] = {
 	PrintOpcode{ u8"remu", FormatType::dst_src1_src2 },
 	PrintOpcode{ u8"remuw", FormatType::dst_src1_src2 },
 
-	PrintOpcode{ u8"lr.w", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"lr.w", FormatType::dst_src1_amo },
 	PrintOpcode{ u8"sc.w", FormatType::dst_src1_src2_amo },
 	PrintOpcode{ u8"amoswap.w", FormatType::dst_src1_src2_amo },
 	PrintOpcode{ u8"amoadd.w", FormatType::dst_src1_src2_amo },
@@ -112,7 +113,7 @@ static constexpr PrintOpcode opcodeStrings[] = {
 	PrintOpcode{ u8"amomax.w", FormatType::dst_src1_src2_amo },
 	PrintOpcode{ u8"amominu.w", FormatType::dst_src1_src2_amo },
 	PrintOpcode{ u8"amomaxu.w", FormatType::dst_src1_src2_amo },
-	PrintOpcode{ u8"lr.d", FormatType::dst_src1_src2_amo },
+	PrintOpcode{ u8"lr.d", FormatType::dst_src1_amo },
 	PrintOpcode{ u8"sc.d", FormatType::dst_src1_src2_amo },
 	PrintOpcode{ u8"amoswap.d", FormatType::dst_src1_src2_amo },
 	PrintOpcode{ u8"amoadd.d", FormatType::dst_src1_src2_amo },
@@ -207,9 +208,13 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 	case FormatType::dst_imm_csr:
 		str::FormatTo(out, u8" {}, {} csr:{:#05x}", registerStrings[inst.dest], inst.imm, inst.misc);
 		break;
+	case FormatType::dst_src1_amo:
+		str::BuildTo(out, ((inst.misc & 0x02) != 0 ? u8".aq" : u8""), ((inst.misc & 0x01) != 0 ? u8".rl" : u8""),
+			u8' ', registerStrings[inst.dest], u8", [", registerStrings[inst.src1], u8']');
+		break;
 	case FormatType::dst_src1_src2_amo:
-		str::BuildTo(out, u8' ', registerStrings[inst.dest], u8", ", registerStrings[inst.src1], u8", ", registerStrings[inst.src2],
-			u8" (aq: ", ((inst.misc & 0x02) != 0 ? u8'1' : u8'0'), u8" | rl: ", ((inst.misc & 0x01) != 0 ? u8'1' : u8'0'), u8')');
+		str::BuildTo(out, ((inst.misc & 0x02) != 0 ? u8".aq" : u8""), ((inst.misc & 0x01) != 0 ? u8".rl" : u8""),
+			u8' ', registerStrings[inst.dest], u8", [", registerStrings[inst.src1], u8"], ", registerStrings[inst.src2]);
 		break;
 	default:
 		break;

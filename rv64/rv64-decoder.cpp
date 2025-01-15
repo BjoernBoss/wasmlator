@@ -184,7 +184,8 @@ rv64::Instruction rv64::detail::Opcode2f(uint32_t data) {
 		out.opcode = (wide ? rv64::Opcode::amo_swap_d : rv64::Opcode::amo_swap_w);
 		break;
 	case 0x02:
-		out.opcode = (wide ? rv64::Opcode::load_reserved_d : rv64::Opcode::load_reserved_w);
+		if (out.src2 == 0)
+			out.opcode = (wide ? rv64::Opcode::load_reserved_d : rv64::Opcode::load_reserved_w);
 		break;
 	case 0x03:
 		out.opcode = (wide ? rv64::Opcode::store_conditional_d : rv64::Opcode::store_conditional_w);
