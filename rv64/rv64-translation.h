@@ -47,7 +47,6 @@ namespace rv64 {
 		void fMakeAMO(bool half);
 		void fMakeAMOLR();
 		void fMakeAMOSC();
-		void fMakeCSR() const;
 		void fMakeMul();
 
 	private:

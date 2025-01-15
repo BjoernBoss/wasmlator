@@ -793,9 +793,6 @@ void rv64::Translate::fMakeAMOSC() {
 	gen::Add[I::U64::Const(0)];
 	fStoreDest();
 }
-void rv64::Translate::fMakeCSR() const {
-	pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
-}
 void rv64::Translate::fMakeMul() {
 	/*
 	*	Performed operation:
@@ -1106,14 +1103,6 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::amo_max_u_d:
 		fMakeAMO(false);
 		break;
-	case rv64::Opcode::csr_read_write:
-	case rv64::Opcode::csr_read_and_set:
-	case rv64::Opcode::csr_read_and_clear:
-	case rv64::Opcode::csr_read_write_imm:
-	case rv64::Opcode::csr_read_and_set_imm:
-	case rv64::Opcode::csr_read_and_clear_imm:
-		fMakeCSR();
-		break;
 	case rv64::Opcode::load_float:
 	case rv64::Opcode::load_double:
 		fMakeFLoad();
@@ -1122,9 +1111,9 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::store_double:
 		fMakeFStore();
 		break;
-
-	case rv64::Opcode::_invalid:
-		logger.fatal(u8"Instruction [", size_t(pInst->opcode), u8"] currently not implemented");
+	default:
+		/* raise the not-implemented exception for all remaining instructions */
+		pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
 		break;
 	}
 }
