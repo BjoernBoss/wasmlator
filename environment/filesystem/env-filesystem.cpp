@@ -75,7 +75,7 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 void env::FileSystem::fCloseAll() {
 	/* the value must exist, as close would otherwise have released it */
 	while (!pOpen.empty())
-		fCloseFile(pOpen.back().value());
+		fCloseFile(pOpen.size() - 1);
 }
 
 void env::FileSystem::fFollowLinks(std::u8string_view path, bool first, std::function<void(std::u8string_view, const env::FileStats*)> callback) {
@@ -257,7 +257,7 @@ void env::FileSystem::truncateFile(uint64_t id, uint64_t size, std::function<voi
 }
 void env::FileSystem::closeFile(uint64_t id) {
 	if (fCheck(id))
-		fCloseFile(pOpen[id].value());
+		fCloseFile(id);
 }
 bool env::FileSystem::checkFile(uint64_t id) const {
 	return fCheck(id);

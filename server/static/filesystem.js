@@ -5,19 +5,26 @@ class FileNode {
 		this.stats = stats;
 		this.users = 0;
 		this.data = null;
+		this.timeout = null;
 	}
 
 	addUser() {
 		if (this.users++ == 0 && this.data == null)
-			this.data = new ArrayBuffer(0, { maxByteLength: 100_000_000 });
+			this.data = new ArrayBuffer(0, { maxByteLength: 40_000_000 });
+
+		/* check if a delete-timeout has been set and remove it */
+		if (this.timeout != null)
+			clearTimeout(this.timeout);
+		this.timeout = null;
 	}
 	dropUser() {
-		if (--this.users > 0)
+		if (--this.users > 0 || this.dataDirty)
 			return;
 
-		/* check if the data should be held in memory or be discarded */
-		if (!this.dataDirty)
+		/* check if the data should be held in memory or be discarded (delete files from memory after 1 minute of not being accessed) */
+		this.timeout = setTimeout(() => {
 			this.data = null;
+		}, 60 * 1000);
 	}
 	read() {
 		this.metaDirty = true;

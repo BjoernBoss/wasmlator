@@ -72,7 +72,7 @@ int64_t sys::detail::FileIO::fCreateFile(detail::FileNode* node, bool read, bool
 	size_t index = 0;
 	while (index < pFiles.size() && pFiles[index].node != 0)
 		++index;
-	if (index == pNodes.size())
+	if (index == pFiles.size())
 		pFiles.push_back({ 0, false, false, false, false });
 
 	/* setup the new file */
