@@ -9,143 +9,146 @@
 
 /* riscv 64-bit */
 namespace rv64 {
-	/* one cache per register, used for both reading and writing */
-	static constexpr uint32_t MemoryCaches = 32;
+	/* one cache per register integer, used for both reading and writing, and a single cache for floats */
+	static constexpr uint32_t MemoryCaches = 33;
 
 	/* throw exception if jump-target is not 4-byte aligned */
-	union Context {
-		uint64_t regs[32] = { 0 };
-		struct {
-			union {
-				uint64_t x00;
-				uint64_t _zero;
-			};
-			union {
-				uint64_t x01;
-				uint64_t ra;
-			};
-			union {
-				uint64_t x02;
-				uint64_t sp;
-			};
-			union {
-				uint64_t x03;
-				uint64_t gp;
-			};
-			union {
-				uint64_t x04;
-				uint64_t tp;
-			};
-			union {
-				uint64_t x05;
-				uint64_t t0;
-			};
-			union {
-				uint64_t x06;
-				uint64_t t1;
-			};
-			union {
-				uint64_t x07;
-				uint64_t t2;
-			};
-			union {
-				uint64_t x08;
-				uint64_t fp;
-				uint64_t s0;
-			};
-			union {
-				uint64_t x09;
-				uint64_t s1;
-			};
-			union {
-				uint64_t x10;
-				uint64_t a0;
-			};
-			union {
-				uint64_t x11;
-				uint64_t a1;
-			};
-			union {
-				uint64_t x12;
-				uint64_t a2;
-			};
-			union {
-				uint64_t x13;
-				uint64_t a3;
-			};
-			union {
-				uint64_t x14;
-				uint64_t a4;
-			};
-			union {
-				uint64_t x15;
-				uint64_t a5;
-			};
-			union {
-				uint64_t x16;
-				uint64_t a6;
-			};
-			union {
-				uint64_t x17;
-				uint64_t a7;
-			};
-			union {
-				uint64_t x18;
-				uint64_t s2;
-			};
-			union {
-				uint64_t x19;
-				uint64_t s3;
-			};
-			union {
-				uint64_t x20;
-				uint64_t s4;
-			};
-			union {
-				uint64_t x21;
-				uint64_t s5;
-			};
-			union {
-				uint64_t x22;
-				uint64_t s6;
-			};
-			union {
-				uint64_t x23;
-				uint64_t s7;
-			};
-			union {
-				uint64_t x24;
-				uint64_t s8;
-			};
-			union {
-				uint64_t x25;
-				uint64_t s9;
-			};
-			union {
-				uint64_t x26;
-				uint64_t s10;
-			};
-			union {
-				uint64_t x27;
-				uint64_t s11;
-			};
-			union {
-				uint64_t x28;
-				uint64_t t3;
-			};
-			union {
-				uint64_t x29;
-				uint64_t t4;
-			};
-			union {
-				uint64_t x30;
-				uint64_t t5;
-			};
-			union {
-				uint64_t x31;
-				uint64_t t6;
+	struct Context {
+		union {
+			uint64_t regs[32] = { 0 };
+			struct {
+				union {
+					uint64_t x00;
+					uint64_t _zero;
+				};
+				union {
+					uint64_t x01;
+					uint64_t ra;
+				};
+				union {
+					uint64_t x02;
+					uint64_t sp;
+				};
+				union {
+					uint64_t x03;
+					uint64_t gp;
+				};
+				union {
+					uint64_t x04;
+					uint64_t tp;
+				};
+				union {
+					uint64_t x05;
+					uint64_t t0;
+				};
+				union {
+					uint64_t x06;
+					uint64_t t1;
+				};
+				union {
+					uint64_t x07;
+					uint64_t t2;
+				};
+				union {
+					uint64_t x08;
+					uint64_t fp;
+					uint64_t s0;
+				};
+				union {
+					uint64_t x09;
+					uint64_t s1;
+				};
+				union {
+					uint64_t x10;
+					uint64_t a0;
+				};
+				union {
+					uint64_t x11;
+					uint64_t a1;
+				};
+				union {
+					uint64_t x12;
+					uint64_t a2;
+				};
+				union {
+					uint64_t x13;
+					uint64_t a3;
+				};
+				union {
+					uint64_t x14;
+					uint64_t a4;
+				};
+				union {
+					uint64_t x15;
+					uint64_t a5;
+				};
+				union {
+					uint64_t x16;
+					uint64_t a6;
+				};
+				union {
+					uint64_t x17;
+					uint64_t a7;
+				};
+				union {
+					uint64_t x18;
+					uint64_t s2;
+				};
+				union {
+					uint64_t x19;
+					uint64_t s3;
+				};
+				union {
+					uint64_t x20;
+					uint64_t s4;
+				};
+				union {
+					uint64_t x21;
+					uint64_t s5;
+				};
+				union {
+					uint64_t x22;
+					uint64_t s6;
+				};
+				union {
+					uint64_t x23;
+					uint64_t s7;
+				};
+				union {
+					uint64_t x24;
+					uint64_t s8;
+				};
+				union {
+					uint64_t x25;
+					uint64_t s9;
+				};
+				union {
+					uint64_t x26;
+					uint64_t s10;
+				};
+				union {
+					uint64_t x27;
+					uint64_t s11;
+				};
+				union {
+					uint64_t x28;
+					uint64_t t3;
+				};
+				union {
+					uint64_t x29;
+					uint64_t t4;
+				};
+				union {
+					uint64_t x30;
+					uint64_t t5;
+				};
+				union {
+					uint64_t x31;
+					uint64_t t6;
+				};
 			};
 		};
+		double fregs[32] = { 0 };
 	};
 
 	enum class Opcode : uint16_t {
@@ -252,6 +255,73 @@ namespace rv64 {
 		amo_min_u_d,
 		amo_max_u_d,
 
+		load_float,
+		load_double,
+		store_float,
+		store_double,
+
+		float_mul_add,
+		float_mul_sub,
+		float_neg_mul_add,
+		float_neg_mul_sub,
+		float_add,
+		float_sub,
+		float_mul,
+		float_div,
+		float_sqrt,
+		float_sign_copy,
+		float_sign_invert,
+		float_sign_xor,
+		float_min,
+		float_max,
+		float_less_equal,
+		float_less_than,
+		float_equal,
+		float_classify,
+
+		double_mul_add,
+		double_mul_sub,
+		double_neg_mul_add,
+		double_neg_mul_sub,
+		double_add,
+		double_sub,
+		double_mul,
+		double_div,
+		double_sqrt,
+		double_sign_copy,
+		double_sign_invert,
+		double_sign_xor,
+		double_min,
+		double_max,
+		double_less_equal,
+		double_less_than,
+		double_equal,
+		double_classify,
+
+		float_convert_to_word_s,
+		float_convert_to_word_u,
+		float_convert_from_word_s,
+		float_convert_from_word_u,
+		float_convert_to_dword_s,
+		float_convert_to_dword_u,
+		float_convert_from_dword_s,
+		float_convert_from_dword_u,
+		float_move_to_word,
+		float_move_from_word,
+		double_convert_to_word_s,
+		double_convert_to_word_u,
+		double_convert_from_word_s,
+		double_convert_from_word_u,
+		double_convert_to_dword_s,
+		double_convert_to_dword_u,
+		double_convert_from_dword_s,
+		double_convert_from_dword_u,
+		double_move_to_dword,
+		double_move_from_dword,
+
+		float_to_double,
+		double_to_float,
+
 		_invalid
 	};
 
@@ -278,6 +348,7 @@ namespace rv64 {
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
+		uint8_t src3 = 0;
 		uint8_t size = 0;
 		int64_t imm = 0;
 
