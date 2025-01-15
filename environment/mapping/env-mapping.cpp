@@ -2,6 +2,30 @@
 
 static util::Logger logger{ u8"env::mapping" };
 
+void env::Mapping::fFlush() {
+	logger.debug(u8"Flushing blocks");
+
+	/* clear the mapping and cache */
+	pMapping.clear();
+	std::memset(pCaches, 0, sizeof(detail::MappingCache) * detail::BlockCacheCount);
+	pTotalBlockCount = 0;
+
+	/* clear the actual reference to all blocks (to allow the garbage collection to run) */
+	detail::MappingBridge::Flush();
+}
+void env::Mapping::fCheckFlush() {
+	/* check if the maximum number of mappings has been reached */
+	if (pMapping.size() >= env::MaxMappingCount) {
+		logger.debug(u8"Performing flush as mapping maximum count has been reached [", pMapping.size(), u8" >= ", env::MaxMappingCount, u8']');
+		fFlush();
+	}
+
+	/* check if the maximum number of blocks has been reached */
+	if (pTotalBlockCount >= env::MaxBlockCount) {
+		logger.debug(u8"Performing flush as block maximum count has been reached [", pTotalBlockCount, u8" >= ", env::MaxBlockCount, u8']');
+		fFlush();
+	}
+}
 uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	/* check if the address has already been translated */
 	auto it = pMapping.find(address);
@@ -13,7 +37,7 @@ uint32_t env::Mapping::fResolve(env::guest_t address) const {
 	logger.trace(u8"Lookup block: [", str::As{ U"#018x", address }, u8"] resulted in: [", it->second, u8']');
 	return it->second;
 }
-bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
+void env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
 	/* validate the uniqueness of all blocks to be loaded */
 	std::unordered_set<env::guest_t> added;
 	for (const env::BlockExport& block : exports) {
@@ -23,9 +47,12 @@ bool env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) 
 	}
 
 	/* try to reserve the given number of exports */
-	return detail::MappingBridge::Reserve(exports.size());
+	if (!detail::MappingBridge::Reserve(exports.size()))
+		logger.fatal(u8"Unabled to reserve [", exports.size(), u8"] slots for block exports");
 }
 void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
+	++pTotalBlockCount;
+
 	/* validate all indices and write them to the map */
 	for (size_t i = 0; i < exports.size(); ++i) {
 		logger.trace(u8"Associating [", exports[i].name, u8"] to [", str::As{ U"#018x", exports[i].address }, u8"]");
@@ -44,7 +71,5 @@ bool env::Mapping::contains(env::guest_t address) const {
 	return (pMapping.find(address) != pMapping.end());
 }
 void env::Mapping::flush() {
-	logger.debug(u8"Flushing blocks");
-	pMapping.clear();
-	std::memset(pCaches, 0, sizeof(detail::MappingCache) * detail::BlockCacheCount);
+	fFlush();
 }

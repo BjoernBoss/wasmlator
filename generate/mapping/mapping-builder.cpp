@@ -6,6 +6,7 @@ void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
+	glue.define(u8"map_flush", {}, {});
 }
 void gen::detail::MappingBuilder::setupCoreImports() {
 	/* add the import to the lookup function */
@@ -202,6 +203,22 @@ void gen::detail::MappingBuilder::setupCoreBody(const wasm::Memory& memory) cons
 			_loop.close();
 			sink[I::Unreachable()];
 		}
+	}
+
+	/* add the flush-blocks function */
+	{
+		wasm::Prototype prototype = gen::Module->prototype(u8"map_flush_type", {}, {});
+		wasm::Sink sink{ gen::Module->function(u8"map_flush", prototype, wasm::Export{}) };
+
+		/* set the list of all functions to null (this will ensure all references to the modules are dropped) */
+		sink[I::U32::Const(0)];
+		sink[I::Ref::NullFunction()];
+		sink[I::Global::Get(functionCount)];
+		sink[I::Table::Fill(state.functions)];
+
+		/* reset the function-count to 1 (as the first slot is always the null-slot to allow lookup-failure to be indicated by zero-return) */
+		sink[I::U32::Const(1)];
+		sink[I::Global::Set(functionCount)];
 	}
 }
 void gen::detail::MappingBuilder::setupBlockImports(wasm::Prototype& blockPrototype, detail::MappingState& state) const {

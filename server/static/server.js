@@ -28,6 +28,10 @@ window.onload = function () {
 		let e = document.createElement('div');
 		htmlOutput.appendChild(e);
 
+		/* ensure that the output does not become too large */
+		while (htmlOutput.children.length > 2000)
+			htmlOutput.children[0].remove();
+
 		/* lookup the log-type */
 		let name = {
 			'T:': 'trace',

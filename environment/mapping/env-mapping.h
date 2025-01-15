@@ -18,12 +18,19 @@ namespace env {
 		static constexpr uint32_t InvalidMapping = 0;
 	}
 
+	/* maximum number of super-block mappings allowed, before a force-flush of all blocks is performed */
+	static constexpr uint32_t MaxMappingCount = 0x4000;
+
+	/* maximum number of loaded block-modules allowed, before a force-flush of all blocks is performed */
+	static constexpr uint32_t MaxBlockCount = 0x0200;
+
 	class Mapping {
 		friend struct detail::MappingBridge;
 		friend struct detail::MappingAccess;
 	private:
 		std::unordered_map<env::guest_t, uint32_t> pMapping;
 		detail::MappingCache pCaches[detail::BlockCacheCount];
+		size_t pTotalBlockCount = 0;
 
 	public:
 		Mapping() = default;
@@ -31,8 +38,10 @@ namespace env {
 		Mapping(const env::Mapping&) = delete;
 
 	private:
+		void fFlush();
+		void fCheckFlush();
 		uint32_t fResolve(env::guest_t address) const;
-		bool fCheckLoadable(const std::vector<env::BlockExport>& exports);
+		void fCheckLoadable(const std::vector<env::BlockExport>& exports);
 		void fBlockExports(const std::vector<env::BlockExport>& exports);
 
 	public:

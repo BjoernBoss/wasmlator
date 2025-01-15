@@ -17,7 +17,6 @@ namespace gen::detail {
 	*		void main.main_lookup(i64 address, i64 access, i32 size, i32 usage, i32 cache);
 	*
 	*	Core-Exports to Main:
-	*		void mem_flush_caches();
 	*		void mem_write_to_physical(i32 dest, i32 source, i32 size);
 	*		void mem_read_from_physical(i32 dest, i32 source, i32 size);
 	*		void mem_clear_physical(i32 dest, i32 size);

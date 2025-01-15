@@ -22,6 +22,7 @@ namespace gen::detail {
 	*		i32 map_reserve(i32 exports);
 	*		i32 map_define(i32 name, i32 size, i64 address);
 	*		void map_execute(i64 address);
+	*		void map_flush();
 	*
 	*	Core-Exports to Body:
 	*		ext_func map_functions[...];

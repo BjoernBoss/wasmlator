@@ -768,7 +768,7 @@ void rv64::Translate::fMakeAMOSC() {
 	fStoreDest();
 }
 void rv64::Translate::fMakeCSR() const {
-
+	pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
 }
 void rv64::Translate::fMakeMul() {
 	/*

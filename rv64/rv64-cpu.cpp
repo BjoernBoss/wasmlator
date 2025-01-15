@@ -192,6 +192,8 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 		return u8"ebreak";
 	case rv64::Translate::MisAlignedException:
 		return u8"misaligned";
+	case rv64::Translate::NotImplException:
+		return u8"not-implemented";
 	default:
 		return u8"%unknown%";
 	}

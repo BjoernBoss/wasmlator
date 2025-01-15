@@ -8,6 +8,7 @@ namespace rv64 {
 	public:
 		static constexpr uint64_t EBreakException = 0;
 		static constexpr uint64_t MisAlignedException = 1;
+		static constexpr uint64_t NotImplException = 2;
 
 	private:
 		wasm::Variable pTemp[6];
