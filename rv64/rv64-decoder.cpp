@@ -79,7 +79,10 @@ rv64::Instruction rv64::detail::Opcode13(uint32_t data) {
 
 	switch (detail::GetU<12, 14>(data)) {
 	case 0x00:
-		out.opcode = rv64::Opcode::add_imm;
+		if (out.imm == 0 && out.src1 == 0 && out.dest == 0)
+			out.opcode = rv64::Opcode::nop;
+		else
+			out.opcode = rv64::Opcode::add_imm;
 		break;
 	case 0x01:
 		if (funct7 == 0x00)
@@ -845,7 +848,9 @@ rv64::Instruction rv64::detail::Quadrant1(uint16_t data) {
 		out.dest = out.src1;
 		out.imm = (int64_t(detail::GetS<12, 12>(data)) << 5)
 			| (uint64_t(detail::GetU<2, 6>(data)) << 0);
-		if ((out.dest != 0) == (out.imm != 0))
+		if (out.dest == 0 && out.imm == 0)
+			out.opcode = rv64::Opcode::nop;
+		else if (out.dest != 0 && out.imm != 0)
 			out.opcode = rv64::Opcode::add_imm;
 		break;
 	case 0x01:

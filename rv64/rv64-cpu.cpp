@@ -4,7 +4,7 @@ static util::Logger logger{ u8"rv64::cpu" };
 
 rv64::Cpu::Cpu() : sys::Cpu{ u8"RISC-V 64", rv64::MemoryCaches, sizeof(rv64::Context), false } {}
 
-rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
+rv64::Instruction rv64::Cpu::fFetchRaw(env::guest_t address) const {
 	rv64::Instruction inst;
 
 	/* check that the address is 2-byte aligned */
@@ -29,6 +29,24 @@ rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
 	/* check if the instruction is invalid and patch its size to be 0 */
 	if (inst.opcode == rv64::Opcode::_invalid)
 		inst.size = 0;
+	return inst;
+}
+rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
+	/* fetch the initial instruction (let memory-exceptions pass through) */
+	rv64::Instruction inst = fFetchRaw(address);
+
+	/* check if it might be a pseudo-instruction */
+	rv64::DetectPseudo pseudo{ !gen::Instance()->singleStep() };
+	try {
+		while (pseudo.next(inst))
+			inst = fFetchRaw(address += inst.size);
+	}
+
+	/* catch any memory-exceptions and close the psudo-detector (dont propagate memory-exceptions
+	*	through, as they are not technically part of the current instruction) */
+	catch (const env::MemoryFault&) {
+		inst = pseudo.close();
+	}
 	return inst;
 }
 
@@ -63,7 +81,7 @@ void rv64::Cpu::completed() {
 	pTranslator.resetAll(0);
 }
 gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
-	/* decode the next instruction (keep i nmind that fFetch may throw a memory-exception) */
+	/* decode the next instruction (keep in mind that fFetch may throw a memory-exception) */
 	rv64::Instruction inst = fFetch(address);
 	pDecoded.push_back(inst);
 	if (env::Instance()->logBlocks())
@@ -90,18 +108,14 @@ gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 		break;
 	case rv64::Opcode::jump_and_link_imm:
 		/* check if it might be a call and otherwise consider it a direct jump */
-		if (inst.isCall())
-			type = gen::InstType::primitive;
-		else {
+		if (!inst.isCall()) {
 			type = gen::InstType::jumpDirect;
 			target = address + inst.imm;
 		}
 		break;
 	case rv64::Opcode::jump_and_link_reg:
 		/* check if it might be a call and otherwise consider it a return or indirect jump */
-		if (inst.isCall())
-			type = gen::InstType::primitive;
-		else
+		if (!inst.isCall())
 			type = gen::InstType::endOfBlock;
 		break;
 	default:

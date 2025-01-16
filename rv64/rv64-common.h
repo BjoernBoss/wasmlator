@@ -154,6 +154,27 @@ namespace rv64 {
 	enum class Opcode : uint16_t {
 		misaligned,
 
+		multi_load_imm,
+		multi_load_address,
+		multi_load_byte_s,
+		multi_load_half_s,
+		multi_load_word_s,
+		multi_load_byte_u,
+		multi_load_half_u,
+		multi_load_word_u,
+		multi_load_dword,
+		multi_load_float,
+		multi_load_double,
+		multi_store_byte,
+		multi_store_half,
+		multi_store_word,
+		multi_store_dword,
+		multi_store_float,
+		multi_store_double,
+		multi_call,
+		multi_tail,
+
+		nop,
 		load_upper_imm,
 		add_upper_imm_pc,
 		jump_and_link_imm,
@@ -323,12 +344,43 @@ namespace rv64 {
 
 		_invalid
 	};
+	enum class Pseudo : uint8_t {
+		mv,
+		inv,
+		neg,
+		neg_half,
+		sign_extend,
+		set_eq_zero,
+		set_ne_zero,
+		set_lt_zero,
+		set_gt_zero,
+		float_copy_sign,
+		float_abs,
+		float_neg,
+		double_copy_sign,
+		double_abs,
+		double_neg,
+		branch_eqz,
+		branch_nez,
+		branch_lez,
+		branch_gez,
+		branch_ltz,
+		branch_gtz,
+		jump,
+		jump_and_link,
+		jump_reg,
+		jump_and_link_reg,
+		ret,
+		fence,
+		_invalid
+	};
 
 	namespace reg {
 		static constexpr uint8_t Zero = 0;
 		static constexpr uint8_t X1 = 1;
 		static constexpr uint8_t X2 = 2;
 		static constexpr uint8_t X5 = 5;
+		static constexpr uint8_t X6 = 6;
 
 		static constexpr uint8_t A0 = 10;
 		static constexpr uint8_t A1 = 11;
@@ -344,6 +396,7 @@ namespace rv64 {
 	public:
 		rv64::Opcode opcode = rv64::Opcode::_invalid;
 		uint16_t misc = 0;
+		rv64::Pseudo pseudo = rv64::Pseudo::_invalid;
 		uint8_t dest = 0;
 		uint8_t src1 = 0;
 		uint8_t src2 = 0;
@@ -353,6 +406,10 @@ namespace rv64 {
 
 	public:
 		constexpr bool isCall() const {
+			/* check for the multi-instruction */
+			if (opcode == rv64::Opcode::multi_call)
+				return true;
+
 			/* for jal-s with immediate, check for write to x1/x5 */
 			if (opcode == rv64::Opcode::jump_and_link_imm)
 				return (dest == reg::X1 || dest == reg::X5);

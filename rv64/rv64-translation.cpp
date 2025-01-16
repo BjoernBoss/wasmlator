@@ -34,8 +34,11 @@ bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 		gen::Add[half ? I::U32::Const(0) : I::U64::Const(0)];
 	return false;
 }
+void rv64::Translate::fStoreReg(uint8_t reg) const {
+	gen::Make->set(offsetof(rv64::Context, iregs) + reg * sizeof(uint64_t), gen::MemoryType::i64);
+}
 void rv64::Translate::fStoreDest() const {
-	gen::Make->set(offsetof(rv64::Context, iregs) + pInst->dest * sizeof(uint64_t), gen::MemoryType::i64);
+	fStoreReg(pInst->dest);
 }
 
 void rv64::Translate::fLoadFSrc1(bool half) const {
@@ -68,50 +71,39 @@ void rv64::Translate::fExpandFloat(bool isAsInt, bool leaveAsInt) const {
 		gen::Add[I::U64::AsFloat()];
 }
 
-void rv64::Translate::fMakeJAL() {
-	/* write the next pc to the destination register */
-	if (pInst->dest != reg::Zero) {
-		gen::Add[I::U64::Const(pNextAddress)];
-		fStoreDest();
+void rv64::Translate::fMakeImms() const {
+	/* check if the instruction can be skipped */
+	if (pInst->dest == reg::Zero)
+		return;
+
+	/* write the immediate to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::multi_load_imm:
+		gen::Add[I::U64::Const(pInst->imm)];
+		break;
+	case rv64::Opcode::load_upper_imm:
+		gen::Add[I::U64::Const(pInst->imm)];
+		break;
+	case rv64::Opcode::add_upper_imm_pc:
+	case rv64::Opcode::multi_load_address:
+		gen::Add[I::U64::Const(pAddress + pInst->imm)];
+		break;
+	default:
+		break;
 	}
 
-	/* check if its an indirect jump and if it can be predicted somehow (based on the riscv specification) */
-	if (pInst->opcode == rv64::Opcode::jump_and_link_reg) {
-		wasm::Variable addr = fTemp64(0);
-
-		/* write the target address to the stack */
-		if (fLoadSrc1(false, false)) {
-			if (pInst->imm != 0) {
-				gen::Add[I::I64::Const(pInst->imm)];
-				gen::Add[I::I64::Add()];
-			}
-		}
-		else
-			gen::Add[I::I64::Const(pInst->imm)];
-
-		/* perform the alignment validation */
-		gen::Add[I::Local::Tee(addr)];
-		gen::Add[I::U64::Shrink()];
-		gen::Add[I::U32::Const(1)];
-		gen::Add[I::U32::And()];
-		{
-			wasm::IfThen _if{ gen::Sink };
-			pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
-		}
-		gen::Add[I::Local::Get(addr)];
-
-		/* check if the instruction can be considered a return */
-		if (pInst->isRet())
-			gen::Make->ret();
-
-		/* check if the instruction can be considered a call */
-		else if (pInst->isCall())
-			gen::Make->call(pNextAddress);
-
-		/* translate the instruction as normal jump */
-		else
-			gen::Make->jump();
-		return;
+	/* write the immediate to the register */
+	fStoreDest();
+}
+void rv64::Translate::fMakeJALI() {
+	/* write the next pc to the destination register */
+	if (pInst->opcode == rv64::Opcode::multi_call) {
+		gen::Add[I::U64::Const(pNextAddress)];
+		fStoreReg(reg::X1);
+	}
+	else if (pInst->opcode == rv64::Opcode::jump_and_link_imm && pInst->dest != reg::Zero) {
+		gen::Add[I::U64::Const(pNextAddress)];
+		fStoreDest();
 	}
 
 	/* check if the target is misaligned and add the misalignment-exception */
@@ -124,6 +116,47 @@ void rv64::Translate::fMakeJAL() {
 		gen::Make->call(address, pNextAddress);
 	else
 		gen::Make->jump(address);
+}
+void rv64::Translate::fMakeJALR() {
+	/* write the next pc to the destination register */
+	if (pInst->dest != reg::Zero) {
+		gen::Add[I::U64::Const(pNextAddress)];
+		fStoreDest();
+	}
+	wasm::Variable addr = fTemp64(0);
+
+	/* write the target address to the stack */
+	if (fLoadSrc1(false, false)) {
+		if (pInst->imm != 0) {
+			gen::Add[I::I64::Const(pInst->imm)];
+			gen::Add[I::I64::Add()];
+		}
+	}
+	else
+		gen::Add[I::I64::Const(pInst->imm)];
+
+	/* perform the alignment validation */
+	gen::Add[I::Local::Tee(addr)];
+	gen::Add[I::U64::Shrink()];
+	gen::Add[I::U32::Const(1)];
+	gen::Add[I::U32::And()];
+	{
+		wasm::IfThen _if{ gen::Sink };
+		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+	}
+	gen::Add[I::Local::Get(addr)];
+
+	/* check if the instruction can be considered a return */
+	if (pInst->isRet())
+		gen::Make->ret();
+
+	/* check if the instruction can be considered a call */
+	else if (pInst->isCall())
+		gen::Make->call(pNextAddress);
+
+	/* translate the instruction as normal jump */
+	else
+		gen::Make->jump();
 }
 void rv64::Translate::fMakeBranch() const {
 	env::guest_t address = pAddress + pInst->imm;
@@ -421,37 +454,48 @@ void rv64::Translate::fMakeALUReg() const {
 	/* write the result to the register */
 	fStoreDest();
 }
-void rv64::Translate::fMakeLoad() const {
+void rv64::Translate::fMakeLoad(bool multi) const {
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
 
 	/* compute the destination address and write it to the stack */
-	gen::Add[I::I64::Const(pInst->imm)];
-	if (fLoadSrc1(false, false))
-		gen::Add[I::U64::Add()];
+	if (multi)
+		gen::Add[I::I64::Const(pAddress + pInst->imm)];
+	else {
+		gen::Add[I::I64::Const(pInst->imm)];
+		if (fLoadSrc1(false, false))
+			gen::Add[I::U64::Add()];
+	}
 
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_byte_s:
+	case rv64::Opcode::multi_load_byte_s:
 		gen::Make->read(pInst->src1, gen::MemoryType::i8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_s:
+	case rv64::Opcode::multi_load_half_s:
 		gen::Make->read(pInst->src1, gen::MemoryType::i16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_s:
+	case rv64::Opcode::multi_load_word_s:
 		gen::Make->read(pInst->src1, gen::MemoryType::i32To64, pAddress);
 		break;
 	case rv64::Opcode::load_byte_u:
+	case rv64::Opcode::multi_load_byte_u:
 		gen::Make->read(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_u:
+	case rv64::Opcode::multi_load_half_u:
 		gen::Make->read(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_u:
+	case rv64::Opcode::multi_load_word_u:
 		gen::Make->read(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::load_dword:
+	case rv64::Opcode::multi_load_dword:
 		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
@@ -461,27 +505,35 @@ void rv64::Translate::fMakeLoad() const {
 	/* write the value to the register */
 	fStoreDest();
 }
-void rv64::Translate::fMakeStore() const {
+void rv64::Translate::fMakeStore(bool multi) const {
 	/* compute the destination address and write it to the stack */
-	gen::Add[I::I64::Const(pInst->imm)];
-	if (fLoadSrc1(false, false))
-		gen::Add[I::U64::Add()];
+	if (multi)
+		gen::Add[I::I64::Const(pAddress + pInst->imm)];
+	else {
+		gen::Add[I::I64::Const(pInst->imm)];
+		if (fLoadSrc1(false, false))
+			gen::Add[I::U64::Add()];
+	}
 
 	/* write the source value to the stack */
-	fLoadSrc2(true, pInst->opcode != rv64::Opcode::store_dword);
+	fLoadSrc2(true, (pInst->opcode != rv64::Opcode::store_dword && pInst->opcode != rv64::Opcode::multi_store_dword));
 
 	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
+	case rv64::Opcode::multi_store_byte:
 		gen::Make->write(pInst->src1, gen::MemoryType::u8To32, pAddress);
 		break;
 	case rv64::Opcode::store_half:
+	case rv64::Opcode::multi_store_half:
 		gen::Make->write(pInst->src1, gen::MemoryType::u16To32, pAddress);
 		break;
 	case rv64::Opcode::store_word:
+	case rv64::Opcode::multi_store_word:
 		gen::Make->write(pInst->src1, gen::MemoryType::i32, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
+	case rv64::Opcode::multi_store_dword:
 		gen::Make->write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
@@ -905,19 +957,25 @@ void rv64::Translate::fMakeMul() {
 	fStoreDest();
 }
 
-void rv64::Translate::fMakeFLoad() const {
+void rv64::Translate::fMakeFLoad(bool multi) const {
 	/* compute the destination address and write it to the stack */
-	gen::Add[I::I64::Const(pInst->imm)];
-	if (fLoadSrc1(false, false))
-		gen::Add[I::U64::Add()];
+	if (multi)
+		gen::Add[I::I64::Const(pAddress + pInst->imm)];
+	else {
+		gen::Add[I::I64::Const(pInst->imm)];
+		if (fLoadSrc1(false, false))
+			gen::Add[I::U64::Add()];
+	}
 
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_float:
+	case rv64::Opcode::multi_load_float:
 		gen::Make->read(pInst->src1, gen::MemoryType::i32, pAddress);
 		fExpandFloat(true, true);
 		break;
 	case rv64::Opcode::load_double:
+	case rv64::Opcode::multi_load_double:
 		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
@@ -927,21 +985,27 @@ void rv64::Translate::fMakeFLoad() const {
 	/* write the value to the register */
 	fStoreFDest(true);
 }
-void rv64::Translate::fMakeFStore() const {
+void rv64::Translate::fMakeFStore(bool multi) const {
 	/* compute the destination address and write it to the stack */
-	gen::Add[I::I64::Const(pInst->imm)];
-	if (fLoadSrc1(false, false))
-		gen::Add[I::U64::Add()];
+	if (multi)
+		gen::Add[I::I64::Const(pAddress + pInst->imm)];
+	else {
+		gen::Add[I::I64::Const(pInst->imm)];
+		if (fLoadSrc1(false, false))
+			gen::Add[I::U64::Add()];
+	}
 
 	/* write the source value to the stack */
-	fLoadFSrc2(pInst->opcode == rv64::Opcode::store_float);
+	fLoadFSrc2(pInst->opcode == rv64::Opcode::store_float || pInst->opcode == rv64::Opcode::multi_store_float);
 
 	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_float:
+	case rv64::Opcode::multi_store_float:
 		gen::Make->write(pInst->src1, gen::MemoryType::f32, pAddress);
 		break;
 	case rv64::Opcode::store_double:
+	case rv64::Opcode::multi_store_double:
 		gen::Make->write(pInst->src1, gen::MemoryType::f64, pAddress);
 		break;
 	default:
@@ -973,21 +1037,22 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::misaligned:
 		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
 		break;
-	case rv64::Opcode::load_upper_imm:
-		if (pInst->dest != reg::Zero) {
-			gen::Add[I::U64::Const(pInst->imm)];
-			fStoreDest();
-		}
+	case rv64::Opcode::nop:
+		gen::Add[I::Nop()];
 		break;
+	case rv64::Opcode::load_upper_imm:
 	case rv64::Opcode::add_upper_imm_pc:
-		if (pInst->dest != reg::Zero) {
-			gen::Add[I::U64::Const(pAddress + pInst->imm)];
-			fStoreDest();
-		}
+	case rv64::Opcode::multi_load_imm:
+	case rv64::Opcode::multi_load_address:
+		fMakeImms();
 		break;
 	case rv64::Opcode::jump_and_link_imm:
+	case rv64::Opcode::multi_call:
+	case rv64::Opcode::multi_tail:
+		fMakeJALI();
+		break;
 	case rv64::Opcode::jump_and_link_reg:
-		fMakeJAL();
+		fMakeJALR();
 		break;
 	case rv64::Opcode::branch_eq:
 	case rv64::Opcode::branch_ne:
@@ -1038,13 +1103,28 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::load_half_u:
 	case rv64::Opcode::load_word_u:
 	case rv64::Opcode::load_dword:
-		fMakeLoad();
+		fMakeLoad(false);
 		break;
 	case rv64::Opcode::store_byte:
 	case rv64::Opcode::store_half:
 	case rv64::Opcode::store_word:
 	case rv64::Opcode::store_dword:
-		fMakeStore();
+		fMakeStore(false);
+		break;
+	case rv64::Opcode::multi_load_byte_s:
+	case rv64::Opcode::multi_load_half_s:
+	case rv64::Opcode::multi_load_word_s:
+	case rv64::Opcode::multi_load_byte_u:
+	case rv64::Opcode::multi_load_half_u:
+	case rv64::Opcode::multi_load_word_u:
+	case rv64::Opcode::multi_load_dword:
+		fMakeLoad(true);
+		break;
+	case rv64::Opcode::multi_store_byte:
+	case rv64::Opcode::multi_store_half:
+	case rv64::Opcode::multi_store_word:
+	case rv64::Opcode::multi_store_dword:
+		fMakeStore(true);
 		break;
 	case rv64::Opcode::ecall:
 		pWriter->makeSyscall(pAddress, pNextAddress);
@@ -1105,13 +1185,85 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		break;
 	case rv64::Opcode::load_float:
 	case rv64::Opcode::load_double:
-		fMakeFLoad();
+		fMakeFLoad(false);
 		break;
 	case rv64::Opcode::store_float:
 	case rv64::Opcode::store_double:
-		fMakeFStore();
+		fMakeFStore(false);
 		break;
-	default:
+	case rv64::Opcode::multi_load_float:
+	case rv64::Opcode::multi_load_double:
+		fMakeFLoad(true);
+		break;
+	case rv64::Opcode::multi_store_float:
+	case rv64::Opcode::multi_store_double:
+		fMakeFStore(true);
+		break;
+	case rv64::Opcode::csr_read_write:
+	case rv64::Opcode::csr_read_and_set:
+	case rv64::Opcode::csr_read_and_clear:
+	case rv64::Opcode::csr_read_write_imm:
+	case rv64::Opcode::csr_read_and_set_imm:
+	case rv64::Opcode::csr_read_and_clear_imm:
+	case rv64::Opcode::float_mul_add:
+	case rv64::Opcode::float_mul_sub:
+	case rv64::Opcode::float_neg_mul_add:
+	case rv64::Opcode::float_neg_mul_sub:
+	case rv64::Opcode::float_add:
+	case rv64::Opcode::float_sub:
+	case rv64::Opcode::float_mul:
+	case rv64::Opcode::float_div:
+	case rv64::Opcode::float_sqrt:
+	case rv64::Opcode::float_sign_copy:
+	case rv64::Opcode::float_sign_invert:
+	case rv64::Opcode::float_sign_xor:
+	case rv64::Opcode::float_min:
+	case rv64::Opcode::float_max:
+	case rv64::Opcode::float_less_equal:
+	case rv64::Opcode::float_less_than:
+	case rv64::Opcode::float_equal:
+	case rv64::Opcode::float_classify:
+	case rv64::Opcode::double_mul_add:
+	case rv64::Opcode::double_mul_sub:
+	case rv64::Opcode::double_neg_mul_add:
+	case rv64::Opcode::double_neg_mul_sub:
+	case rv64::Opcode::double_add:
+	case rv64::Opcode::double_sub:
+	case rv64::Opcode::double_mul:
+	case rv64::Opcode::double_div:
+	case rv64::Opcode::double_sqrt:
+	case rv64::Opcode::double_sign_copy:
+	case rv64::Opcode::double_sign_invert:
+	case rv64::Opcode::double_sign_xor:
+	case rv64::Opcode::double_min:
+	case rv64::Opcode::double_max:
+	case rv64::Opcode::double_less_equal:
+	case rv64::Opcode::double_less_than:
+	case rv64::Opcode::double_equal:
+	case rv64::Opcode::double_classify:
+	case rv64::Opcode::float_convert_to_word_s:
+	case rv64::Opcode::float_convert_to_word_u:
+	case rv64::Opcode::float_convert_to_dword_s:
+	case rv64::Opcode::float_convert_to_dword_u:
+	case rv64::Opcode::double_convert_to_word_s:
+	case rv64::Opcode::double_convert_to_word_u:
+	case rv64::Opcode::double_convert_to_dword_s:
+	case rv64::Opcode::double_convert_to_dword_u:
+	case rv64::Opcode::float_convert_from_word_s:
+	case rv64::Opcode::float_convert_from_word_u:
+	case rv64::Opcode::float_convert_from_dword_s:
+	case rv64::Opcode::float_convert_from_dword_u:
+	case rv64::Opcode::double_convert_from_word_s:
+	case rv64::Opcode::double_convert_from_word_u:
+	case rv64::Opcode::double_convert_from_dword_s:
+	case rv64::Opcode::double_convert_from_dword_u:
+	case rv64::Opcode::float_move_to_word:
+	case rv64::Opcode::float_move_from_word:
+	case rv64::Opcode::double_move_to_dword:
+	case rv64::Opcode::double_move_from_dword:
+	case rv64::Opcode::float_to_double:
+	case rv64::Opcode::double_to_float:
+	case rv64::Opcode::_invalid:
 		/* raise the not-implemented exception for all remaining instructions */
 		pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
 		break;

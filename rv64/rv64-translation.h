@@ -27,6 +27,7 @@ namespace rv64 {
 	private:
 		bool fLoadSrc1(bool forceNull, bool half) const;
 		bool fLoadSrc2(bool forceNull, bool half) const;
+		void fStoreReg(uint8_t reg) const;
 		void fStoreDest() const;
 
 	private:
@@ -37,12 +38,14 @@ namespace rv64 {
 		void fExpandFloat(bool isAsInt, bool leaveAsInt) const;
 
 	private:
-		void fMakeJAL();
+		void fMakeImms() const;
+		void fMakeJALI();
+		void fMakeJALR();
 		void fMakeBranch() const;
 		void fMakeALUImm() const;
 		void fMakeALUReg() const;
-		void fMakeLoad() const;
-		void fMakeStore() const;
+		void fMakeLoad(bool multi) const;
+		void fMakeStore(bool multi) const;
 		void fMakeDivRem();
 		void fMakeAMO(bool half);
 		void fMakeAMOLR();
@@ -50,8 +53,8 @@ namespace rv64 {
 		void fMakeMul();
 
 	private:
-		void fMakeFLoad() const;
-		void fMakeFStore() const;
+		void fMakeFLoad(bool multi) const;
+		void fMakeFStore(bool multi) const;
 
 	public:
 		void resetAll(sys::Writer* writer);

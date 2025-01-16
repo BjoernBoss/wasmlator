@@ -4,6 +4,7 @@
 #include "rv64-translation.h"
 #include "rv64-print.h"
 #include "rv64-decoder.h"
+#include "rv64-pseudo.h"
 
 namespace rv64 {
 	class Cpu;
@@ -19,6 +20,7 @@ namespace rv64 {
 		Cpu();
 
 	private:
+		rv64::Instruction fFetchRaw(env::guest_t address) const;
 		rv64::Instruction fFetch(env::guest_t address) const;
 
 	public:
