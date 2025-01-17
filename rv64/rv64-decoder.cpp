@@ -780,6 +780,10 @@ rv64::Instruction rv64::detail::Quadrant0(uint16_t data) {
 				| (uint64_t(detail::GetU<5, 5>(data)) << 3)
 				| (uint64_t(detail::GetU<6, 6>(data)) << 2);
 		}
+
+		/* illegal-instruction */
+		else
+			out.opcode = rv64::Opcode::illegal_instruction;
 		break;
 	case 0x01:
 		/* c.fld */

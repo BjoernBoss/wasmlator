@@ -3,22 +3,26 @@
 enum class FormatType : uint8_t {
 	none,
 	fence,
-	icsr,
-	rscr,
 	imx,
 	s1i,
+	dti,
 	dti_imx,
 	dti_jmp,
 	dti_jlr,
 	dti_s1i,
 	dti_s2i,
 	dti_mem,
+	dti_csr,
 	dtf_mem,
 	dti_s1f,
 	dtf_s1f,
 	dtf_s1i,
+	csr_s1i,
+	csr_imx,
 	s1i_jmp,
 	s2i_jmp,
+	dti_csr_s1i,
+	dti_csr_imx,
 	dti_imx_s1i,
 	dtf_imx_s1i,
 	dtf_s1f_s2f,
@@ -35,7 +39,8 @@ struct PrintOpcode {
 };
 
 static constexpr PrintOpcode opcodeStrings[] = {
-	PrintOpcode{ u8"$misaligned", FormatType::none },
+	PrintOpcode{ u8"$misaligned_instruction", FormatType::none },
+	PrintOpcode{ u8"$illegal_instruction", FormatType::none },
 
 	PrintOpcode{ u8"li", FormatType::dti_imx },
 	PrintOpcode{ u8"la", FormatType::dti_imx },
@@ -115,12 +120,12 @@ static constexpr PrintOpcode opcodeStrings[] = {
 	PrintOpcode{ u8"fence.i", FormatType::none },
 	PrintOpcode{ u8"ebreak", FormatType::none },
 	PrintOpcode{ u8"ecall", FormatType::none },
-	PrintOpcode{ u8"csrrw", FormatType::rscr },
-	PrintOpcode{ u8"csrrs", FormatType::rscr },
-	PrintOpcode{ u8"csrrc", FormatType::rscr },
-	PrintOpcode{ u8"csrrwi", FormatType::icsr },
-	PrintOpcode{ u8"csrrsi", FormatType::icsr },
-	PrintOpcode{ u8"csrrci", FormatType::icsr },
+	PrintOpcode{ u8"csrrw", FormatType::dti_csr_s1i },
+	PrintOpcode{ u8"csrrs", FormatType::dti_csr_s1i },
+	PrintOpcode{ u8"csrrc", FormatType::dti_csr_s1i },
+	PrintOpcode{ u8"csrrwi", FormatType::dti_csr_imx },
+	PrintOpcode{ u8"csrrsi", FormatType::dti_csr_imx },
+	PrintOpcode{ u8"csrrci", FormatType::dti_csr_imx },
 
 	PrintOpcode{ u8"mul", FormatType::dti_s1i_s2i },
 	PrintOpcode{ u8"mulw", FormatType::dti_s1i_s2i },
@@ -256,6 +261,29 @@ static constexpr PrintOpcode pseudoStrings[] = {
 	PrintOpcode{ u8"jalr", FormatType::s1i },
 	PrintOpcode{ u8"ret", FormatType::none },
 	PrintOpcode{ u8"fence", FormatType::none },
+	PrintOpcode{ u8"rdinstret", FormatType::dti },
+	PrintOpcode{ u8"rdcycle", FormatType::dti },
+	PrintOpcode{ u8"rdtime", FormatType::dti },
+	PrintOpcode{ u8"csrr", FormatType::dti_csr },
+	PrintOpcode{ u8"csrw", FormatType::csr_s1i },
+	PrintOpcode{ u8"csrs", FormatType::csr_s1i },
+	PrintOpcode{ u8"csrc", FormatType::csr_s1i },
+	PrintOpcode{ u8"csrw", FormatType::csr_imx },
+	PrintOpcode{ u8"csrs", FormatType::csr_imx },
+	PrintOpcode{ u8"csrc", FormatType::csr_imx },
+	PrintOpcode{ u8"frcsr", FormatType::dti },
+	PrintOpcode{ u8"fscsr", FormatType::dti_s1i },
+	PrintOpcode{ u8"fscsr", FormatType::s1i },
+	PrintOpcode{ u8"frrm", FormatType::dti },
+	PrintOpcode{ u8"fsrm", FormatType::dti_s1i },
+	PrintOpcode{ u8"fsrm", FormatType::s1i },
+	PrintOpcode{ u8"fsrmi", FormatType::dti_imx },
+	PrintOpcode{ u8"fsrmi", FormatType::imx },
+	PrintOpcode{ u8"fsflags", FormatType::dti },
+	PrintOpcode{ u8"fsflags", FormatType::dti_s1i },
+	PrintOpcode{ u8"fsflags", FormatType::s1i },
+	PrintOpcode{ u8"fsflagsi", FormatType::dti_imx },
+	PrintOpcode{ u8"fsflagsi", FormatType::imx },
 };
 static constexpr const char8_t* iRegisters[] = {
 	u8"zero", u8"ra", u8"sp", u8"gp", u8"tp", u8"t0", u8"t1", u8"t2",
@@ -305,11 +333,9 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 			((inst.misc & 0b0000'1000) ? u8"i" : u8""), ((inst.misc & 0b0000'0100) ? u8"o" : u8""),
 			((inst.misc & 0b0000'0010) ? u8"r" : u8""), ((inst.misc & 0b0000'0001) ? u8"w" : u8""));
 		break;
-	case FormatType::icsr:
-		str::FormatTo(out, u8" {}, {} csr:{:#05x}", iRegisters[inst.dest], inst.imm, inst.misc);
-		break;
-	case FormatType::rscr:
-		str::FormatTo(out, u8" {}, {} csr:{:#05x}", iRegisters[inst.dest], iRegisters[inst.src1], inst.misc);
+	case FormatType::csr_s1i:
+	case FormatType::csr_imx:
+		str::BuildTo(out, u8' ', str::As{ U"#05x", inst.misc });
 		break;
 	case FormatType::imx:
 		str::BuildTo(out, u8' ', str::As{ U"#x", inst.imm });
@@ -318,6 +344,8 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 	case FormatType::amo_dti_s1i_s2i:
 		str::BuildTo(out, ((inst.misc & 0x02) != 0 ? u8".aq" : u8""), ((inst.misc & 0x01) != 0 ? u8".rl" : u8""));
 		break;
+	case FormatType::dti:
+	case FormatType::dti_csr:
 	case FormatType::dti_imx:
 	case FormatType::dti_jmp:
 	case FormatType::dti_jlr:
@@ -328,6 +356,8 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 	case FormatType::dti_imx_s1i:
 	case FormatType::dti_s1i_imd:
 	case FormatType::dti_s1i_s2i:
+	case FormatType::dti_csr_s1i:
+	case FormatType::dti_csr_imx:
 		str::BuildTo(out, u8' ', iRegisters[inst.dest]);
 		break;
 	case FormatType::s1i:
@@ -352,6 +382,12 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 
 	/* add the second parameter */
 	switch (print->format) {
+	case FormatType::dti_csr:
+	case FormatType::dti_csr_s1i:
+	case FormatType::dti_csr_imx:
+		str::BuildTo(out, u8", ", str::As{ U"#05x", inst.misc });
+		break;
+	case FormatType::csr_imx:
 	case FormatType::dti_imx:
 	case FormatType::dti_imx_s1i:
 	case FormatType::dtf_imx_s1i:
@@ -371,6 +407,7 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 		else
 			str::BuildTo(out, u8", $(", iRegisters[inst.src1], u8" + ", inst.imm, u8')');
 		break;
+	case FormatType::csr_s1i:
 	case FormatType::dti_s1i:
 	case FormatType::dtf_s1i:
 	case FormatType::dti_s1i_imd:
@@ -405,11 +442,15 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 	case FormatType::dtf_imx_s1i:
 	case FormatType::amo_dti_s1i:
 	case FormatType::amo_dti_s1i_s2i:
+	case FormatType::dti_csr_s1i:
 		str::BuildTo(out, u8", ", iRegisters[inst.src1]);
 		break;
 	case FormatType::dtf_s1f_s2f:
 	case FormatType::dtf_s1f_s2f_s3f:
 		str::BuildTo(out, u8", ", fRegisters[inst.src2]);
+		break;
+	case FormatType::dti_csr_imx:
+		str::BuildTo(out, u8", ", str::As{ U"#x", inst.imm });
 		break;
 	case FormatType::dti_s1i_imd:
 		str::BuildTo(out, u8", ", inst.imm);

@@ -12,7 +12,6 @@ namespace rv64 {
 	/* one cache per register used for both reading and writing */
 	static constexpr uint32_t MemoryCaches = 32;
 
-	/* throw exception if jump-target is not 4-byte aligned */
 	struct Context {
 		union {
 			uint64_t iregs[32] = { 0 };
@@ -149,10 +148,12 @@ namespace rv64 {
 			};
 		};
 		double fregs[32] = { 0 };
+		uint64_t float_csr = 0;
 	};
 
 	enum class Opcode : uint16_t {
 		misaligned,
+		illegal_instruction,
 
 		multi_load_imm,
 		multi_load_address,
@@ -372,6 +373,31 @@ namespace rv64 {
 		jump_and_link_reg,
 		ret,
 		fence,
+
+		csr_read_inst_retired,
+		csr_read_cycles,
+		csr_read_time,
+		csr_read,
+		csr_write,
+		csr_set_bits,
+		csr_clear_bits,
+		csr_write_imm,
+		csr_set_bits_imm,
+		csr_clear_bits_imm,
+		csr_float_read_status,
+		csr_float_swap_status,
+		csr_float_write_status,
+		csr_float_read_rm,
+		csr_float_swap_rm,
+		csr_float_write_rm,
+		csr_float_swap_rm_imm,
+		csr_float_write_rm_imm,
+		csr_float_read_exceptions,
+		csr_float_swap_exceptions,
+		csr_float_write_exceptions,
+		csr_float_swap_exceptions_imm,
+		csr_float_write_exceptions_imm,
+
 		_invalid
 	};
 
@@ -390,6 +416,18 @@ namespace rv64 {
 		static constexpr uint8_t A5 = 15;
 		static constexpr uint8_t A6 = 16;
 		static constexpr uint8_t A7 = 17;
+	}
+
+	namespace csr {
+		/* read-and-write */
+		static constexpr uint16_t fpExceptionFlags = 0x001;
+		static constexpr uint16_t fpRoundingMode = 0x002;
+		static constexpr uint16_t fpStatus = 0x003;
+
+		/* read-only */
+		static constexpr uint16_t cycles = 0xc00;
+		static constexpr uint16_t realTime = 0xc01;
+		static constexpr uint16_t instRetired = 0xc02;
 	}
 
 	struct Instruction {
@@ -433,7 +471,7 @@ namespace rv64 {
 				return false;
 			return (src1 == reg::X1 || src1 == reg::X5);
 		}
-		constexpr bool isMisAligned(env::guest_t address) const {
+		constexpr bool isMisaligned(env::guest_t address) const {
 			if (opcode == rv64::Opcode::branch_eq || opcode == rv64::Opcode::branch_ne || opcode == rv64::Opcode::branch_ge_s ||
 				opcode == rv64::Opcode::branch_ge_u || opcode == rv64::Opcode::branch_lt_s || opcode == rv64::Opcode::branch_lt_u)
 				address += imm;

@@ -25,7 +25,7 @@ namespace util {
 	/* return the path and last name component
 	*	Note: the name will not contain any slashes
 	*	Note: if the path ends on a slash, the name will be empty
-	*	Note: if the path contains at most one leading slash, the first part will be empty */
+	*	Note: if the path contains at least one leading slash, the first part will not be empty */
 	std::pair<std::u8string_view, std::u8string_view> SplitName(std::u8string_view path);
 
 	/* return the first path component and the remainder of the path

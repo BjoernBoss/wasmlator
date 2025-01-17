@@ -7,8 +7,9 @@ namespace rv64 {
 	class Translate {
 	public:
 		static constexpr uint64_t EBreakException = 0;
-		static constexpr uint64_t MisAlignedException = 1;
-		static constexpr uint64_t NotImplException = 2;
+		static constexpr uint64_t MisalignedException = 1;
+		static constexpr uint64_t IllegalException = 2;
+		static constexpr uint64_t NotImplException = 3;
 
 	private:
 		wasm::Variable pTemp[6];
@@ -51,6 +52,7 @@ namespace rv64 {
 		void fMakeAMOLR();
 		void fMakeAMOSC();
 		void fMakeMul();
+		void fMakeCSR();
 
 	private:
 		void fMakeFLoad(bool multi) const;

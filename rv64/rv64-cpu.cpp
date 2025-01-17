@@ -123,7 +123,7 @@ gen::Instruction rv64::Cpu::fetch(env::guest_t address) {
 	}
 
 	/* check if the target is considered mis-aligned, in which case it does not need to be translated */
-	if (inst.isMisAligned(address))
+	if (inst.isMisaligned(address))
 		type = gen::InstType::endOfBlock;
 
 	/* construct the output-instruction format */
@@ -207,8 +207,10 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 	switch (id) {
 	case rv64::Translate::EBreakException:
 		return u8"ebreak";
-	case rv64::Translate::MisAlignedException:
-		return u8"misaligned";
+	case rv64::Translate::MisalignedException:
+		return u8"misaligned instruction";
+	case rv64::Translate::IllegalException:
+		return u8"illegal instruction";
 	case rv64::Translate::NotImplException:
 		return u8"not-implemented";
 	default:

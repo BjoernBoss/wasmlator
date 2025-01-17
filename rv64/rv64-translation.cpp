@@ -35,7 +35,8 @@ bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 	return false;
 }
 void rv64::Translate::fStoreReg(uint8_t reg) const {
-	gen::Make->set(offsetof(rv64::Context, iregs) + reg * sizeof(uint64_t), gen::MemoryType::i64);
+	if (reg != reg::Zero)
+		gen::Make->set(offsetof(rv64::Context, iregs) + reg * sizeof(uint64_t), gen::MemoryType::i64);
 }
 void rv64::Translate::fStoreDest() const {
 	fStoreReg(pInst->dest);
@@ -108,8 +109,8 @@ void rv64::Translate::fMakeJALI() {
 
 	/* check if the target is misaligned and add the misalignment-exception */
 	env::guest_t address = (pAddress + pInst->imm);
-	if (pInst->isMisAligned(pAddress))
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+	if (pInst->isMisaligned(pAddress))
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
 
 	/* add the instruction as normal direct call or jump */
 	else if (pInst->isCall())
@@ -142,7 +143,7 @@ void rv64::Translate::fMakeJALR() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
 	}
 	gen::Add[I::Local::Get(addr)];
 
@@ -162,8 +163,8 @@ void rv64::Translate::fMakeBranch() const {
 	env::guest_t address = pAddress + pInst->imm;
 
 	/* check if the branch can be discarded, as it is misaligned */
-	if (pInst->isMisAligned(pAddress)) {
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+	if (pInst->isMisaligned(pAddress)) {
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
 		return;
 	}
 
@@ -673,7 +674,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
 	}
 
 	/* perform the reading of the original value (dont write it to the destination yet, as the destination migth also be the source) */
@@ -782,10 +783,12 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 
 	/* write the original value back to the destination */
-	gen::Add[I::Local::Get(value)];
-	if (half)
-		gen::Add[I::I32::Expand()];
-	fStoreDest();
+	if (pInst->dest != reg::Zero) {
+		gen::Add[I::Local::Get(value)];
+		if (half)
+			gen::Add[I::I32::Expand()];
+		fStoreDest();
+	}
 }
 void rv64::Translate::fMakeAMOLR() {
 	/*
@@ -796,9 +799,10 @@ void rv64::Translate::fMakeAMOLR() {
 	bool half = (pInst->opcode == rv64::Opcode::load_reserved_w);
 
 	/* load the source address into the temporary */
-	wasm::Variable addr = fTemp64(0);
+	wasm::Variable addr;
 	fLoadSrc1(true, false);
-	gen::Add[I::Local::Tee(addr)];
+	if (pInst->dest != reg::Zero)
+		gen::Add[I::Local::Tee(addr = fTemp64(0))];
 
 	/* validate the alignment constraints of the address */
 	gen::Add[I::U64::Shrink()];
@@ -806,13 +810,15 @@ void rv64::Translate::fMakeAMOLR() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
 	}
 
 	/* write the value from memory to the register */
-	gen::Add[I::Local::Get(addr)];
-	gen::Make->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
-	fStoreDest();
+	if (pInst->dest != reg::Zero) {
+		gen::Add[I::Local::Get(addr)];
+		gen::Make->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
+		fStoreDest();
+	}
 }
 void rv64::Translate::fMakeAMOSC() {
 	/*
@@ -833,7 +839,7 @@ void rv64::Translate::fMakeAMOSC() {
 	gen::Add[I::U32::And()];
 	{
 		wasm::IfThen _if{ gen::Sink };
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
 	}
 
 	/* write the source value to the address (assumption that reservation is always valid) */
@@ -842,8 +848,10 @@ void rv64::Translate::fMakeAMOSC() {
 	gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 
 	/* write the result to the destination register */
-	gen::Add[I::U64::Const(0)];
-	fStoreDest();
+	if (pInst->dest != reg::Zero) {
+		gen::Add[I::U64::Const(0)];
+		fStoreDest();
+	}
 }
 void rv64::Translate::fMakeMul() {
 	/*
@@ -956,6 +964,177 @@ void rv64::Translate::fMakeMul() {
 	/* write the result to the register */
 	fStoreDest();
 }
+void rv64::Translate::fMakeCSR() {
+	/*
+	*	Note:
+	*		reading a value: read the value prior to executing the instruction
+	*		writing a value: write the value after executing the instruction
+	*/
+
+	/* fetch the properties about the csr value */
+	bool readOnly = false, notImplemented = false, nonExisting = false;
+	switch (pInst->misc) {
+	case csr::fpExceptionFlags:
+	case csr::fpRoundingMode:
+	case csr::fpStatus:
+		readOnly = false;
+		break;
+	case csr::realTime:
+	case csr::instRetired:
+	case csr::cycles:
+		readOnly = true;
+		notImplemented = true;
+		break;
+	default:
+		nonExisting = true;
+		return;
+	}
+
+	/* check if the instruction performs reads/writes of data */
+	bool read = true, write = true;
+	switch (pInst->opcode) {
+	case rv64::Opcode::csr_read_write:
+	case rv64::Opcode::csr_read_write_imm:
+		read = (pInst->dest != reg::Zero);
+		break;
+	case rv64::Opcode::csr_read_and_set:
+	case rv64::Opcode::csr_read_and_clear:
+		write = (pInst->src1 != reg::Zero);
+		break;
+	case rv64::Opcode::csr_read_and_set_imm:
+	case rv64::Opcode::csr_read_and_clear_imm:
+		write = (pInst->imm != reg::Zero);
+		break;
+	default:
+		break;
+	}
+
+	/* check if the instruction tries to read/write an undefined csr or tries to write to a read-only csr */
+	if (((read || write) && nonExisting) || (write && readOnly)) {
+		pWriter->makeException(Translate::IllegalException, pAddress, pNextAddress);
+		return;
+	}
+
+	/* check if the csr is not implemented (currently only support for fp-status-register) */
+	if (notImplemented) {
+		pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
+		return;
+	}
+
+	/* check if nothing actually needs to be done */
+	read = (read && pInst->dest != reg::Zero);
+	if (!read && !write)
+		return;
+
+	/* read the float status-register value to the stack */
+	gen::Make->get(offsetof(rv64::Context, float_csr), gen::MemoryType::i64);
+
+	/* fetch the shift and mask properties of the actual csr */
+	uint32_t shift = 0, mask = 0;
+	switch (pInst->misc) {
+	case csr::fpExceptionFlags:
+		shift = 0;
+		mask = 0x1f;
+		break;
+	case csr::fpRoundingMode:
+		shift = 5;
+		mask = 0x07;
+		break;
+	case csr::fpStatus:
+		shift = 0;
+		mask = 0xff;
+		break;
+	}
+
+	/* check if the original value should be written to the destination register */
+	if (read) {
+		wasm::Variable t0;
+		if (write)
+			gen::Add[I::Local::Tee(t0 = fTemp64(0))];
+
+		/* apply the necessary shifting/clipping */
+		if (shift > 0) {
+			gen::Add[I::U32::Const(5)];
+			gen::Add[I::U32::ShiftRight()];
+		}
+		gen::Add[I::U64::Const(mask)];
+		gen::Add[I::U64::And()];
+
+		/* write the value to the destination register */
+		fStoreDest();
+
+		/* restore the original value */
+		if (!write)
+			return;
+		gen::Add[I::Local::Get(t0)];
+	}
+
+	/* apply the instruction effect (src register/imm will not be null - as write would otherwise be false) */
+	switch (pInst->opcode) {
+	case rv64::Opcode::csr_read_and_set:
+		fLoadSrc1(false, false);
+		gen::Add[I::U64::Const(mask)];
+		gen::Add[I::U64::And()];
+		if (shift > 0) {
+			gen::Add[I::U32::Const(shift)];
+			gen::Add[I::U64::ShiftLeft()];
+		}
+		gen::Add[I::U64::Or()];
+		break;
+	case rv64::Opcode::csr_read_and_clear:
+		fLoadSrc1(false, false);
+		gen::Add[I::U64::Const(mask)];
+		gen::Add[I::U64::And()];
+		if (shift > 0) {
+			gen::Add[I::U32::Const(shift)];
+			gen::Add[I::U64::ShiftLeft()];
+		}
+		gen::Add[I::I64::Const(-1)];
+		gen::Add[I::U64::XOr()];
+		gen::Add[I::U64::And()];
+		break;
+	case rv64::Opcode::csr_read_and_set_imm:
+		gen::Add[I::U64::Const((pInst->imm & mask) << shift)];
+		gen::Add[I::U64::Or()];
+		break;
+	case rv64::Opcode::csr_read_and_clear_imm:
+		gen::Add[I::U64::Const(~((pInst->imm & mask) << shift))];
+		gen::Add[I::U64::And()];
+		break;
+	case rv64::Opcode::csr_read_write:
+		/* mask out the old bits from the current value */
+		gen::Add[I::U64::Const(~(mask << shift))];
+		gen::Add[I::U64::And()];
+
+		/* load the new value to be written out and merge the values */
+		if (fLoadSrc1(false, false)) {
+			gen::Add[I::U64::Const(mask)];
+			gen::Add[I::U64::And()];
+			if (shift > 0) {
+				gen::Add[I::U32::Const(shift)];
+				gen::Add[I::U64::ShiftLeft()];
+			}
+			gen::Add[I::U64::Or()];
+		}
+		break;
+	case rv64::Opcode::csr_read_write_imm:
+		/* mask out the old bits from the current value */
+		gen::Add[I::U64::Const(~(mask << shift))];
+		gen::Add[I::U64::And()];
+
+		/* load the new value to be written out and merge the values */
+		if (pInst->imm != 0) {
+			gen::Add[I::U64::Const((pInst->imm & mask) << shift)];
+			gen::Add[I::U64::Or()];
+		}
+		break;
+	default:
+		break;
+	}
+
+	/* write the value from the stack back to the float status-register */
+	gen::Make->set(offsetof(rv64::Context, float_csr), gen::MemoryType::i64);
+}
 
 void rv64::Translate::fMakeFLoad(bool multi) const {
 	/* compute the destination address and write it to the stack */
@@ -1035,7 +1214,10 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	/* perform the actual translation */
 	switch (pInst->opcode) {
 	case rv64::Opcode::misaligned:
-		pWriter->makeException(Translate::MisAlignedException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::MisalignedException, pAddress, pNextAddress);
+		break;
+	case rv64::Opcode::illegal_instruction:
+		pWriter->makeException(Translate::IllegalException, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::nop:
 		gen::Add[I::Nop()];
@@ -1205,6 +1387,8 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::csr_read_write_imm:
 	case rv64::Opcode::csr_read_and_set_imm:
 	case rv64::Opcode::csr_read_and_clear_imm:
+		fMakeCSR();
+		break;
 	case rv64::Opcode::float_mul_add:
 	case rv64::Opcode::float_mul_sub:
 	case rv64::Opcode::float_neg_mul_add:

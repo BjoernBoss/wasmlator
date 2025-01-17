@@ -152,6 +152,104 @@ bool rv64::DetectPseudo::fMatchFirst(rv64::Instruction& inst) {
 		if (inst.misc == 0xff)
 			inst.pseudo = rv64::Pseudo::fence;
 		break;
+	case rv64::Opcode::csr_read_and_set:
+		/* csrr */
+		if (inst.src1 == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_read;
+
+		/* csrs */
+		else if (inst.dest == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_set_bits;
+
+		/* frcsr */
+		else if (inst.src1 == reg::Zero && inst.misc == csr::fpStatus)
+			inst.pseudo = rv64::Pseudo::csr_float_read_status;
+
+		/* frrm */
+		else if (inst.src1 == reg::Zero && inst.misc == csr::fpRoundingMode)
+			inst.pseudo = rv64::Pseudo::csr_float_read_rm;
+
+		/* frflags */
+		else if (inst.src1 == reg::Zero && inst.misc == csr::fpExceptionFlags)
+			inst.pseudo = rv64::Pseudo::csr_float_read_exceptions;
+
+		/* rdinstret */
+		else if (inst.src1 == reg::Zero && inst.misc == csr::instRetired)
+			inst.pseudo = rv64::Pseudo::csr_read_inst_retired;
+
+		/* rdcycle */
+		else if (inst.src1 == reg::Zero && inst.misc == csr::cycles)
+			inst.pseudo = rv64::Pseudo::csr_read_cycles;
+
+		/* rdtime */
+		else if (inst.src1 == reg::Zero && inst.misc == csr::realTime)
+			inst.pseudo = rv64::Pseudo::csr_read_time;
+		break;
+	case rv64::Opcode::csr_read_write:
+		/* csrw */
+		if (inst.dest == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_write;
+
+		/* fscsr */
+		else if (inst.misc == csr::fpStatus) {
+			if (inst.dest == reg::Zero)
+				inst.pseudo = rv64::Pseudo::csr_float_write_status;
+			else
+				inst.pseudo = rv64::Pseudo::csr_float_swap_status;
+		}
+
+		/* fsrm */
+		else if (inst.misc == csr::fpRoundingMode) {
+			if (inst.dest == reg::Zero)
+				inst.pseudo = rv64::Pseudo::csr_float_write_rm;
+			else
+				inst.pseudo = rv64::Pseudo::csr_float_swap_rm;
+		}
+
+		/* fsflags */
+		else if (inst.misc == csr::fpExceptionFlags) {
+			if (inst.dest == reg::Zero)
+				inst.pseudo = rv64::Pseudo::csr_float_write_exceptions;
+			else
+				inst.pseudo = rv64::Pseudo::csr_float_swap_exceptions;
+		}
+		break;
+	case rv64::Opcode::csr_read_and_clear:
+		/* csrc */
+		if (inst.dest == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_clear_bits;
+		break;
+	case rv64::Opcode::csr_read_and_set_imm:
+		/* csrsi */
+		if (inst.dest == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_set_bits_imm;
+		break;
+	case rv64::Opcode::csr_read_write_imm:
+		/* csrwi */
+		if (inst.dest == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_write_imm;
+
+		/* fsrmi */
+		else if (inst.misc == csr::fpRoundingMode) {
+			if (inst.dest == reg::Zero)
+				inst.pseudo = rv64::Pseudo::csr_float_write_rm_imm;
+			else
+				inst.pseudo = rv64::Pseudo::csr_float_swap_rm_imm;
+		}
+
+		/* fsflagsi */
+		else if (inst.misc == csr::fpExceptionFlags) {
+			if (inst.dest == reg::Zero)
+				inst.pseudo = rv64::Pseudo::csr_float_write_exceptions_imm;
+			else
+				inst.pseudo = rv64::Pseudo::csr_float_swap_exceptions_imm;
+		}
+		break;
+	case rv64::Opcode::csr_read_and_clear_imm:
+		/* csrci */
+		if (inst.dest == reg::Zero)
+			inst.pseudo = rv64::Pseudo::csr_clear_bits_imm;
+		break;
 	case rv64::Opcode::add_upper_imm_pc:
 		pState = State::auipc;
 		return true;
