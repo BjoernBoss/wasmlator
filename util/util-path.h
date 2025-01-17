@@ -22,6 +22,15 @@ namespace util {
 	/* create a canonicalized version of the path (equivalent to MergePaths(path, "") */
 	std::u8string CanonicalPath(std::u8string_view path);
 
-	/* return the name component of the path (empty name if ends on '/' or string is empty) */
-	std::pair<std::u8string_view, std::u8string_view> SplitPath(std::u8string_view path);
+	/* return the path and last name component
+	*	Note: the name will not contain any slashes
+	*	Note: if the path ends on a slash, the name will be empty
+	*	Note: if the path contains at most one leading slash, the first part will be empty */
+	std::pair<std::u8string_view, std::u8string_view> SplitName(std::u8string_view path);
+
+	/* return the first path component and the remainder of the path
+	*	Note: the first path component will not contain any slashes
+	*	Note: if the remainder is not empty, it will start with a slash
+	*	Note: if the path contains at most one leading slash, the remainder will remain empty */
+	std::pair<std::u8string_view, std::u8string_view> SplitRoot(std::u8string_view path);
 }

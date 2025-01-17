@@ -84,7 +84,8 @@ namespace sys {
 		writev,
 		mmap,
 		readlinkat,
-		readlink
+		readlink,
+		fstat
 	};
 
 	struct SyscallArgs {

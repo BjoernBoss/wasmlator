@@ -78,36 +78,6 @@ void env::FileSystem::fCloseAll() {
 		fCloseFile(pOpen.size() - 1);
 }
 
-void env::FileSystem::fFollowLinks(std::u8string_view path, bool first, std::function<void(std::u8string_view, const env::FileStats*)> callback) {
-	/* check if this is the first following and reset the counter */
-	if (first)
-		pLinkCount = 0;
-
-	/* check if the follow limit count has been reached */
-	else if (++pLinkCount >= env::MaxFollowSymLinks) {
-		logger.error(u8"Link following limit has been reached");
-		callback(u8"", 0);
-		return;
-	}
-
-	/* read the stats and check if they need to be expanded */
-	fReadStats(path, [path = std::u8string(path), callback, this](const env::FileStats* stats) {
-		/* check if the reading failed */
-		if (stats == 0) {
-			callback(u8"", 0);
-			return;
-		}
-
-		/* check if the end of the link-chain has been reached */
-		if (stats->type != env::FileType::link) {
-			callback(path, stats);
-			return;
-		}
-
-		/* start following the link again */
-		fFollowLinks(util::MergePaths(util::SplitPath(path).first, stats->link), false, callback);
-		});
-}
 void env::FileSystem::fReadStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
 	fHandleTask(str::u8::Build(u8"stats:", path), [=, this](json::Reader<std::u8string_view> resp) {
 		/* check if the operation succeded */
@@ -135,11 +105,6 @@ void env::FileSystem::fCloseFile(uint64_t id) {
 		logger.fatal(u8"Closing of file [", id, u8"] was not performed inplace");
 }
 
-void env::FileSystem::followLinks(std::u8string_view path, std::function<void(std::u8string_view, const env::FileStats*)> callback) {
-	logger.debug(u8"Resolving symlink [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fFollowLinks(actual, true, callback);
-}
 void env::FileSystem::readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
 	logger.debug(u8"Reading stats of [", path, u8']');
 	std::u8string actual = fPrepare(path);

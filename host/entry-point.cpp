@@ -12,11 +12,15 @@ static arger::Config Commands{
 	},
 	arger::Group{ L"start", L"",
 		arger::Description{ L"Start a translation process." },
+		arger::Positional{ L"binary",
+			arger::Primitive::any,
+			L"Path to the program to be executed."
+		},
 		arger::Positional{ L"args",
 			arger::Primitive::any,
 			L"Arguments to be passed to the process."
 		},
-		arger::Require::Any(),
+		arger::Require::AtLeast(1),
 		arger::Option{ L"debug",
 			arger::Abbreviation{ L'd' },
 			arger::Description{ L"Configure the system to startup in debug mode." },
@@ -209,7 +213,7 @@ void HandleCommand(std::u8string_view cmd) {
 
 		/* collect the argument vector */
 		std::vector<std::u8string> args;
-		for (size_t i = 0; i < out.positionals(); ++i)
+		for (size_t i = 1; i < out.positionals(); ++i)
 			args.push_back(str::u8::To(out.positional(i).value().str()));
 
 		/* collect the environment vector */
@@ -220,7 +224,7 @@ void HandleCommand(std::u8string_view cmd) {
 
 		/* try to setup the userspace system */
 		debugger = 0;
-		if (!sys::Userspace::Create(rv64::Cpu::New(), u8"/bin/static_primes", args, envs, logBlocks, trace, (debug ? &debugger : 0)))
+		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace, (debug ? &debugger : 0)))
 			logger.error(u8"Failed to create process");
 		else
 			logger.log(u8"Process creation completed");

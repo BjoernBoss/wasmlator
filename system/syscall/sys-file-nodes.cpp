@@ -65,7 +65,7 @@ void sys::detail::impl::ProcDirectory::fMatchType(std::u8string_view path) {
 
 	/* configure the error properly */
 	else {
-		path = util::SplitPath(path).first;
+		path = util::SplitName(path).first;
 		if (path == u8"/proc" || path == u8"/proc/self")
 			pValue = Value::noEntry;
 		else

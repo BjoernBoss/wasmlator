@@ -4,6 +4,8 @@
 #include "sys-file-nodes.h"
 
 namespace sys::detail {
+	static constexpr size_t MaxFollowSymLinks = 32;
+
 	namespace fileFlags {
 		/* ignored: O_DIRECT, O_LARGEFILE, O_NOCTTY, O_SYNC, FASYNC, O_NOATIME */
 		static constexpr uint32_t readOnly = 0x000000;
@@ -63,6 +65,7 @@ namespace sys::detail {
 		FileIO() = default;
 
 	private:
+		bool fCheckFd(int64_t fd) const;
 		int64_t fCheckRead(int64_t fd) const;
 		int64_t fCheckWrite(int64_t fd) const;
 
@@ -91,5 +94,6 @@ namespace sys::detail {
 		int64_t writev(int64_t fd, env::guest_t vec, uint64_t count);
 		int64_t readlinkat(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size);
 		int64_t readlink(std::u8string_view path, env::guest_t address, uint64_t size);
+		int64_t fstat(int64_t fd, env::guest_t address);
 	};
 }

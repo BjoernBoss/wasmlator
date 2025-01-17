@@ -4,8 +4,6 @@
 #include "filesystem-access.h"
 
 namespace env {
-	static constexpr size_t MaxFollowSymLinks = 64;
-
 	/* Note: env::FileSystem will only ever produce file/directory/link */
 	enum class FileType : uint8_t {
 		none,
@@ -31,12 +29,12 @@ namespace env {
 		truncateExisting
 	};
 
+	/* Note: all paths are expected to be fully qualified real absolute paths (symlinks will not be followed along the path) */
 	class FileSystem {
 		friend struct detail::FileSystemAccess;
 
 	private:
 		std::vector<std::optional<uint64_t>> pOpen;
-		size_t pLinkCount = 0;
 
 	public:
 		FileSystem() = default;
@@ -52,12 +50,10 @@ namespace env {
 		void fCloseAll();
 
 	private:
-		void fFollowLinks(std::u8string_view path, bool first, std::function<void(std::u8string_view, const env::FileStats*)> callback);
 		void fReadStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback);
 		void fCloseFile(uint64_t id);
 
 	public:
-		void followLinks(std::u8string_view path, std::function<void(std::u8string_view, const env::FileStats*)> callback);
 		void readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback);
 		void readDir(std::u8string_view path, std::function<void(bool, const std::vector<std::u8string>&)> callback);
 		void createDir(std::u8string_view path, std::function<void(bool)> callback);

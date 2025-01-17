@@ -286,7 +286,7 @@ bool sys::Userspace::setupCore(wasm::Module& mod) {
 }
 void sys::Userspace::coreLoaded() {
 	/* load the binary */
-	env::Instance()->filesystem().followLinks(pBinary, [this](std::u8string_view path, const env::FileStats* stats) {
+	env::Instance()->filesystem().readStats(pBinary, [this](const env::FileStats* stats) {
 		/* check if the file could be resolved */
 		if (stats == 0) {
 			logger.error(u8"Failed to resolve path [", pBinary, u8']');
@@ -294,21 +294,18 @@ void sys::Userspace::coreLoaded() {
 			return;
 		}
 
-		/* do not reset the binary to the actual path, as both the current directory and binary-path for the guest should be the original path */
-		logger.debug(u8"Path [", pBinary, u8"] expanded to [", path, u8']');
-
 		/* check the file-type */
 		if (stats->type != env::FileType::file) {
-			logger.error(u8"Path [", path, u8"] is not a file");
+			logger.error(u8"Path [", pBinary, u8"] is not a file");
 			env::Instance()->shutdown();
 			return;
 		}
 
-		/* setup the opening of the file (create a copy of the path-object as it will be released after this call is done) */
-		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, [path = std::u8string{ path }, this](bool success, uint64_t id, const env::FileStats* stats) {
+		/* setup the opening of the file */
+		env::Instance()->filesystem().openFile(pBinary, env::FileOpen::openExisting, [this](bool success, uint64_t id, const env::FileStats* stats) {
 			/* check if the file could be opened */
 			if (!success) {
-				logger.error(u8"Failed to open file [", path, u8"] for reading");
+				logger.error(u8"Failed to open file [", pBinary, u8"] for reading");
 				env::Instance()->shutdown();
 				return;
 			}

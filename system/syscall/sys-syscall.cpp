@@ -97,6 +97,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"pathname: [", path, u8"]");
 		return pFileIO.readlink(path, args.args[1], args.args[2]);
 	}
+	case sys::SyscallIndex::fstat: {
+		logger.debug(u8"Syscall fstat(", args.args[0], u8", ", args.args[1], u8')');
+		return pFileIO.fstat(args.args[0], args.args[1]);
+	}
 	case sys::SyscallIndex::unknown:
 		throw detail::UnknownSyscall{ pCurrent.address, args.rawIndex };
 		break;

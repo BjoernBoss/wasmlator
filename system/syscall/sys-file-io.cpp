@@ -2,15 +2,20 @@
 
 static util::Logger logger{ u8"sys::Syscall" };
 
+bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
+	if (fd < 0 || fd >= int64_t(pFiles.size()) || pFiles[fd].node == 0)
+		return false;
+	return true;
+}
 int64_t sys::detail::FileIO::fCheckRead(int64_t fd) const {
-	if (fd < 0 || fd >= int64_t(pFiles.size()) || pFiles[fd].node == 0 || !pFiles[fd].read)
+	if (!fCheckFd(fd) || !pFiles[fd].read)
 		return errCode::eBadFd;
 	if (!pFiles[fd].node->directory().empty())
 		return errCode::eIsDirectory;
 	return 0;
 }
 int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
-	if (fd < 0 || fd >= int64_t(pFiles.size()) || pFiles[fd].node == 0 || !pFiles[fd].write)
+	if (!fCheckFd(fd) || !pFiles[fd].write)
 		return errCode::eBadFd;
 	if (!pFiles[fd].node->directory().empty())
 		return errCode::eIsDirectory;
@@ -60,7 +65,7 @@ int64_t sys::detail::FileIO::fCreateNode(std::u8string_view path, bool follow, b
 		fDropNode(pNodes[index].node.get());
 
 		/* check if the follow-limit has been reached */
-		if (++pLinkFollow >= env::MaxFollowSymLinks) {
+		if (++pLinkFollow >= detail::MaxFollowSymLinks) {
 			logger.error(u8"Max link following for [", path, u8"] reached");
 			return callback(errCode::eLoop, 0, stats);
 		}
@@ -92,10 +97,6 @@ void sys::detail::FileIO::fDropNode(detail::FileNode* node) {
 }
 
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
-	/* validate the dir-fd */
-	if (dirfd != detail::fdWDirectory && (dirfd < 0 || uint64_t(dirfd) >= pFiles.size() || pFiles[dirfd].node == 0))
-		return errCode::eBadFd;
-
 	/* validate the flags */
 	if ((flags & fileFlags::readOnly) != fileFlags::readOnly
 		&& (flags & fileFlags::writeOnly) != fileFlags::writeOnly
@@ -121,9 +122,15 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	if (state == util::PathState::invalid)
 		return errCode::eInvalid;
 
+	/* validate the directory-descriptor */
+	if (state == util::PathState::relative) {
+		if (dirfd != detail::fdWDirectory && !fCheckFd(dirfd))
+			return errCode::eBadFd;
+		if (pFiles[dirfd].node->directory().empty())
+			return errCode::eNotDirectory;
+	}
+
 	/* construct the actual path */
-	if (state == util::PathState::relative && dirfd != detail::fdWDirectory && pFiles[dirfd].node->directory().empty())
-		return errCode::eNotDirectory;
 	std::u8string actual = util::MergePaths(dirfd == detail::fdWDirectory ? pWDirectory : pFiles[dirfd].node->directory(), path);
 
 	/* create the new file node */
@@ -169,18 +176,20 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 	if (size == 0)
 		return errCode::eInvalid;
 
-	/* validate the dir-fd */
-	if (dirfd != detail::fdWDirectory && (dirfd < 0 || uint64_t(dirfd) >= pFiles.size() || pFiles[dirfd].node == 0))
-		return errCode::eBadFd;
-
 	/* validate the path */
 	util::PathState state = util::TestPath(path);
 	if (state == util::PathState::invalid)
 		return errCode::eInvalid;
 
+	/* validate the directory-descriptor */
+	if (state == util::PathState::relative) {
+		if (dirfd != detail::fdWDirectory && !fCheckFd(dirfd))
+			return errCode::eBadFd;
+		if (pFiles[dirfd].node->directory().empty())
+			return errCode::eNotDirectory;
+	}
+
 	/* construct the actual path */
-	if (state == util::PathState::relative && dirfd != detail::fdWDirectory && pFiles[dirfd].node->directory().empty())
-		return errCode::eNotDirectory;
 	std::u8string actual = util::MergePaths(dirfd == detail::fdWDirectory ? pWDirectory : pFiles[dirfd].node->directory(), path);
 
 	/* create the node and perform the stat-read */
@@ -213,7 +222,7 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	fDropNode(terminal);
 
 	/* validate the current path */
-	std::u8string_view wDirectory = util::SplitPath(pSyscall->config().path).first;
+	std::u8string_view wDirectory = util::SplitName(pSyscall->config().path).first;
 	if (util::TestPath(wDirectory) != util::PathState::absolute) {
 		logger.error(u8"Current directory [", wDirectory, u8"] must be a valid absolute path");
 		return false;
@@ -336,4 +345,46 @@ int64_t sys::detail::FileIO::readlinkat(int64_t dirfd, std::u8string_view path, 
 }
 int64_t sys::detail::FileIO::readlink(std::u8string_view path, env::guest_t address, uint64_t size) {
 	return fReadLinkAt(detail::fdWDirectory, path, address, size);
+}
+int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
+	/* vaidate the file descriptor */
+	if (!fCheckFd(fd))
+		return errCode::eBadFd;
+
+	/* linux stat-structure */
+	struct LinuxStats {
+		uint64_t dev = 0;
+		uint64_t inode = 0;
+		uint32_t mode = 0;
+		uint32_t nlinks = 0;
+		uint32_t uid = 0;
+		uint32_t gid = 0;
+		uint64_t rdev = 0;
+		int64_t size = 0;
+		int32_t blockSize = 0;
+		int64_t blockCount = 0;
+		int64_t atime = 0;
+		int64_t atime_ns = 0;
+		int64_t mtime = 0;
+		int64_t mtime_ns = 0;
+		int64_t ctime = 0;
+		int64_t ctime_ns = 0;
+	};
+
+	//; todo;
+	// validate structure!;
+	//implement ownership/ids/read/write/execute flags;
+	//fix fCreateNode, as it has to resolve each path-component separately!;
+	//	=> i.e. /bin/foo/bar (even if bar is not being followed, /bin might point to /actual => /actual/foo/bar)
+
+	logger.fatal(u8"Currently not implemented");
+
+	/* request the stats from the file */
+	return pFiles[fd].node->stats([address, this](const env::FileStats& stats) -> int64_t {
+		/* populate the stat-structure */
+		LinuxStats out;
+
+		out.size = stats.size;
+		return errCode::eIO;
+		});
 }

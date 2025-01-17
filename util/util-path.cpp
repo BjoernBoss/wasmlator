@@ -60,16 +60,11 @@ std::u8string util::MergePaths(std::u8string_view abs, std::u8string_view rel) {
 			while (out.back() != u8'/')
 				out.pop_back();
 		}
-
-		/* check if the path ends on a slash, which is only required for the first string */
-		if (s == 1) {
-			if (out.back() == u8'/' && out.size() > 1)
-				out.pop_back();
-			break;
-		}
-		if (out.back() != u8'/')
-			out.push_back(u8'/');
 	}
+
+	/* check if the path ends on a slash and remove it */
+	if (out.back() == u8'/' && out.size() > 1)
+		out.pop_back();
 	return out;
 }
 
@@ -77,12 +72,32 @@ std::u8string util::CanonicalPath(std::u8string_view path) {
 	return util::MergePaths(path, u8"");
 }
 
-std::pair<std::u8string_view, std::u8string_view> util::SplitPath(std::u8string_view path) {
+std::pair<std::u8string_view, std::u8string_view> util::SplitName(std::u8string_view path) {
+	if (path.empty())
+		return { u8"", u8"" };
+
 	/* find the last slash */
-	size_t startOfName = path.size();
-	while (startOfName > 0 && path[startOfName - 1] != u8'/' && path[startOfName != u8'\\'])
-		--startOfName;
+	size_t name = path.size();
+	while (name > 0 && path[name - 1] != u8'/' && path[name != u8'\\'])
+		--name;
 
 	/* return the two sub-strings */
-	return { path.substr(0, startOfName > 0 ? startOfName - 1 : 0), path.substr(startOfName) };
+	return { path.substr(0, (name > 0 ? name - 1 : 0)), path.substr(name) };
+}
+
+std::pair<std::u8string_view, std::u8string_view> util::SplitRoot(std::u8string_view path) {
+	if (path.empty())
+		return { u8"", u8"" };
+
+	/* check if the path starts with a slash, and skip it */
+	if (path[0] == u8'/' || path[0] == u8'\\')
+		path = path.substr(1);
+
+	/* find the next slash, which separates the two components */
+	size_t remainder = 0;
+	while (remainder < path.size() && path[remainder] != u8'/' && path[remainder] != u8'\\')
+		++remainder;
+
+	/* return the two sub-strings */
+	return { path.substr(0, remainder), path.substr(remainder) };
 }
