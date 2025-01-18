@@ -110,25 +110,41 @@ setup_wasmlator = function (logPrint, cb) {
 			payload = task.substring(i + 1);
 		}
 
+		/* helper function to parse integer args (n integer args, remainder in last arg) */
+		let splitArgs = function (n) {
+			let split = payload.split(':');
+			let args = [];
+			for (let i = 0; i <= n; ++i) {
+				if (i == n && i < split.length)
+					args.push(split.slice(n).join(':'));
+				else
+					args.push(parseInt(split[i]));
+			}
+			return args;
+		};
+
 		/* handle the core and block creation handling */
 		if (cmd == 'core') {
-			let args = payload.split(':');
-			_state.load_core(_state.make_buffer(parseInt(args[0]), parseInt(args[1])), process);
+			let args = splitArgs(2);
+			_state.load_core(_state.make_buffer(args[0], args[1]), process);
 		}
 		else if (cmd == 'block') {
-			let args = payload.split(':');
-			_state.load_block(_state.make_buffer(parseInt(args[0]), parseInt(args[1])), process);
-
+			let args = splitArgs(2);
+			_state.load_block(_state.make_buffer(args[0], args[1]), process);
 		}
+
 		/* handle the file-system commands */
 		else if (cmd == 'stats')
 			_state.fs.getStats(payload, (s) => _state.task_completed(process, s));
-		else if (cmd == 'opexisting')
-			_state.fs.openFile(payload, false, true, false, (id, s) => _state.task_completed(process, { id: id, stats: s }));
+		else if (cmd.startsWith('open$')) {
+			let args = splitArgs(3);
+			_state.fs.openFile(args[3], cmd.includes('c'), cmd.includes('o'), cmd.includes('t'),
+				args[0], args[1], args[2], (id, s) => _state.task_completed(process, { id: id, stats: s }));
+		}
 		else if (cmd == 'read') {
-			let args = payload.split(':');
-			let buf = new Uint8Array(_state.main.memory, parseInt(args[1]), parseInt(args[3]));
-			_state.fs.readFile(parseInt(args[0]), buf, parseInt(args[2]), (r) => _state.task_completed(process, r));
+			let args = splitArgs(4);
+			let buf = new Uint8Array(_state.main.memory, args[1], args[3]);
+			_state.fs.readFile(args[0], buf, args[2], (r) => _state.task_completed(process, r));
 		}
 		else if (cmd == 'close')
 			_state.fs.closeFile(parseInt(payload), () => _state.task_completed(process, null));

@@ -77,7 +77,7 @@ namespace env {
 		void deleteFile(std::u8string_view path, std::function<void(bool)> callback);
 
 	public:
-		void openFile(std::u8string_view path, env::FileOpen open, std::function<void(bool, uint64_t, const env::FileStats*)> callback);
+		void openFile(std::u8string_view path, env::FileOpen open, uint32_t owner, uint32_t group, uint16_t permissions, std::function<void(bool, uint64_t, const env::FileStats*)> callback);
 		void readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(uint64_t)> callback);
 		void writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(bool)> callback);
 		void truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);

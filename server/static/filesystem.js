@@ -7,17 +7,13 @@ fsRootGroup = 0;
 fsRootPermissions = 0o755;
 
 class FileNode {
-	constructor(stats, root) {
+	constructor(stats) {
 		this.dataDirty = false;
 		this.metaDirty = false;
 		this.stats = stats;
 		this.users = 0;
 		this.data = null;
 		this.timeout = null;
-
-		/* check if the access rights can already be configured */
-		if (this.stats != null)
-			this._setupAccess(root);
 	}
 
 	setupEmptyStats(type) {
@@ -121,12 +117,12 @@ class MemFileSystem {
 				})
 				.then((json) => {
 					this._log(`Stats for [${path}] received`);
-					this._files[path] = new FileNode(json, (path == '/'));
+					this._files[path] = new FileNode(json);
 				})
 				.catch((err) => {
 					/* pretend the object does not exist */
 					this._err(`Failed to fetch stats for [${path}]: ${err}`);
-					this._files[path] = new FileNode(null, false);
+					this._files[path] = new FileNode(null);
 				})
 				.finally(() => {
 					let node = this._files[path];

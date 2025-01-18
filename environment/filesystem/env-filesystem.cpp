@@ -37,8 +37,6 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 
 	/* iterate over the attributes and apply them */
 	for (const auto& [key, value] : obj) {
-		logger.debug(u8"Received: ", key);
-
 		if (key == L"mtime_us") {
 			out.timeModifiedUS = value.unum();
 			tmMod = true;
@@ -158,29 +156,32 @@ void env::FileSystem::deleteFile(std::u8string_view path, std::function<void(boo
 	fHandleTask(str::u8::Build(u8"rmfile:", actual), callback);
 }
 
-void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
+void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, uint32_t owner, uint32_t group, uint16_t permissions, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
 	logger.debug(u8"Opening file [", path, u8']');
 	std::u8string actual = fPrepare(path);
 
-	/* setup the task */
-	std::u8string task;
+	/* setup the task (open$cto; create/truncate/open) */
+	std::u8string task = u8"open$";
 	switch (open) {
 	case env::FileOpen::createAlways:
-		task = u8"mkalways:";
+		task.append(u8"cto:");
 		break;
 	case env::FileOpen::openAlways:
-		task = u8"opalways:";
+		task.append(u8"c-o:");
 		break;
 	case env::FileOpen::createNew:
-		task = u8"mknew:";
+		task.append(u8"c--:");
 		break;
 	case env::FileOpen::openExisting:
-		task = u8"opexisting:";
+		task.append(u8"--o:");
 		break;
 	case env::FileOpen::truncateExisting:
-		task = u8"trexisting:";
+		task.append(u8"-to:");
 		break;
 	}
+
+	/* add the owner, group, and permissions, and the path */
+	str::BuildTo(task, owner, u8':', group, u8':', permissions, u8':');
 	task.append(path);
 
 	/* queue the task to open the file */

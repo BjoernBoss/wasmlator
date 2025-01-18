@@ -302,7 +302,7 @@ void sys::Userspace::coreLoaded() {
 		}
 
 		/* setup the opening of the file */
-		env::Instance()->filesystem().openFile(pBinary, env::FileOpen::openExisting, [this](bool success, uint64_t id, const env::FileStats* stats) {
+		env::Instance()->filesystem().openFile(pBinary, env::FileOpen::openExisting, 0, 0, 0, [this](bool success, uint64_t id, const env::FileStats* stats) {
 			/* check if the file could be opened */
 			if (!success) {
 				logger.error(u8"Failed to open file [", pBinary, u8"] for reading");
