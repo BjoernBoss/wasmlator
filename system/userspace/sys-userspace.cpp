@@ -289,7 +289,7 @@ void sys::Userspace::coreLoaded() {
 	env::Instance()->filesystem().readStats(pBinary, [this](const env::FileStats* stats) {
 		/* check if the file could be resolved */
 		if (stats == 0) {
-			logger.error(u8"Failed to resolve path [", pBinary, u8']');
+			logger.error(u8"Path [", pBinary, u8"] does not exist");
 			env::Instance()->shutdown();
 			return;
 		}
@@ -311,22 +311,23 @@ void sys::Userspace::coreLoaded() {
 			}
 
 			/* allocate the buffer for the file-content and read it into memory */
-			uint8_t* buffer = new uint8_t[stats->size];
-			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [=, this](uint64_t count) {
+			uint64_t size = stats->size;
+			uint8_t* buffer = new uint8_t[size];
+			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [this, buffer, size, id](uint64_t count) {
 				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
 
 				/* close the file again, as no more data will be read */
 				env::Instance()->filesystem().closeFile(id);
 
 				/* check if the size still matches */
-				if (count != stats->size) {
+				if (count != size) {
 					logger.error(u8"File size does not match expected size");
 					env::Instance()->shutdown();
 					return;
 				}
 
 				/* perform the actual loading of the file */
-				if (!fBinaryLoaded(buffer, stats->size))
+				if (!fBinaryLoaded(buffer, size))
 					env::Instance()->shutdown();
 				});
 			});

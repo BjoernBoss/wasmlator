@@ -8,6 +8,10 @@
 namespace sys::detail {
 	struct ProcessConfig {
 		std::u8string path;
+		uint32_t uid = 1001;
+		uint32_t gid = 1001;
+		uint32_t pid = 1;
+		uint32_t pgid = 1;
 	};
 
 	class Syscall {

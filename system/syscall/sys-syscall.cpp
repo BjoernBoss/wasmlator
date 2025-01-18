@@ -114,7 +114,7 @@ int64_t sys::detail::Syscall::fDispatch() {
 }
 int64_t sys::detail::Syscall::fHandleIds(std::u8string_view name) const {
 	logger.debug(u8"Syscall ", name, u8"()");
-	return uint16_t(env::Instance()->getId());
+	return uint16_t(1);
 }
 int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	logger.info(u8"Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");

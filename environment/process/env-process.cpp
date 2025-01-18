@@ -284,9 +284,6 @@ env::Interact& env::Process::interact() {
 	return pInteract;
 }
 
-uint32_t env::Process::getId() const {
-	return global::ProcId;
-}
 uint32_t env::Process::pageSize() const {
 	return pPageSize;
 }

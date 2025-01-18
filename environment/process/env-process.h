@@ -89,7 +89,6 @@ namespace env {
 		env::Interact& interact();
 
 	public:
-		uint32_t getId() const;
 		uint32_t pageSize() const;
 		uint32_t memoryCaches() const;
 		uint32_t contextSize() const;

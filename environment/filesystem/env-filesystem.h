@@ -20,6 +20,22 @@ namespace env {
 		uint64_t timeAccessedUS = 0;
 		uint64_t size = 0;
 		env::FileType type = env::FileType::none;
+		uint32_t owner = 0;
+		uint32_t group = 0;
+		union {
+			struct {
+				uint16_t xOther : 1;
+				uint16_t wOther : 1;
+				uint16_t rOther : 1;
+				uint16_t xGroup : 1;
+				uint16_t wGroup : 1;
+				uint16_t rGroup : 1;
+				uint16_t xOwner : 1;
+				uint16_t wOwner : 1;
+				uint16_t rOwner : 1;
+			};
+			uint16_t permissions = 0;
+		};
 	};
 	enum class FileOpen : uint8_t {
 		createAlways,

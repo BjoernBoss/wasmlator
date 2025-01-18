@@ -33,10 +33,12 @@ bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(
 }
 env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> obj) const {
 	env::FileStats out;
-	bool tmMod = false, tmAcc = false, size = false, type = false, link = false;
+	bool tmMod = false, tmAcc = false, size = false, type = false, link = false, owner = false, group = false, permissions = false;
 
 	/* iterate over the attributes and apply them */
 	for (const auto& [key, value] : obj) {
+		logger.debug(u8"Received: ", key);
+
 		if (key == L"mtime_us") {
 			out.timeModifiedUS = value.unum();
 			tmMod = true;
@@ -65,10 +67,22 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 			out.link = str::u8::To(value.str());
 			link = true;
 		}
+		else if (key == L"owner") {
+			out.owner = uint32_t(value.unum());
+			owner = true;
+		}
+		else if (key == L"group") {
+			out.group = uint32_t(value.unum());
+			group = true;
+		}
+		else if (key == L"permissions") {
+			out.permissions = uint16_t(value.unum());
+			permissions = true;
+		}
 	}
 
 	/* check if all values have been received and return the parsed stats */
-	if (!tmMod || !tmAcc || !size || !type || !link)
+	if (!tmMod || !tmAcc || !size || !type || !link || !owner || !group || !permissions)
 		logger.fatal(u8"Received incomplete file-stats");
 	return out;
 }
