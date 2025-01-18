@@ -34,8 +34,8 @@ namespace env {
 				uint16_t wOwner : 1;
 				uint16_t rOwner : 1;
 			};
-			uint16_t permissions = 0;
-		};
+			uint16_t all = 0;
+		} permissions;
 	};
 	enum class FileOpen : uint8_t {
 		createAlways,
@@ -44,6 +44,21 @@ namespace env {
 		openExisting,
 		truncateExisting
 	};
+
+	/* construct the permissions for owner */
+	constexpr uint16_t FileOwner(bool r, bool w, bool x) {
+		return (r ? 0x100 : 0x000) | (w ? 0x080 : 0x000) | (x ? 0x040 : 0x000);
+	}
+
+	/* construct the permissions for group */
+	constexpr uint16_t FileGroup(bool r, bool w, bool x) {
+		return (r ? 0x020 : 0x000) | (w ? 0x010 : 0x000) | (x ? 0x008 : 0x000);
+	}
+
+	/* construct the permissions for others */
+	constexpr uint16_t FileOther(bool r, bool w, bool x) {
+		return (r ? 0x004 : 0x000) | (w ? 0x002 : 0x000) | (x ? 0x001 : 0x000);
+	}
 
 	/* Note: all paths are expected to be fully qualified real absolute paths (symlinks will not be followed along the path) */
 	class FileSystem {

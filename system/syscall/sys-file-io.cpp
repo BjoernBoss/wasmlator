@@ -3,100 +3,204 @@
 static util::Logger logger{ u8"sys::Syscall" };
 
 bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
-	if (fd < 0 || fd >= int64_t(pFiles.size()) || pFiles[fd].node == 0)
+	/* instance can never be larger than pInstance, as instances are never reduced in size */
+	if (fd < 0 || fd >= int64_t(pOpen.size()) || pInstance[pOpen[fd].instance].node.get() == 0)
 		return false;
 	return true;
 }
 int64_t sys::detail::FileIO::fCheckRead(int64_t fd) const {
-	if (!fCheckFd(fd) || !pFiles[fd].read)
+	if (!fCheckFd(fd) || !pOpen[fd].read)
 		return errCode::eBadFd;
-	if (!pFiles[fd].node->directory().empty())
+	if (pInstance[pOpen[fd].instance].directory)
 		return errCode::eIsDirectory;
 	return 0;
 }
 int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
-	if (!fCheckFd(fd) || !pFiles[fd].write)
+	if (!fCheckFd(fd) || !pOpen[fd].write)
 		return errCode::eBadFd;
-	if (!pFiles[fd].node->directory().empty())
+	if (pInstance[pOpen[fd].instance].directory)
 		return errCode::eIsDirectory;
 	return 0;
 }
+bool sys::detail::FileIO::fCheckAccess(const env::FileStats* stats, bool read, bool write, bool execute) const {
+	uint32_t euid = pSyscall->config().euid, egid = pSyscall->config().egid;
 
-int64_t sys::detail::FileIO::fCreateNode(std::u8string_view path, bool follow, bool append, std::function<int64_t(int64_t, detail::FileNode*, const env::FileStats&)> callback) {
-	std::unique_ptr<detail::FileNode> node;
+	/* check for root-privileges */
+	if (euid == 0)
+		return true;
 
-	/* check if the terminal has explicitly been created */
-	if (path == u8"/dev/tty")
-		node.reset(new impl::Terminal());
-	else if (path.starts_with(u8"/proc"))
-		node.reset(new impl::ProcDirectory(pSyscall, path));
-	else {
-		logger.error(u8"Unable open file [", path, u8']');
-		return callback(errCode::eNoEntry, 0, {});
-	}
+	/* check for reading-permissions */
+	if (read && !stats->permissions.rOther && (stats->owner != euid || !stats->permissions.rOwner) &&
+		(stats->group != egid || !stats->permissions.rGroup))
+		return false;
 
-	/* bind the node */
-	size_t index = 0;
-	while (index < pNodes.size() && pNodes[index].node.get() != 0)
-		++index;
-	if (index == pNodes.size())
-		pNodes.push_back({ {}, 0 });
+	/* check for writing-permissions */
+	if (write && !stats->permissions.wOther && (stats->owner != euid || !stats->permissions.wOwner) &&
+		(stats->group != egid || !stats->permissions.wGroup))
+		return false;
 
-	/* setup the new node */
-	pNodes[index].user = 1;
-	pNodes[index].node = std::move(node);
+	/* check for executing-permissions */
+	if (execute && !stats->permissions.xOther && (stats->owner != euid || !stats->permissions.xOwner) &&
+		(stats->group != egid || !stats->permissions.xGroup))
+		return false;
+	return true;
+}
 
-	/* reset the link-following and configure the node itself (will at all
-	*	times be invoked and therfore at all times be cleaned up properly) */
-	pLinkFollow = 0;
-	return pNodes[index].node->setup([=, this](int64_t result, const env::FileStats& stats) -> int64_t {
-		pNodes[index].node->bindConfigure(index, (stats.type == env::FileType::directory ? path : u8""));
+int64_t sys::detail::FileIO::fResolveNode(std::shared_ptr<detail::FileNode> node, std::u8string_view lookup, bool follow, bool create, bool ancestorWritable, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback) {
+	/* split the path up to check if the node needs to be entered further */
+	auto [name, remainder] = util::SplitRoot(lookup);
 
-		/* check if the opening failed */
-		if (result != errCode::eSuccess) {
-			fDropNode(pNodes[index].node.get());
-			logger.error(u8"Unable open file [", path, u8']');
-			return callback(result, 0, stats);
+	/* fetch the stats of the current node (for the root-node, ancestorWritable will
+	*	always be false, but its stats should exist at all times - as its the root) */
+	return node->stats([=, this](const env::FileStats* stats) -> int64_t {
+		/* check if the node is invalid/does not exist and remove it */
+		if (stats == 0) {
+			/* check if the lookup failed */
+			if (!name.empty() || !create) {
+				fDetachNode(node);
+				logger.error(u8"Path [", node->path(), u8"] does not exist");
+				return callback(errCode::eNoEntry, {}, 0);
+			}
+
+			/* check if the directory can potentially be created */
+			if (!ancestorWritable) {
+				fDetachNode(node);
+				logger.error(u8"Access denied to create [", node->path(), u8"] in parent directory");
+				return callback(errCode::eAccess, {}, 0);
+			}
+
+			/* return success to indicate that the node can be created (at least regarding the permissions up to this point) */
+			return callback(errCode::eSuccess, node, 0);
 		}
 
-		/* check if symlinks should be followed */
-		if (!follow || stats.type != env::FileType::link)
-			return callback(result, pNodes[index].node.get(), stats);
-		fDropNode(pNodes[index].node.get());
+		/* check if the end has been reached (only if its not a link or the link should not be followed) */
+		if (name.empty() && (!follow || stats->type != env::FileType::link))
+			return callback(errCode::eSuccess, node, stats);
 
-		/* check if the follow-limit has been reached */
-		if (++pLinkFollow >= detail::MaxFollowSymLinks) {
-			logger.error(u8"Max link following for [", path, u8"] reached");
-			return callback(errCode::eLoop, 0, stats);
+		/* check if its a link */
+		if (stats->type == env::FileType::link) {
+			/* check if the permissions allow for the link to be read */
+			if (!fCheckAccess(stats, true, false, false)) {
+				logger.error(u8"Access to link [", node->path(), u8"] denied");
+				return callback(errCode::eAccess, {}, 0);
+			}
+
+			/* check if the maximum number of link expansions has been reached */
+			if (++pLinkFollow >= detail::MaxFollowSymLinks) {
+				logger.error(u8"Link expansion limit at [", node->path(), u8"] reached");
+				return callback(errCode::eLoop, {}, 0);
+			}
+
+			/* construct the actual new absolute path to be resolved */
+			std::u8string base = util::MergePaths(util::SplitName(node->path()).first, stats->link);
+			base = util::MergePaths(base, lookup);
+
+			/* resolve the new node, based on the expanded link */
+			return fResolveNode(pRoot, base, follow, create, false, callback);
 		}
-		return fCreateNode(stats.link, true, append, callback);
+
+		/* check if the node is a directory */
+		if (stats->type != env::FileType::directory) {
+			logger.error(u8"Path [", node->path(), u8"] is not a directory");
+			return callback(errCode::eNotDirectory, {}, 0);
+		}
+
+		/* check if the permissions allow for the directory to be traversed */
+		if (!fCheckAccess(stats, false, false, true)) {
+			logger.error(u8"Access to directory [", node->path(), u8"] denied");
+			return callback(errCode::eAccess, {}, 0);
+		}
+
+		/* check if the child-node already exists and otherwise fetch the new child-node and register it */
+		std::u8string path = util::MergePaths(node->path(), name);
+		auto it = pMap.find(path);
+		if (it == pMap.end())
+			it = pMap.insert({ path, node->spawn(path, name) }).first;
+
+		/* check if the current directory is writable (necessary to determine if child can be created) and resolve the remaining path */
+		bool dirWritable = fCheckAccess(stats, false, true, false);
+		return fResolveNode(it->second, remainder, follow, create, dirWritable, callback);
 		});
 }
-int64_t sys::detail::FileIO::fCreateFile(detail::FileNode* node, bool read, bool write, bool modify, bool closeOnExecute) {
-	/* lookup the next free file-descriptor */
+int64_t sys::detail::FileIO::fLookupNode(std::u8string_view path, bool follow, bool create, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback) {
+	/* reset the link-following and start resolving the node */
+	pLinkFollow = 0;
+	return fResolveNode(pRoot, path, follow, create, false, callback);
+}
+int64_t sys::detail::FileIO::fSetupFile(std::shared_ptr<detail::FileNode> node, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
+	/* lookup the new instance for the node */
+	size_t instance = 0;
+	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
+		++instance;
+	if (instance == pInstance.size())
+		pInstance.emplace_back();
+
+	/* configure the new instance */
+	pInstance[instance].node = node;
+	pInstance[instance].user = 1;
+	pInstance[instance].directory = directory;
+
+	/* lookup the new open entry for the node */
 	size_t index = 0;
-	while (index < pFiles.size() && pFiles[index].node != 0)
+	while (index < pOpen.size() && pOpen[index].used)
 		++index;
-	if (index == pFiles.size())
-		pFiles.push_back({ 0, false, false, false, false });
+	if (index == pOpen.size())
+		pOpen.emplace_back();
 
-	/* setup the new file */
-	pFiles[index].node = node;
-	pFiles[index].read = read;
-	pFiles[index].write = write;
-	pFiles[index].modify = modify;
-	pFiles[index].closeOnExecute = closeOnExecute;
-
-	/* increment the usage-counter of the node and return the new index */
-	++pNodes[node->index()].user;
-	return index;
-}
-void sys::detail::FileIO::fDropNode(detail::FileNode* node) {
-	if (--pNodes[node->index()].user == 0)
-		pNodes[node->index()].node.reset();
+	/* configure the new opened file */
+	pOpen[index].instance = instance;
+	pOpen[index].read = read;
+	pOpen[index].write = write;
+	pOpen[index].modify = modify;
+	pOpen[index].closeOnExecute = closeOnExecute;
+	pOpen[index].used = true;
+	return int64_t(index);
 }
 
+void sys::detail::FileIO::fDropInstance(size_t instance) {
+	if (--pInstance[instance].user > 0)
+		return;
+	pInstance[instance].node.reset();
+}
+void sys::detail::FileIO::fDetachNode(std::shared_ptr<detail::FileNode> node) {
+	/* iterate over the map, and erase all true children of the current node */
+	for (auto it = pMap.begin(); it != pMap.end();) {
+		if (!it->first.starts_with(node->path()))
+			++it;
+
+		/* check if its the node itself, or a true child */
+		else if (it->first.size() == node->path().size() || it->first[node->path().size()] == u8'/')
+			it = pMap.erase(it);
+		else
+			++it;
+	}
+}
+
+int64_t sys::detail::FileIO::fCheckPath(int64_t dirfd, std::u8string_view path, std::u8string& actual) {
+	/* validate the path */
+	util::PathState state = util::TestPath(path);
+	if (state == util::PathState::invalid)
+		return errCode::eInvalid;
+
+	/* validate the directory-descriptor */
+	Instance* instance = 0;
+	if (state == util::PathState::relative) {
+		if (dirfd != detail::fdWDirectory && !fCheckFd(dirfd))
+			return errCode::eBadFd;
+		instance = &pInstance[pOpen[dirfd].instance];
+		if (!instance->directory)
+			return errCode::eNotDirectory;
+	}
+
+	/* construct the actual path */
+	actual = util::MergePaths(instance != 0 ? instance->node->path() : pSyscall->config().wDirectory, path);
+	return errCode::eSuccess;
+}
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
+	/* check if all flags are supported */
+	if ((flags & ~fileFlags::mask) != 0)
+		logger.fatal(u8"Unknown file-flags used on file [", path, u8']');
+
 	/* validate the flags */
 	if ((flags & fileFlags::readOnly) != fileFlags::readOnly
 		&& (flags & fileFlags::writeOnly) != fileFlags::writeOnly
@@ -111,101 +215,118 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	bool follow = ((flags & fileFlags::noSymlinkFollow) != fileFlags::noSymlinkFollow);
 	bool directory = ((flags & fileFlags::directory) == fileFlags::directory);
 	bool openOnly = ((flags & fileFlags::openOnly) == fileFlags::openOnly);
+	bool create = ((flags & fileFlags::create) == fileFlags::create);
+	bool exclusive = ((flags & fileFlags::exclusive) == fileFlags::exclusive);
+	bool truncate = ((flags & fileFlags::truncate) == fileFlags::truncate);
 	bool closeOnExecute = ((flags & fileFlags::closeOnExecute) == fileFlags::closeOnExecute);
-	bool blocking = ((flags & fileFlags::nonBlocking) != fileFlags::nonBlocking);
-	bool append = ((flags & fileFlags::append) == fileFlags::append);
 	if (openOnly)
 		read = (write = false);
-
-	/* validate the path */
-	util::PathState state = util::TestPath(path);
-	if (state == util::PathState::invalid)
+	if (create && exclusive)
+		follow = false;
+	if (directory && (create || exclusive || truncate))
 		return errCode::eInvalid;
 
-	/* validate the directory-descriptor */
-	if (state == util::PathState::relative) {
-		if (dirfd != detail::fdWDirectory && !fCheckFd(dirfd))
-			return errCode::eBadFd;
-		if (pFiles[dirfd].node->directory().empty())
-			return errCode::eNotDirectory;
-	}
+	/* validate and construct the final path */
+	std::u8string actual;
+	int64_t result = fCheckPath(dirfd, path, actual);
+	if (result != errCode::eSuccess)
+		return result;
 
-	/* construct the actual path */
-	std::u8string actual = util::MergePaths(dirfd == detail::fdWDirectory ? pWDirectory : pFiles[dirfd].node->directory(), path);
-
-	/* create the new file node */
-	return fCreateNode(actual, follow, append, [=, this](int64_t result, detail::FileNode* node, const env::FileStats& stats) -> int64_t {
-		/* check if the creation failed */
-		if (node == 0)
+	/* lookup the file-node to the file (ensure that it cannot fail anymore once a proper file has
+	*	been created, as the actual file might otherwise be created, without ever being used) */
+	return fLookupNode(actual, follow, create, [=, this](int64_t result, std::shared_ptr<detail::FileNode> node, const env::FileStats* stats) -> int64_t {
+		/* check if the lookup failed */
+		if (result != errCode::eSuccess)
 			return result;
 
-		/* check if a symbolic link is being opened */
-		if (!follow && stats.type == env::FileType::link && !openOnly) {
-			fDropNode(node);
-			return errCode::eLoop;
+		/* check if the node already exists and validate the properties */
+		if (stats != 0) {
+			/* check if a symbolic link is being opened */
+			if (!follow && stats->type == env::FileType::link && !openOnly)
+				return errCode::eLoop;
+
+			/* check if the directory-flag matches */
+			if (directory && stats->type != env::FileType::directory)
+				return errCode::eNotDirectory;
+
+			/* check if a directory/link is trying to be written */
+			if (stats->type == env::FileType::directory && write)
+				return errCode::eIsDirectory;
+			if (stats->type == env::FileType::link && write)
+				return errCode::eInvalid;
+
+			/* check if the required permissions are granted */
+			if (!fCheckAccess(stats, read, write, false))
+				return errCode::eAccess;
+
+			/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
+			if (stats->type == env::FileType::link || stats->type == env::FileType::directory)
+				return fSetupFile(node, stats->type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
 		}
 
-		/* check if the directory-flag matches */
-		if (directory && stats.type != env::FileType::directory) {
-			fDropNode(node);
-			return errCode::eNotDirectory;
-		}
+		/* setup the creation-config */
+		detail::SetupConfig config;
+		config.permissions = (mode & fileMode::mask);
+		config.owner = pSyscall->config().euid;
+		config.group = pSyscall->config().egid;
+		config.create = (create && stats == 0);
+		config.truncate = truncate;
+		config.exclusive = exclusive;
 
-		/* check if the node is readable/writable/modifyable */
-		if (write && !node->writable()) {
-			fDropNode(node);
-			return errCode::eReadOnly;
-		}
+		/* try to open (and potentially create) the node */
+		return node->open(config, [=, this](int64_t result) -> int64_t {
+			/* check if the open was successful and setup the file-descriptor */
+			if (result == errCode::eSuccess)
+				return fSetupFile(node, false, read, write, !openOnly, closeOnExecute);
 
-		/* configure the blocking-behavior */
-		node->modify(blocking);
+			/* check if the open failed for unknown reasons, in which case the node needs to be detached, and a new open tried */
+			if (result == errCode::eUnknown) {
+				fDetachNode(node);
+				return fOpenAt(dirfd, path, flags, mode);
+			}
 
-		/* register the node as new file and remove this created user */
-		result = fCreateFile(node, read, write, !openOnly, closeOnExecute);
-		fDropNode(node);
-		return result;
+			/* check if the open failed for non-existing reasons, in which case the node can be detached */
+			if (result == errCode::eNoEntry || result == errCode::eIsDirectory)
+				fDetachNode(node);
+			return result;
+			});
 		});
 }
-int64_t sys::detail::FileIO::fRead(detail::FileNode* node, std::function<int64_t(int64_t)> callback) {
-	return node->read(pBuffer, callback);
+int64_t sys::detail::FileIO::fRead(size_t instance, std::function<int64_t(int64_t)> callback) {
+	return pInstance[instance].node->read(pBuffer, callback);
 }
-int64_t sys::detail::FileIO::fWrite(detail::FileNode* node) const {
-	return node->write(pBuffer, [=](int64_t result) -> int64_t { return result; });
+int64_t sys::detail::FileIO::fWrite(size_t instance) const {
+	return pInstance[instance].node->write(pBuffer, [=](int64_t result) -> int64_t { return result; });
 }
 int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size) {
 	if (size == 0)
 		return errCode::eInvalid;
 
-	/* validate the path */
-	util::PathState state = util::TestPath(path);
-	if (state == util::PathState::invalid)
-		return errCode::eInvalid;
+	/* validate and construct the final path */
+	std::u8string actual;
+	int64_t result = fCheckPath(dirfd, path, actual);
+	if (result != errCode::eSuccess)
+		return result;
 
-	/* validate the directory-descriptor */
-	if (state == util::PathState::relative) {
-		if (dirfd != detail::fdWDirectory && !fCheckFd(dirfd))
-			return errCode::eBadFd;
-		if (pFiles[dirfd].node->directory().empty())
-			return errCode::eNotDirectory;
-	}
-
-	/* construct the actual path */
-	std::u8string actual = util::MergePaths(dirfd == detail::fdWDirectory ? pWDirectory : pFiles[dirfd].node->directory(), path);
-
-	/* create the node and perform the stat-read */
-	return fCreateNode(actual, false, false, [=, this](int64_t result, detail::FileNode* node, const env::FileStats& stats) -> int64_t {
-		/* check if the creation failed */
-		if (node == 0)
+	/* resolve the node and perform the stat-read */
+	return fLookupNode(actual, false, false, [=, this](int64_t result, std::shared_ptr<detail::FileNode> node, const env::FileStats* stats) -> int64_t {
+		/* check if the lookup failed */
+		if (stats == 0)
 			return result;
-		fDropNode(node);
+
+		/* check if the permissions allow for the link to be read */
+		if (!fCheckAccess(stats, true, false, false)) {
+			logger.error(u8"Permissions prevent link [", actual, u8"] from being read");
+			return errCode::eAccess;
+		}
 
 		/* check if the destination is a symbolic link */
-		if (stats.type != env::FileType::link)
+		if (stats->type != env::FileType::link)
 			return errCode::eInvalid;
 
 		/* write the link to the guest */
-		result = std::min<int64_t>(size, stats.link.size());
-		env::Instance()->memory().mwrite(address, stats.link.data(), uint32_t(result), env::Usage::Write);
+		result = std::min<int64_t>(size, stats->link.size());
+		env::Instance()->memory().mwrite(address, stats->link.data(), uint32_t(result), env::Usage::Write);
 		return result;
 		});
 }
@@ -213,13 +334,23 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	pSyscall = syscall;
 
+	/* setup the initial root node */
+	pRoot = std::make_shared<detail::impl::RootFileNode>(pSyscall);
+	pMap[u8"/"] = pRoot;
+
 	/* setup the initial open file-entries to the terminal (stdin/stdout/stderr - terminal creation happens inplace) */
-	detail::FileNode* terminal = 0;
-	fCreateNode(u8"/dev/tty", false, false, [&](int64_t, detail::FileNode* node, const env::FileStats&) -> int64_t { terminal = node; return 0; });
-	fCreateFile(terminal, true, false, true, false);
-	fCreateFile(terminal, false, true, true, false);
-	fCreateFile(terminal, false, true, true, false);
-	fDropNode(terminal);
+	if (fOpenAt(detail::fdWDirectory, u8"/dev/tty", fileFlags::readOnly, 0) != 0) {
+		logger.error(u8"Failed to open [/dev/tty] for stdin as fd=0");
+		return false;
+	}
+	if (fOpenAt(detail::fdWDirectory, u8"/dev/tty", fileFlags::writeOnly, 0) != 1) {
+		logger.error(u8"Failed to open [/dev/tty] for stdout as fd=1");
+		return false;
+	}
+	if (fOpenAt(detail::fdWDirectory, u8"/dev/tty", fileFlags::writeOnly, 0) != 2) {
+		logger.error(u8"Failed to open [/dev/tty] for stderr as fd=2");
+		return false;
+	}
 
 	/* validate the current path */
 	std::u8string_view wDirectory = util::SplitName(pSyscall->config().path).first;
@@ -227,18 +358,9 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 		logger.error(u8"Current directory [", wDirectory, u8"] must be a valid absolute path");
 		return false;
 	}
-	pWDirectory = util::CanonicalPath(wDirectory);
-	logger.info(u8"Configured with current working directory [", pWDirectory, u8']');
+	pSyscall->config().wDirectory = util::CanonicalPath(wDirectory);
+	logger.info(u8"Configured with current working directory [", pSyscall->config().wDirectory, u8']');
 	return true;
-}
-sys::detail::FileNode* sys::detail::FileIO::link(int64_t fd) {
-	if (fd < 0 || fd >= int64_t(pFiles.size()) || pFiles[fd].node == 0)
-		return 0;
-	++pNodes[pFiles[fd].node->index()].user;
-	return pFiles[fd].node;
-}
-void sys::detail::FileIO::drop(detail::FileNode* node) {
-	fDropNode(node);
 }
 
 int64_t sys::detail::FileIO::openat(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
@@ -255,7 +377,7 @@ int64_t sys::detail::FileIO::read(int64_t fd, env::guest_t address, uint64_t siz
 
 	/* fetch the data to be read */
 	pBuffer.resize(size);
-	return fRead(pFiles[fd].node, [address, this](int64_t read) -> int64_t {
+	return fRead(pOpen[fd].instance, [address, this](int64_t read) -> int64_t {
 		if (read <= 0)
 			return read;
 
@@ -284,7 +406,7 @@ int64_t sys::detail::FileIO::readv(int64_t fd, env::guest_t vec, uint64_t count)
 	}
 
 	/* fetch the data to be read */
-	return fRead(pFiles[fd].node, [this](int64_t read) -> int64_t {
+	return fRead(pOpen[fd].instance, [this](int64_t read) -> int64_t {
 		if (read <= 0)
 			return read;
 
@@ -313,7 +435,7 @@ int64_t sys::detail::FileIO::write(int64_t fd, env::guest_t address, uint64_t si
 	env::Instance()->memory().mread(pBuffer.data(), address, uint32_t(size), env::Usage::Read);
 
 	/* write the data out */
-	return fWrite(pFiles[fd].node);
+	return fWrite(pOpen[fd].instance);
 }
 int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count) {
 	/* validate the fd and access */
@@ -338,7 +460,7 @@ int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count
 	}
 
 	/* write the data out */
-	return fWrite(pFiles[fd].node);
+	return fWrite(pOpen[fd].instance);
 }
 int64_t sys::detail::FileIO::readlinkat(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size) {
 	return fReadLinkAt(dirfd, path, address, size);
@@ -376,15 +498,20 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 	//implement ownership/ids/read/write/execute flags;
 	//fix fCreateNode, as it has to resolve each path-component separately!;
 	//	=> i.e. /bin/foo/bar (even if bar is not being followed, /bin might point to /actual => /actual/foo/bar)
+	// allow nodes to return null in spawn
+	// add id to 'open' call of FileNode (if file-node is opened multiple times, must be able to distinguish?)
+
 
 	logger.fatal(u8"Currently not implemented");
 
 	/* request the stats from the file */
-	return pFiles[fd].node->stats([address, this](const env::FileStats& stats) -> int64_t {
-		/* populate the stat-structure */
-		LinuxStats out;
+	//return pFiles[fd].node->stats([address, this](const env::FileStats& stats) -> int64_t {
+	//	/* populate the stat-structure */
+	//	LinuxStats out;
+	//
+	//	out.size = stats.size;
+	//	return errCode::eIO;
+	//	});
 
-		out.size = stats.size;
-		return errCode::eIO;
-		});
+	return errCode::eUnknown;
 }

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "../sys-common.h"
-#include "sys-file-nodes.h"
+#include "file-nodes/sys-root-nodes.h"
 
 namespace sys::detail {
-	static constexpr size_t MaxFollowSymLinks = 32;
+	static constexpr size_t MaxFollowSymLinks = 16;
 
 	namespace fileFlags {
 		/* ignored: O_DIRECT, O_LARGEFILE, O_NOCTTY, O_SYNC, FASYNC, O_NOATIME */
@@ -14,8 +14,6 @@ namespace sys::detail {
 		static constexpr uint32_t create = 0x000040;
 		static constexpr uint32_t exclusive = 0x000080;
 		static constexpr uint32_t truncate = 0x000200;
-		static constexpr uint32_t append = 0x000400;
-		static constexpr uint32_t nonBlocking = 0x000800;
 		static constexpr uint32_t directory = 0x010000;
 		static constexpr uint32_t noSymlinkFollow = 0x020000;
 		static constexpr uint32_t closeOnExecute = 0x080000;
@@ -36,28 +34,29 @@ namespace sys::detail {
 	}
 	static constexpr int fdWDirectory = -100;
 
-	/* Note: implements separate link-following mechanic, as symlinks might
-	*	exist, which are not part of the actual raw underlying filesystem */
 	class FileIO {
 	private:
-		struct Entry {
-			detail::FileNode* node = 0;
+		struct Instance {
+			std::shared_ptr<detail::FileNode> node;
+			size_t user = 0;
+			bool directory = false;
+		};
+		struct Open {
+			size_t instance = 0;
+			bool used = false;
 			bool read = false;
 			bool write = false;
 			bool modify = false;
 			bool closeOnExecute = false;
 		};
-		struct Node {
-			std::unique_ptr<detail::FileNode> node;
-			size_t user = 0;
-		};
 
 	private:
-		std::vector<Entry> pFiles;
-		std::vector<Node> pNodes;
+		std::map<std::u8string, std::shared_ptr<detail::FileNode>> pMap;
+		std::shared_ptr<detail::FileNode> pRoot;
+		std::vector<Instance> pInstance;
+		std::vector<Open> pOpen;
 		std::vector<uint8_t> pBuffer;
 		std::vector<uint64_t> pCached;
-		std::u8string pWDirectory;
 		detail::Syscall* pSyscall = 0;
 		size_t pLinkFollow = 0;
 
@@ -68,22 +67,26 @@ namespace sys::detail {
 		bool fCheckFd(int64_t fd) const;
 		int64_t fCheckRead(int64_t fd) const;
 		int64_t fCheckWrite(int64_t fd) const;
+		bool fCheckAccess(const env::FileStats* stats, bool read, bool write, bool execute) const;
 
 	private:
-		int64_t fCreateNode(std::u8string_view path, bool follow, bool append, std::function<int64_t(int64_t, detail::FileNode*, const env::FileStats&)> callback);
-		int64_t fCreateFile(detail::FileNode* node, bool read, bool write, bool modify, bool closeOnExecute);
-		void fDropNode(detail::FileNode* node);
+		int64_t fResolveNode(std::shared_ptr<detail::FileNode> node, std::u8string_view lookup, bool follow, bool create, bool ancestorWritable, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback);
+		int64_t fLookupNode(std::u8string_view path, bool follow, bool create, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback);
+		int64_t fSetupFile(std::shared_ptr<detail::FileNode> node, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
 
 	private:
+		void fDropInstance(size_t instance);
+		void fDetachNode(std::shared_ptr<detail::FileNode> node);
+
+	private:
+		int64_t fCheckPath(int64_t dirfd, std::u8string_view path, std::u8string& actual);
 		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
-		int64_t fRead(detail::FileNode* node, std::function<int64_t(int64_t)> callback);
-		int64_t fWrite(detail::FileNode* node) const;
+		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
+		int64_t fWrite(size_t instance) const;
 		int64_t fReadLinkAt(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size);
 
 	public:
 		bool setup(detail::Syscall* syscall);
-		detail::FileNode* link(int64_t fd);
-		void drop(detail::FileNode* node);
 
 	public:
 		int64_t openat(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);

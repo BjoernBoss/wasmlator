@@ -8,8 +8,11 @@
 namespace sys::detail {
 	struct ProcessConfig {
 		std::u8string path;
+		std::u8string wDirectory;
 		uint32_t uid = 1001;
 		uint32_t gid = 1001;
+		uint32_t euid = 1001;
+		uint32_t egid = 1001;
 		uint32_t pid = 1;
 		uint32_t pgid = 1;
 	};

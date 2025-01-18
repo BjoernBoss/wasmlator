@@ -7,7 +7,8 @@ fsRootGroup = 0;
 fsRootPermissions = 0o755;
 
 class FileNode {
-	constructor(stats) {
+	constructor(stats, ancestor) {
+		this.ancestor = ancestor;
 		this.dataDirty = false;
 		this.metaDirty = false;
 		this.stats = stats;
@@ -117,12 +118,12 @@ class MemFileSystem {
 				})
 				.then((json) => {
 					this._log(`Stats for [${path}] received`);
-					this._files[path] = new FileNode(json);
+					this._files[path] = new FileNode(json, ancestor);
 				})
 				.catch((err) => {
 					/* pretend the object does not exist */
 					this._err(`Failed to fetch stats for [${path}]: ${err}`);
-					this._files[path] = new FileNode(null);
+					this._files[path] = new FileNode(null, ancestor);
 				})
 				.finally(() => {
 					let node = this._files[path];
@@ -167,14 +168,16 @@ class MemFileSystem {
 		let openId = this._open.length;
 		this._open.push(node);
 
+
 		/* check if the file should be truncated or is being newly created */
 		if (truncate || node.stats == null) {
 			node.ensureBuffer();
 
-			/* setup the new file and its access permissions */
+			/* setup the new file and its access permissions and mark the ancstor as written (parent-directory) */
 			if (node.stats == null) {
 				node.setupEmptyStats('file');
 				node.setupAccess(owner, group, permissions);
+				node.ancestor.written();
 			}
 
 			/* truncate the existing file */

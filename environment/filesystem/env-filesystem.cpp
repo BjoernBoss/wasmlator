@@ -74,7 +74,7 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 			group = true;
 		}
 		else if (key == L"permissions") {
-			out.permissions = uint16_t(value.unum());
+			out.permissions.all = uint16_t(value.unum());
 			permissions = true;
 		}
 	}
