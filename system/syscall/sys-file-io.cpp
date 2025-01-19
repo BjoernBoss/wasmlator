@@ -1,6 +1,6 @@
 #include "../system.h"
 
-static util::Logger logger{ u8"sys::Syscall" };
+static util::Logger logger{ u8"sys::syscall" };
 
 bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
 	/* instance can never be larger than pInstance, as instances are never reduced in size */
@@ -127,7 +127,7 @@ int64_t sys::detail::FileIO::fLookupNode(std::u8string_view path, bool follow, b
 	pLinkFollow = 0;
 	return fResolveNode(pRoot, path, follow, create, false, callback);
 }
-int64_t sys::detail::FileIO::fSetupFile(std::shared_ptr<detail::FileNode> node, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
+int64_t sys::detail::FileIO::fSetupFile(std::shared_ptr<detail::FileNode> node, uint64_t id, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
 	/* lookup the new instance for the node */
 	size_t instance = 0;
 	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
@@ -137,6 +137,7 @@ int64_t sys::detail::FileIO::fSetupFile(std::shared_ptr<detail::FileNode> node, 
 
 	/* configure the new instance */
 	pInstance[instance].node = node;
+	pInstance[instance].id = id;
 	pInstance[instance].user = 1;
 	pInstance[instance].directory = directory;
 
@@ -261,7 +262,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 
 			/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
 			if (stats->type == env::FileType::link || stats->type == env::FileType::directory)
-				return fSetupFile(node, stats->type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
+				return fSetupFile(node, 0, stats->type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
 		}
 
 		/* setup the creation-config */
@@ -269,15 +270,15 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		config.permissions = (mode & fileMode::mask);
 		config.owner = pSyscall->config().euid;
 		config.group = pSyscall->config().egid;
-		config.create = (create && stats == 0);
+		config.create = create;
 		config.truncate = truncate;
-		config.exclusive = exclusive;
+		config.open = !exclusive;
 
 		/* try to open (and potentially create) the node */
-		return node->open(config, [=, this](int64_t result) -> int64_t {
+		return node->open(config, [=, this](int64_t result, uint64_t id) -> int64_t {
 			/* check if the open was successful and setup the file-descriptor */
 			if (result == errCode::eSuccess)
-				return fSetupFile(node, false, read, write, !openOnly, closeOnExecute);
+				return fSetupFile(node, id, false, read, write, !openOnly, closeOnExecute);
 
 			/* check if the open failed for unknown reasons, in which case the node needs to be detached, and a new open tried */
 			if (result == errCode::eUnknown) {
@@ -493,15 +494,8 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		int64_t ctime_ns = 0;
 	};
 
-	//; todo;
 	// validate structure!;
-	//implement ownership/ids/read/write/execute flags;
-	//fix fCreateNode, as it has to resolve each path-component separately!;
-	//	=> i.e. /bin/foo/bar (even if bar is not being followed, /bin might point to /actual => /actual/foo/bar)
-	// allow nodes to return null in spawn
-	// add id to 'open' call of FileNode (if file-node is opened multiple times, must be able to distinguish?)
-
-
+	
 	logger.fatal(u8"Currently not implemented");
 
 	/* request the stats from the file */

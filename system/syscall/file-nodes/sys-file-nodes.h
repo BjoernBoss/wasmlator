@@ -6,7 +6,7 @@ namespace sys::detail {
 	struct SetupConfig {
 		bool create = false;
 		bool truncate = false;
-		bool exclusive = false;
+		bool open = false;
 		uint32_t owner = 0;
 		uint32_t group = 0;
 		uint16_t permissions = 0;
@@ -19,7 +19,7 @@ namespace sys::detail {
 		static constexpr uint16_t DefaultFilePermissions = env::FileOwner(true, true, true) | env::FileGroup(true, false, false) | env::FileOther(false, false, false);
 		static constexpr uint32_t RootOwner = 0;
 		static constexpr uint32_t RootGroup = 0;
-		static constexpr uint16_t RootDirPermissions = env::FileOwner(true, true, true) | env::FileGroup(true, true, true) | env::FileOther(true, false, true);
+		static constexpr uint16_t RootDirPermissions = env::FileOwner(true, true, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
 		static constexpr uint16_t RootFilePermissions = env::FileOwner(true, true, true) | env::FileGroup(true, true, true) | env::FileOther(true, false, false);
 		static constexpr uint16_t ReadWrite = env::FileOwner(true, true, false) | env::FileGroup(true, true, false) | env::FileOther(true, true, false);
 		static constexpr uint16_t ReadOnly = env::FileOwner(true, true, false) | env::FileGroup(true, true, false) | env::FileOther(true, true, false);
@@ -54,7 +54,7 @@ namespace sys::detail {
 
 	public:
 		/* file-interactions */
-		virtual int64_t open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback);
+		virtual int64_t open(const detail::SetupConfig& config, std::function<int64_t(int64_t, uint64_t)> callback);
 		virtual int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual void close();

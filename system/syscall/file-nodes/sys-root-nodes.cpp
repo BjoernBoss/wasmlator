@@ -1,19 +1,10 @@
 #include "../../system.h"
 
-static util::Logger logger{ u8"sys::Syscall" };
-
-sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall) : FileNode{ u8"/" }, pSyscall{ syscall } {}
-int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
-	/* perform the native read of the root-stats */
-	env::Instance()->filesystem().readStats(u8"/", [=, this](const env::FileStats* stats) {
-		if (stats == 0)
-			logger.fatal(u8"Failed to fetch stats for [/] directory");
-		pSyscall->callContinue([=, this]() -> int64_t { return callback(stats); });
-		});
-
-	/* mark the syscall as incomplete (will never reach the return statement) */
-	pSyscall->callIncomplete();
-	return errCode::eUnknown;
+sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall) : VirtualFileNode{ u8"/", fs::RootOwner, fs::RootGroup, fs::RootDirPermissions }, pSyscall{ syscall } {}
+int64_t sys::detail::impl::RootFileNode::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
+	env::FileStats stats;
+	stats.type = env::FileType::directory;
+	return callback(&stats);
 }
 std::shared_ptr<sys::detail::FileNode> sys::detail::impl::RootFileNode::spawn(const std::u8string& path, std::u8string_view name) {
 	if (name == u8"dev")

@@ -1,6 +1,6 @@
 #include "../system.h"
 
-static util::Logger logger{ u8"sys::Syscall" };
+static util::Logger logger{ u8"sys::syscall" };
 
 bool sys::detail::MemoryInteract::setup(env::guest_t endOfData) {
 	/* configure the initial break state */

@@ -33,6 +33,7 @@ namespace sys {
 			static constexpr int64_t eNoMemory = -12;
 			static constexpr int64_t eAccess = -13;
 			static constexpr int64_t eFault = -14;
+			static constexpr int64_t eExists = -17;
 			static constexpr int64_t eNotDirectory = -20;
 			static constexpr int64_t eIsDirectory = -21;
 			static constexpr int64_t eInvalid = -22;

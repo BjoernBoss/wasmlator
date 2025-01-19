@@ -1,7 +1,5 @@
 #include "../../system.h"
 
-static util::Logger logger{ u8"sys::Syscall" };
-
 sys::detail::FileNode::FileNode(std::u8string_view path) : pPath{ path } {}
 const std::u8string& sys::detail::FileNode::path() const {
 	return pPath;
@@ -9,8 +7,8 @@ const std::u8string& sys::detail::FileNode::path() const {
 std::shared_ptr<sys::detail::FileNode> sys::detail::FileNode::spawn(const std::u8string& path, std::u8string_view name) {
 	return std::make_shared<impl::NullFileNode>(path);
 }
-int64_t sys::detail::FileNode::open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) {
-	return callback(errCode::eIO);
+int64_t sys::detail::FileNode::open(const detail::SetupConfig& config, std::function<int64_t(int64_t, uint64_t)> callback) {
+	return callback(errCode::eIO, 0);
 }
 int64_t sys::detail::FileNode::read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);

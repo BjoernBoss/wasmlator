@@ -38,6 +38,7 @@ namespace sys::detail {
 	private:
 		struct Instance {
 			std::shared_ptr<detail::FileNode> node;
+			uint64_t id = 0;
 			size_t user = 0;
 			bool directory = false;
 		};
@@ -72,7 +73,7 @@ namespace sys::detail {
 	private:
 		int64_t fResolveNode(std::shared_ptr<detail::FileNode> node, std::u8string_view lookup, bool follow, bool create, bool ancestorWritable, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback);
 		int64_t fLookupNode(std::u8string_view path, bool follow, bool create, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback);
-		int64_t fSetupFile(std::shared_ptr<detail::FileNode> node, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
+		int64_t fSetupFile(std::shared_ptr<detail::FileNode> node, uint64_t id, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
 
 	private:
 		void fDropInstance(size_t instance);

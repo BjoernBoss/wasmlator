@@ -6,7 +6,7 @@
 
 namespace sys::detail::impl {
 	/* root file-node, which provides access to all remaining file nodes */
-	class RootFileNode final : public detail::FileNode {
+	class RootFileNode final : public detail::VirtualFileNode {
 	private:
 		detail::Syscall* pSyscall = 0;
 
@@ -14,7 +14,7 @@ namespace sys::detail::impl {
 		RootFileNode(detail::Syscall* syscall);
 
 	public:
-		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const final;
+		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
 		std::shared_ptr<detail::FileNode> spawn(const std::u8string& path, std::u8string_view name) final;
 	};
 }
