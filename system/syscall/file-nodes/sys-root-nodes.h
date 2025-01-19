@@ -11,7 +11,7 @@ namespace sys::detail::impl {
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		RootFileNode(detail::Syscall* syscall);
+		RootFileNode(detail::Syscall* syscall, env::FileAccess access);
 
 	public:
 		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;

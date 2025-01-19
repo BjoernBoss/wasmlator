@@ -4,7 +4,6 @@
 #include "filesystem-access.h"
 
 namespace env {
-	/* Note: env::FileSystem will only ever produce file/directory/link */
 	enum class FileType : uint8_t {
 		none,
 		file,
@@ -14,15 +13,22 @@ namespace env {
 		tty,
 		_last
 	};
-	struct FileStats {
-		std::u8string link;
-		uint64_t timeModifiedUS = 0;
-		uint64_t timeAccessedUS = 0;
-		uint64_t size = 0;
-		env::FileType type = env::FileType::none;
+	enum class FileOpen : uint8_t {
+		createAlways,
+		openAlways,
+		createNew,
+		openExisting,
+		truncateExisting
+	};
+
+	static constexpr uint16_t fileModeMask = 0x01ff;
+
+	struct FileAccess {
+	public:
 		uint32_t owner = 0;
 		uint32_t group = 0;
 		union {
+			uint16_t all = 0;
 			struct {
 				uint16_t xOther : 1;
 				uint16_t wOther : 1;
@@ -34,15 +40,19 @@ namespace env {
 				uint16_t wOwner : 1;
 				uint16_t rOwner : 1;
 			};
-			uint16_t all = 0;
 		} permissions;
+
+	public:
+		FileAccess() = default;
+		FileAccess(uint32_t o, uint32_t g, uint16_t p) : owner{ o }, group{ g }, permissions{ uint16_t(p & env::fileModeMask) } {}
 	};
-	enum class FileOpen : uint8_t {
-		createAlways,
-		openAlways,
-		createNew,
-		openExisting,
-		truncateExisting
+	struct FileStats {
+		std::u8string link;
+		uint64_t timeModifiedUS = 0;
+		uint64_t timeAccessedUS = 0;
+		uint64_t size = 0;
+		env::FileType type = env::FileType::none;
+		env::FileAccess access;
 	};
 
 	/* construct the permissions for owner */
@@ -60,7 +70,8 @@ namespace env {
 		return (r ? 0x004 : 0x000) | (w ? 0x002 : 0x000) | (x ? 0x001 : 0x000);
 	}
 
-	/* Note: all paths are expected to be fully qualified real absolute paths (symlinks will not be followed along the path) */
+	/* Note: all paths are expected to be fully qualified real absolute paths (symlinks will not be followed along the path)
+	*	Note: env::FileSystem will only ever produce file/directory/link */
 	class FileSystem {
 		friend struct detail::FileSystemAccess;
 
@@ -92,7 +103,7 @@ namespace env {
 		void deleteFile(std::u8string_view path, std::function<void(bool)> callback);
 
 	public:
-		void openFile(std::u8string_view path, env::FileOpen open, uint32_t owner, uint32_t group, uint16_t permissions, std::function<void(bool, uint64_t, const env::FileStats*)> callback);
+		void openFile(std::u8string_view path, env::FileOpen open, env::FileAccess access, std::function<void(bool, uint64_t, const env::FileStats*)> callback);
 		void readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(uint64_t)> callback);
 		void writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(bool)> callback);
 		void truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);

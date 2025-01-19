@@ -66,15 +66,15 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 			link = true;
 		}
 		else if (key == L"owner") {
-			out.owner = uint32_t(value.unum());
+			out.access.owner = uint32_t(value.unum());
 			owner = true;
 		}
 		else if (key == L"group") {
-			out.group = uint32_t(value.unum());
+			out.access.group = uint32_t(value.unum());
 			group = true;
 		}
 		else if (key == L"permissions") {
-			out.permissions.all = uint16_t(value.unum());
+			out.access.permissions.all = uint16_t(value.unum() & env::fileModeMask);
 			permissions = true;
 		}
 	}
@@ -156,7 +156,7 @@ void env::FileSystem::deleteFile(std::u8string_view path, std::function<void(boo
 	fHandleTask(str::u8::Build(u8"rmfile:", actual), callback);
 }
 
-void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, uint32_t owner, uint32_t group, uint16_t permissions, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
+void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, env::FileAccess access, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
 	logger.debug(u8"Opening file [", path, u8']');
 	std::u8string actual = fPrepare(path);
 
@@ -181,7 +181,7 @@ void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, uint
 	}
 
 	/* add the owner, group, and permissions, and the path */
-	str::BuildTo(task, owner, u8':', group, u8':', permissions, u8':');
+	str::BuildTo(task, access.owner, u8':', access.group, u8':', access.permissions.all, u8':');
 	task.append(path);
 
 	/* queue the task to open the file */

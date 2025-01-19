@@ -20,12 +20,11 @@ int64_t sys::detail::FileNode::write(const std::vector<uint8_t>& buffer, std::fu
 }
 void sys::detail::FileNode::close() {}
 
-sys::detail::VirtualFileNode::VirtualFileNode(uint32_t owner, uint32_t group, uint16_t permissions) {
+
+sys::detail::VirtualFileNode::VirtualFileNode(env::FileAccess access) {
 	pLastRead = host::GetStampUS();
 	pLastWrite = pLastRead;
-	pOwner = owner;
-	pGroup = group;
-	pPermissions = permissions;
+	pAccess = access;
 }
 int64_t sys::detail::VirtualFileNode::fLookupNew(const std::u8string& name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback) {
 	/* create the new node and check if it could be created */
@@ -78,9 +77,7 @@ int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::Fil
 		out.type = stats->type;
 		out.timeAccessedUS = pLastRead;
 		out.timeModifiedUS = pLastWrite;
-		out.owner = pOwner;
-		out.group = pGroup;
-		out.permissions.all = (fileMode::mask & pPermissions);
+		out.access = pAccess;
 		return callback(&out);
 		});
 }
@@ -142,13 +139,20 @@ int64_t sys::detail::VirtualFileNode::write(const std::vector<uint8_t>& buffer, 
 		});
 }
 
-sys::detail::impl::LinkFileNode::LinkFileNode(std::u8string_view link, uint32_t owner, uint32_t group, uint16_t permissions) : VirtualFileNode{ owner, group, permissions }, pLink{ link } {}
-int64_t sys::detail::impl::LinkFileNode::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
-	env::FileStats stats;
 
+sys::detail::impl::LinkNode::LinkNode(std::u8string_view link, env::FileAccess access) : VirtualFileNode{ access }, pLink{ link } {}
+int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
+	env::FileStats stats;
 	stats.link = pLink;
 	stats.size = pLink.size();
 	stats.type = env::FileType::link;
+	return callback(&stats);
+}
 
+
+sys::detail::impl::EmpyDirectory::EmpyDirectory(env::FileAccess access) : VirtualFileNode{ access } {}
+int64_t sys::detail::impl::EmpyDirectory::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
+	env::FileStats stats;
+	stats.type = env::FileType::directory;
 	return callback(&stats);
 }

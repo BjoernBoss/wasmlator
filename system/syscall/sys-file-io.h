@@ -7,7 +7,6 @@ namespace sys::detail {
 	static constexpr size_t MaxFollowSymLinks = 16;
 
 	namespace fileFlags {
-		/* ignored: O_DIRECT, O_LARGEFILE, O_NOCTTY, O_SYNC, FASYNC, O_NOATIME */
 		static constexpr uint32_t readOnly = 0x000000;
 		static constexpr uint32_t writeOnly = 0x000001;
 		static constexpr uint32_t readWrite = 0x000002;
@@ -19,18 +18,6 @@ namespace sys::detail {
 		static constexpr uint32_t closeOnExecute = 0x080000;
 		static constexpr uint32_t openOnly = 0x200000;
 		static constexpr uint32_t mask = 0x2b0ec3;
-	}
-	namespace fileMode {
-		static constexpr uint32_t rOwner = 0x0100;
-		static constexpr uint32_t wOwner = 0x0080;
-		static constexpr uint32_t xOwner = 0x0040;
-		static constexpr uint32_t rGroup = 0x0020;
-		static constexpr uint32_t wGroup = 0x0010;
-		static constexpr uint32_t xGroup = 0x0008;
-		static constexpr uint32_t rOther = 0x0004;
-		static constexpr uint32_t wOther = 0x0002;
-		static constexpr uint32_t xOther = 0x0001;
-		static constexpr uint32_t mask = 0x01ff;
 	}
 	static constexpr int fdWDirectory = -100;
 
@@ -53,6 +40,7 @@ namespace sys::detail {
 		};
 
 	private:
+		std::map<std::u8string, detail::SharedNode> pMounted;
 		detail::SharedNode pRoot;
 		std::vector<Instance> pInstance;
 		std::vector<Open> pOpen;
@@ -74,7 +62,7 @@ namespace sys::detail {
 	private:
 		int64_t fResolveNode(const std::u8string& path, bool follow, bool exact, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats*, bool)> callback);
 		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, bool follow, bool exact, detail::SharedNode node, const env::FileStats* stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats*, bool)> callback);
-		
+
 	private:
 		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
 		int64_t fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute);

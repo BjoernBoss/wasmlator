@@ -4,22 +4,19 @@
 
 namespace sys::detail {
 	struct SetupConfig {
-		uint32_t owner = 0;
-		uint32_t group = 0;
-		uint16_t permissions = 0;
+		env::FileAccess access;
 		bool truncate = false;
 		bool exclusive = false;
 	};
 
 	namespace fs {
-		static constexpr uint32_t DefaultOwner = 1001;
-		static constexpr uint32_t DefaultGroup = 1001;
-		static constexpr uint16_t DefaultDirPermissions = env::FileOwner(true, true, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
-		static constexpr uint16_t DefaultFilePermissions = env::FileOwner(true, true, true) | env::FileGroup(true, false, false) | env::FileOther(false, false, false);
+		static constexpr uint32_t DefOwner = 1001;
+		static constexpr uint32_t DefGroup = 1001;
 		static constexpr uint32_t RootOwner = 0;
 		static constexpr uint32_t RootGroup = 0;
-		static constexpr uint16_t RootDirPermissions = env::FileOwner(true, true, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
-		static constexpr uint16_t RootFilePermissions = env::FileOwner(true, true, true) | env::FileGroup(true, true, true) | env::FileOther(true, false, false);
+
+		static constexpr uint16_t OwnerAllElseRW = env::FileOwner(true, true, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
+		static constexpr uint16_t All = env::FileOwner(true, true, true) | env::FileGroup(true, true, true) | env::FileOther(true, true, true);
 		static constexpr uint16_t ReadWrite = env::FileOwner(true, true, false) | env::FileGroup(true, true, false) | env::FileOther(true, true, false);
 		static constexpr uint16_t ReadOnly = env::FileOwner(true, true, false) | env::FileGroup(true, true, false) | env::FileOther(true, true, false);
 		static constexpr uint16_t ReadExecute = env::FileOwner(true, false, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
@@ -61,12 +58,10 @@ namespace sys::detail {
 		std::map<std::u8string, std::shared_ptr<detail::VirtualFileNode>> pCache;
 		uint64_t pLastRead = 0;
 		uint64_t pLastWrite = 0;
-		uint32_t pOwner = 0;
-		uint32_t pGroup = 0;
-		uint16_t pPermissions = 0;
+		env::FileAccess pAccess;
 
 	protected:
-		VirtualFileNode(uint32_t owner, uint32_t group, uint16_t permissions);
+		VirtualFileNode(env::FileAccess access);
 
 	private:
 		int64_t fLookupNew(const std::u8string& name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback);
@@ -90,12 +85,21 @@ namespace sys::detail {
 
 	namespace impl {
 		/* file-node, which provides the same link at all times */
-		class LinkFileNode final : public detail::VirtualFileNode {
+		class LinkNode final : public detail::VirtualFileNode {
 		private:
 			std::u8string pLink;
 
 		public:
-			LinkFileNode(std::u8string_view link, uint32_t owner, uint32_t group, uint16_t permissions);
+			LinkNode(std::u8string_view link, env::FileAccess access);
+
+		public:
+			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
+		};
+
+		/* file-node, which provides an empty directory */
+		class EmpyDirectory final : public detail::VirtualFileNode {
+		public:
+			EmpyDirectory(env::FileAccess access);
 
 		public:
 			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;

@@ -30,18 +30,18 @@ bool sys::detail::FileIO::fCheckAccess(const env::FileStats* stats, bool read, b
 		return true;
 
 	/* check for reading-permissions */
-	if (read && !stats->permissions.rOther && (stats->owner != euid || !stats->permissions.rOwner) &&
-		(stats->group != egid || !stats->permissions.rGroup))
+	if (read && !stats->access.permissions.rOther && (stats->access.owner != euid || !stats->access.permissions.rOwner) &&
+		(stats->access.group != egid || !stats->access.permissions.rGroup))
 		return false;
 
 	/* check for writing-permissions */
-	if (write && !stats->permissions.wOther && (stats->owner != euid || !stats->permissions.wOwner) &&
-		(stats->group != egid || !stats->permissions.wGroup))
+	if (write && !stats->access.permissions.wOther && (stats->access.owner != euid || !stats->access.permissions.wOwner) &&
+		(stats->access.group != egid || !stats->access.permissions.wGroup))
 		return false;
 
 	/* check for executing-permissions */
-	if (execute && !stats->permissions.xOther && (stats->owner != euid || !stats->permissions.xOwner) &&
-		(stats->group != egid || !stats->permissions.xGroup))
+	if (execute && !stats->access.permissions.xOther && (stats->access.owner != euid || !stats->access.permissions.xOwner) &&
+		(stats->access.group != egid || !stats->access.permissions.xGroup))
 		return false;
 	return true;
 }
@@ -119,18 +119,27 @@ int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8stri
 		return callback(errCode::eAccess, path, {}, 0, false);
 	}
 
+	/* check if the node is mounted */
+	std::u8string _name = std::u8string{ name }, _remainder = std::u8string{ remainder }, _next = util::MergePaths(path, _name);
+	auto it = pMounted.find(_next);
+	if (it != pMounted.end()) {
+		/* mounted nodes must exist */
+		return it->second->stats([this, _next, _remainder, follow, exact, node = it->second, callback](const env::FileStats* stats) -> int64_t {
+			return fResolveNext(_next, _remainder, follow, exact, node, stats, callback);
+			});
+	}
+
 	/* lookup the next child and continue resolving the path */
-	std::u8string _name = std::u8string{ name }, _remainder = std::u8string{ remainder }, next = util::MergePaths(path, _name);
-	return node->lookup(_name, [this, next, _remainder, follow, exact, callback, node, _stats = env::FileStats(*stats)](detail::SharedNode cnode, const env::FileStats* cstats) -> int64_t {
+	return node->lookup(_name, [this, _next, _remainder, follow, exact, callback, node, _stats = env::FileStats(*stats)](detail::SharedNode cnode, const env::FileStats* cstats) -> int64_t {
 		/* check if the node was found */
 		if (cstats != 0)
-			return fResolveNext(next, _remainder, follow, exact, cnode, cstats, callback);
+			return fResolveNext(_next, _remainder, follow, exact, cnode, cstats, callback);
 
 		/* check if this was the last entry */
 		if (_remainder.empty() && !exact)
-			return callback(errCode::eSuccess, next, node, &_stats, false);
-		logger.error(u8"Path [", next, u8"] does not exit");
-		return callback(errCode::eNoEntry, next, {}, 0, false);
+			return callback(errCode::eSuccess, _next, node, &_stats, false);
+		logger.error(u8"Path [", _next, u8"] does not exit");
+		return callback(errCode::eNoEntry, _next, {}, 0, false);
 		});
 }
 
@@ -180,9 +189,9 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 
 		/* setup the creation-config */
 		detail::SetupConfig config;
-		config.permissions = (mode & fileMode::mask);
-		config.owner = pSyscall->config().euid;
-		config.group = pSyscall->config().egid;
+		config.access.permissions.all = (mode & env::fileModeMask);
+		config.access.owner = pSyscall->config().euid;
+		config.access.group = pSyscall->config().egid;
 		config.truncate = truncate;
 		config.exclusive = exclusive;
 
@@ -210,23 +219,33 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 
 		/* check if a symbolic link is being opened */
 		if (stats->type == env::FileType::link) {
-			if (!openOnly)
+			if (!openOnly) {
+				logger.error(u8"Path [", path, u8"] is a symbolic link");
 				return errCode::eLoop;
-			if (write)
+			}
+			if (write) {
+				logger.error(u8"Symbolic link [", path, u8"] cannot be written to");
 				return errCode::eInvalid;
+			}
 		}
 
 		/* check if its a directory and it is being written to or a directory was expected */
 		if (stats->type == env::FileType::directory) {
-			if (write)
+			if (write) {
+				logger.error(u8"Path [", path, u8"] is a directory");
 				return errCode::eIsDirectory;
+			}
 		}
-		else if (directory)
+		else if (directory) {
+			logger.error(u8"Path [", path, u8"] is not a directory");
 			return errCode::eNotDirectory;
+		}
 
 		/* check if the required permissions are granted */
-		if (!fCheckAccess(stats, read, write, false))
+		if (!fCheckAccess(stats, read, write, false)) {
+			logger.error(u8"Access to [", path, u8"] denied");
 			return errCode::eAccess;
+		}
 
 		/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
 		if (stats->type == env::FileType::link || stats->type == env::FileType::directory)
@@ -322,8 +341,16 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	pSyscall = syscall;
 
-	/* setup the initial root node */
-	pRoot = std::make_shared<detail::impl::RootFileNode>(pSyscall);
+	/* setup the initial root node and auto-mounted components*/
+	env::FileAccess rootDirs = env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::OwnerAllElseRW }, rootAll = { fs::RootOwner, fs::RootGroup, fs::All };
+	pRoot = std::make_shared<impl::RootFileNode>(pSyscall, rootDirs);
+	pMounted[u8"/dev"] = std::make_shared<impl::EmpyDirectory>(rootDirs);
+	pMounted[u8"/proc"] = std::make_shared<impl::ProcDirectory>(pSyscall, rootDirs);
+	pMounted[u8"/proc/self"] = std::make_shared<impl::LinkNode>(str::u8::Build(u8"/proc/", pSyscall->config().pid), rootAll);
+	pMounted[u8"/dev/tty"] = std::make_shared<impl::Terminal>(env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite });
+	pMounted[u8"/dev/stdin"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/0", rootAll);
+	pMounted[u8"/dev/stdout"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/1", rootAll);
+	pMounted[u8"/dev/stderr"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/2", rootAll);
 
 	/* setup the initial open file-entries to the terminal (stdin/stdout/stderr - terminal creation happens inplace) */
 	if (fOpenAt(detail::fdWDirectory, u8"/dev/tty", fileFlags::readOnly, 0) != 0) {

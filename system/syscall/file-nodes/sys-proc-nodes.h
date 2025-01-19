@@ -8,7 +8,7 @@ namespace sys::detail::impl {
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		ProcDirectory(detail::Syscall* syscall);
+		ProcDirectory(detail::Syscall* syscall, env::FileAccess access);
 
 	public:
 		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
@@ -21,7 +21,7 @@ namespace sys::detail::impl {
 		uint32_t pId = 0;
 
 	public:
-		ProcId(detail::Syscall* syscall, uint32_t id);
+		ProcId(detail::Syscall* syscall, env::FileAccess access, uint32_t id);
 
 	public:
 		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
