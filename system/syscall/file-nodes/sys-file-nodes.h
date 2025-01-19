@@ -30,18 +30,11 @@ namespace sys::detail {
 	*	- object might be deleted within its callback
 	*/
 	class FileNode {
-	private:
-		std::u8string pPath;
-
 	protected:
 		FileNode() = default;
 
 	public:
 		virtual ~FileNode() = default;
-
-	public:
-		void setup(std::u8string_view path);
-		const std::u8string& path() const;
 
 	public:
 		/* generic-interactions */

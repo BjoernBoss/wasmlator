@@ -2,12 +2,6 @@
 
 static util::Logger logger{ u8"sys::syscall" };
 
-void sys::detail::FileNode::setup(std::u8string_view path) {
-	pPath = std::u8string{ path };
-}
-const std::u8string& sys::detail::FileNode::path() const {
-	return pPath;
-}
 void sys::detail::FileNode::linkRead() {}
 int64_t sys::detail::FileNode::lookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats*)> callback) {
 	return callback({}, 0);
