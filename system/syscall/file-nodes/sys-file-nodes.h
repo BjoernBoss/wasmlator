@@ -36,12 +36,13 @@ namespace sys::detail {
 		std::u8string pPath;
 
 	protected:
-		FileNode(std::u8string_view path);
+		FileNode() = default;
 
 	public:
 		virtual ~FileNode() = default;
 
 	public:
+		void setup(std::u8string_view path);
 		const std::u8string& path() const;
 
 	public:
@@ -55,8 +56,8 @@ namespace sys::detail {
 	public:
 		/* file-interactions */
 		virtual int64_t open(const detail::SetupConfig& config, std::function<int64_t(int64_t, uint64_t)> callback);
-		virtual int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
-		virtual int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
+		virtual int64_t read(uint64_t id, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
+		virtual int64_t write(uint64_t id, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual void close();
 	};
 
@@ -70,7 +71,7 @@ namespace sys::detail {
 		uint16_t pPermissions = 0;
 
 	protected:
-		VirtualFileNode(std::u8string_view path, uint32_t owner, uint32_t group, uint16_t permissions);
+		VirtualFileNode(uint32_t owner, uint32_t group, uint16_t permissions);
 
 	public:
 		virtual int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const = 0;
@@ -79,16 +80,13 @@ namespace sys::detail {
 
 	public:
 		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const final;
-		int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
-		int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
+		int64_t read(uint64_t id, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
+		int64_t write(uint64_t id, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 	};
 
 	namespace impl {
 		/* null file-node, which returns null-stats to indicate non-existance */
 		class NullFileNode final : public detail::FileNode {
-		public:
-			NullFileNode(std::u8string_view path);
-
 		public:
 			int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const final;
 		};
@@ -99,7 +97,7 @@ namespace sys::detail {
 			std::u8string pLink;
 
 		public:
-			LinkFileNode(std::u8string_view path, std::u8string_view link, uint32_t owner, uint32_t group, uint16_t permissions);
+			LinkFileNode(std::u8string_view link, uint32_t owner, uint32_t group, uint16_t permissions);
 
 		public:
 			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;

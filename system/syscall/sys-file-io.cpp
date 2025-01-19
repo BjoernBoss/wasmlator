@@ -114,8 +114,10 @@ int64_t sys::detail::FileIO::fResolveNode(std::shared_ptr<detail::FileNode> node
 		/* check if the child-node already exists and otherwise fetch the new child-node and register it */
 		std::u8string path = util::MergePaths(node->path(), name);
 		auto it = pMap.find(path);
-		if (it == pMap.end())
+		if (it == pMap.end()) {
 			it = pMap.insert({ path, node->spawn(path, name) }).first;
+			it->second->setup(path);
+		}
 
 		/* check if the current directory is writable (necessary to determine if child can be created) and resolve the remaining path */
 		bool dirWritable = fCheckAccess(stats, false, true, false);
@@ -294,10 +296,10 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		});
 }
 int64_t sys::detail::FileIO::fRead(size_t instance, std::function<int64_t(int64_t)> callback) {
-	return pInstance[instance].node->read(pBuffer, callback);
+	return pInstance[instance].node->read(pInstance[instance].id, pBuffer, callback);
 }
 int64_t sys::detail::FileIO::fWrite(size_t instance) const {
-	return pInstance[instance].node->write(pBuffer, [=](int64_t result) -> int64_t { return result; });
+	return pInstance[instance].node->write(pInstance[instance].id, pBuffer, [=](int64_t result) -> int64_t { return result; });
 }
 int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size) {
 	if (size == 0)
@@ -495,7 +497,7 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 	};
 
 	// validate structure!;
-	
+
 	logger.fatal(u8"Currently not implemented");
 
 	/* request the stats from the file */
