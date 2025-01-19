@@ -11,8 +11,8 @@ namespace sys::detail::impl {
 		ProcDirectory(detail::Syscall* syscall);
 
 	public:
-		std::shared_ptr<detail::FileNode> spawn(const std::u8string& path, std::u8string_view name) final;
 		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
+		int64_t virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const final;
 	};
 
 	class ProcId final : public detail::VirtualFileNode {
@@ -24,7 +24,7 @@ namespace sys::detail::impl {
 		ProcId(detail::Syscall* syscall, uint32_t id);
 
 	public:
-		std::shared_ptr<detail::FileNode> spawn(const std::u8string& path, std::u8string_view name) final;
 		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
+		int64_t virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const final;
 	};
 }

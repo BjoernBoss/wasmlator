@@ -6,10 +6,10 @@ int64_t sys::detail::impl::RootFileNode::virtualStats(std::function<int64_t(cons
 	stats.type = env::FileType::directory;
 	return callback(&stats);
 }
-std::shared_ptr<sys::detail::FileNode> sys::detail::impl::RootFileNode::spawn(const std::u8string& path, std::u8string_view name) {
+int64_t sys::detail::impl::RootFileNode::virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const {
 	if (name == u8"dev")
-		return std::make_shared<impl::DevDirectory>();
+		return callback(std::make_shared<impl::DevDirectory>());
 	if (name == u8"proc")
-		return std::make_shared<impl::ProcDirectory>(pSyscall);
-	return std::make_shared<impl::NullFileNode>();
+		return callback(std::make_shared<impl::ProcDirectory>(pSyscall));
+	return callback({});
 }

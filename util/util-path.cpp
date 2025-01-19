@@ -73,16 +73,13 @@ std::u8string util::CanonicalPath(std::u8string_view path) {
 }
 
 std::pair<std::u8string_view, std::u8string_view> util::SplitName(std::u8string_view path) {
-	if (path.empty())
-		return { u8"", u8"" };
-
 	/* find the last slash */
 	size_t name = path.size();
 	while (name > 0 && path[name - 1] != u8'/' && path[name - 1] != u8'\\')
 		--name;
 
 	/* return the two sub-strings */
-	if (name == 1)
+	if (name <= 1)
 		return { u8"/", path.substr(name) };
 	return { path.substr(0, (name > 0 ? name - 1 : 0)), path.substr(name) };
 }

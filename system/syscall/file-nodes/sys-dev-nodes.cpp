@@ -3,22 +3,20 @@
 static util::Logger logger{ u8"sys::syscall" };
 
 sys::detail::impl::DevDirectory::DevDirectory() : VirtualFileNode{ fs::RootOwner, fs::RootGroup, fs::RootDirPermissions } {}
-std::shared_ptr<sys::detail::FileNode> sys::detail::impl::DevDirectory::spawn(const std::u8string& path, std::u8string_view name) {
-	if (name == u8"tty")
-		return std::make_shared<impl::DevTerminal>();
-	return std::make_shared<impl::NullFileNode>();
-}
 int64_t sys::detail::impl::DevDirectory::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::directory;
 	return callback(&stats);
 }
+int64_t sys::detail::impl::DevDirectory::virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const {
+	if (name == u8"tty")
+		return callback(std::make_shared<impl::DevTerminal>());
+	return 0;
+}
 
 sys::detail::impl::DevTerminal::DevTerminal() : VirtualFileNode{ fs::RootOwner, fs::RootGroup, fs::ReadWrite } {}
-int64_t sys::detail::impl::DevTerminal::open(const detail::SetupConfig& config, std::function<int64_t(int64_t, uint64_t)> callback) {
-	if (!config.open)
-		return callback(errCode::eExists, 0);
-	return callback(errCode::eSuccess, 0);
+int64_t sys::detail::impl::DevTerminal::open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) {
+	return callback(errCode::eSuccess);
 }
 int64_t sys::detail::impl::DevTerminal::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
