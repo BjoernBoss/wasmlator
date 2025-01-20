@@ -5,27 +5,29 @@ void env::detail::MemoryBridge::Lookup(uint64_t address, uint64_t access, uint32
 	env::Instance()->memory().fCacheLookup(address, access, size, usage, cache);
 }
 
-bool env::detail::MemoryBridge::ExpandPhysical(uint32_t pages) {
-	return (mem_expand_physical(pages) > 0);
+bool env::detail::MemoryBridge::ExpandPhysical(uint64_t pages) {
+	if (pages >= detail::PhysMaxPages)
+		return false;
+	return (mem_expand_physical(uint32_t(pages)) > 0);
 }
-void env::detail::MemoryBridge::MovePhysical(detail::physical_t dest, detail::physical_t source, uint32_t size) {
-	mem_move_physical(dest, source, size);
+void env::detail::MemoryBridge::MovePhysical(uint64_t dest, uint64_t source, uint64_t size) {
+	mem_move_physical(uint32_t(dest), uint32_t(source), uint32_t(size));
 }
-void env::detail::MemoryBridge::WriteToPhysical(detail::physical_t dest, const void* source, uint32_t size) {
-	mem_write_to_physical(dest, source, size);
+void env::detail::MemoryBridge::WriteToPhysical(uint64_t dest, const void* source, uint64_t size) {
+	mem_write_to_physical(uint32_t(dest), source, uint32_t(size));
 }
-void env::detail::MemoryBridge::ReadFromPhysical(void* dest, detail::physical_t source, uint32_t size) {
-	mem_read_from_physical(dest, source, size);
+void env::detail::MemoryBridge::ReadFromPhysical(void* dest, uint64_t source, uint64_t size) {
+	mem_read_from_physical(dest, uint32_t(source), uint32_t(size));
 }
-void env::detail::MemoryBridge::ClearPhysical(detail::physical_t dest, uint32_t size) {
-	mem_clear_physical(dest, size);
+void env::detail::MemoryBridge::ClearPhysical(uint64_t dest, uint64_t size) {
+	mem_clear_physical(uint32_t(dest), uint32_t(size));
 }
-uint64_t env::detail::MemoryBridge::Read(env::guest_t address, uint32_t size) {
-	return mem_read(address, size);
+uint64_t env::detail::MemoryBridge::Read(env::guest_t address, uint64_t size) {
+	return mem_read(address, uint32_t(size));
 }
-void env::detail::MemoryBridge::Write(env::guest_t address, uint32_t size, uint64_t value) {
-	mem_write(address, size, value);
+void env::detail::MemoryBridge::Write(env::guest_t address, uint64_t size, uint64_t value) {
+	mem_write(address, uint32_t(size), value);
 }
-uint64_t env::detail::MemoryBridge::Code(env::guest_t address, uint32_t size) {
-	return mem_code(address, size);
+uint64_t env::detail::MemoryBridge::Code(env::guest_t address, uint64_t size) {
+	return mem_code(address, uint32_t(size));
 }

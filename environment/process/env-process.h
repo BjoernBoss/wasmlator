@@ -45,8 +45,8 @@ namespace env {
 		uint32_t pPageSize = 0;
 		uint32_t pMemoryCaches = 0;
 		uint32_t pContextSize = 0;
-		uint32_t pPhysicalPages = 0;
-		uint32_t pMemoryPages = 0;
+		uint64_t pPhysicalPages = 0;
+		uint64_t pMemoryPages = 0;
 		ProcState pProcState = ProcState::none;
 		TaskState pTaskState = TaskState::none;
 		bool pBindingsClosed = false;

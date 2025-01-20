@@ -87,7 +87,7 @@ static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const elf::Reader& re
 
 		/* compute the page-aligned address and size */
 		env::guest_t address = (programs[i].vAddress & ~(pageSize - 1));
-		uint32_t size = uint32_t(((programs[i].vAddress + programs[i].memSize + pageSize - 1) & ~(pageSize - 1)) - address);
+		uint64_t size = (((programs[i].vAddress + programs[i].memSize + pageSize - 1) & ~(pageSize - 1)) - address);
 		if (programs[i].fileSize > programs[i].memSize)
 			throw elf::Exception{ L"Program-header contains larger file-size than memory-size" };
 
@@ -102,7 +102,7 @@ static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const elf::Reader& re
 
 		/* write the actual data to the section */
 		const uint8_t* data = reader.base<uint8_t>(programs[i].offset, programs[i].fileSize);
-		env::Instance()->memory().mwrite(programs[i].vAddress, data, uint32_t(programs[i].fileSize), env::Usage::Write);
+		env::Instance()->memory().mwrite(programs[i].vAddress, data, programs[i].fileSize, env::Usage::Write);
 
 		/* update the protection flags to match the actual flags */
 		if (!env::Instance()->memory().mprotect(address, size, usage))

@@ -2,7 +2,7 @@
 
 static util::Logger logger{ u8"env::memory" };
 
-std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint32_t& initialPageCount) {
+std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();
 	uint32_t caches = env::Instance()->memoryCaches();
 	self.pPageSize = env::Instance()->pageSize();
@@ -19,8 +19,8 @@ std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint32_t& initialP
 	self.pCodeCache = caches + 2;
 
 	/* setup the initial physical page-count and physical mapping */
-	initialPageCount = detail::PhysPageCount(uint64_t(detail::InitAllocPages * self.pPageSize));
-	self.pPhysical.push_back(detail::MemoryPhysical{ 0, uint32_t(detail::PhysPageSize * initialPageCount), false });
+	initialPageCount = detail::PhysPageCount(detail::InitAllocPages * self.pPageSize);
+	self.pPhysical.push_back(detail::MemoryPhysical{ 0, detail::PhysPageSize * initialPageCount, false });
 
 	/* setup the caches */
 	self.pCaches.resize(size_t(caches) + detail::InternalCaches);

@@ -22,21 +22,11 @@ namespace env {
 	class Process;
 
 	namespace detail {
-		using physical_t = uint32_t;
-
 		static constexpr uint64_t PhysPageSize = 0x10000;
-		static constexpr uint32_t PhysPageOffset(uint64_t address) {
-			return uint32_t(address & (detail::PhysPageSize - 1));
+		static constexpr uint64_t PhysPageCount(uint64_t bytes) {
+			return uint64_t((bytes + detail::PhysPageSize - 1) / detail::PhysPageSize);
 		}
-		static constexpr uint64_t PhysPageIndex(uint64_t address) {
-			return (address / detail::PhysPageSize);
-		}
-		static constexpr uint32_t PhysPageCount(uint64_t bytes) {
-			return uint32_t((bytes + detail::PhysPageSize - 1) / detail::PhysPageSize);
-		}
-		static constexpr uint64_t PhysPageAligned(uint64_t bytes) {
-			return detail::PhysPageSize * ((bytes + detail::PhysPageSize - 1) / detail::PhysPageSize);
-		}
+		static constexpr uint64_t PhysMaxPages = detail::PhysPageCount(std::numeric_limits<uint32_t>::max());
 	}
 
 	using guest_t = uint64_t;
@@ -105,12 +95,12 @@ namespace env {
 	struct MemoryFault : public env::Exception {
 	public:
 		env::guest_t accessed = 0;
-		uint32_t size = 0;
+		uint64_t size = 0;
 		uint32_t usedUsage = 0;
 		uint32_t actualUsage = 0;
 
 	public:
-		MemoryFault(env::guest_t address, env::guest_t accessed, uint32_t size, uint32_t usedUsage, uint32_t actualUsage) :
+		MemoryFault(env::guest_t address, env::guest_t accessed, uint64_t size, uint32_t usedUsage, uint32_t actualUsage) :
 			env::Exception{ address }, accessed{ accessed }, size{ size }, usedUsage{ usedUsage }, actualUsage{ actualUsage } {}
 	};
 

@@ -13,7 +13,7 @@ size_t env::Memory::fLookupVirtual(env::guest_t address) const {
 	}
 	return begin;
 }
-size_t env::Memory::fLookupPhysical(env::detail::physical_t physical) const {
+size_t env::Memory::fLookupPhysical(uint64_t physical) const {
 	size_t begin = 0, end = pPhysical.size();
 	while ((end - begin) > 1) {
 		size_t index = (begin + end + 1) / 2;
@@ -24,7 +24,7 @@ size_t env::Memory::fLookupPhysical(env::detail::physical_t physical) const {
 	}
 	return begin;
 }
-env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage) const {
+env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const {
 	/* lookup the virtual mapping containing the corresponding accessed-address */
 	size_t index = fLookupVirtual(access);
 
@@ -39,7 +39,7 @@ env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_
 	/* collect all previous and upcoming regions of the same usage */
 	detail::MemoryLookup lookup = detail::MemoryLookup{ pVirtual[index].address, pVirtual[index].physical, pVirtual[index].size };
 	for (size_t i = index; i > 0; --i) {
-		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) != pVirtual[i].address)
+		if (pVirtual[i - 1].address + pVirtual[i - 1].size != pVirtual[i].address)
 			break;
 		if ((pVirtual[i - 1].usage & usage) != usage)
 			break;
@@ -59,25 +59,29 @@ env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_
 	return lookup;
 }
 
-uint32_t env::Memory::fPageOffset(env::guest_t address) const {
-	return uint32_t(address & uint64_t(pPageSize - 1));
+uint64_t env::Memory::fPageOffset(env::guest_t address) const {
+	return (address & (pPageSize - 1));
 }
-uint32_t env::Memory::fExpandPhysical(uint32_t size, uint32_t growth) const {
+uint64_t env::Memory::fExpandPhysical(uint64_t size, uint64_t growth) const {
+	/* check to prevent overflows */
+	uint64_t firstAlloc = size + growth;
+	if (firstAlloc < size)
+		return 0;
+
 	/* allocate a little bit more to reduce the number of growings */
-	uint32_t pages = detail::PhysPageCount(std::max<uint32_t>(detail::MinGrowthPages * pPageSize, size + growth));
+	uint64_t pages = detail::PhysPageCount(std::max<uint64_t>(detail::MinGrowthPages * pPageSize, firstAlloc));
 	if (detail::MemoryBridge::ExpandPhysical(pages))
-		return uint32_t(pages * detail::PhysPageSize);
+		return pages * detail::PhysPageSize;
 	size = detail::PhysPageCount(size);
 	if (size < pages && detail::MemoryBridge::ExpandPhysical(size))
-		return uint32_t(size * detail::PhysPageSize);
+		return (size * detail::PhysPageSize);
 	return 0;
 }
-void env::Memory::fMovePhysical(env::detail::physical_t dest, env::detail::physical_t source, uint32_t size) const {
+void env::Memory::fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const {
 	detail::MemoryBridge::MovePhysical(dest, source, size);
 }
 void env::Memory::fFlushCaches() const {
 	fCheckConsistency();
-
 	logger.trace(u8"Flushing caches");
 	std::memset(pCaches.data(), 0, sizeof(detail::MemoryCache) * pCaches.size());
 }
@@ -85,7 +89,7 @@ void env::Memory::fCheckConsistency() const {
 	if (pPhysical.empty())
 		logger.fatal(u8"Physical slots invalid");
 
-	uint32_t totalPhys = 0, totalVirt = 0;
+	uint64_t totalPhys = 0, totalVirt = 0;
 	for (size_t i = 0; i < pPhysical.size(); ++i) {
 		totalPhys += (pPhysical[i].used ? pPhysical[i].size : 0);
 
@@ -116,9 +120,9 @@ void env::Memory::fCheckConsistency() const {
 		if (i == 0)
 			continue;
 
-		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) > pVirtual[i].address)
+		if (pVirtual[i - 1].address + pVirtual[i - 1].size > pVirtual[i].address)
 			logger.fatal(u8"Virtual slot [", i, u8"] address is invalid");
-		if (pVirtual[i - 1].address + uint64_t(pVirtual[i - 1].size) < pVirtual[i].address)
+		if (pVirtual[i - 1].address + pVirtual[i - 1].size < pVirtual[i].address)
 			continue;
 
 		if (pVirtual[i - 1].physical + pVirtual[i - 1].size != pVirtual[i].physical)
@@ -144,7 +148,7 @@ bool env::Memory::fCheckAllMapped(size_t virt, env::guest_t end) const {
 	return false;
 }
 
-bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
+bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint64_t size, uint32_t usage) {
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
 
 	/* check if the next page is already used, in which case no expansion is possible */
@@ -166,9 +170,13 @@ bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t
 
 	/* expand the physical memory at the end */
 	else {
+		/* check if the physical page is at the end */
+		if (phys + 2 < pPhysical.size())
+			return false;
+
 		/* try to expand the physical memory (may allocate more than the needed amount) */
-		uint32_t needed = size - (phys + 1 < pPhysical.size() ? pPhysical[phys + 1].size : 0);
-		uint32_t allocate = fExpandPhysical(needed, size);
+		uint64_t needed = size - (phys + 1 < pPhysical.size() ? pPhysical[phys + 1].size : 0);
+		uint64_t allocate = fExpandPhysical(needed, size);
 		if (allocate == 0)
 			return false;
 
@@ -192,8 +200,8 @@ bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t
 		}
 	}
 
-	/* update the virtual slot and the current physical page slot */
-	detail::physical_t actual = pVirtual[virt].physical + pVirtual[virt].size;
+	/* update the virtual slot */
+	uint64_t actual = pVirtual[virt].physical + pVirtual[virt].size;
 	if (pVirtual[virt].usage == usage)
 		pVirtual[virt].size += size;
 	else
@@ -203,7 +211,7 @@ bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint32_t
 	detail::MemoryBridge::ClearPhysical(actual, size);
 	return true;
 }
-size_t env::Memory::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
+size_t env::Memory::fMemAllocatePhysical(uint64_t size, uint64_t growth) {
 	size_t phys = 0;
 
 	/* look for the next region large enough to store the required memory */
@@ -214,7 +222,7 @@ size_t env::Memory::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
 
 	/* check if the physical memory needs to be allocated */
 	if (phys == pPhysical.size()) {
-		uint32_t allocate = fExpandPhysical(size, growth);
+		uint64_t allocate = fExpandPhysical(size, growth);
 		if (allocate == 0)
 			return phys;
 
@@ -226,7 +234,7 @@ size_t env::Memory::fMemAllocatePhysical(uint32_t size, uint32_t growth) {
 	}
 	return phys;
 }
-bool env::Memory::fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t usage) {
+bool env::Memory::fMemAllocateIntermediate(size_t virt, uint64_t size, uint32_t usage) {
 	/* check if the previous and next block already lie aligned in physical memory */
 	if (pVirtual[virt].physical + pVirtual[virt].size + size != pVirtual[virt + 1].physical)
 		return false;
@@ -267,8 +275,8 @@ bool env::Memory::fMemAllocateIntermediate(size_t virt, uint32_t size, uint32_t 
 	pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ pVirtual[virt].address + pVirtual[virt].size, pVirtual[virt].physical + pVirtual[virt].size, size, usage });
 	return true;
 }
-env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys, uint32_t size, size_t physPrev, size_t physNext) {
-	uint32_t capacity = pPhysical[phys].size;
+uint64_t env::Memory::fMemMergePhysical(size_t virt, size_t phys, uint64_t size, size_t physPrev, size_t physNext) {
+	uint64_t capacity = pPhysical[phys].size;
 
 	/* check which sides exist */
 	bool hasPrev = (physPrev < pPhysical.size());
@@ -279,7 +287,7 @@ env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys,
 	pPhysical[phys].used = true;
 
 	/* move the original regions into place */
-	detail::physical_t actual = pPhysical[phys].physical;
+	uint64_t actual = pPhysical[phys].physical;
 	if (hasPrev) {
 		/* move the memory into place and patch the old and new physical slot */
 		fMovePhysical(actual, pPhysical[physPrev].physical, pPhysical[physPrev].size);
@@ -287,7 +295,7 @@ env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys,
 		pPhysical[physPrev].used = false;
 
 		/* patch the virtual slots */
-		uint32_t offset = pPhysical[physPrev].size;
+		uint64_t offset = pPhysical[physPrev].size;
 		for (size_t i = virt; offset > 0; --i) {
 			offset -= pVirtual[i].size;
 			pVirtual[i].physical = actual + offset;
@@ -301,7 +309,7 @@ env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys,
 		pPhysical[physNext].used = false;
 
 		/* patch the virtual slots */
-		uint32_t offset = 0;
+		uint64_t offset = 0;
 		for (size_t i = virt + 1; offset < pPhysical[physNext].size; ++i) {
 			pVirtual[i].physical = actual + size + offset;
 			offset += pVirtual[i].size;
@@ -311,7 +319,7 @@ env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys,
 	/* check if capacity remains, which needs to be written to a new slot */
 	capacity -= pPhysical[phys].size;
 	if (capacity > 0) {
-		detail::physical_t end = pPhysical[phys].physical + pPhysical[phys].size;
+		uint64_t end = pPhysical[phys].physical + pPhysical[phys].size;
 
 		/* check if an existing slot can be expanded */
 		if (phys + 1 < pPhysical.size() && !pPhysical[phys + 1].used)
@@ -336,7 +344,7 @@ env::detail::physical_t env::Memory::fMemMergePhysical(size_t virt, size_t phys,
 		pPhysical.resize(last);
 	return actual;
 }
-bool env::Memory::fMMap(env::guest_t address, uint32_t size, uint32_t usage) {
+bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
@@ -359,7 +367,7 @@ bool env::Memory::fMMap(env::guest_t address, uint32_t size, uint32_t usage) {
 		logger.error(u8"Mapping range is already partially mapped");
 		return false;
 	}
-	if (virt + 1 < pVirtual.size() && address + size > pVirtual[virt + 1].address) {
+	if (virt + 1 < pVirtual.size() && pVirtual[virt + 1].address - address < size) {
 		logger.error(u8"Mapping range is already partially mapped");
 		return false;
 	}
@@ -381,25 +389,27 @@ bool env::Memory::fMMap(env::guest_t address, uint32_t size, uint32_t usage) {
 		return true;
 	}
 
-	/* compute the size of the entire contiguous range */
-	size_t physPrev = (hasPrev ? fLookupPhysical(pVirtual[virt].physical) : pPhysical.size());
-	size_t physNext = (hasNext ? fLookupPhysical(pVirtual[virt + 1].physical) : pPhysical.size());
+	/* lookup the previous and next physical page (increase index by 1 to ensure indices are
+	*	out-of-bounds even after allocate-physical has potentially added another entry) */
+	size_t physPrev = (hasPrev ? fLookupPhysical(pVirtual[virt].physical) : pPhysical.size() + 1);
+	size_t physNext = (hasNext ? fLookupPhysical(pVirtual[virt + 1].physical) : pPhysical.size() + 1);
+
+	/* check if the size can be serviced (i.e. size does not overflow) */
+	uint64_t required = (hasPrev ? pPhysical[physPrev].size : 0) + (hasNext ? pPhysical[physNext].size : 0);
+	if (required + size < required) {
+		logger.error(u8"Size cannot be serviced by mmap");
+		return false;
+	}
 
 	/* lookup a physical slot large enough to house the contiguous memory region */
-	size_t phys = fMemAllocatePhysical((hasPrev ? pPhysical[physPrev].size : 0) + size + (hasNext ? pPhysical[physNext].size : 0), size);
+	size_t phys = fMemAllocatePhysical(required + size, size);
 	if (phys >= pPhysical.size()) {
 		logger.debug(u8"Allocation failed");
 		return false;
 	}
 
-	/* patch the phys-prev/phys-next indices (as the allocation might have changed the overall count) */
-	if (!hasPrev)
-		physPrev = pPhysical.size();
-	if (!hasNext)
-		physNext = pPhysical.size();
-
 	/* merge the previous and next blocks into the new contiguous physical region (might invalidate the phys-indices) */
-	detail::physical_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
+	uint64_t actual = fMemMergePhysical(virt, phys, size, physPrev, physNext);
 
 	/* clear the next allocated block of memory */
 	detail::MemoryBridge::ClearPhysical(actual, size);
@@ -428,9 +438,9 @@ bool env::Memory::fMMap(env::guest_t address, uint32_t size, uint32_t usage) {
 
 	/* check if the lowest physical memory should be reduced and moved down
 	*	(there must at least be two slots, as an allocation has occurred in this call) */
-	uint32_t end = pPhysical.back().physical + pPhysical.back().size;
+	uint64_t end = pPhysical.back().physical + pPhysical.back().size;
 	if (!pPhysical[0].used && pPhysical[0].size >= (end / detail::ShiftMemoryFactor)) {
-		uint32_t shift = pPhysical[1].physical;
+		uint64_t shift = pPhysical[1].physical;
 		fMovePhysical(0, shift, end - shift);
 
 		/* move the physical and virtual memory down */
@@ -446,7 +456,7 @@ bool env::Memory::fMMap(env::guest_t address, uint32_t size, uint32_t usage) {
 	return true;
 }
 
-void env::Memory::fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32_t size) {
+void env::Memory::fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint64_t size) {
 	const detail::MemoryVirtual entry = pVirtual[virt];
 
 	/* check if the regions align perfectly */
@@ -470,7 +480,7 @@ void env::Memory::fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint32
 	}
 
 	/* a new slot needs to be inserted above */
-	uint32_t offset = uint32_t(address - entry.address);
+	uint64_t offset = address - entry.address;
 	pVirtual[virt].size = offset;
 	offset += size;
 	pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ address + size, entry.physical + offset, entry.size - offset, entry.usage });
@@ -484,7 +494,7 @@ bool env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env
 
 	/* check if the first slot needs to be split up (cannot be double-split, as it must reach across multiple blocks) */
 	if (pVirtual[virt].address < address) {
-		pVirtual[virt].size = uint32_t(address - pVirtual[virt].address);
+		pVirtual[virt].size = address - pVirtual[virt].address;
 		++virt;
 	}
 
@@ -505,7 +515,7 @@ bool env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env
 		}
 
 		/* patch the last block to only contain the remainder */
-		uint32_t offset = uint32_t(end - pVirtual[next].address);
+		uint64_t offset = end - pVirtual[next].address;
 		pVirtual[next].address += offset;
 		pVirtual[next].physical += offset;
 		pVirtual[next].size -= offset;
@@ -517,7 +527,7 @@ bool env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 	return true;
 }
-void env::Memory::fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size) {
+void env::Memory::fMemUnmapPhysical(size_t phys, uint64_t offset, uint64_t size) {
 	/* check if the entire physical range is being removed */
 	if (offset == 0 && pPhysical[phys].size == size) {
 		pPhysical[phys].used = false;
@@ -582,7 +592,7 @@ void env::Memory::fMemUnmapPhysical(size_t phys, uint32_t offset, uint32_t size)
 	pPhysical[phys].size = offset;
 }
 
-void env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint32_t size, uint32_t usage) {
+void env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint64_t size, uint32_t usage) {
 	const detail::MemoryVirtual entry = pVirtual[virt];
 
 	/* check if nothing needs to be done */
@@ -590,7 +600,7 @@ void env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 		return;
 
 	/* check if a previous or next block exists */
-	bool hasPrev = (virt > 0 && pVirtual[virt - 1].address + uint64_t(pVirtual[virt - 1].size) == entry.address);
+	bool hasPrev = (virt > 0 && pVirtual[virt - 1].address + pVirtual[virt - 1].size == entry.address);
 	bool hasNext = (virt + 1 < pVirtual.size() && entry.address + entry.size == pVirtual[virt + 1].address);
 
 	/* check if the regions align perfectly */
@@ -648,12 +658,12 @@ void env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint
 
 	/* a new slot needs to be inserted below and above (no possibility to merge with neighboring blocks) */
 	pVirtual.insert(pVirtual.begin() + virt + 1, 2, detail::MemoryVirtual{});
-	uint32_t offset = uint32_t(address - entry.address);
+	uint64_t offset = address - entry.address;
 	pVirtual[virt].size = offset;
 	pVirtual[virt + 1] = detail::MemoryVirtual{ address, entry.physical + offset, size, usage };
 	pVirtual[virt + 2] = detail::MemoryVirtual{ address + size, entry.physical + offset + size, entry.size - offset - size, entry.usage };
 }
-bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint32_t size, uint32_t usage) {
+bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint64_t size, uint32_t usage) {
 	bool hasValue = false;
 
 	/* check if the entire range is mapped correctly */
@@ -663,10 +673,10 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	}
 
 	/* check if the first slot needs to be split up or if it can be used directly */
-	detail::physical_t start = pVirtual[virt].physical;
+	uint64_t start = pVirtual[virt].physical;
 	if (pVirtual[virt].address < address) {
 		if (pVirtual[virt].usage != usage) {
-			pVirtual[virt].size = uint32_t(address - pVirtual[virt].address);
+			pVirtual[virt].size = address - pVirtual[virt].address;
 			start += pVirtual[virt].size;
 		}
 		else {
@@ -678,7 +688,7 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	}
 
 	/* check if the previous block already matches the type */
-	else if (virt > 0 && pVirtual[virt - 1].address + uint64_t(pVirtual[virt - 1].size) == address && pVirtual[virt - 1].usage == usage)
+	else if (virt > 0 && pVirtual[virt - 1].address + pVirtual[virt - 1].size == address && pVirtual[virt - 1].usage == usage)
 		hasValue = true;
 
 	/* convert all remaining blocks until the end has been reached (must all
@@ -697,7 +707,7 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 
 			/* make this the initial slot (cannot be the first slot, as this call requires multiple blocks) */
 			else {
-				pVirtual[next] = detail::MemoryVirtual{ address, start, pVirtual[next].size + uint32_t(pVirtual[next].address - address), usage };
+				pVirtual[next] = detail::MemoryVirtual{ address, start, pVirtual[next].size + (pVirtual[next].address - address), usage };
 				hasValue = true;
 				++virt;
 			}
@@ -715,12 +725,12 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 				++dropped;
 			}
 			else
-				pVirtual[next] = { address, start, pVirtual[next].size + uint32_t(pVirtual[next].address - address), usage };
+				pVirtual[next] = { address, start, pVirtual[next].size + (pVirtual[next].address - address), usage };
 		}
 
 		/* shift the remainder to the next block and either add the rest to the previous block, or insert the new block */
 		else {
-			uint32_t offset = uint32_t(end - pVirtual[next].address);
+			uint64_t offset = end - pVirtual[next].address;
 			pVirtual[next].address += offset;
 			pVirtual[next].physical += offset;
 			pVirtual[next].size -= offset;
@@ -729,7 +739,7 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 			if (hasValue)
 				pVirtual[virt - 1].size += offset;
 			else
-				pVirtual.insert(pVirtual.begin() + next, detail::MemoryVirtual{ end, start, uint32_t(end - address), usage });
+				pVirtual.insert(pVirtual.begin() + next, detail::MemoryVirtual{ end, start, (end - address), usage });
 		}
 		break;
 	}
@@ -741,89 +751,95 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 }
 
 void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const {
-	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}]", access, size,
+	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}] - index: [{}]", access, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-'),
-		address
+		address, cache
 	);
 	detail::MemoryLookup lookup = fLookup(address, access, size, usage);
 
 	/* write the lookup back to the cache */
 	pCaches[cache] = {
 		lookup.address,
-		lookup.physical,
-		lookup.size - 1,
-		lookup.size - 2,
-		lookup.size - 4,
-		lookup.size - 8
+		uint32_t(lookup.physical),
+		uint32_t(lookup.size - 1),
+		uint32_t(lookup.size - 2),
+		uint32_t(lookup.size - 4),
+		uint32_t(lookup.size - 8)
 	};
 }
-uint64_t env::Memory::fRead(env::guest_t address, uint32_t size) const {
+uint64_t env::Memory::fRead(env::guest_t address, uint64_t size) const {
 	return detail::MemoryBridge::Read(address, size);
 }
-void env::Memory::fWrite(env::guest_t address, uint32_t size, uint64_t value) const {
+void env::Memory::fWrite(env::guest_t address, uint64_t size, uint64_t value) const {
 	detail::MemoryBridge::Write(address, size, value);
 }
-uint64_t env::Memory::fCode(env::guest_t address, uint32_t size) const {
+uint64_t env::Memory::fCode(env::guest_t address, uint64_t size) const {
 	return detail::MemoryBridge::Code(address, size);
 }
 
-env::guest_t env::Memory::alloc(uint32_t size, uint32_t usage) {
+env::guest_t env::Memory::alloc(uint64_t size, uint32_t usage) {
+	/* check if the allocation can be serviced */
+	if (size > detail::EndOfAllocations - detail::StartOfAllocations)
+		return 0;
+
 	/* fetch the last address currently allocated */
 	env::guest_t last = (pVirtual.empty() ? 0 : pVirtual.back().address + pVirtual.back().size);
-	last = (last + pPageSize - 1) & ~env::guest_t(pPageSize - 1);
+	last = (last + pPageSize - 1) & ~(pPageSize - 1);
 
 	/* check if the start of allocations can just be taken */
 	env::guest_t address = 0;
-	if (last <= detail::StartOfAllocations - detail::SpacingBetweenAllocations)
+	if (last == 0 || last <= detail::StartOfAllocations - detail::SpacingBetweenAllocations)
 		address = detail::StartOfAllocations;
 
 	/* check if the next address is still available, while leaving allocation-space for both the last and next allocation */
-	else if (last < detail::EndOfAllocations && detail::EndOfAllocations - last >= size + 2 * detail::SpacingBetweenAllocations)
-		address = last + detail::SpacingBetweenAllocations;
-
-	/* lookup the largest spot in the allocations, and place the address in the middle */
 	else {
-		/* the index must exist, as size (32-bit) and the two spacings (also small in comparison) cannot be
-		*	greater than the allocatable address-space, therefore the last check would otherwise have been hit */
-		size_t index = fLookupVirtual(detail::StartOfAllocations);
+		uint64_t required = last + 2 * detail::SpacingBetweenAllocations;
+		if (required < detail::EndOfAllocations && detail::EndOfAllocations - required >= size)
+			address = last + detail::SpacingBetweenAllocations;
 
-		/* compute the slot to the start-of-allocations address */
-		env::guest_t start = 0, end = 0;
-		if (pVirtual[index].address > detail::StartOfAllocations) {
-			start = detail::StartOfAllocations;
-			end = pVirtual[index].address;
-		}
-		env::guest_t prev = pVirtual[index].address + env::guest_t(pVirtual[index].size);
+		/* lookup the largest spot in the allocations, and place the address in the middle */
+		else {
+			/* index must exist, as virtuals cannot be empty, as last would otherwise have been 0) */
+			size_t index = fLookupVirtual(detail::StartOfAllocations);
 
-		/* iterate over the upcoming addresses and look for the largest empty slot */
-		for (++index; index < pVirtual.size(); ++index) {
-			if (pVirtual[index].address >= detail::EndOfAllocations)
-				break;
-
-			/* check if the current spacing is larger */
-			env::guest_t space = pVirtual[index].address - prev;
-			if (space > (end - start)) {
-				start = prev;
+			/* compute the slot to the start-of-allocations address */
+			env::guest_t start = 0, end = 0;
+			if (pVirtual[index].address > detail::StartOfAllocations) {
+				start = detail::StartOfAllocations;
 				end = pVirtual[index].address;
 			}
-			prev = pVirtual[index].address + pVirtual[index].size;
-		}
+			env::guest_t prev = std::max<uint64_t>(detail::StartOfAllocations, pVirtual[index].address + pVirtual[index].size);
 
-		/* check if the slot to the end-of-allocations is larger */
-		if (prev < detail::EndOfAllocations) {
-			env::guest_t space = detail::EndOfAllocations - prev;
-			if (space > (end - start)) {
-				start = prev;
-				end = detail::EndOfAllocations;
+			/* iterate over the upcoming addresses and look for the largest empty slot */
+			for (++index; index < pVirtual.size(); ++index) {
+				if (pVirtual[index].address >= detail::EndOfAllocations)
+					break;
+
+				/* check if the current spacing is larger */
+				env::guest_t space = pVirtual[index].address - prev;
+				if (space > (end - start)) {
+					start = prev;
+					end = pVirtual[index].address;
+				}
+				prev = pVirtual[index].address + pVirtual[index].size;
 			}
-		}
 
-		/* check if a matching slot has been found and compute the address to be used */
-		if ((end - start) < size)
-			return 0;
-		address = start + (((end - start - size) / 2) & ~env::guest_t(pPageSize - 1));
+			/* check if the slot to the end-of-allocations is larger */
+			if (prev < detail::EndOfAllocations) {
+				env::guest_t space = detail::EndOfAllocations - prev;
+				if (space > (end - start)) {
+					start = prev;
+					end = detail::EndOfAllocations;
+				}
+			}
+
+			/* check if a matching slot has been found and compute the address to be used */
+			if ((end - start) < size)
+				return 0;
+			address = start + (((end - start - size) / 2) & ~(pPageSize - 1));
+		}
 	}
 
 	/* try to perform the allocation */
@@ -831,11 +847,11 @@ env::guest_t env::Memory::alloc(uint32_t size, uint32_t usage) {
 		return 0;
 	return address;
 }
-bool env::Memory::mmap(env::guest_t address, uint32_t size, uint32_t usage) {
+bool env::Memory::mmap(env::guest_t address, uint64_t size, uint32_t usage) {
 	return fMMap(address, size, usage);
 }
-bool env::Memory::munmap(env::guest_t address, uint32_t size) {
-	logger.debug(u8"Unmapping [", str::As{ U"#018x", address }, u8"] with size [", str::As{ U"#010x", size }, u8"]");
+bool env::Memory::munmap(env::guest_t address, uint64_t size) {
+	logger.debug(u8"Unmapping [", str::As{ U"#018x", address }, u8"] with size [", str::As{ U"#010x", size }, u8']');
 
 	/* check if the address and size are aligned properly */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0) {
@@ -854,10 +870,16 @@ bool env::Memory::munmap(env::guest_t address, uint32_t size) {
 
 	/* cache the physical state to be able to patch it afterwards */
 	size_t phys = fLookupPhysical(pVirtual[virt].physical);
-	uint32_t offset = (pVirtual[virt].physical - pPhysical[phys].physical) + uint32_t(address - pVirtual[virt].address);
+	uint64_t offset = (pVirtual[virt].physical - pPhysical[phys].physical) + (address - pVirtual[virt].address);
+
+	/* check if the size overflows */
+	env::guest_t end = address + size;
+	if (end < address) {
+		logger.error(u8"Size overflows for operation");
+		return false;
+	}
 
 	/* check if the range lies on a single block or across multiple slots */
-	env::guest_t end = address + size;
 	if (pVirtual[virt].address + pVirtual[virt].size >= end)
 		fMemUnmapSingleBlock(virt, address, size);
 	else if (!fMemUnmapMultipleBlocks(virt, address, end))
@@ -868,7 +890,7 @@ bool env::Memory::munmap(env::guest_t address, uint32_t size) {
 	fFlushCaches();
 	return true;
 }
-bool env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) {
+bool env::Memory::mprotect(env::guest_t address, uint64_t size, uint32_t usage) {
 	logger.fmtDebug(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
@@ -894,8 +916,14 @@ bool env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) 
 	if (size == 0)
 		return true;
 
-	/* check if the range lies on a single block or across multiple slots */
+	/* check if the size overflows */
 	env::guest_t end = address + size;
+	if (end < address) {
+		logger.error(u8"Size overflows for operation");
+		return false;
+	}
+
+	/* check if the range lies on a single block or across multiple slots */
 	if (pVirtual[virt].address + pVirtual[virt].size >= end) {
 		if (pVirtual[virt].usage == usage)
 			return true;
@@ -908,8 +936,8 @@ bool env::Memory::mprotect(env::guest_t address, uint32_t size, uint32_t usage) 
 	fFlushCaches();
 	return true;
 }
-void env::Memory::mread(void* dest, env::guest_t source, uint32_t size, uint32_t usage) const {
-	logger.fmtDebug(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
+void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage) const {
+	logger.fmtTrace(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-')
@@ -917,10 +945,10 @@ void env::Memory::mread(void* dest, env::guest_t source, uint32_t size, uint32_t
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, source, size, usage);
-	detail::MemoryBridge::ReadFromPhysical(dest, lookup.physical + detail::physical_t(source - lookup.address), size);
+	detail::MemoryBridge::ReadFromPhysical(dest, lookup.physical + (source - lookup.address), size);
 }
-void env::Memory::mwrite(env::guest_t dest, const void* source, uint32_t size, uint32_t usage) {
-	logger.fmtDebug(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
+void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage) {
+	logger.fmtTrace(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-')
@@ -928,10 +956,10 @@ void env::Memory::mwrite(env::guest_t dest, const void* source, uint32_t size, u
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
-	detail::MemoryBridge::WriteToPhysical(lookup.physical + detail::physical_t(dest - lookup.address), source, size);
+	detail::MemoryBridge::WriteToPhysical(lookup.physical + (dest - lookup.address), source, size);
 }
-void env::Memory::mclear(env::guest_t dest, uint32_t size, uint32_t usage) {
-	logger.fmtDebug(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
+void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
+	logger.fmtTrace(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-')
@@ -939,5 +967,5 @@ void env::Memory::mclear(env::guest_t dest, uint32_t size, uint32_t usage) {
 
 	/* lookup the address to ensure it is mapped and to fetch the physical address */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
-	detail::MemoryBridge::ClearPhysical(lookup.physical + detail::physical_t(dest - lookup.address), size);
+	detail::MemoryBridge::ClearPhysical(lookup.physical + (dest - lookup.address), size);
 }

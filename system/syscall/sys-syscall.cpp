@@ -67,19 +67,19 @@ int64_t sys::detail::Syscall::fDispatch() {
 		return pMemory.mmap(args.args[0], args.args[1], uint32_t(args.args[2]), uint32_t(args.args[3]), args.args[4], args.args[5]);
 	}
 	case sys::SyscallIndex::uname: {
-		logger.debug(u8"Syscall uname(", str::As{ U"#018x", args.args[0] }, u8")");
+		logger.debug(u8"Syscall uname(", str::As{ U"#018x", args.args[0] }, u8')');
 		return fHandleUName(args.args[0]);
 	}
 	case sys::SyscallIndex::openat: {
 		logger.debug(u8"Syscall openat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8')');
 		std::u8string path = fReadString(args.args[1]);
-		logger.debug(u8"pathname: [", path, u8"]");
+		logger.debug(u8"pathname: [", path, u8']');
 		return pFileIO.openat(args.args[0], path, args.args[2], args.args[3]);
 	}
 	case sys::SyscallIndex::open: {
 		logger.debug(u8"Syscall open(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8", ", args.args[2], u8')');
 		std::u8string path = fReadString(args.args[0]);
-		logger.debug(u8"pathname: [", path, u8"]");
+		logger.debug(u8"pathname: [", path, u8']');
 		return pFileIO.open(path, args.args[1], args.args[2]);
 	}
 	case sys::SyscallIndex::readv: {
@@ -101,13 +101,13 @@ int64_t sys::detail::Syscall::fDispatch() {
 	case sys::SyscallIndex::readlinkat: {
 		logger.debug(u8"Syscall readlinkat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8')');
 		std::u8string path = fReadString(args.args[1]);
-		logger.debug(u8"pathname: [", path, u8"]");
+		logger.debug(u8"pathname: [", path, u8']');
 		return pFileIO.readlinkat(args.args[0], path, args.args[2], args.args[3]);
 	}
 	case sys::SyscallIndex::readlink: {
 		logger.debug(u8"Syscall readlink(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8", ", args.args[2], u8')');
 		std::u8string path = fReadString(args.args[0]);
-		logger.debug(u8"pathname: [", path, u8"]");
+		logger.debug(u8"pathname: [", path, u8']');
 		return pFileIO.readlink(path, args.args[1], args.args[2]);
 	}
 	case sys::SyscallIndex::fstat: {

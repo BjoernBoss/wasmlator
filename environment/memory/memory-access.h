@@ -4,7 +4,7 @@
 
 namespace env::detail {
 	struct MemoryAccess {
-		static std::optional<uintptr_t> Configure(uint32_t& initialPageCount);
+		static std::optional<uintptr_t> Configure(uint64_t& initialPageCount);
 		static uintptr_t CacheAddress();
 		static size_t CacheCount();
 		static uint32_t ReadCache();

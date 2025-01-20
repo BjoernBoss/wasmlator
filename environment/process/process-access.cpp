@@ -3,10 +3,10 @@
 bool env::detail::ProcessAccess::Setup(env::Process& process, std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
 	return process.fSetup(std::move(system), pageSize, memoryCaches, contextSize, logBlocks);
 }
-uint32_t env::detail::ProcessAccess::PhysicalPages() {
+uint64_t env::detail::ProcessAccess::PhysicalPages() {
 	return env::Instance()->pPhysicalPages;
 }
-uint32_t env::detail::ProcessAccess::MemoryPages() {
+uint64_t env::detail::ProcessAccess::MemoryPages() {
 	return env::Instance()->pMemoryPages;
 }
 void env::detail::ProcessAccess::AddCoreBinding(const std::u8string& mod, const std::u8string& name) {

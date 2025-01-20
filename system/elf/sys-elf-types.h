@@ -202,7 +202,7 @@ namespace sys::elf {
 	private:
 		void fCheck(size_t count) const {
 			if (count > pSize)
-				throw elf::Exception{ L"Cannot read [", count, L"] bytes from elf of size [", pSize, L"]" };
+				throw elf::Exception{ L"Cannot read [", count, L"] bytes from elf of size [", pSize, L']' };
 		}
 
 	public:

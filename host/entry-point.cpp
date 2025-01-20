@@ -209,7 +209,7 @@ void HandleCommand(std::u8string_view cmd) {
 		/* system can currently only be 'userspace' and cpu can only be 'rv64' */
 		std::wstring cpu = out.option(L"cpu").value().str();
 		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log"), trace = out.flag(L"trace");
-		logger.log(u8"Setting up userspace with cpu: [", cpu, u8"]");
+		logger.log(u8"Setting up userspace with cpu: [", cpu, u8']');
 
 		/* collect the argument vector */
 		std::vector<std::u8string> args;

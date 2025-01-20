@@ -25,7 +25,7 @@ int64_t sys::detail::MemoryInteract::brk(env::guest_t address) {
 
 	/* check if memory can be released (ignore failure of unmapping the memory) */
 	if (aligned < pBrk.aligned) {
-		if (!env::Instance()->memory().munmap(aligned, uint32_t(pBrk.aligned - aligned)))
+		if (!env::Instance()->memory().munmap(aligned, pBrk.aligned - aligned))
 			logger.warn(u8"Unable to release break-memory");
 		else
 			pBrk.aligned = aligned;
@@ -33,7 +33,7 @@ int64_t sys::detail::MemoryInteract::brk(env::guest_t address) {
 
 	/* check if memory needs to be allocated */
 	else if (aligned > pBrk.aligned) {
-		if (!env::Instance()->memory().mmap(pBrk.aligned, uint32_t(aligned - pBrk.aligned), env::Usage::ReadWrite)) {
+		if (!env::Instance()->memory().mmap(pBrk.aligned, aligned - pBrk.aligned, env::Usage::ReadWrite)) {
 			logger.warn(u8"Unable to allocate break-memory");
 			return pBrk.current;
 		}

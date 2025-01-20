@@ -325,7 +325,7 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 
 		/* write the link to the guest */
 		result = std::min<int64_t>(size, stats.link.size());
-		env::Instance()->memory().mwrite(address, stats.link.data(), uint32_t(result), env::Usage::Write);
+		env::Instance()->memory().mwrite(address, stats.link.data(), result, env::Usage::Write);
 		return result;
 		});
 }
@@ -388,7 +388,7 @@ int64_t sys::detail::FileIO::read(int64_t fd, env::guest_t address, uint64_t siz
 			return read;
 
 		/* write the data back to the guest memory */
-		env::Instance()->memory().mwrite(address, pBuffer.data(), uint32_t(read), env::Usage::Write);
+		env::Instance()->memory().mwrite(address, pBuffer.data(), read, env::Usage::Write);
 		return read;
 		});
 }
@@ -420,7 +420,7 @@ int64_t sys::detail::FileIO::readv(int64_t fd, env::guest_t vec, uint64_t count)
 		int64_t offset = 0;
 		for (size_t i = 0; i < pCached.size(); i += 2) {
 			size_t actual = std::min<size_t>(pBuffer.size() - offset, pCached[i + 1]);
-			env::Instance()->memory().mwrite(pCached[i], pBuffer.data() + offset, uint32_t(actual), env::Usage::Write);
+			env::Instance()->memory().mwrite(pCached[i], pBuffer.data() + offset, actual, env::Usage::Write);
 
 			/* check if the totally read data have been written back */
 			offset += actual;
@@ -438,7 +438,7 @@ int64_t sys::detail::FileIO::write(int64_t fd, env::guest_t address, uint64_t si
 
 	/* read the data from the guest */
 	pBuffer.resize(size);
-	env::Instance()->memory().mread(pBuffer.data(), address, uint32_t(size), env::Usage::Read);
+	env::Instance()->memory().mread(pBuffer.data(), address, size, env::Usage::Read);
 
 	/* write the data out */
 	return fWrite(pOpen[fd].instance);
@@ -461,7 +461,7 @@ int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count
 
 		/* collect the data and append them to the buffer */
 		pBuffer.insert(pBuffer.end(), size, 0);
-		env::Instance()->memory().mread(pBuffer.data() + total, address, uint32_t(size), env::Usage::Read);
+		env::Instance()->memory().mread(pBuffer.data() + total, address, size, env::Usage::Read);
 		total += size;
 	}
 
