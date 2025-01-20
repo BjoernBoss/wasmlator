@@ -14,18 +14,26 @@ namespace gen {
 	class FulFill {
 		friend class gen::Writer;
 	private:
+		enum class Operation : uint8_t {
+			none,
+			memory,
+			context,
+			host
+		};
+
+	private:
 		const gen::Writer* pWriter = 0;
 		gen::MemoryType pType = gen::MemoryType::i64;
+		Operation pOperation = Operation::none;
 
 	public:
 		FulFill() = default;
 
 	private:
-		FulFill(const gen::Writer* writer, gen::MemoryType type);
+		FulFill(const gen::Writer* writer, gen::MemoryType type, Operation operation);
 
 	public:
-		/* expects value on top of stack
-		*	Note: generated code may abort the control-flow */
+		/* expects value on top of stack */
 		void now();
 	};
 
@@ -72,21 +80,24 @@ namespace gen {
 		*	Note: generated code may abort the control-flow */
 		void read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
-		/* expects [i64] address on top of stack and after the value has been pushed [fulfill::now to be called]
-		*	Note: generated code may abort the control-flow */
+		/* expects [i64] address on top of stack and after the value has been pushed [fulfill::now] to be called
+		*	Note: generated code may abort the control-flow (not the now-call)
+		*	Note: pushes an i32 to the stack */
 		gen::FulFill write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
 		/* writes value from context to stack */
 		void get(uint32_t offset, gen::MemoryType type) const;
 
-		/* expectes value on top of stack and writes it to the context */
-		void set(uint32_t offset, gen::MemoryType type) const;
+		/* expectes nothing but after value has been pushed [fulfill::now] will write it to the context
+		*	Note: pushes an i32 to the stack */
+		gen::FulFill set(uint32_t offset, gen::MemoryType type) const;
 
 		/* writes value from host to the stack */
 		void readHost(const void* host, gen::MemoryType type) const;
 
-		/* expects value on top of stack and writes it to the host at the given address */
-		void writeHost(void* host, gen::MemoryType type) const;
+		/* expectes nothing but after value has been pushed [fulfill::now] will write it to the host at the given address
+		*	Note: pushes an i32 to the stack */
+		gen::FulFill writeHost(void* host, gen::MemoryType type) const;
 
 		/* expects [i32] result-code on top of stack
 		*	Note: generated code will abort the control-flow */

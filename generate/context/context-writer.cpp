@@ -85,48 +85,10 @@ void gen::detail::ContextWriter::fMakeHostRead(uintptr_t host, gen::MemoryType t
 		break;
 	}
 }
-void gen::detail::ContextWriter::fMakeHostWrite(uintptr_t host, gen::MemoryType type) const {
-	wasm::Variable value;
-
-	/* fetch the variable to be used for caching */
-	switch (type) {
-	case gen::MemoryType::u8To32:
-	case gen::MemoryType::i8To32:
-	case gen::MemoryType::u16To32:
-	case gen::MemoryType::i16To32:
-	case gen::MemoryType::i32:
-		if (!pValuei32.valid())
-			pValuei32 = gen::Sink->local(wasm::Type::i32, u8"_ctx_i32");
-		value = pValuei32;
-		break;
-	case gen::MemoryType::u8To64:
-	case gen::MemoryType::i8To64:
-	case gen::MemoryType::u16To64:
-	case gen::MemoryType::i16To64:
-	case gen::MemoryType::u32To64:
-	case gen::MemoryType::i32To64:
-	case gen::MemoryType::i64:
-		if (!pValuei64.valid())
-			pValuei64 = gen::Sink->local(wasm::Type::i64, u8"_ctx_i64");
-		value = pValuei64;
-		break;
-	case gen::MemoryType::f32:
-		if (!pValuef32.valid())
-			pValuef32 = gen::Sink->local(wasm::Type::f32, u8"_ctx_f32");
-		value = pValuef32;
-		break;
-	case gen::MemoryType::f64:
-		if (!pValuef64.valid())
-			pValuef64 = gen::Sink->local(wasm::Type::f64, u8"_ctx_f64");
-		value = pValuef64;
-		break;
-	}
-
-	/* cache the value (as it must be placed after the address) and prepare the stack */
-	gen::Add[I::Local::Set(value)];
+void gen::detail::ContextWriter::fMakeHostStartWrite(uintptr_t host) const {
 	gen::Add[I::U32::Const(host)];
-	gen::Add[I::Local::Get(value)];
-
+}
+void gen::detail::ContextWriter::fMakeHostEndWrite(gen::MemoryType type) const {
 	/* write the value to the context */
 	switch (type) {
 	case gen::MemoryType::u8To32:
@@ -168,15 +130,21 @@ void gen::detail::ContextWriter::makeRead(uint32_t offset, gen::MemoryType type)
 	fCheckRange(offset, type);
 	fMakeHostRead(env::detail::ContextAccess::ContextAddress() + offset, type);
 }
-void gen::detail::ContextWriter::makeWrite(uint32_t offset, gen::MemoryType type) const {
+void gen::detail::ContextWriter::makeStartWrite(uint32_t offset, gen::MemoryType type) const {
 	fCheckRange(offset, type);
-	fMakeHostWrite(env::detail::ContextAccess::ContextAddress() + offset, type);
+	fMakeHostStartWrite(env::detail::ContextAccess::ContextAddress() + offset);
+}
+void gen::detail::ContextWriter::makeEndWrite(gen::MemoryType type) const {
+	fMakeHostEndWrite(type);
 }
 void gen::detail::ContextWriter::makeHostRead(const void* host, gen::MemoryType type) const {
 	fMakeHostRead(reinterpret_cast<uintptr_t>(host), type);
 }
-void gen::detail::ContextWriter::makeHostWrite(void* host, gen::MemoryType type) const {
-	fMakeHostWrite(reinterpret_cast<uintptr_t>(host), type);
+void gen::detail::ContextWriter::makeStartHostWrite(void* host) const {
+	fMakeHostStartWrite(reinterpret_cast<uintptr_t>(host));
+}
+void gen::detail::ContextWriter::makeEndHostWrite(gen::MemoryType type) const {
+	fMakeHostEndWrite(type);
 }
 void gen::detail::ContextWriter::makeTerminate(env::guest_t address) const {
 	gen::Add[I::U64::Const(address)];

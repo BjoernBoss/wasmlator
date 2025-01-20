@@ -1,9 +1,14 @@
 #include "../generate.h"
 
-gen::FulFill::FulFill(const gen::Writer* writer, gen::MemoryType type) : pWriter{ writer }, pType{ type } {}
+gen::FulFill::FulFill(const gen::Writer* writer, gen::MemoryType type, Operation operation) : pWriter{ writer }, pType{ type }, pOperation{ operation } {}
 void gen::FulFill::now() {
-	pWriter->pMemory.makeEndWrite(pType);
-	pWriter = 0;
+	/* dont reset after the operation, as mutliple fulfills might happend due to case-switches */
+	if (pOperation == Operation::memory)
+		pWriter->pMemory.makeEndWrite(pType);
+	else if (pOperation == Operation::context)
+		pWriter->pContext.makeEndWrite(pType);
+	else if (pOperation == Operation::host)
+		pWriter->pContext.makeEndHostWrite(pType);
 }
 
 gen::Writer::Writer(detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
@@ -46,19 +51,21 @@ void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t i
 }
 gen::FulFill gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
 	pMemory.makeStartWrite(cacheIndex, type, instAddress);
-	return gen::FulFill{ this, type };
+	return gen::FulFill{ this, type, gen::FulFill::Operation::memory };
 }
 void gen::Writer::get(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeRead(offset, type);
 }
-void gen::Writer::set(uint32_t offset, gen::MemoryType type) const {
-	pContext.makeWrite(offset, type);
+gen::FulFill gen::Writer::set(uint32_t offset, gen::MemoryType type) const {
+	pContext.makeStartWrite(offset, type);
+	return gen::FulFill{ this, type, gen::FulFill::Operation::context };
 }
 void gen::Writer::readHost(const void* host, gen::MemoryType type) const {
 	pContext.makeHostRead(host, type);
 }
-void gen::Writer::writeHost(void* host, gen::MemoryType type) const {
-	pContext.makeHostWrite(host, type);
+gen::FulFill gen::Writer::writeHost(void* host, gen::MemoryType type) const {
+	pContext.makeStartHostWrite(host);
+	return gen::FulFill{ this, type, gen::FulFill::Operation::host };
 }
 void gen::Writer::terminate(env::guest_t instAddress) const {
 	pContext.makeTerminate(instAddress);

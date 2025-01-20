@@ -28,14 +28,14 @@ namespace rv64 {
 	private:
 		bool fLoadSrc1(bool forceNull, bool half) const;
 		bool fLoadSrc2(bool forceNull, bool half) const;
-		void fStoreReg(uint8_t reg) const;
-		void fStoreDest() const;
+		gen::FulFill fStoreReg(uint8_t reg) const;
+		gen::FulFill fStoreDest() const;
 
 	private:
 		void fLoadFSrc1(bool half) const;
 		void fLoadFSrc2(bool half) const;
 		void fLoadFSrc3(bool half) const;
-		void fStoreFDest(bool isAsInt) const;
+		gen::FulFill fStoreFDest(bool isAsInt) const;
 		void fExpandFloat(bool isAsInt, bool leaveAsInt) const;
 
 	private:

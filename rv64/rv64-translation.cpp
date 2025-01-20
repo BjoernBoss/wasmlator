@@ -34,12 +34,13 @@ bool rv64::Translate::fLoadSrc2(bool forceNull, bool half) const {
 		gen::Add[half ? I::U32::Const(0) : I::U64::Const(0)];
 	return false;
 }
-void rv64::Translate::fStoreReg(uint8_t reg) const {
+gen::FulFill rv64::Translate::fStoreReg(uint8_t reg) const {
 	if (reg != reg::Zero)
-		gen::Make->set(offsetof(rv64::Context, iregs) + reg * sizeof(uint64_t), gen::MemoryType::i64);
+		return gen::Make->set(offsetof(rv64::Context, iregs) + reg * sizeof(uint64_t), gen::MemoryType::i64);
+	return gen::FulFill{};
 }
-void rv64::Translate::fStoreDest() const {
-	fStoreReg(pInst->dest);
+gen::FulFill rv64::Translate::fStoreDest() const {
+	return fStoreReg(pInst->dest);
 }
 
 void rv64::Translate::fLoadFSrc1(bool half) const {
@@ -51,11 +52,10 @@ void rv64::Translate::fLoadFSrc2(bool half) const {
 void rv64::Translate::fLoadFSrc3(bool half) const {
 	gen::Make->get(offsetof(rv64::Context, fregs) + pInst->src3 * sizeof(double), half ? gen::MemoryType::f32 : gen::MemoryType::f64);
 }
-void rv64::Translate::fStoreFDest(bool isAsInt) const {
+gen::FulFill rv64::Translate::fStoreFDest(bool isAsInt) const {
 	if (isAsInt)
-		gen::Make->get(offsetof(rv64::Context, fregs) + pInst->dest * sizeof(double), gen::MemoryType::i64);
-	else
-		gen::Make->get(offsetof(rv64::Context, fregs) + pInst->dest * sizeof(double), gen::MemoryType::f64);
+		return gen::Make->set(offsetof(rv64::Context, fregs) + pInst->dest * sizeof(double), gen::MemoryType::i64);
+	return gen::Make->set(offsetof(rv64::Context, fregs) + pInst->dest * sizeof(double), gen::MemoryType::f64);
 }
 void rv64::Translate::fExpandFloat(bool isAsInt, bool leaveAsInt) const {
 	/* check if the value needs to be intereprted as an integer */
@@ -77,6 +77,9 @@ void rv64::Translate::fMakeImms() const {
 	if (pInst->dest == reg::Zero)
 		return;
 
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
 	/* write the immediate to the stack */
 	switch (pInst->opcode) {
 	case rv64::Opcode::multi_load_imm:
@@ -94,17 +97,19 @@ void rv64::Translate::fMakeImms() const {
 	}
 
 	/* write the immediate to the register */
-	fStoreDest();
+	fulfill.now();
 }
 void rv64::Translate::fMakeJALI() {
 	/* write the next pc to the destination register */
 	if (pInst->opcode == rv64::Opcode::multi_call) {
+		gen::FulFill fulfill = fStoreReg(reg::X1);
 		gen::Add[I::U64::Const(pNextAddress)];
-		fStoreReg(reg::X1);
+		fulfill.now();
 	}
 	else if (pInst->opcode == rv64::Opcode::jump_and_link_imm && pInst->dest != reg::Zero) {
+		gen::FulFill fulfill = fStoreDest();
 		gen::Add[I::U64::Const(pNextAddress)];
-		fStoreDest();
+		fulfill.now();
 	}
 
 	/* check if the target is misaligned and add the misalignment-exception */
@@ -121,8 +126,9 @@ void rv64::Translate::fMakeJALI() {
 void rv64::Translate::fMakeJALR() {
 	/* write the next pc to the destination register */
 	if (pInst->dest != reg::Zero) {
+		gen::FulFill fulfill = fStoreDest();
 		gen::Add[I::U64::Const(pNextAddress)];
-		fStoreDest();
+		fulfill.now();
 	}
 	wasm::Variable addr = fTemp64(0);
 
@@ -221,6 +227,9 @@ void rv64::Translate::fMakeALUImm() const {
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
 
 	/* write the result of the operation to the stack */
 	switch (pInst->opcode) {
@@ -327,17 +336,20 @@ void rv64::Translate::fMakeALUImm() const {
 	}
 
 	/* write the result to the register */
-	fStoreDest();
+	fulfill.now();
 }
 void rv64::Translate::fMakeALUReg() const {
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
 
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
 	/* check if the two sources are null, in which case nothing needs to be done */
 	if (pInst->src1 == reg::Zero && pInst->src2 == reg::Zero) {
 		gen::Add[I::U64::Const(0)];
-		fStoreDest();
+		fulfill.now();
 		return;
 	}
 
@@ -345,7 +357,7 @@ void rv64::Translate::fMakeALUReg() const {
 	if ((pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) && (pInst->opcode == rv64::Opcode::and_reg ||
 		pInst->opcode == rv64::Opcode::mul_reg || pInst->opcode == rv64::Opcode::mul_reg_half)) {
 		gen::Add[I::U64::Const(0)];
-		fStoreDest();
+		fulfill.now();
 		return;
 	}
 
@@ -453,12 +465,15 @@ void rv64::Translate::fMakeALUReg() const {
 	}
 
 	/* write the result to the register */
-	fStoreDest();
+	fulfill.now();
 }
 void rv64::Translate::fMakeLoad(bool multi) const {
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
 
 	/* compute the destination address and write it to the stack */
 	if (multi)
@@ -504,7 +519,7 @@ void rv64::Translate::fMakeLoad(bool multi) const {
 	}
 
 	/* write the value to the register */
-	fStoreDest();
+	fulfill.now();
 }
 void rv64::Translate::fMakeStore(bool multi) const {
 	/* compute the destination address and write it to the stack */
@@ -546,6 +561,10 @@ void rv64::Translate::fMakeStore(bool multi) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeDivRem() {
+	/* check if the operation can be discarded */
+	if (pInst->dest == reg::Zero)
+		return;
+
 	/* operation-checks to simplify the logic */
 	bool half = (pInst->opcode == rv64::Opcode::div_s_reg_half || pInst->opcode == rv64::Opcode::div_u_reg_half ||
 		pInst->opcode == rv64::Opcode::rem_s_reg_half || pInst->opcode == rv64::Opcode::rem_u_reg_half);
@@ -555,17 +574,18 @@ void rv64::Translate::fMakeDivRem() {
 		pInst->opcode == rv64::Opcode::rem_s_reg || pInst->opcode == rv64::Opcode::rem_s_reg_half);
 	wasm::Type type = (half ? wasm::Type::i32 : wasm::Type::i64);
 
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
 	/* check if the operation can be discarded, as it is a division by zero */
-	if (pInst->dest == reg::Zero)
-		return;
 	if (pInst->src2 == reg::Zero) {
 		if (div) {
 			gen::Add[I::I64::Const(-1)];
-			fStoreDest();
+			fulfill.now();
 		}
 		else if (pInst->src1 != pInst->dest) {
 			fLoadSrc1(true, false);
-			fStoreDest();
+			fulfill.now();
 		}
 		return;
 	}
@@ -578,14 +598,14 @@ void rv64::Translate::fMakeDivRem() {
 	/* check if a division-by-zero will occur */
 	gen::Add[I::Local::Tee(temp)];
 	gen::Add[half ? I::U32::EqualZero() : I::U64::EqualZero()];
-	wasm::IfThen zero{ gen::Sink, u8"", { type }, {} };
+	wasm::IfThen zero{ gen::Sink, u8"", { wasm::Type::i32, type }, {} };
 
 	/* write the division-by-zero result to the stack (for remainder, its just the first operand) */
 	if (div) {
 		gen::Add[I::Drop()];
 		gen::Add[I::I64::Const(-1)];
 	}
-	fStoreDest();
+	fulfill.now();
 
 	/* restore the second operand */
 	zero.otherwise();
@@ -594,24 +614,24 @@ void rv64::Translate::fMakeDivRem() {
 	/* check if a division overflow may occur */
 	wasm::Block overflown;
 	if (sign) {
-		overflown = std::move(wasm::Block{ gen::Sink, u8"", { type, type }, {} });
+		overflown = std::move(wasm::Block{ gen::Sink, u8"", { wasm::Type::i32, type, type }, {} });
 		gen::Add[half ? I::I32::Const(-1) : I::I64::Const(-1)];
 		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
-		wasm::IfThen mayOverflow{ gen::Sink, u8"", { type }, { type, type } };
+		wasm::IfThen mayOverflow{ gen::Sink, u8"", { wasm::Type::i32, type }, { type, type } };
 
 		/* check the second operand (temp can be overwritten, as the divisor is now known) */
 		gen::Add[I::Local::Tee(temp)];
 		gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
 		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
 		{
-			wasm::IfThen isOverflow{ gen::Sink, u8"", {}, { type, type } };
+			wasm::IfThen isOverflow{ gen::Sink, u8"", { wasm::Type::i32 }, { type, type } };
 
 			/* write the overflow result to the destination */
 			if (div)
 				gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
 			else
 				gen::Add[half ? I::I32::Const(0) : I::I64::Const(0)];
-			fStoreDest();
+			fulfill.now();
 			gen::Add[I::Branch::Direct(overflown)];
 
 			/* restore the operands for the operation */
@@ -660,7 +680,7 @@ void rv64::Translate::fMakeDivRem() {
 	}
 
 	/* write the result to the register */
-	fStoreDest();
+	fulfill.now();
 }
 void rv64::Translate::fMakeAMO(bool half) {
 	/*
@@ -792,10 +812,11 @@ void rv64::Translate::fMakeAMO(bool half) {
 
 	/* write the original value back to the destination */
 	if (pInst->dest != reg::Zero) {
+		gen::FulFill fulfill = fStoreDest();
 		gen::Add[I::Local::Get(value)];
 		if (half)
 			gen::Add[I::I32::Expand()];
-		fStoreDest();
+		fulfill.now();
 	}
 }
 void rv64::Translate::fMakeAMOLR() {
@@ -823,9 +844,10 @@ void rv64::Translate::fMakeAMOLR() {
 
 	/* write the value from memory to the register */
 	if (pInst->dest != reg::Zero) {
+		gen::FulFill fulfill = fStoreDest();
 		gen::Add[I::Local::Get(addr)];
 		gen::Make->read(rv64::ReadCaches + pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
-		fStoreDest();
+		fulfill.now();
 	}
 }
 void rv64::Translate::fMakeAMOSC() {
@@ -858,8 +880,9 @@ void rv64::Translate::fMakeAMOSC() {
 
 	/* write the result to the destination register */
 	if (pInst->dest != reg::Zero) {
+		gen::FulFill fulfill = fStoreDest();
 		gen::Add[I::U64::Const(0)];
-		fStoreDest();
+		fulfill.now();
 	}
 }
 void rv64::Translate::fMakeMul() {
@@ -881,10 +904,13 @@ void rv64::Translate::fMakeMul() {
 	if (pInst->dest == reg::Zero)
 		return;
 
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
 	/* check if the operation can be short-circuited */
 	if (pInst->src1 == reg::Zero || pInst->src2 == reg::Zero) {
 		gen::Add[I::U64::Const(0)];
-		fStoreDest();
+		fulfill.now();
 		return;
 	}
 
@@ -971,7 +997,7 @@ void rv64::Translate::fMakeMul() {
 	gen::Add[I::U64::Add()];
 
 	/* write the result to the register */
-	fStoreDest();
+	fulfill.now();
 }
 void rv64::Translate::fMakeCSR() {
 	/*
@@ -1035,9 +1061,6 @@ void rv64::Translate::fMakeCSR() {
 	if (!read && !write)
 		return;
 
-	/* read the float status-register value to the stack */
-	gen::Make->get(offsetof(rv64::Context, float_csr), gen::MemoryType::i64);
-
 	/* fetch the shift and mask properties of the actual csr */
 	uint32_t shift = 0, mask = 0;
 	switch (pInst->misc) {
@@ -1055,6 +1078,13 @@ void rv64::Translate::fMakeCSR() {
 		break;
 	}
 
+	/* prepare the result writebacks */
+	gen::FulFill csrFulfill = (write ? gen::Make->set(offsetof(rv64::Context, float_csr), gen::MemoryType::i64) : gen::FulFill{});
+	gen::FulFill regFulfill = (read ? fStoreDest() : gen::FulFill{});
+
+	/* read the float status-register value to the stack */
+	gen::Make->get(offsetof(rv64::Context, float_csr), gen::MemoryType::i64);
+
 	/* check if the original value should be written to the destination register */
 	if (read) {
 		wasm::Variable t0;
@@ -1070,7 +1100,7 @@ void rv64::Translate::fMakeCSR() {
 		gen::Add[I::U64::And()];
 
 		/* write the value to the destination register */
-		fStoreDest();
+		regFulfill.now();
 
 		/* restore the original value */
 		if (!write)
@@ -1142,10 +1172,13 @@ void rv64::Translate::fMakeCSR() {
 	}
 
 	/* write the value from the stack back to the float status-register */
-	gen::Make->set(offsetof(rv64::Context, float_csr), gen::MemoryType::i64);
+	csrFulfill.now();
 }
 
 void rv64::Translate::fMakeFLoad(bool multi) const {
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(true);
+
 	/* compute the destination address and write it to the stack */
 	if (multi)
 		gen::Add[I::I64::Const(pAddress + pInst->imm)];
@@ -1171,7 +1204,7 @@ void rv64::Translate::fMakeFLoad(bool multi) const {
 	}
 
 	/* write the value to the register */
-	fStoreFDest(true);
+	fulfill.now();
 }
 void rv64::Translate::fMakeFStore(bool multi) const {
 	/* compute the destination address and write it to the stack */

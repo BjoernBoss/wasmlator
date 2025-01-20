@@ -25,12 +25,14 @@ void sys::Writer::makeFlushInstCache(env::guest_t address, env::guest_t nextAddr
 }
 void sys::Writer::makeSyscall(env::guest_t address, env::guest_t nextAddress) {
 	/* write the address to the cache */
+	gen::FulFill fulfill = gen::Make->writeHost(&pSyscall.address, gen::MemoryType::i64);
 	gen::Add[I::U64::Const(address)];
-	gen::Make->writeHost(&pSyscall.address, gen::MemoryType::i64);
+	fulfill.now();
 
 	/* write the next address to the cache */
+	fulfill = gen::Make->writeHost(&pSyscall.next, gen::MemoryType::i64);
 	gen::Add[I::U64::Const(nextAddress)];
-	gen::Make->writeHost(&pSyscall.next, gen::MemoryType::i64);
+	fulfill.now();
 
 	/* perform the syscall-call */
 	gen::Make->invokeVoid(pRegistered.syscall);
@@ -38,12 +40,14 @@ void sys::Writer::makeSyscall(env::guest_t address, env::guest_t nextAddress) {
 }
 void sys::Writer::makeException(uint64_t id, env::guest_t address, env::guest_t nextAddress) {
 	/* write the id to the cache */
+	gen::FulFill fulfill = gen::Make->writeHost(&pException.id, gen::MemoryType::i64);
 	gen::Add[I::U64::Const(id)];
-	gen::Make->writeHost(&pException.id, gen::MemoryType::i64);
+	fulfill.now();
 
 	/* write the address to the cache */
+	fulfill = gen::Make->writeHost(&pException.address, gen::MemoryType::i64);
 	gen::Add[I::U64::Const(address)];
-	gen::Make->writeHost(&pException.address, gen::MemoryType::i64);
+	fulfill.now();
 
 	/* perform the exception-call */
 	gen::Make->invokeVoid(pRegistered.exception);
