@@ -6,7 +6,7 @@
 #include "../debugger/sys-debugger.h"
 #include "../syscall/sys-syscall.h"
 #include "../writer/sys-writer.h"
-#include "../elf/sys-static-elf.h"
+#include "../elf/sys-elf.h"
 
 namespace sys {
 	/* userspace single-threaded system, which set up an environment, loads a static-elf
@@ -37,7 +37,8 @@ namespace sys {
 		Userspace(const sys::Userspace&) = delete;
 
 	private:
-		env::guest_t fPrepareStack(const sys::ElfLoaded& loaded) const;
+		std::u8string_view fArchType(sys::ArchType architecture) const;
+		env::guest_t fPrepareStack(const sys::ElfLoaded& loaded, bool is64Bit) const;
 		bool fBinaryLoaded(const uint8_t* data, size_t size);
 		void fExecute();
 

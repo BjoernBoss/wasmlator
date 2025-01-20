@@ -11,9 +11,10 @@ namespace sys {
 		uint32_t pMemoryCaches = 0;
 		uint32_t pContextSize = 0;
 		bool pMultiThreaded = false;
+		sys::ArchType pArchType = sys::ArchType::unknown;
 
 	protected:
-		constexpr Cpu(std::u8string name, uint32_t memoryCaches, uint32_t contextSize, bool multiThreaded) : pName{ name }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize }, pMultiThreaded{ multiThreaded } {}
+		constexpr Cpu(std::u8string name, uint32_t memoryCaches, uint32_t contextSize, bool multiThreaded, sys::ArchType architecture) : pName{ name }, pMemoryCaches{ memoryCaches }, pContextSize{ contextSize }, pMultiThreaded{ multiThreaded }, pArchType{ architecture } {}
 
 	public:
 		/* configure the cpu to run in userspace mode */
@@ -62,6 +63,9 @@ namespace sys {
 		}
 		constexpr bool multiThreaded() const {
 			return pMultiThreaded;
+		}
+		constexpr sys::ArchType architecture() const {
+			return pArchType;
 		}
 	};
 }

@@ -1,30 +1,9 @@
-#include "sys-static-elf.h"
+#include "sys-elf.h"
 
-static util::Logger logger{ u8"sys::Elf" };
+static util::Logger logger{ u8"sys::elf" };
 
 namespace elf = sys::elf;
-
-static uint32_t ValidateElfIdentifier(const uint8_t* data, size_t size) {
-	if (size < 9)
-		throw elf::Exception{ L"Buffer too small to contain elf identifier" };
-
-	/* validate the header identification structure */
-	if (data[0] != elf::ident::_0Magic || data[1] != elf::ident::_1Magic || data[2] != elf::ident::_2Magic || data[3] != elf::ident::_3Magic)
-		throw elf::Exception{ L"Invalid elf magic identifier" };
-	if (data[4] != elf::ident::_4elfClass32 && data[4] != elf::ident::_4elfClass64)
-		throw elf::Exception{ L"Unsupported bit-width [only 32 and 64 bit supported]" };
-	if (data[5] != elf::ident::_5elfData2LSB)
-		throw elf::Exception{ L"Only little endianness supported" };
-	if (data[6] != elf::ident::_6versionCurrent)
-		throw elf::Exception{ L"Invalid current version" };
-	if (data[7] != elf::ident::_7osABILinux && data[7] != elf::ident::_7osABISYSV)
-		throw elf::Exception{ L"Unsupported OS-ABI" };
-	if (data[8] != elf::ident::_8osABIVersion)
-		throw elf::Exception{ L"Unsupported abi-version" };
-
-	/* return the bit-width */
-	return (data[4] == elf::ident::_4elfClass32 ? 32 : 64);
-}
+namespace detail = sys::elf::detail;
 
 template <class BaseType>
 static void ValidateElfHeader(const elf::ElfHeader<BaseType>* header) {
@@ -41,13 +20,10 @@ static void ValidateElfHeader(const elf::ElfHeader<BaseType>* header) {
 		throw elf::Exception{ L"Issue with program-headers detected" };
 	if (header->ehsize != sizeof(elf::ElfHeader<BaseType>))
 		throw elf::Exception{ "Issue with executable-header detected" };
-
-	/* log the machine type */
-	logger.info(u8"Machine type: ", uint64_t(header->machine));
 }
 
 template <class BaseType>
-static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const elf::Reader& reader) {
+static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const detail::Reader& reader) {
 	using ElfType = elf::ElfHeader<BaseType>;
 	using SecType = elf::SectionHeader<BaseType>;
 	using ProType = elf::ProgramHeader<BaseType>;
@@ -117,7 +93,7 @@ static std::pair<env::guest_t, env::guest_t> UnpackElfFile(const elf::Reader& re
 }
 
 template <class BaseType>
-static sys::ElfLoaded LoadStaticElf(const elf::Reader& reader) {
+static sys::ElfLoaded LoadStaticElf(const detail::Reader& reader) {
 	const elf::ElfHeader<BaseType>* header = reader.get<elf::ElfHeader<BaseType>>(0);
 
 	/* validate the overall elf-header and unpack the elf-file */
@@ -130,16 +106,17 @@ static sys::ElfLoaded LoadStaticElf(const elf::Reader& reader) {
 	output.phCount = header->phCount;
 	output.phEntrySize = header->phEntrySize;
 	output.endOfData = endOfData;
-	output.is64Bit = (sizeof(BaseType) == 8);
 	output.phAddress = phAddress;
 	return output;
 }
 
 sys::ElfLoaded sys::LoadElfStatic(const uint8_t* data, size_t size) {
-	elf::Reader reader{ data, size };
+	elf::detail::Reader reader{ data, size };
 
 	/* validate the raw file-header (bit-width agnostic) */
-	uint32_t bitWidth = ValidateElfIdentifier(data, size);
+	if (!elf::CheckValid(data, size))
+		throw elf::Exception{ L"Data do not have a valid elf-signature" };
+	uint32_t bitWidth = elf::GetBitWidth(data, size);
 
 	/* parse the elf-file based on its used bit-width */
 	if (bitWidth == 32) {

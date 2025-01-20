@@ -9,7 +9,6 @@ namespace sys {
 		env::guest_t phAddress = 0;
 		uint32_t phEntrySize = 0;
 		uint32_t phCount = 0;
-		bool is64Bit = false;
 	};
 
 	/* load static elf file to current env::Process */

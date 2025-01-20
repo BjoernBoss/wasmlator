@@ -23,9 +23,7 @@ namespace sys {
 	class Userspace;
 	namespace detail {
 		class Syscall;
-	}
 
-	namespace detail {
 		namespace errCode {
 			static constexpr int64_t eSuccess = 0;
 			static constexpr int64_t eNoEntry = -2;
@@ -71,6 +69,12 @@ namespace sys {
 			AwaitingSyscall(env::guest_t address) : env::Exception{ address } {}
 		};
 	}
+
+	enum class ArchType : uint8_t {
+		unknown,
+		x86_64,
+		riscv64
+	};
 
 	enum class SyscallIndex : uint32_t {
 		unknown,

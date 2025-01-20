@@ -141,13 +141,15 @@ int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	env::Instance()->memory().mwrite(addr + 3 * 65llu, u8"userspace-wasmlator #version 1.0.0", 35, env::Usage::Write);
 
 	/* write the machine out */
-	env::Instance()->memory().mwrite(addr + 4 * 65llu, u8"wasm", 5, env::Usage::Write);
+	size_t len = std::max<size_t>(64, pMachine.size() + 1);
+	env::Instance()->memory().mwrite(addr + 4 * 65llu, pMachine.data(), len, env::Usage::Write);
 	return errCode::eSuccess;
 }
 
-bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path) {
+bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path, std::u8string_view machine) {
 	pUserspace = userspace;
-	pConfig.path = path;
+	pConfig.path = std::u8string{ path };
+	pMachine = std::u8string{ machine };
 
 	/* setup the file-io */
 	if (!pFileIO.setup(this))

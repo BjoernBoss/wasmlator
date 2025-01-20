@@ -157,64 +157,38 @@ namespace sys::elf {
 		BaseType entrySize;
 	};
 
-	/* fetch the elf-type from the given bytes or return none, if it does not exist */
-	inline elf::ElfType GetType(const uint8_t* data, size_t size) {
-		if (size < sizeof(elf::ElfHeader<uint32_t>))
-			return elf::ElfType::none;
-		const elf::ElfHeader<uint32_t>* header = reinterpret_cast<const elf::ElfHeader<uint32_t>*>(data);
-		return header->type;
-	}
-
-	/* fetch the elf-machine type from the given bytes or return none, if it does not exist */
-	inline elf::MachineType GetMachine(const uint8_t* data, size_t size) {
-		if (size < sizeof(elf::ElfHeader<uint32_t>))
-			return elf::MachineType::none;
-		const elf::ElfHeader<uint32_t>* header = reinterpret_cast<const elf::ElfHeader<uint32_t>*>(data);
-		return header->machine;
-	}
-
-	/* fetch the elf bit-width from the given bytes or return 0, if it does not exist */
-	inline uint32_t GetBitWidth(const uint8_t* data, size_t size) {
-		if (size < sizeof(elf::ElfHeader<uint32_t>))
-			return 0;
-		const elf::ElfHeader<uint32_t>* header = reinterpret_cast<const elf::ElfHeader<uint32_t>*>(data);
-		if (header->identifier[4] == ident::_4elfClass32)
-			return 32;
-		if (header->identifier[4] == ident::_4elfClass64)
-			return 64;
-		return 0;
-	}
-
 	/* exception thrown for any issues regarding elf-file parsing/loading */
 	struct Exception : public str::BuildException {
 		template <class... Args>
 		constexpr Exception(const Args&... args) : str::BuildException{ args... } {}
 	};
 
-	class Reader {
-	private:
-		const uint8_t* pData = 0;
-		size_t pSize = 0;
+	namespace detail {
+		class Reader {
+		private:
+			const uint8_t* pData = 0;
+			size_t pSize = 0;
 
-	public:
-		Reader(const uint8_t* data, size_t size) : pData{ data }, pSize{ size } {}
+		public:
+			Reader(const uint8_t* data, size_t size) : pData{ data }, pSize{ size } {}
 
-	private:
-		void fCheck(size_t count) const {
-			if (count > pSize)
-				throw elf::Exception{ L"Cannot read [", count, L"] bytes from elf of size [", pSize, L']' };
-		}
+		private:
+			void fCheck(size_t count) const {
+				if (count > pSize)
+					throw elf::Exception{ L"Cannot read [", count, L"] bytes from elf of size [", pSize, L']' };
+			}
 
-	public:
-		template <class Type>
-		const Type* get(size_t offset) const {
-			fCheck(offset + sizeof(Type));
-			return reinterpret_cast<const Type*>(pData + offset);
-		}
-		template <class Type>
-		const Type* base(size_t offset, size_t size) const {
-			fCheck(offset + size * sizeof(Type));
-			return reinterpret_cast<const Type*>(pData + offset);
-		}
-	};
+		public:
+			template <class Type>
+			const Type* get(size_t offset) const {
+				fCheck(offset + sizeof(Type));
+				return reinterpret_cast<const Type*>(pData + offset);
+			}
+			template <class Type>
+			const Type* base(size_t offset, size_t size) const {
+				fCheck(offset + size * sizeof(Type));
+				return reinterpret_cast<const Type*>(pData + offset);
+			}
+		};
+	}
 }

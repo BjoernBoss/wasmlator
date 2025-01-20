@@ -2,9 +2,19 @@
 
 static util::Logger logger{ u8"sys::userspace" };
 
-env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
+std::u8string_view sys::Userspace::fArchType(sys::ArchType architecture) const {
+	switch (architecture) {
+	case sys::ArchType::riscv64:
+		return u8"riscv64";
+	case sys::ArchType::x86_64:
+		return u8"x86_64";
+	default:
+		return u8"unknown";
+	}
+}
+env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded, bool is64Bit) const {
 	env::Memory& mem = env::Instance()->memory();
-	size_t wordWidth = (loaded.is64Bit ? 8 : 4);
+	size_t wordWidth = (is64Bit ? 8 : 4);
 
 	/* count the size of the blob of data at the end (16 bytes for random data) */
 	size_t blobSize = 16 + pBinary.size() + 1;
@@ -116,10 +126,51 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded) const {
 	return stack;
 }
 bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
-	sys::ElfLoaded loaded;
+	/* validate the initial elf-header */
+	if (!elf::CheckValid(data, size)) {
+		logger.error(u8"Binary [", pBinary, u8"] is not a valid elf binary");
+		return false;
+	}
+
+	/* validate the word-width (necessary, as env::Memory's allocate function currently
+	*	allocates into the unreachable portion of the 32 bit address space) */
+	if (elf::GetBitWidth(data, size) != 64) {
+		logger.error(u8"Only 64 bit elf binaries are supported");
+		return false;
+	}
+	bool is64Bit = true;
+
+	/* validate the machine type and match it */
+	sys::ArchType arch = sys::ArchType::unknown;
+	switch (elf::GetMachine(data, size)) {
+	case elf::MachineType::riscv:
+		arch = sys::ArchType::riscv64;
+		break;
+	case elf::MachineType::x86_64:
+		arch = sys::ArchType::x86_64;
+		break;
+	default:
+		arch = sys::ArchType::unknown;
+		break;
+	}
+
+	/* check if the type matches */
+	if (pCpu->architecture() != arch) {
+		logger.error(u8"Cpu for architecture [", fArchType(pCpu->architecture()), u8"] cannot execute elf of type [", fArchType(arch), u8']');
+		return false;
+	}
+
+	/* check the elf-kind */
+	elf::ElfType elfType = elf::GetType(data, size);
+	if (elfType != elf::ElfType::executable && elfType != elf::ElfType::dynamic) {
+		logger.error(u8"Elf is not an executable");
+		return false;
+	}
 
 	/* load the static elf-image and configure the startup-address */
+	sys::ElfLoaded loaded;
 	try {
+		/* load the static elf */
 		loaded = sys::LoadElfStatic(data, size);
 		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
 		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
@@ -130,21 +181,14 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		return false;
 	}
 
-	/* validate the word-width (necessary, as env::Memory's allocate function currently
-	*	allocates into the unreachable portion of the 32 bit address space) */
-	if (!loaded.is64Bit) {
-		logger.error(u8"Only 64 bit static elf binaries are supported");
-		return false;
-	}
-
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
-	env::guest_t spAddress = fPrepareStack(loaded);
+	env::guest_t spAddress = fPrepareStack(loaded, is64Bit);
 	if (spAddress == 0)
 		return false;
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* initialize the syscall environment */
-	if (!pSyscall.setup(this, loaded.endOfData, pBinary)) {
+	if (!pSyscall.setup(this, loaded.endOfData, pBinary, fArchType(pCpu->architecture()))) {
 		logger.error(u8"Failed to setup the userspace syscalls");
 		return false;
 	}
@@ -152,6 +196,9 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 	/* initialize the context */
 	if (!pCpu->setupContext(pAddress, spAddress))
 		return false;
+
+	/* log the system as fully loaded */
+	logger.log(u8"Userspace environment fully initialized");
 
 	/* check if this is debug-mode, in which case no block needs to be translated
 	*	yet, otherwise immediately startup the translation and execution */
@@ -169,6 +216,10 @@ void sys::Userspace::fExecute() {
 	catch (const env::Terminated& e) {
 		pAddress = e.address;
 		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with [", e.code, u8']');
+
+		/* shutdown the system */
+		logger.log(u8"Shutting userspace environment down");
+		env::Instance()->shutdown();
 	}
 	catch (const env::MemoryFault& e) {
 		pAddress = e.address;
@@ -238,6 +289,12 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string
 	}
 	if (system->pCpu->multiThreaded())
 		logger.warn(u8"Userspace currently does not support true multiple threads");
+
+	/* validate the cpu-architecture */
+	if (cpu->architecture() == sys::ArchType::unknown) {
+		logger.error(u8"Unsupported architecture [", system->fArchType(cpu->architecture()), u8"] used by cpu");
+		return false;
+	}
 
 	/* check if the debugger could be created */
 	sys::Debugger* debugObject = 0;
