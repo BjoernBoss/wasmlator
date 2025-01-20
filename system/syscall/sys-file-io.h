@@ -56,12 +56,12 @@ namespace sys::detail {
 		bool fCheckFd(int64_t fd) const;
 		int64_t fCheckRead(int64_t fd) const;
 		int64_t fCheckWrite(int64_t fd) const;
-		bool fCheckAccess(const env::FileStats* stats, bool read, bool write, bool execute) const;
+		bool fCheckAccess(const env::FileStats& stats, bool read, bool write, bool execute) const;
 		int64_t fCheckPath(int64_t dirfd, std::u8string_view path, std::u8string& actual);
 
 	private:
-		int64_t fResolveNode(const std::u8string& path, bool follow, bool exact, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats*, bool)> callback);
-		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, bool follow, bool exact, detail::SharedNode node, const env::FileStats* stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats*, bool)> callback);
+		int64_t fResolveNode(const std::u8string& path, bool follow, bool exact, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
+		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, bool follow, bool exact, detail::SharedNode node, const env::FileStats& stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
 
 	private:
 		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);

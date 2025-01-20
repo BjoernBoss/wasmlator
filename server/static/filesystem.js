@@ -1,13 +1,13 @@
-fsDefaultUser = 1001;
-fsDefaultGroup = 1001;
-fsDirPermissions = 0o775;
-fsDefaultPermissions = 0o754;
-fsRootUser = 0;
-fsRootGroup = 0;
-fsRootPermissions = 0o755;
+const fsDefaultUser = 1001;
+const fsDefaultGroup = 1001;
+const fsDirPermissions = 0o755;
+const fsDefaultPermissions = 0o754;
+const fsRootUser = 0;
+const fsRootGroup = 0;
+const fsRootPermissions = 0o755;
 
 class FileNode {
-	constructor(stats, ancestor) {
+	constructor(stats, ancestor, uniqueId) {
 		this.ancestor = ancestor;
 		this.dataDirty = false;
 		this.metaDirty = false;
@@ -15,6 +15,9 @@ class FileNode {
 		this.users = 0;
 		this.data = null;
 		this.timeout = null;
+		this.uniqueId = uniqueId;
+		if (this.stats != null)
+			this.stats.id = this.uniqueId;
 	}
 
 	setupEmptyStats(type) {
@@ -24,7 +27,7 @@ class FileNode {
 		this.stats.atime_us = Date.now() * 1000;
 		this.stats.mtime_us = this.stats.atime_us;
 		this.stats.type = type;
-		node._setupAccess(root);
+		this.stats.id = this.uniqueId;
 	}
 	setupAccess(owner, group, permissions) {
 		this.stats.owner = owner;
@@ -67,6 +70,7 @@ class MemFileSystem {
 	constructor(log, err) {
 		this._log = log;
 		this._err = err;
+		this._nextId = 0;
 
 		/* set of all open or queried files */
 		this._files = {};
@@ -118,12 +122,12 @@ class MemFileSystem {
 				})
 				.then((json) => {
 					this._log(`Stats for [${path}] received`);
-					this._files[path] = new FileNode(json, ancestor);
+					this._files[path] = new FileNode(json, ancestor, ++this._nextId);
 				})
 				.catch((err) => {
 					/* pretend the object does not exist */
 					this._err(`Failed to fetch stats for [${path}]: ${err}`);
-					this._files[path] = new FileNode(null, ancestor);
+					this._files[path] = new FileNode(null, ancestor, ++this._nextId);
 				})
 				.finally(() => {
 					let node = this._files[path];

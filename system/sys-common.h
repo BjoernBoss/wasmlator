@@ -16,6 +16,7 @@
 #include "../generate/generate.h"
 #include "../host/host-interact.h"
 #include "../util/util-logger.h"
+#include "../util/util-unique.h"
 #include "../util/util-path.h"
 
 namespace sys {

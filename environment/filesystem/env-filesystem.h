@@ -51,8 +51,10 @@ namespace env {
 		uint64_t timeModifiedUS = 0;
 		uint64_t timeAccessedUS = 0;
 		uint64_t size = 0;
+		uint64_t uniqueId = 0;
 		env::FileType type = env::FileType::none;
 		env::FileAccess access;
+		bool virtualized = false;
 	};
 
 	/* construct the permissions for owner */

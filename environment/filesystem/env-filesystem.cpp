@@ -33,21 +33,21 @@ bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(
 }
 env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> obj) const {
 	env::FileStats out;
-	bool tmMod = false, tmAcc = false, size = false, type = false, link = false, owner = false, group = false, permissions = false;
+	uint16_t required = 0b0001'1111'1111;
 
 	/* iterate over the attributes and apply them */
 	for (const auto& [key, value] : obj) {
 		if (key == L"mtime_us") {
 			out.timeModifiedUS = value.unum();
-			tmMod = true;
+			required &= ~0b0001'0000'0000;
 		}
 		else if (key == L"atime_us") {
 			out.timeAccessedUS = value.unum();
-			tmAcc = true;
+			required &= ~0b0000'1000'0000;
 		}
 		else if (key == L"size") {
 			out.size = value.unum();
-			size = true;
+			required &= ~0b0000'0100'0000;
 		}
 		else if (key == L"type") {
 			const std::wstring& _type = value.str();
@@ -59,28 +59,35 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 				out.type = env::FileType::link;
 			else
 				logger.fatal(u8"Received invalid file-type [", _type, u8']');
-			type = true;
+			required &= ~0b0000'0010'0000;
 		}
 		else if (key == L"link") {
 			out.link = str::u8::To(value.str());
-			link = true;
+			required &= ~0b0000'0001'0000;
 		}
 		else if (key == L"owner") {
 			out.access.owner = uint32_t(value.unum());
-			owner = true;
+			required &= ~0b0000'0000'1000;
 		}
 		else if (key == L"group") {
 			out.access.group = uint32_t(value.unum());
-			group = true;
+			required &= ~0b0000'0000'0100;
 		}
 		else if (key == L"permissions") {
 			out.access.permissions.all = uint16_t(value.unum() & env::fileModeMask);
-			permissions = true;
+			required &= ~0b0000'0000'0010;
+		}
+		else if (key == L"id") {
+			out.uniqueId = value.unum();
+			required &= ~0b0000'0000'0001;
 		}
 	}
 
+	/* mark the system as not-virtualized */
+	out.virtualized = false;
+
 	/* check if all values have been received and return the parsed stats */
-	if (!tmMod || !tmAcc || !size || !type || !link || !owner || !group || !permissions)
+	if (required != 0)
 		logger.fatal(u8"Received incomplete file-stats");
 	return out;
 }

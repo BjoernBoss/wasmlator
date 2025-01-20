@@ -14,7 +14,7 @@ namespace sys::detail::impl {
 		RootFileNode(detail::Syscall* syscall, env::FileAccess access);
 
 	public:
-		int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
+		int64_t virtualStats(std::function<int64_t(const env::FileStats&)> callback) const final;
 		int64_t virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const final;
 	};
 }

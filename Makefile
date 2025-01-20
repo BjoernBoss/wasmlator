@@ -123,7 +123,7 @@ wasm: $(wasm_path)/glue-module.wasm $(wasm_path)/core-module.wasm $(wasm_path)/b
 
 # main application compilation
 main_path := $(wasm_path)/main.wasm
-$(main_path): $(obj_list_em)
+$(main_path): $(obj_list_em) | $(wasm_path)
 	@echo Generating... $@
 	@ $(em_main) $(obj_list_em) -o $@
 

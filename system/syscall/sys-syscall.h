@@ -6,13 +6,28 @@
 #include "sys-mem-interact.h"
 
 namespace sys::detail {
+	namespace fs {
+		static constexpr uint32_t ThisUesr = 1001;
+		static constexpr uint32_t ThisGroup = 1001;
+		static constexpr uint32_t DefOwner = fs::ThisUesr;
+		static constexpr uint32_t DefGroup = fs::ThisGroup;
+		static constexpr uint32_t RootOwner = 0;
+		static constexpr uint32_t RootGroup = 0;
+
+		static constexpr uint16_t OwnerAllElseRW = env::FileOwner(true, true, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
+		static constexpr uint16_t All = env::FileOwner(true, true, true) | env::FileGroup(true, true, true) | env::FileOther(true, true, true);
+		static constexpr uint16_t ReadWrite = env::FileOwner(true, true, false) | env::FileGroup(true, true, false) | env::FileOther(true, true, false);
+		static constexpr uint16_t ReadOnly = env::FileOwner(true, true, false) | env::FileGroup(true, true, false) | env::FileOther(true, true, false);
+		static constexpr uint16_t ReadExecute = env::FileOwner(true, false, true) | env::FileGroup(true, false, true) | env::FileOther(true, false, true);
+	}
+
 	struct ProcessConfig {
 		std::u8string path;
 		std::u8string wDirectory;
-		uint32_t uid = 1001;
-		uint32_t gid = 1001;
-		uint32_t euid = 1001;
-		uint32_t egid = 1001;
+		uint32_t uid = fs::ThisUesr;
+		uint32_t gid = fs::ThisGroup;
+		uint32_t euid = fs::ThisUesr;
+		uint32_t egid = fs::ThisGroup;
 		uint32_t pid = 1;
 		uint32_t pgid = 1;
 	};

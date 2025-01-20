@@ -22,7 +22,7 @@ int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
 		return errCode::eIsDirectory;
 	return 0;
 }
-bool sys::detail::FileIO::fCheckAccess(const env::FileStats* stats, bool read, bool write, bool execute) const {
+bool sys::detail::FileIO::fCheckAccess(const env::FileStats& stats, bool read, bool write, bool execute) const {
 	uint32_t euid = pSyscall->config().euid, egid = pSyscall->config().egid;
 
 	/* check for root-privileges */
@@ -30,18 +30,18 @@ bool sys::detail::FileIO::fCheckAccess(const env::FileStats* stats, bool read, b
 		return true;
 
 	/* check for reading-permissions */
-	if (read && !stats->access.permissions.rOther && (stats->access.owner != euid || !stats->access.permissions.rOwner) &&
-		(stats->access.group != egid || !stats->access.permissions.rGroup))
+	if (read && !stats.access.permissions.rOther && (stats.access.owner != euid || !stats.access.permissions.rOwner) &&
+		(stats.access.group != egid || !stats.access.permissions.rGroup))
 		return false;
 
 	/* check for writing-permissions */
-	if (write && !stats->access.permissions.wOther && (stats->access.owner != euid || !stats->access.permissions.wOwner) &&
-		(stats->access.group != egid || !stats->access.permissions.wGroup))
+	if (write && !stats.access.permissions.wOther && (stats.access.owner != euid || !stats.access.permissions.wOwner) &&
+		(stats.access.group != egid || !stats.access.permissions.wGroup))
 		return false;
 
 	/* check for executing-permissions */
-	if (execute && !stats->access.permissions.xOther && (stats->access.owner != euid || !stats->access.permissions.xOwner) &&
-		(stats->access.group != egid || !stats->access.permissions.xGroup))
+	if (execute && !stats.access.permissions.xOther && (stats.access.owner != euid || !stats.access.permissions.xOwner) &&
+		(stats.access.group != egid || !stats.access.permissions.xGroup))
 		return false;
 	return true;
 }
@@ -66,39 +66,32 @@ int64_t sys::detail::FileIO::fCheckPath(int64_t dirfd, std::u8string_view path, 
 	return errCode::eSuccess;
 }
 
-int64_t sys::detail::FileIO::fResolveNode(const std::u8string& path, bool follow, bool exact, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats*, bool)> callback) {
+int64_t sys::detail::FileIO::fResolveNode(const std::u8string& path, bool follow, bool exact, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
 	/* check if the maximum number of link expansions has been reached */
 	if (++pLinkFollow >= detail::MaxFollowSymLinks) {
 		logger.error(u8"Link expansion limit for [", path, u8"] reached");
-		return callback(errCode::eLoop, path, {}, 0, false);
+		return callback(errCode::eLoop, path, {}, {}, false);
 	}
 
 	/* fetch the stats of the current node and resolve the path further */
-	return pRoot->stats([this, path, follow, exact, callback](const env::FileStats* stats) -> int64_t {
-		/* stats of root can never be null */
+	return pRoot->stats([this, path, follow, exact, callback](const env::FileStats& stats) -> int64_t {
 		return fResolveNext(u8"/", path, follow, exact, pRoot, stats, callback);
 		});
 }
-int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8string_view lookup, bool follow, bool exact, detail::SharedNode node, const env::FileStats* stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats*, bool)> callback) {
-	/* check if the node was found */
-	if (stats == 0) {
-		logger.error(u8"Path [", path, u8"] does not exist");
-		return callback(errCode::eNoEntry, path, {}, 0, false);
-	}
-
+int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8string_view lookup, bool follow, bool exact, detail::SharedNode node, const env::FileStats& stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
 	/* split the path up to check if the node needs to be entered further */
 	auto [name, remainder] = util::SplitRoot(lookup);
 
 	/* check if the node is a link to be followed */
-	if (stats->type == env::FileType::link && (follow || !name.empty())) {
+	if (stats.type == env::FileType::link && (follow || !name.empty())) {
 		/* check if the permissions allow for the link to be read */
 		if (!fCheckAccess(stats, true, false, false)) {
 			logger.error(u8"Access to link [", path, u8"] denied");
-			return callback(errCode::eAccess, path, {}, 0, false);
+			return callback(errCode::eAccess, path, {}, {}, false);
 		}
 
 		/* construct the actual new absolute path to be resolved and resolve it */
-		std::u8string base = util::MergePaths(util::SplitName(path).first, stats->link);
+		std::u8string base = util::MergePaths(util::SplitName(path).first, stats.link);
 		base.append(lookup);
 		return fResolveNode(base, follow, exact, callback);
 	}
@@ -108,38 +101,37 @@ int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8stri
 		return callback(errCode::eSuccess, path, node, stats, true);
 
 	/* check if the node is a directory */
-	if (stats->type != env::FileType::directory) {
+	if (stats.type != env::FileType::directory) {
 		logger.error(u8"Path [", path, u8"] is not a directory");
-		return callback(errCode::eNotDirectory, path, {}, 0, false);
+		return callback(errCode::eNotDirectory, path, {}, {}, false);
 	}
 
 	/* check if the permissions allow for the directory to be traversed */
 	if (!fCheckAccess(stats, false, false, true)) {
 		logger.error(u8"Access to directory [", path, u8"] denied");
-		return callback(errCode::eAccess, path, {}, 0, false);
+		return callback(errCode::eAccess, path, {}, {}, false);
 	}
 
 	/* check if the node is mounted */
 	std::u8string _name = std::u8string{ name }, _remainder = std::u8string{ remainder }, _next = util::MergePaths(path, _name);
 	auto it = pMounted.find(_next);
 	if (it != pMounted.end()) {
-		/* mounted nodes must exist */
-		return it->second->stats([this, _next, _remainder, follow, exact, node = it->second, callback](const env::FileStats* stats) -> int64_t {
+		return it->second->stats([this, _next, _remainder, follow, exact, node = it->second, callback](const env::FileStats& stats) -> int64_t {
 			return fResolveNext(_next, _remainder, follow, exact, node, stats, callback);
 			});
 	}
 
 	/* lookup the next child and continue resolving the path */
-	return node->lookup(_name, [this, _next, _remainder, follow, exact, callback, node, _stats = env::FileStats(*stats)](detail::SharedNode cnode, const env::FileStats* cstats) -> int64_t {
+	return node->lookup(_name, [this, _next, _remainder, follow, exact, callback, node, stats](detail::SharedNode cnode, const env::FileStats& cstats) -> int64_t {
 		/* check if the node was found */
-		if (cstats != 0)
+		if (cnode.get() != 0)
 			return fResolveNext(_next, _remainder, follow, exact, cnode, cstats, callback);
 
 		/* check if this was the last entry */
 		if (_remainder.empty() && !exact)
-			return callback(errCode::eSuccess, _next, node, &_stats, false);
+			return callback(errCode::eSuccess, _next, node, stats, false);
 		logger.error(u8"Path [", _next, u8"] does not exit");
-		return callback(errCode::eNoEntry, _next, {}, 0, false);
+		return callback(errCode::eNoEntry, _next, {}, {}, false);
 		});
 }
 
@@ -183,7 +175,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	pLinkFollow = 0;
 
 	/* lookup the file-node to the file (ensure that it cannot fail anymore once the file has been created) */
-	return fResolveNode(actual, follow, !create, [this, mode, truncate, exclusive, read, write, openOnly, closeOnExecute, directory](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats* stats, bool found) -> int64_t {
+	return fResolveNode(actual, follow, !create, [this, mode, truncate, exclusive, read, write, openOnly, closeOnExecute, directory](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool found) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -218,7 +210,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		}
 
 		/* check if a symbolic link is being opened */
-		if (stats->type == env::FileType::link) {
+		if (stats.type == env::FileType::link) {
 			if (!openOnly) {
 				logger.error(u8"Path [", path, u8"] is a symbolic link");
 				return errCode::eLoop;
@@ -230,7 +222,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		}
 
 		/* check if its a directory and it is being written to or a directory was expected */
-		if (stats->type == env::FileType::directory) {
+		if (stats.type == env::FileType::directory) {
 			if (write) {
 				logger.error(u8"Path [", path, u8"] is a directory");
 				return errCode::eIsDirectory;
@@ -248,8 +240,8 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		}
 
 		/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
-		if (stats->type == env::FileType::link || stats->type == env::FileType::directory)
-			return fSetupFile(node, path, stats->type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
+		if (stats.type == env::FileType::link || stats.type == env::FileType::directory)
+			return fSetupFile(node, path, stats.type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
 
 		/* perform the open-call on the file-node */
 		return node->open(config, [this, node, read, write, openOnly, closeOnExecute, path](int64_t result) -> int64_t {
@@ -314,7 +306,7 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 	pLinkFollow = 0;
 
 	/* resolve the node and perform the stat-read */
-	return fResolveNode(actual, false, true, [this, size, address](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats* stats, bool) -> int64_t {
+	return fResolveNode(actual, false, true, [this, size, address](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -325,15 +317,15 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 		}
 
 		/* check if the destination is a symbolic link */
-		if (stats->type != env::FileType::link)
+		if (stats.type != env::FileType::link)
 			return errCode::eInvalid;
 
 		/* mark the link as read */
 		node->linkRead();
 
 		/* write the link to the guest */
-		result = std::min<int64_t>(size, stats->link.size());
-		env::Instance()->memory().mwrite(address, stats->link.data(), uint32_t(result), env::Usage::Write);
+		result = std::min<int64_t>(size, stats.link.size());
+		env::Instance()->memory().mwrite(address, stats.link.data(), uint32_t(result), env::Usage::Write);
 		return result;
 		});
 }
@@ -495,30 +487,48 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		uint32_t nlinks = 0;
 		uint32_t uid = 0;
 		uint32_t gid = 0;
+		uint32_t _unused0 = 0;
 		uint64_t rdev = 0;
-		int64_t size = 0;
-		int32_t blockSize = 0;
-		int64_t blockCount = 0;
-		int64_t atime = 0;
-		int64_t atime_ns = 0;
-		int64_t mtime = 0;
-		int64_t mtime_ns = 0;
-		int64_t ctime = 0;
-		int64_t ctime_ns = 0;
+		uint64_t size = 0;
+		uint32_t blockSize = 0;
+		uint32_t _unused1 = 0;
+		uint64_t blockCount = 0;
+		uint64_t atime_sec = 0;
+		uint64_t atime_ns = 0;
+		uint64_t mtime_sec = 0;
+		uint64_t mtime_ns = 0;
+		uint64_t ctime_sec = 0;
+		uint64_t ctime_ns = 0;
 	};
 
-	// validate structure!;
-
-	logger.fatal(u8"Currently not implemented");
-
 	/* request the stats from the file */
-	//return pFiles[](const env::FileStats& stats) -> int64_t {
-	//	/* populate the stat-structure */
-	//	LinuxStats out;
-	//
-	//	out.size = stats.size;
-	//	return errCode::eIO;
-	//	});
+	return pInstance[pOpen[fd].instance].node->stats([](const env::FileStats& stats) -> int64_t {
+		LinuxStats out;
+		uint64_t ctime = std::max<uint64_t>(stats.timeAccessedUS, stats.timeModifiedUS);
 
-	return errCode::eUnknown;
+		/*
+		*	no support for hard-links
+		*	virtual-device: 0x0345
+		*	real-device: 0x0123
+		*	rdev: (major: 0xabc, minor: 0x456))
+		*/
+		out.dev = (stats.virtualized ? 0x0123 : 0x0345);
+		out.inode = stats.uniqueId;
+		out.mode = stats.access.permissions.all;
+		out.nlinks = 1;
+		out.uid = stats.access.owner;
+		out.gid = stats.access.group;
+		out.rdev = 0xabc0'0456;
+		out.size = stats.size;
+		out.blockSize = 512;
+		out.blockCount = (out.size + out.blockSize - 1) & uint64_t(out.blockSize - 1);
+		out.atime_sec = (stats.timeAccessedUS / 1000'0000);
+		out.atime_ns = (stats.timeAccessedUS * 1000) % 1000'000'000;
+		out.mtime_sec = (stats.timeModifiedUS / 1000'0000);
+		out.mtime_ns = (stats.timeModifiedUS * 1000) % 1000'000'000;
+		out.ctime_sec = (ctime / 1000'0000);
+		out.ctime_ns = (ctime * 1000) % 1000'000'000;
+
+		return errCode::eSuccess;
+		});
 }
