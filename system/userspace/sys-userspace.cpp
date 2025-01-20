@@ -82,18 +82,18 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded, bool is
 	writeWord(0);
 
 	/* write the auxiliary vector entries out */
-	writeWord(uint64_t(elf::AuxiliaryType::phAddress));
+	writeWord(uint64_t(linux::AuxiliaryType::phAddress));
 	writeWord(loaded.phAddress);
-	writeWord(uint64_t(elf::AuxiliaryType::phCount));
+	writeWord(uint64_t(linux::AuxiliaryType::phCount));
 	writeWord(loaded.phCount);
-	writeWord(uint64_t(elf::AuxiliaryType::phEntrySize));
+	writeWord(uint64_t(linux::AuxiliaryType::phEntrySize));
 	writeWord(loaded.phEntrySize);
-	writeWord(uint64_t(elf::AuxiliaryType::entry));
+	writeWord(uint64_t(linux::AuxiliaryType::entry));
 	writeWord(loaded.start);
-	writeWord(uint64_t(elf::AuxiliaryType::random));
+	writeWord(uint64_t(linux::AuxiliaryType::random));
 	writeWord(blobPtr);
 	blobPtr += 16;
-	writeWord(uint64_t(elf::AuxiliaryType::pageSize));
+	writeWord(uint64_t(linux::AuxiliaryType::pageSize));
 	writeWord(env::Instance()->pageSize());
 
 	/* write the auxiliary vector null-entry out */
@@ -171,7 +171,7 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 	sys::ElfLoaded loaded;
 	try {
 		/* load the static elf */
-		loaded = sys::LoadElfStatic(data, size);
+		sys::LoadElf(data, size);
 		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
 		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
 		pAddress = loaded.start;
@@ -179,6 +179,19 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 	catch (const elf::Exception& e) {
 		logger.error(u8"Failed to load static elf: ", e.what());
 		return false;
+	}
+	catch (const elf::Interpreter& e) {
+		/* check if this was already the interpreter */
+		if (!pInterpreter.empty()) {
+			logger.error(u8"Recursive interpreter requirements encountered");
+			return false;
+		}
+		pInterpreter = e.path();
+
+		/* load the interpreter */
+		logger.info(u8"Binary requires interpreter [", pInterpreter, u8']');
+		fStartLoad(pInterpreter);
+		return true;
 	}
 
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
@@ -257,6 +270,55 @@ void sys::Userspace::fExecute() {
 		pAddress = e.address;
 		logger.trace(u8"Awaiting syscall result from [", str::As{ U"#018x", e.address }, u8']');
 	}
+}
+void sys::Userspace::fStartLoad(const std::u8string& path) {
+	/* load the binary */
+	env::Instance()->filesystem().readStats(path, [this, path](const env::FileStats* stats) {
+		/* check if the file could be resolved */
+		if (stats == 0) {
+			logger.error(u8"Path [", path, u8"] does not exist");
+			env::Instance()->shutdown();
+			return;
+		}
+
+		/* check the file-type */
+		if (stats->type != env::FileType::file) {
+			logger.error(u8"Path [", path, u8"] is not a file");
+			env::Instance()->shutdown();
+			return;
+		}
+
+		/* setup the opening of the file */
+		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, env::FileAccess{}, [this, path](bool success, uint64_t id, const env::FileStats* stats) {
+			/* check if the file could be opened */
+			if (!success) {
+				logger.error(u8"Failed to open file [", path, u8"] for reading");
+				env::Instance()->shutdown();
+				return;
+			}
+
+			/* allocate the buffer for the file-content and read it into memory */
+			uint64_t size = stats->size;
+			uint8_t* buffer = new uint8_t[size];
+			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [this, buffer, size, id](uint64_t count) {
+				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
+
+				/* close the file again, as no more data will be read */
+				env::Instance()->filesystem().closeFile(id);
+
+				/* check if the size still matches */
+				if (count != size) {
+					logger.error(u8"File size does not match expected size");
+					env::Instance()->shutdown();
+					return;
+				}
+
+				/* perform the actual loading of the file */
+				if (!fBinaryLoaded(buffer, size))
+					env::Instance()->shutdown();
+				});
+			});
+		});
 }
 
 bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
@@ -342,53 +404,7 @@ bool sys::Userspace::setupCore(wasm::Module& mod) {
 	return core.close();
 }
 void sys::Userspace::coreLoaded() {
-	/* load the binary */
-	env::Instance()->filesystem().readStats(pBinary, [this](const env::FileStats* stats) {
-		/* check if the file could be resolved */
-		if (stats == 0) {
-			logger.error(u8"Path [", pBinary, u8"] does not exist");
-			env::Instance()->shutdown();
-			return;
-		}
-
-		/* check the file-type */
-		if (stats->type != env::FileType::file) {
-			logger.error(u8"Path [", pBinary, u8"] is not a file");
-			env::Instance()->shutdown();
-			return;
-		}
-
-		/* setup the opening of the file */
-		env::Instance()->filesystem().openFile(pBinary, env::FileOpen::openExisting, env::FileAccess{}, [this](bool success, uint64_t id, const env::FileStats* stats) {
-			/* check if the file could be opened */
-			if (!success) {
-				logger.error(u8"Failed to open file [", pBinary, u8"] for reading");
-				env::Instance()->shutdown();
-				return;
-			}
-
-			/* allocate the buffer for the file-content and read it into memory */
-			uint64_t size = stats->size;
-			uint8_t* buffer = new uint8_t[size];
-			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [this, buffer, size, id](uint64_t count) {
-				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
-
-				/* close the file again, as no more data will be read */
-				env::Instance()->filesystem().closeFile(id);
-
-				/* check if the size still matches */
-				if (count != size) {
-					logger.error(u8"File size does not match expected size");
-					env::Instance()->shutdown();
-					return;
-				}
-
-				/* perform the actual loading of the file */
-				if (!fBinaryLoaded(buffer, size))
-					env::Instance()->shutdown();
-				});
-			});
-		});
+	fStartLoad(pBinary);
 }
 std::vector<env::BlockExport> sys::Userspace::setupBlock(wasm::Module& mod) {
 	/* setup the translator */

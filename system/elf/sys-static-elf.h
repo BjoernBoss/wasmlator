@@ -12,5 +12,5 @@ namespace sys {
 	};
 
 	/* load static elf file to current env::Process */
-	sys::ElfLoaded LoadElfStatic(const uint8_t* data, size_t size);
+	//sys::ElfLoaded LoadElfStatic(const uint8_t* data, size_t size);
 }

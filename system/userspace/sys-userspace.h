@@ -25,6 +25,7 @@ namespace sys {
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
 		std::u8string pBinary;
+		std::u8string pInterpreter;
 		detail::Syscall pSyscall;
 		sys::Debugger pDebugger;
 		sys::Writer pWriter;
@@ -41,6 +42,7 @@ namespace sys {
 		env::guest_t fPrepareStack(const sys::ElfLoaded& loaded, bool is64Bit) const;
 		bool fBinaryLoaded(const uint8_t* data, size_t size);
 		void fExecute();
+		void fStartLoad(const std::u8string& path);
 
 	public:
 		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger);

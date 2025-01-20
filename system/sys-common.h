@@ -70,8 +70,29 @@ namespace sys {
 		};
 	}
 
-	/* assumptions about structures made for syscalls */
+	/* assumptions about structures and enums made by the userspace-environment */
 	namespace linux {
+		enum class AuxiliaryType : uint32_t {
+			null = 0,
+			ignore = 1,
+			executableFd = 2,
+			phAddress = 3,
+			phEntrySize = 4,
+			phCount = 5,
+			pageSize = 6,
+			baseInterpreter = 7,
+			flags = 8,
+			entry = 9,
+			notELF = 10,
+			uid = 11,
+			euid = 12,
+			gid = 13,
+			egid = 14,
+			clockTick = 17,
+			secure = 23,
+			random = 25,
+			executableFilename = 31
+		};
 		struct UName {
 			char8_t sysName[65] = { 0 };
 			char8_t nodeName[65] = { 0 };

@@ -144,7 +144,9 @@ bool env::Process::fLoadCore() {
 	fHandleTask(str::u8::Build(u8"core:0x", static_cast<const void*>(data.data()), u8':', str::As{ U"#x", data.size() }), [this](std::u8string_view, bool) {
 		fCoreLoaded();
 		});
-	return true;
+
+	/* check if the task has been executed in-place and the process has already been destroyed again */
+	return (global::Instance.get() != 0);
 }
 void env::Process::fCoreLoaded() {
 	logger.debug(u8"Core loading succeeded for [", global::ProcId, u8']');

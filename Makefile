@@ -15,6 +15,7 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 build_path := build
 wat_path := server/wat
 wasm_path := server/wasm
+fs_path := server/fs
 bin_path := $(build_path)/make
 cc_path := $(build_path)/make/cc
 em_path := $(build_path)/make/em
@@ -57,6 +58,8 @@ $(bin_path):
 	@ mkdir -p $(bin_path)
 $(build_path):
 	@ mkdir -p $(build_path)
+$(fs_path):
+	@ mkdir -p $(fs_path)
 
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1 -fwasm-exceptions
@@ -128,5 +131,5 @@ $(main_path): $(obj_list_em) | $(wasm_path)
 	@ $(em_main) $(obj_list_em) -o $@
 
 # setup the wasm for the server
-server: $(main_path) $(wasm_path)/glue-module.wasm
+server: $(main_path) $(wasm_path)/glue-module.wasm | $(fs_path)
 .PHONY: server
