@@ -23,3 +23,7 @@ void env::Context::fCodeException(env::guest_t address, detail::CodeExceptions i
 		logger.fatal(u8"Unknown coding-exception [", size_t(id), u8"] encountered");
 	}
 }
+
+void env::Context::terminate(int32_t code, env::guest_t address) {
+	fTerminate(code, address);
+}

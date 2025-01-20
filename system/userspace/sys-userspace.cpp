@@ -168,7 +168,7 @@ void sys::Userspace::fExecute() {
 	}
 	catch (const env::Terminated& e) {
 		pAddress = e.address;
-		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with", e.code);
+		logger.log(u8"Execution terminated at [", str::As{ U"#018x", e.address }, u8"] with [", e.code, u8']');
 	}
 	catch (const env::MemoryFault& e) {
 		pAddress = e.address;

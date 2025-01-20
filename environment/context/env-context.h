@@ -32,6 +32,7 @@ namespace env {
 		void fCodeException(env::guest_t address, detail::CodeExceptions id);
 
 	public:
+		void terminate(int32_t code, env::guest_t address);
 		template <class Type>
 		const Type& get() const {
 			fCheck(sizeof(Type));

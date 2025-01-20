@@ -37,14 +37,27 @@ int64_t sys::detail::Syscall::fDispatch() {
 
 	/* check if the syscall can be handled in-place */
 	switch (args.index) {
-	case sys::SyscallIndex::getuid:
-		return fHandleIds(u8"getuid");
-	case sys::SyscallIndex::geteuid:
-		return fHandleIds(u8"geteuid");
-	case sys::SyscallIndex::getgid:
-		return fHandleIds(u8"getgid");
-	case sys::SyscallIndex::getegid:
-		return fHandleIds(u8"getegid");
+	case sys::SyscallIndex::getuid: {
+		logger.debug(u8"Syscall getuid()");
+		return pConfig.uid;
+	}
+	case sys::SyscallIndex::geteuid: {
+		logger.debug(u8"Syscall geteuid()");
+		return pConfig.euid;
+	}
+	case sys::SyscallIndex::getgid: {
+		logger.debug(u8"Syscall getgid()");
+		return pConfig.gid;
+	}
+	case sys::SyscallIndex::getegid: {
+		logger.debug(u8"Syscall getegid()");
+		return pConfig.egid;
+	}
+	case sys::SyscallIndex::exit_group: {
+		logger.debug(u8"Syscall exit_group(", args.args[0], u8')');
+		env::Instance()->context().terminate(int32_t(int64_t(args.args[0])), pCurrent.address);
+		return errCode::eSuccess;
+	}
 	case sys::SyscallIndex::brk: {
 		logger.debug(u8"Syscall brk(", str::As{ U"#018x", args.args[0] }, u8')');
 		return pMemory.brk(args.args[0]);
@@ -111,10 +124,6 @@ int64_t sys::detail::Syscall::fDispatch() {
 
 	/* should never be reached */
 	return errCode::eUnknown;
-}
-int64_t sys::detail::Syscall::fHandleIds(std::u8string_view name) const {
-	logger.debug(u8"Syscall ", name, u8"()");
-	return uint16_t(1);
 }
 int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
 	logger.info(u8"Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");

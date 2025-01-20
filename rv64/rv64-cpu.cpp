@@ -173,6 +173,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 80:
 		call.index = sys::SyscallIndex::fstat;
 		break;
+	case 94:
+		call.index = sys::SyscallIndex::exit_group;
+		break;
 	case 160:
 		call.index = sys::SyscallIndex::uname;
 		break;

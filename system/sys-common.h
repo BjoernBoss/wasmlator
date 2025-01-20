@@ -89,7 +89,8 @@ namespace sys {
 		mmap,
 		readlinkat,
 		readlink,
-		fstat
+		fstat,
+		exit_group
 	};
 
 	struct SyscallArgs {

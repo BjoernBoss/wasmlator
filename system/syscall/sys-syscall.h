@@ -54,7 +54,6 @@ namespace sys::detail {
 	private:
 		void fWrap(std::function<int64_t()> callback);
 		int64_t fDispatch();
-		int64_t fHandleIds(std::u8string_view name) const;
 		int64_t fHandleUName(env::guest_t addr) const;
 
 	public:
