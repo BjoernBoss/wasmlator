@@ -248,28 +248,35 @@ void gen::detail::MemoryBuilder::setupCoreBody(const wasm::Memory& memory, const
 		detail::MemoryWriter _writer{ state };
 
 		sink[I::Param::Get(0)];
-		sink[I::Param::Get(2)];
-		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
-		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
-		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
-		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
+		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
 		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress, coreWriteLookup + 0);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress, coreWriteLookup + 0);
+		sink[I::Param::Get(2)];
+		_writer.fMakeStopWrite(gen::MemoryType::u8To64);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress, coreWriteLookup + 1);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress, coreWriteLookup + 1);
+		sink[I::Param::Get(2)];
+		_writer.fMakeStopWrite(gen::MemoryType::u16To64);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress, coreWriteLookup + 2);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress, coreWriteLookup + 2);
+		sink[I::Param::Get(2)];
+		_writer.fMakeStopWrite(gen::MemoryType::u32To64);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress, coreWriteLookup + 3);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress, coreWriteLookup + 3);
+		sink[I::Param::Get(2)];
+		_writer.fMakeStopWrite(gen::MemoryType::i64);
 
 		/* clear the sink reference */
 		gen::Instance()->setSink(0);

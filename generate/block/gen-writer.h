@@ -8,8 +8,30 @@
 #include "../interact/interact-writer.h"
 
 namespace gen {
+	class Writer;
+
+	/* to fulfill a write-operation (must happen before the writer runs out of scope) */
+	class FulFill {
+		friend class gen::Writer;
+	private:
+		const gen::Writer* pWriter = 0;
+		gen::MemoryType pType = gen::MemoryType::i64;
+
+	public:
+		FulFill() = default;
+
+	private:
+		FulFill(const gen::Writer* writer, gen::MemoryType type);
+
+	public:
+		/* expects value on top of stack
+		*	Note: generated code may abort the control-flow */
+		void now();
+	};
+
 	class Writer {
 		friend class gen::Block;
+		friend class gen::FulFill;
 	private:
 		detail::SuperBlock& pSuperBlock;
 		detail::MemoryWriter pMemory;
@@ -50,9 +72,9 @@ namespace gen {
 		*	Note: generated code may abort the control-flow */
 		void read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
-		/* expects [i64] address and value on top of stack
+		/* expects [i64] address on top of stack and after the value has been pushed [fulfill::now to be called]
 		*	Note: generated code may abort the control-flow */
-		void write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
+		gen::FulFill write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
 		/* writes value from context to stack */
 		void get(uint32_t offset, gen::MemoryType type) const;

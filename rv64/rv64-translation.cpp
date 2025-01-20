@@ -516,30 +516,34 @@ void rv64::Translate::fMakeStore(bool multi) const {
 			gen::Add[I::U64::Add()];
 	}
 
-	/* write the source value to the stack */
-	fLoadSrc2(true, (pInst->opcode != rv64::Opcode::store_dword && pInst->opcode != rv64::Opcode::multi_store_dword));
-
-	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
+	/* prepare the store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
+	gen::FulFill fulfill;
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
 	case rv64::Opcode::multi_store_byte:
-		gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::u8To32, pAddress);
+		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::u8To32, pAddress);
 		break;
 	case rv64::Opcode::store_half:
 	case rv64::Opcode::multi_store_half:
-		gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::u16To32, pAddress);
+		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::u16To32, pAddress);
 		break;
 	case rv64::Opcode::store_word:
 	case rv64::Opcode::multi_store_word:
-		gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::i32, pAddress);
+		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::i32, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
 	case rv64::Opcode::multi_store_dword:
-		gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::i64, pAddress);
+		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		break;
 	}
+
+	/* write the source value to the stack */
+	fLoadSrc2(true, (pInst->opcode != rv64::Opcode::store_dword && pInst->opcode != rv64::Opcode::multi_store_dword));
+
+	/* perform the actual store of the value */
+	fulfill.now();
 }
 void rv64::Translate::fMakeDivRem() {
 	/* operation-checks to simplify the logic */
@@ -662,6 +666,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	/*
 	*	Note: simply treat the operations as all being atomic, as no threading is supported
 	*/
+	gen::MemoryType type = (half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 
 	/* load the source address into the temporary */
 	wasm::Variable addr = fTemp64(0);
@@ -680,11 +685,14 @@ void rv64::Translate::fMakeAMO(bool half) {
 	/* perform the reading of the original value (dont write it to the destination yet, as the destination migth also be the source) */
 	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
 	gen::Add[I::Local::Get(addr)];
-	gen::Make->read(rv64::ReadCaches + pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	gen::Make->read(rv64::ReadCaches + pInst->src1, type, pAddress);
 	gen::Add[I::Local::Set(value)];
 
 	/* write the destination address to the stack */
 	gen::Add[I::Local::Get(addr)];
+
+	/* prepare the writing of the value to memory */
+	gen::FulFill fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, type, pAddress);
 
 	/* write the new value to the stack (perform the operation in the corresponding width) */
 	switch (pInst->opcode) {
@@ -780,7 +788,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	}
 
 	/* write the result back to the memory */
-	gen::Make->write(rv64::WriteCaches + pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	fulfill.now();
 
 	/* write the original value back to the destination */
 	if (pInst->dest != reg::Zero) {
@@ -844,8 +852,9 @@ void rv64::Translate::fMakeAMOSC() {
 
 	/* write the source value to the address (assumption that reservation is always valid) */
 	gen::Add[I::Local::Get(addr)];
+	gen::FulFill fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 	fLoadSrc2(true, half);
-	gen::Make->write(rv64::WriteCaches + pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	fulfill.now();
 
 	/* write the result to the destination register */
 	if (pInst->dest != reg::Zero) {
@@ -1174,22 +1183,26 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 			gen::Add[I::U64::Add()];
 	}
 
-	/* write the source value to the stack */
-	fLoadFSrc2(pInst->opcode == rv64::Opcode::store_float || pInst->opcode == rv64::Opcode::multi_store_float);
-
-	/* perform the actual store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
+	/* prepare the store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
+	gen::FulFill fulfill;
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_float:
 	case rv64::Opcode::multi_store_float:
-		gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::f32, pAddress);
+		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::f32, pAddress);
 		break;
 	case rv64::Opcode::store_double:
 	case rv64::Opcode::multi_store_double:
-		gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::f64, pAddress);
+		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::f64, pAddress);
 		break;
 	default:
 		break;
 	}
+
+	/* write the source value to the stack */
+	fLoadFSrc2(pInst->opcode == rv64::Opcode::store_float || pInst->opcode == rv64::Opcode::multi_store_float);
+
+	/* perform the actual store of the value */
+	fulfill.now();
 }
 
 void rv64::Translate::resetAll(sys::Writer* writer) {

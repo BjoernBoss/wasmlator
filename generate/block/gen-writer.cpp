@@ -1,5 +1,11 @@
 #include "../generate.h"
 
+gen::FulFill::FulFill(const gen::Writer* writer, gen::MemoryType type) : pWriter{ writer }, pType{ type } {}
+void gen::FulFill::now() {
+	pWriter->pMemory.makeEndWrite(pType);
+	pWriter = 0;
+}
+
 gen::Writer::Writer(detail::SuperBlock& block, const detail::MemoryState& memory, const detail::ContextState& context, const detail::MappingState& mapping, detail::Addresses& addresses, const detail::InteractState& interact) :
 	pSuperBlock{ block }, pMemory{ memory }, pContext{ context }, pAddress{ mapping, addresses }, pInteract{ interact } {
 }
@@ -38,8 +44,9 @@ void gen::Writer::ret() const {
 void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
 	pMemory.makeRead(cacheIndex, type, instAddress);
 }
-void gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
-	pMemory.makeWrite(cacheIndex, type, instAddress);
+gen::FulFill gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
+	pMemory.makeStartWrite(cacheIndex, type, instAddress);
+	return gen::FulFill{ this, type };
 }
 void gen::Writer::get(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeRead(offset, type);

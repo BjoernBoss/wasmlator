@@ -159,52 +159,15 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 		break;
 	}
 }
-void gen::detail::MemoryWriter::fMakeWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const {
-	wasm::Variable value;
-
-	/* fetch the variable to be used for caching */
-	switch (type) {
-	case gen::MemoryType::u8To32:
-	case gen::MemoryType::i8To32:
-	case gen::MemoryType::u16To32:
-	case gen::MemoryType::i16To32:
-	case gen::MemoryType::i32:
-		if (!pValuei32.valid())
-			pValuei32 = gen::Sink->local(wasm::Type::i32, u8"_mem_i32");
-		value = pValuei32;
-		break;
-	case gen::MemoryType::u8To64:
-	case gen::MemoryType::i8To64:
-	case gen::MemoryType::u16To64:
-	case gen::MemoryType::i16To64:
-	case gen::MemoryType::u32To64:
-	case gen::MemoryType::i32To64:
-	case gen::MemoryType::i64:
-		if (!pValuei64.valid())
-			pValuei64 = gen::Sink->local(wasm::Type::i64, u8"_mem_i64");
-		value = pValuei64;
-		break;
-	case gen::MemoryType::f32:
-		if (!pValuef32.valid())
-			pValuef32 = gen::Sink->local(wasm::Type::f32, u8"_mem_f32");
-		value = pValuef32;
-		break;
-	case gen::MemoryType::f64:
-		if (!pValuef64.valid())
-			pValuef64 = gen::Sink->local(wasm::Type::f64, u8"_mem_f64");
-		value = pValuef64;
-		break;
-	}
-
-	/* cache the value (as it must be placed after the address) and prepare the stack */
-	gen::Add[I::Local::Set(value)];
+void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const {
+	/* write the address to the stack */
 	if (lookup != 0)
 		fMakeAddress(cache, *lookup, type, address);
 	else
 		fMakeAddress(cache, pState.writes[fMakeIndex(cache, type)], type, address);
-	gen::Add[I::Local::Get(value)];
-
-	/* add the final store-instruction */
+}
+void gen::detail::MemoryWriter::fMakeStopWrite(gen::MemoryType type) const {
+	/* add the store-instruction */
 	switch (type) {
 	case gen::MemoryType::u8To32:
 	case gen::MemoryType::i8To32:
@@ -245,7 +208,10 @@ void gen::detail::MemoryWriter::makeRead(uint32_t cacheIndex, gen::MemoryType ty
 	fCheckCache(cacheIndex);
 	fMakeRead(cacheIndex, type, address, 0);
 }
-void gen::detail::MemoryWriter::makeWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const {
+void gen::detail::MemoryWriter::makeStartWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const {
 	fCheckCache(cacheIndex);
-	fMakeWrite(cacheIndex, type, address, 0);
+	fMakeStartWrite(cacheIndex, type, address, 0);
+}
+void gen::detail::MemoryWriter::makeEndWrite(gen::MemoryType type) const {
+	fMakeStopWrite(type);
 }

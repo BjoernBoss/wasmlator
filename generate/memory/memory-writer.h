@@ -9,10 +9,6 @@ namespace gen::detail {
 	private:
 		const detail::MemoryState& pState;
 		mutable wasm::Variable pAccess;
-		mutable wasm::Variable pValuei32;
-		mutable wasm::Variable pValuei64;
-		mutable wasm::Variable pValuef32;
-		mutable wasm::Variable pValuef64;
 
 	public:
 		MemoryWriter(const detail::MemoryState& state);
@@ -22,10 +18,12 @@ namespace gen::detail {
 		uint32_t fMakeIndex(uint32_t cache, gen::MemoryType type) const;
 		void fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type, env::guest_t address) const;
 		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const;
-		void fMakeWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const;
+		void fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const;
+		void fMakeStopWrite(gen::MemoryType type) const;
 
 	public:
 		void makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
-		void makeWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
+		void makeStartWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
+		void makeEndWrite(gen::MemoryType type) const;
 	};
 }
