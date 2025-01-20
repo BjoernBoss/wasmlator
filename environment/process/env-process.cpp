@@ -70,11 +70,9 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 		return false;
 	pMemoryPages = detail::PhysPageCount(std::max(endOfMemory, memoryConfig.value()));
 
-	/* validate the memory-pages and physical pages */
-	if (pPhysicalPages >= detail::PhysMaxPages || pMemoryPages >= detail::PhysMaxPages) {
-		logger.error(u8"Configuration requires too many physical pages");
-		return false;
-	}
+	/* validate the memory-pages and physical pages (only as warning to allow 64-bit builds of application) */
+	if (pPhysicalPages >= detail::PhysMaxPages || pMemoryPages >= detail::PhysMaxPages)
+		logger.warn(u8"Configuration requires too many physical pages");
 
 	/* allocate the next process-id */
 	logger.log(u8"Process created with id [", ++global::ProcId, u8']');

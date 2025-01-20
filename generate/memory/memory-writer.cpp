@@ -10,6 +10,36 @@ void gen::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
 	if (cache >= caches)
 		logger.fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
+uint32_t gen::detail::MemoryWriter::fMakeIndex(uint32_t cache, gen::MemoryType type) const {
+	uint32_t index = cache * 4;
+
+	/* add the size-offset to the index */
+	switch (type) {
+	case gen::MemoryType::u8To32:
+	case gen::MemoryType::i8To32:
+	case gen::MemoryType::u8To64:
+	case gen::MemoryType::i8To64:
+		index += 0;
+		break;
+	case gen::MemoryType::u16To32:
+	case gen::MemoryType::i16To32:
+	case gen::MemoryType::u16To64:
+	case gen::MemoryType::i16To64:
+		index += 1;
+		break;
+	case gen::MemoryType::u32To64:
+	case gen::MemoryType::i32To64:
+	case gen::MemoryType::i32:
+	case gen::MemoryType::f32:
+		index += 2;
+		break;
+	case gen::MemoryType::i64:
+	case gen::MemoryType::f64:
+		index += 3;
+		break;
+	}
+	return index;
+}
 void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Function& lookup, gen::MemoryType type, env::guest_t address) const {
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
 
@@ -64,34 +94,7 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 		gen::Add[I::U64::Load(pState.memory, offsetof(env::detail::MemoryCache, address))];
 		gen::Add[I::U64::Add()];
 
-		/* write the current size to the stack */
-		switch (type) {
-		case gen::MemoryType::u8To32:
-		case gen::MemoryType::u8To64:
-		case gen::MemoryType::i8To32:
-		case gen::MemoryType::i8To64:
-			gen::Add[I::U32::Const(1)];
-			break;
-		case gen::MemoryType::u16To32:
-		case gen::MemoryType::u16To64:
-		case gen::MemoryType::i16To32:
-		case gen::MemoryType::i16To64:
-			gen::Add[I::U32::Const(2)];
-			break;
-		case gen::MemoryType::i32:
-		case gen::MemoryType::f32:
-		case gen::MemoryType::u32To64:
-		case gen::MemoryType::i32To64:
-			gen::Add[I::U32::Const(4)];
-			break;
-		case gen::MemoryType::i64:
-		case gen::MemoryType::f64:
-			gen::Add[I::U32::Const(8)];
-			break;
-		}
-
 		/* perform the call to patch the cache (leaves the new absolute address as i32 on the stack) */
-		gen::Add[I::U32::Const(cache)];
 		gen::Add[I::Call::Direct(lookup)];
 
 		/* less-equal, compute the final absolute address */
@@ -103,8 +106,12 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 		gen::Add[I::U32::Add()];
 	}
 }
-void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address) const {
-	fMakeAddress(cache, pState.read, type, address);
+void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const {
+	/* add the address-lookup */
+	if (lookup != 0)
+		fMakeAddress(cache, *lookup, type, address);
+	else
+		fMakeAddress(cache, pState.reads[fMakeIndex(cache, type)], type, address);
 
 	/* add the final read-instruction */
 	switch (type) {
@@ -152,56 +159,7 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 		break;
 	}
 }
-void gen::detail::MemoryWriter::fMakeCode(uint32_t cache, gen::MemoryType type, env::guest_t address) const {
-	fMakeAddress(cache, pState.code, type, address);
-
-	/* add the final read-instruction */
-	switch (type) {
-	case gen::MemoryType::u8To32:
-		gen::Add[I::U32::Load8(pState.physical)];
-		break;
-	case gen::MemoryType::u16To32:
-		gen::Add[I::U32::Load16(pState.physical)];
-		break;
-	case gen::MemoryType::u8To64:
-		gen::Add[I::U64::Load8(pState.physical)];
-		break;
-	case gen::MemoryType::u16To64:
-		gen::Add[I::U64::Load16(pState.physical)];
-		break;
-	case gen::MemoryType::u32To64:
-		gen::Add[I::U64::Load32(pState.physical)];
-		break;
-	case gen::MemoryType::i8To32:
-		gen::Add[I::I32::Load8(pState.physical)];
-		break;
-	case gen::MemoryType::i16To32:
-		gen::Add[I::I32::Load16(pState.physical)];
-		break;
-	case gen::MemoryType::i8To64:
-		gen::Add[I::I64::Load8(pState.physical)];
-		break;
-	case gen::MemoryType::i16To64:
-		gen::Add[I::I64::Load16(pState.physical)];
-		break;
-	case gen::MemoryType::i32To64:
-		gen::Add[I::I64::Load32(pState.physical)];
-		break;
-	case gen::MemoryType::i32:
-		gen::Add[I::U32::Load(pState.physical)];
-		break;
-	case gen::MemoryType::i64:
-		gen::Add[I::U64::Load(pState.physical)];
-		break;
-	case gen::MemoryType::f32:
-		gen::Add[I::F32::Load(pState.physical)];
-		break;
-	case gen::MemoryType::f64:
-		gen::Add[I::F64::Load(pState.physical)];
-		break;
-	}
-}
-void gen::detail::MemoryWriter::fMakeWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) const {
+void gen::detail::MemoryWriter::fMakeWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const {
 	wasm::Variable value;
 
 	/* fetch the variable to be used for caching */
@@ -240,7 +198,10 @@ void gen::detail::MemoryWriter::fMakeWrite(uint32_t cache, gen::MemoryType type,
 
 	/* cache the value (as it must be placed after the address) and prepare the stack */
 	gen::Add[I::Local::Set(value)];
-	fMakeAddress(cache, pState.write, type, address);
+	if (lookup != 0)
+		fMakeAddress(cache, *lookup, type, address);
+	else
+		fMakeAddress(cache, pState.writes[fMakeIndex(cache, type)], type, address);
 	gen::Add[I::Local::Get(value)];
 
 	/* add the final store-instruction */
@@ -282,13 +243,9 @@ void gen::detail::MemoryWriter::fMakeWrite(uint32_t cache, gen::MemoryType type,
 
 void gen::detail::MemoryWriter::makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const {
 	fCheckCache(cacheIndex);
-	fMakeRead(cacheIndex, type, address);
-}
-void gen::detail::MemoryWriter::makeCode(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const {
-	fCheckCache(cacheIndex);
-	fMakeCode(cacheIndex, type, address);
+	fMakeRead(cacheIndex, type, address, 0);
 }
 void gen::detail::MemoryWriter::makeWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const {
 	fCheckCache(cacheIndex);
-	fMakeWrite(cacheIndex, type, address);
+	fMakeWrite(cacheIndex, type, address, 0);
 }

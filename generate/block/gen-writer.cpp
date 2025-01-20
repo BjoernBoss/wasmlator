@@ -38,9 +38,6 @@ void gen::Writer::ret() const {
 void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
 	pMemory.makeRead(cacheIndex, type, instAddress);
 }
-void gen::Writer::code(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
-	pMemory.makeCode(cacheIndex, type, instAddress);
-}
 void gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
 	pMemory.makeWrite(cacheIndex, type, instAddress);
 }

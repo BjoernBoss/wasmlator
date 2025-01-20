@@ -8,9 +8,7 @@ struct NullSystem final : public env::System {
 	bool setupCore(wasm::Module& mod) final {
 		return true;
 	}
-	bool coreLoaded() final {
-		return true;
-	}
+	void coreLoaded() final {}
 	std::vector<env::BlockExport> setupBlock(wasm::Module& mod) final { return {}; }
 	void blockLoaded() final {}
 	void shutdown() final {}

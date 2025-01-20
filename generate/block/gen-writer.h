@@ -50,10 +50,6 @@ namespace gen {
 		*	Note: generated code may abort the control-flow */
 		void read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
 
-		/* expects [i64] address on top of stack and writes value to stack
-		*	Note: generated code may abort the control-flow */
-		void code(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
-
 		/* expects [i64] address and value on top of stack
 		*	Note: generated code may abort the control-flow */
 		void write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const;
