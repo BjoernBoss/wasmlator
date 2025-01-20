@@ -9,8 +9,10 @@
 
 /* riscv 64-bit */
 namespace rv64 {
-	/* one cache per register used for both reading and writing */
+	/* one cache per register for reading and writing */
 	static constexpr uint32_t MemoryCaches = 32;
+	static constexpr uint32_t ReadCaches = 0;
+	static constexpr uint32_t WriteCaches = 0;
 
 	struct Context {
 		union {
