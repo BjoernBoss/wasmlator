@@ -22,6 +22,7 @@ namespace sys::detail {
 	}
 
 	struct ProcessConfig {
+		std::u8string userName;
 		std::u8string path;
 		std::u8string wDirectory;
 		uint32_t uid = fs::ThisUesr;

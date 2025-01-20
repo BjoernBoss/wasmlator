@@ -479,31 +479,9 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 	if (!fCheckFd(fd))
 		return errCode::eBadFd;
 
-	/* linux stat-structure */
-	struct LinuxStats {
-		uint64_t dev = 0;
-		uint64_t inode = 0;
-		uint32_t mode = 0;
-		uint32_t nlinks = 0;
-		uint32_t uid = 0;
-		uint32_t gid = 0;
-		uint32_t _unused0 = 0;
-		uint64_t rdev = 0;
-		uint64_t size = 0;
-		uint32_t blockSize = 0;
-		uint32_t _unused1 = 0;
-		uint64_t blockCount = 0;
-		uint64_t atime_sec = 0;
-		uint64_t atime_ns = 0;
-		uint64_t mtime_sec = 0;
-		uint64_t mtime_ns = 0;
-		uint64_t ctime_sec = 0;
-		uint64_t ctime_ns = 0;
-	};
-
 	/* request the stats from the file */
 	return pInstance[pOpen[fd].instance].node->stats([](const env::FileStats& stats) -> int64_t {
-		LinuxStats out;
+		linux::FileStats out;
 		uint64_t ctime = std::max<uint64_t>(stats.timeAccessedUS, stats.timeModifiedUS);
 
 		/*

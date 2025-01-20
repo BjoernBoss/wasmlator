@@ -126,30 +126,29 @@ int64_t sys::detail::Syscall::fDispatch() {
 	return errCode::eUnknown;
 }
 int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
-	logger.info(u8"Assumption: Entries are [sysname, nodename, release, version, machine] with each 65 chars");
+	/* helper function */
+	auto write = [](char8_t(&buffer)[65], std::u8string_view str) {
+		std::memcpy(buffer, str.data(), std::min<size_t>(sizeof(buffer), str.size() + 1));
+		};
 
-	/* write the systemname out */
-	env::Instance()->memory().mwrite(addr + 0 * 65llu, u8"wasmlator", 10, env::Usage::Write);
+	/* construct the uname-content */
+	linux::UName uname;
+	write(uname.sysName, u8"wasmlator");
+	write(uname.nodeName, pConfig.userName);
+	write(uname.release, u8"6.8.0-wasmlator");
+	write(uname.version, u8"userspace-wasmlator #version 1.0.0");
+	write(uname.machine, pMachine);
 
-	/* write the nodename out */
-	env::Instance()->memory().mwrite(addr + 1 * 65llu, u8"", 1, env::Usage::Write);
-
-	/* write the release out (version needs to be high enough for glibc to accept it) */
-	env::Instance()->memory().mwrite(addr + 2 * 65llu, u8"6.8.0-wasmlator", 16, env::Usage::Write);
-
-	/* write the version out */
-	env::Instance()->memory().mwrite(addr + 3 * 65llu, u8"userspace-wasmlator #version 1.0.0", 35, env::Usage::Write);
-
-	/* write the machine out */
-	size_t len = std::max<size_t>(64, pMachine.size() + 1);
-	env::Instance()->memory().mwrite(addr + 4 * 65llu, pMachine.data(), len, env::Usage::Write);
+	/* write the data to the guest */
+	env::Instance()->memory().mwrite(addr, &uname, sizeof(linux::UName), env::Usage::Write);
 	return errCode::eSuccess;
 }
 
 bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path, std::u8string_view machine) {
 	pUserspace = userspace;
-	pConfig.path = std::u8string{ path };
 	pMachine = std::u8string{ machine };
+	pConfig.path = std::u8string{ path };
+	pConfig.userName = u8"some-unknown";
 
 	/* setup the file-io */
 	if (!pFileIO.setup(this))

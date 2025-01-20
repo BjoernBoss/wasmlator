@@ -70,6 +70,37 @@ namespace sys {
 		};
 	}
 
+	/* assumptions about structures made for syscalls */
+	namespace linux {
+		struct UName {
+			char8_t sysName[65] = { 0 };
+			char8_t nodeName[65] = { 0 };
+			char8_t release[65] = { 0 };
+			char8_t version[65] = { 0 };
+			char8_t machine[65] = { 0 };
+		};
+		struct FileStats {
+			uint64_t dev = 0;
+			uint64_t inode = 0;
+			uint32_t mode = 0;
+			uint32_t nlinks = 0;
+			uint32_t uid = 0;
+			uint32_t gid = 0;
+			uint32_t _unused0 = 0;
+			uint64_t rdev = 0;
+			uint64_t size = 0;
+			uint32_t blockSize = 0;
+			uint32_t _unused1 = 0;
+			uint64_t blockCount = 0;
+			uint64_t atime_sec = 0;
+			uint64_t atime_ns = 0;
+			uint64_t mtime_sec = 0;
+			uint64_t mtime_ns = 0;
+			uint64_t ctime_sec = 0;
+			uint64_t ctime_ns = 0;
+		};
+	}
+
 	enum class ArchType : uint8_t {
 		unknown,
 		x86_64,
