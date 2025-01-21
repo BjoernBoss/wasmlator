@@ -55,25 +55,34 @@ bool sys::detail::FileIO::fCheckAccess(const env::FileStats& stats, bool read, b
 		return false;
 	return true;
 }
-int64_t sys::detail::FileIO::fCheckPath(int64_t dirfd, std::u8string_view path, std::u8string& actual) {
+std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd, std::u8string_view path, bool allowEmpty) {
+	/* check if the empty-path is allowed to be used */
+	if (allowEmpty && path.empty()) {
+		/* extract the path of the file-descriptor */
+		if (dirfd == consts::fdWDirectory)
+			return { pSyscall->config().wDirectory, errCode::eSuccess };
+		else if (!fCheckFd(dirfd))
+			return { u8"", errCode::eBadFd };
+		return { pInstance[pOpen[dirfd].instance].path, errCode::eSuccess };
+	}
+
 	/* validate the path */
 	util::PathState state = util::TestPath(path);
 	if (state == util::PathState::invalid)
-		return errCode::eInvalid;
+		return { u8"", errCode::eInvalid };
 
 	/* validate the directory-descriptor */
 	Instance* instance = 0;
 	if (state == util::PathState::relative) {
 		if (dirfd != consts::fdWDirectory && !fCheckFd(dirfd))
-			return errCode::eBadFd;
+			return { u8"", errCode::eBadFd };
 		instance = &pInstance[pOpen[dirfd].instance];
 		if (!instance->directory)
-			return errCode::eNotDirectory;
+			return { u8"", errCode::eNotDirectory };
 	}
 
 	/* construct the actual path */
-	actual = util::MergePaths(instance != 0 ? instance->path : pSyscall->config().wDirectory, path);
-	return errCode::eSuccess;
+	return { util::MergePaths(instance != 0 ? instance->path : pSyscall->config().wDirectory, path), errCode::eSuccess };
 }
 
 int64_t sys::detail::FileIO::fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
@@ -264,8 +273,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		return errCode::eInvalid;
 
 	/* validate and construct the final path */
-	std::u8string actual;
-	int64_t result = fCheckPath(dirfd, path, actual);
+	auto [actual, result] = fCheckPath(dirfd, path, false);
 	if (result != errCode::eSuccess)
 		return result;
 
@@ -357,8 +365,7 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 		return errCode::eInvalid;
 
 	/* validate and construct the final path */
-	std::u8string actual;
-	int64_t result = fCheckPath(dirfd, path, actual);
+	auto [actual, result] = fCheckPath(dirfd, path, false);
 	if (result != errCode::eSuccess)
 		return result;
 
@@ -393,24 +400,10 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 		});
 }
 int64_t sys::detail::FileIO::fAccessAt(int64_t dirfd, std::u8string_view path, uint64_t mode, uint64_t flags) {
-	std::u8string actual;
-
-	/* check if the empty-path flag is used */
-	if (detail::IsSet(flags, consts::accEmptyPath) && path.empty()) {
-		if (dirfd == consts::fdWDirectory)
-			actual = pSyscall->config().wDirectory;
-		else if (!fCheckFd(dirfd))
-			return errCode::eBadFd;
-		else
-			actual = pInstance[pOpen[dirfd].instance].path;
-	}
-
 	/* validate and construct the final path */
-	else {
-		int64_t result = fCheckPath(dirfd, path, actual);
-		if (result != errCode::eSuccess)
-			return result;
-	}
+	auto [actual, result] = fCheckPath(dirfd, path, detail::IsSet(flags, consts::accEmptyPath));
+	if (result != errCode::eSuccess)
+		return result;
 
 	/* configure the resolve-operation to be performed */
 	pResolve.linkFollow = 0;
@@ -594,24 +587,10 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		});
 }
 int64_t sys::detail::FileIO::fstatat(int64_t dirfd, std::u8string_view path, env::guest_t address, int64_t flags) {
-	std::u8string actual;
-
-	/* check if the empty-path flag is used */
-	if (detail::IsSet(flags, consts::accEmptyPath) && path.empty()) {
-		if (dirfd == consts::fdWDirectory)
-			actual = pSyscall->config().wDirectory;
-		else if (!fCheckFd(dirfd))
-			return errCode::eBadFd;
-		else
-			actual = pInstance[pOpen[dirfd].instance].path;
-	}
-
 	/* validate and construct the final path */
-	else {
-		int64_t result = fCheckPath(dirfd, path, actual);
-		if (result != errCode::eSuccess)
-			return result;
-	}
+	auto [actual, result] = fCheckPath(dirfd, path, detail::IsSet(flags, consts::accEmptyPath));
+	if (result != errCode::eSuccess)
+		return result;
 
 	/* configure the resolve-operation to be performed */
 	pResolve.linkFollow = 0;

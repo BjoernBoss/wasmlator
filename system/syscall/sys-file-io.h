@@ -77,7 +77,7 @@ namespace sys::detail {
 		int64_t fCheckRead(int64_t fd) const;
 		int64_t fCheckWrite(int64_t fd) const;
 		bool fCheckAccess(const env::FileStats& stats, bool read, bool write, bool execute, bool effIds) const;
-		int64_t fCheckPath(int64_t dirfd, std::u8string_view path, std::u8string& actual);
+		std::pair<std::u8string, int64_t> fCheckPath(int64_t dirfd, std::u8string_view path, bool allowEmpty);
 
 	private:
 		int64_t fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
