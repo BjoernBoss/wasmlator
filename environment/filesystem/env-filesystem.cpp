@@ -162,6 +162,11 @@ void env::FileSystem::deleteFile(std::u8string_view path, std::function<void(boo
 	std::u8string actual = fPrepare(path);
 	fHandleTask(str::u8::Build(u8"rmfile:", actual), callback);
 }
+void env::FileSystem::accessedObject(std::u8string_view path, std::function<void(bool)> callback) {
+	logger.debug(u8"Accessed object [", path, u8']');
+	std::u8string actual = fPrepare(path);
+	fHandleTask(str::u8::Build(u8"accessed:", actual), callback);
+}
 
 void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, env::FileAccess access, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
 	logger.debug(u8"Opening file [", path, u8']');

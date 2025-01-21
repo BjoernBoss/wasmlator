@@ -141,7 +141,7 @@ int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8stri
 	}
 
 	/* lookup the next child and continue resolving the path */
-	return node->lookup(_name, [this, _next, _remainder, callback, node, stats](detail::SharedNode cnode, const env::FileStats& cstats) -> int64_t {
+	return node->lookup(_name, _next, [this, _next, _remainder, callback, node, stats](detail::SharedNode cnode, const env::FileStats& cstats) -> int64_t {
 		/* check if the node was found */
 		if (cnode.get() != 0)
 			return fResolveNext(_next, _remainder, cnode, cstats, callback);
@@ -305,7 +305,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			}
 
 			/* try to create the file */
-			return node->create(util::SplitName(path).second, config, [this, read, write, openOnly, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
+			return node->create(util::SplitName(path).second, path, config, [this, read, write, openOnly, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
 				return fSetupFile(cnode, path, false, read, write, !openOnly, closeOnExecute);
@@ -390,13 +390,12 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 		if (stats.type != env::FileType::link)
 			return errCode::eInvalid;
 
-		/* mark the link as read */
-		node->linkRead();
-
 		/* write the link to the guest */
 		result = std::min<int64_t>(size, stats.link.size());
 		env::Instance()->memory().mwrite(address, stats.link.data(), result, env::Usage::Write);
-		return result;
+
+		/* mark the link as read (ignore errors, as this is only a meta-data update) */
+		return node->linkRead([result](bool success) -> int64_t { return result; });
 		});
 }
 int64_t sys::detail::FileIO::fAccessAt(int64_t dirfd, std::u8string_view path, uint64_t mode, uint64_t flags) {
@@ -463,6 +462,9 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	}
 	pSyscall->config().wDirectory = util::CanonicalPath(wDirectory);
 	logger.info(u8"Configured with current working directory [", pSyscall->config().wDirectory, u8']');
+
+	/* enable the root node to ensure any upcoming calls are performed on the actual filesystem */
+	pRoot->enable();
 	return true;
 }
 

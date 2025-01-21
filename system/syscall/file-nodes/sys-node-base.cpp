@@ -2,11 +2,13 @@
 
 static util::Logger logger{ u8"sys::syscall" };
 
-void sys::detail::FileNode::linkRead() {}
-int64_t sys::detail::FileNode::lookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
+int64_t sys::detail::FileNode::linkRead(std::function<int64_t(bool)> callback) {
+	return callback(false);
+}
+int64_t sys::detail::FileNode::lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
 	return callback({}, {});
 }
-int64_t sys::detail::FileNode::create(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
+int64_t sys::detail::FileNode::create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
 	return callback(errCode::eReadOnly, {});
 }
 int64_t sys::detail::FileNode::open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) {
@@ -88,10 +90,11 @@ int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::Fil
 		return callback(out);
 		});
 }
-void sys::detail::VirtualFileNode::linkRead() {
+int64_t sys::detail::VirtualFileNode::linkRead(std::function<int64_t(bool)> callback) {
 	pLastRead = host::GetStampUS();
+	return callback(true);
 }
-int64_t sys::detail::VirtualFileNode::lookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
+int64_t sys::detail::VirtualFileNode::lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
 	const std::u8string& _name = std::u8string{ name };
 
 	/* check if the node has already been cached */
@@ -112,7 +115,7 @@ int64_t sys::detail::VirtualFileNode::lookup(std::u8string_view name, std::funct
 			});
 		});
 }
-int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
+int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
 	const std::u8string& _name = std::u8string{ name };
 
 	/* check if the node has already been cached */

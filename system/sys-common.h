@@ -27,6 +27,7 @@ namespace sys {
 		namespace errCode {
 			static constexpr int64_t eSuccess = 0;
 			static constexpr int64_t eNoEntry = -2;
+			static constexpr int64_t eInterrupted = -4;
 			static constexpr int64_t eIO = -5;
 			static constexpr int64_t eBadFd = -9;
 			static constexpr int64_t eNoMemory = -12;

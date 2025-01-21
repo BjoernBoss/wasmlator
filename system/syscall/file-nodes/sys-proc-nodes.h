@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sys-file-nodes.h"
+#include "sys-node-base.h"
 
 namespace sys::detail::impl {
 	class ProcDirectory final : public detail::VirtualFileNode {

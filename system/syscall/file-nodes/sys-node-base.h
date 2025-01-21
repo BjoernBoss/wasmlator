@@ -23,12 +23,12 @@ namespace sys::detail {
 	public:
 		/* generic-interactions */
 		virtual int64_t stats(std::function<int64_t(const env::FileStats&)> callback) const = 0;
-		virtual void linkRead();
+		virtual int64_t linkRead(std::function<int64_t(bool)> callback);
 
 	public:
 		/* dir-interactions */
-		virtual int64_t lookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback);
-		virtual int64_t create(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback);
+		virtual int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback);
+		virtual int64_t create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback);
 
 	public:
 		/* file-interactions */
@@ -65,9 +65,9 @@ namespace sys::detail {
 
 	public:
 		int64_t stats(std::function<int64_t(const env::FileStats&)> callback) const final;
-		void linkRead() final;
-		int64_t lookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
-		int64_t create(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
+		int64_t linkRead(std::function<int64_t(bool)> callback) final;
+		int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
+		int64_t create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
 		int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 		int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 	};

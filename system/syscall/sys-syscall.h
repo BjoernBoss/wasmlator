@@ -42,7 +42,9 @@ namespace sys::detail {
 			env::guest_t address = 0;
 			env::guest_t next = 0;
 			int64_t result = 0;
+			size_t nested = 0;
 			bool inplace = false;
+			bool completed = false;
 		} pCurrent;
 		detail::ProcessConfig pConfig;
 		std::u8string pMachine;

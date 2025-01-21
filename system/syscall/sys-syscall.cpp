@@ -14,14 +14,27 @@ std::u8string sys::detail::Syscall::fReadString(env::guest_t address) const {
 }
 
 void sys::detail::Syscall::fWrap(std::function<int64_t()> callback) {
-	/* execute the wrapped call (to catch any memory exceptions) */
+	++pCurrent.nested;
+
+	/* execute the wrapped call (to catch any memory exceptions and nested incomplete-calls) */
 	try {
 		pCurrent.result = callback();
+		pCurrent.completed = true;
 	}
 	catch (const env::MemoryFault& e) {
 		logger.debug(u8"Memory fault at [", str::As{ U"#018x", e.accessed }, u8"] while handling syscall");
 		pCurrent.result = errCode::eFault;
 	}
+	catch (const detail::AwaitingSyscall&) {
+		/* check if this is a nested execution, in which case the exception needs to be passed through */
+		if (pCurrent.nested > 1)
+			throw detail::AwaitingSyscall{ pCurrent.next };
+	}
+
+	/* check if this is a nested execution, in which case the execution cannot yet
+	*	continue (implementation must internally throw the awaiting exception again) */
+	if (--pCurrent.next > 0)
+		return;
 
 	/* if this point is reached, the call has been completed (otherwise await-exception will be thrown) */
 	logger.debug(u8"result: ", str::As{ U"#018x", pCurrent.result });
@@ -188,6 +201,8 @@ void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress
 	pCurrent.address = address;
 	pCurrent.next = nextAddress;
 	pCurrent.inplace = true;
+	pCurrent.completed = false;
+	pCurrent.nested = 0;
 
 	/* dispatch the call (will write the result back properly and continue execution at the right address) */
 	fWrap([this]() { return fDispatch(); });
@@ -200,7 +215,9 @@ sys::detail::FileIO& sys::detail::Syscall::fileIO() {
 	return pFileIO;
 }
 void sys::detail::Syscall::callIncomplete() {
-	pCurrent.inplace = false;
+	/* reset the in-place flag (only if the result has not yet already been provided) */
+	if (!pCurrent.completed)
+		pCurrent.inplace = false;
 	throw detail::AwaitingSyscall{ pCurrent.next };
 }
 void sys::detail::Syscall::callContinue(std::function<int64_t()> callback) {

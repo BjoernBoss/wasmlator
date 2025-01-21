@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../sys-common.h"
-#include "file-nodes/sys-root-nodes.h"
+#include "file-nodes/sys-root-node.h"
 
 namespace sys::detail {
 	static constexpr size_t MaxFollowSymLinks = 16;
@@ -56,7 +56,7 @@ namespace sys::detail {
 
 	private:
 		std::map<std::u8string, detail::SharedNode> pMounted;
-		detail::SharedNode pRoot;
+		std::shared_ptr<impl::RootFileNode> pRoot;
 		std::vector<Instance> pInstance;
 		std::vector<Open> pOpen;
 		std::vector<uint8_t> pBuffer;

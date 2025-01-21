@@ -103,6 +103,7 @@ namespace env {
 		void createDir(std::u8string_view path, std::function<void(bool)> callback);
 		void deleteDir(std::u8string_view path, std::function<void(bool)> callback);
 		void deleteFile(std::u8string_view path, std::function<void(bool)> callback);
+		void accessedObject(std::u8string_view path, std::function<void(bool)> callback);
 
 	public:
 		void openFile(std::u8string_view path, env::FileOpen open, env::FileAccess access, std::function<void(bool, uint64_t, const env::FileStats*)> callback);
