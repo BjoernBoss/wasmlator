@@ -15,9 +15,9 @@ sys::elf::LoadState sys::LoadElf(const uint8_t* data, size_t size) {
 	detail::ElfConfig config = detail::ValidateElfLoad(reader, bitWidth);
 
 	/* check if a base-address needs to be picked (sufficiently far away from start of large allocations-address) */
-	env::guest_t baseAddress = 0;
+	env::guest_t baseAddress = 0, pageSize = env::Instance()->pageSize();
 	if (config.dynamic)
-		baseAddress = env::guest_t(1 + (host::Random() & 0x00ff'ffff)) * env::Instance()->pageSize();
+		baseAddress = env::guest_t(1 + (host::Random() & 0x00ff'ffff)) * pageSize;
 	logger.debug(u8"Selecting base-address as: ", str::As{ U"#018x", baseAddress });
 
 	/* load all program headers to memory */
@@ -26,13 +26,16 @@ sys::elf::LoadState sys::LoadElf(const uint8_t* data, size_t size) {
 	/* setup the loaded state */
 	elf::LoadState loaded;
 	std::swap(loaded.interpreter, config.interpreter);
-	loaded.entry = config.entry + baseAddress;
+	loaded.start = config.entry + baseAddress;
 	loaded.endOfData = endOfData;
-	loaded.phAddress = config.phAddress + baseAddress;
-	loaded.phCount = config.phCount;
-	loaded.phEntrySize = config.phEntrySize;
 	loaded.machine = config.machine;
 	loaded.bitWidth = bitWidth;
+	loaded.aux.entry = loaded.start;
+	loaded.aux.phAddress = config.phAddress + baseAddress;
+	loaded.aux.phCount = config.phCount;
+	loaded.aux.phEntrySize = config.phEntrySize;
+	loaded.aux.pageSize = pageSize;
+	loaded.aux.base = 0;
 	return loaded;
 }
 
@@ -61,10 +64,10 @@ void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t 
 		throw elf::Exception{ L"Interpreter expects recursive interpreter" };
 
 	/* check if a base-address needs to be picked (move it far behind the main application) */
-	env::guest_t baseAddress = 0;
+	env::guest_t baseAddress = 0, pageSize = env::Instance()->pageSize();
 	if (config.dynamic) {
-		baseAddress = 0x0000'0400'0000'0000 + (state.endOfData & env::guest_t(env::Instance()->pageSize() - 1));
-		baseAddress += env::guest_t(host::Random() & 0x00ff'ffff) * env::Instance()->pageSize();
+		baseAddress = 0x0000'0400'0000'0000 + (state.endOfData & env::guest_t(pageSize - 1));
+		baseAddress += env::guest_t(host::Random() & 0x00ff'ffff) * pageSize;
 	}
 	logger.debug(u8"Selecting base-address for interpreter as: ", str::As{ U"#018x", baseAddress });
 
@@ -72,5 +75,6 @@ void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t 
 	detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);
 
 	/* patch the final state */
-	state.entry = config.entry + baseAddress;
+	state.aux.base = baseAddress;
+	state.start = config.entry + baseAddress;
 }

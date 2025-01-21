@@ -43,7 +43,7 @@ sys::detail::ElfConfig sys::detail::ValidateElfLoadTyped(const detail::Reader& r
 	const detail::ProgramHeader<Base>* phList = reader.base<detail::ProgramHeader<Base>>(config.phOffset, config.phCount);
 
 	/* iterate over the program header and look for all interesting headers required for loading */
-	bool loadFound = false, dynFound = false, phFound = false, intFound = false;
+	bool loadFound = false, phFound = false, intFound = false;
 	for (size_t i = 0; i < config.phCount; ++i) {
 		/* check if the first loadable header has been found */
 		if (phList[i].type == detail::ProgramType::load)
@@ -72,15 +72,6 @@ sys::detail::ElfConfig sys::detail::ValidateElfLoadTyped(const detail::Reader& r
 				throw elf::Exception{ L"Malformed program-headers with multiple program-header entries" };
 			phFound = true;
 			config.phAddress = phList[i].vAddress;
-		}
-
-		/* check if the dynamic header has been found */
-		else if (phList[i].type == detail::ProgramType::dynamic) {
-			if (dynFound)
-				throw elf::Exception{ L"Malformed program-headers with multiple dynamic entries" };
-			dynFound = true;
-			config.dynOffset = phList[i].offset;
-			config.dynSize = phList[i].fileSize;
 		}
 	}
 	return config;

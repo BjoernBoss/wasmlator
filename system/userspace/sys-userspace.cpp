@@ -17,7 +17,7 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	size_t wordWidth = ((pLoaded.bitWidth == 64) ? 8 : 4);
 
 	/* count the size of the blob of data at the end (16 bytes for random data) */
-	size_t blobSize = 16 + pBinary.size() + 1;
+	size_t blobSize = 16 + 2 * (pBinary.size() + 1);
 	for (size_t i = 0; i < pArgs.size(); ++i)
 		blobSize += pArgs[i].size() + 1;
 	for (size_t i = 0; i < pEnvs.size(); ++i)
@@ -26,11 +26,11 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	/* compute the size of the structured stack-data
 	*	Args: one pointer for each argument plus count plus null-entry plus self-path
 	*	Envs: one pointer for each environment plus null-entry
-	*	Auxiliary: (AT_PHDR/AT_PHNUM/AT_PHENT/AT_ENTRY/AT_RANDOM/AT_PAGESZ) one null-entry */
+	*	Auxiliary: (AT_PHDR/AT_PHNUM/AT_PHENT/AT_ENTRY/AT_RANDOM/AT_PAGESZ/AT_BASE/AT_EXECFN) one null-entry */
 	size_t structSize = 0;
 	structSize += wordWidth * (pArgs.size() + 3);
 	structSize += wordWidth * (pEnvs.size() + 1);
-	structSize += wordWidth * 12 + wordWidth;
+	structSize += wordWidth * 16 + wordWidth;
 
 	/* validate the stack dimensions (aligned to the corresponding boundaries) */
 	size_t totalSize = (blobSize + structSize + Userspace::StartOfStackAlignment - 1) & ~(Userspace::StartOfStackAlignment - 1);
@@ -83,18 +83,23 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 
 	/* write the auxiliary vector entries out */
 	writeWord(uint64_t(linux::AuxiliaryType::phAddress));
-	writeWord(pLoaded.phAddress);
+	writeWord(pLoaded.aux.phAddress);
 	writeWord(uint64_t(linux::AuxiliaryType::phCount));
-	writeWord(pLoaded.phCount);
+	writeWord(pLoaded.aux.phCount);
 	writeWord(uint64_t(linux::AuxiliaryType::phEntrySize));
-	writeWord(pLoaded.phEntrySize);
+	writeWord(pLoaded.aux.phEntrySize);
 	writeWord(uint64_t(linux::AuxiliaryType::entry));
-	writeWord(pLoaded.entry);
+	writeWord(pLoaded.aux.entry);
+	writeWord(uint64_t(linux::AuxiliaryType::baseInterpreter));
+	writeWord(pLoaded.aux.base);
+	writeWord(uint64_t(linux::AuxiliaryType::pageSize));
+	writeWord(pLoaded.aux.pageSize);
+	writeWord(uint64_t(linux::AuxiliaryType::executableFilename));
+	writeWord(blobPtr);
+	blobPtr += pBinary.size() + 1;
 	writeWord(uint64_t(linux::AuxiliaryType::random));
 	writeWord(blobPtr);
 	blobPtr += 16;
-	writeWord(uint64_t(linux::AuxiliaryType::pageSize));
-	writeWord(env::Instance()->pageSize());
 
 	/* write the auxiliary vector null-entry out */
 	writeWord(0);
@@ -113,6 +118,9 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	for (size_t i = 0; i < pEnvs.size(); ++i)
 		writeBytes(pEnvs[i].data(), pEnvs[i].size() + 1);
 
+	/* write the binary path out again (used for the auxiliary-vector) */
+	writeBytes(pBinary.data(), pBinary.size() + 1);
+
 	/* write the random bytes out */
 	for (size_t i = 0; i < 4; ++i) {
 		uint32_t tmp = host::Random();
@@ -123,6 +131,10 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	*	the argument-count (ptr must not be zero, as this indicates failure) */
 	env::guest_t stack = stackBase + Userspace::StackSize - totalSize;
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
+
+	/* log the stack-state */
+	for (size_t i = 0; i < content.size(); i += 8)
+		logger.trace(u8"Stack [", str::As{ U"#018x", stack + i }, u8"] : ", str::As{ U"#018x", *(uint64_t*)(content.data() + i) });
 	return stack;
 }
 void sys::Userspace::fStartLoad(const std::u8string& path) {
@@ -180,13 +192,13 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		/* check if just the interpreter needs to be loaded (no need to perform architecture checks again - as it will remain unchanged) */
 		if (!pLoaded.interpreter.empty()) {
 			sys::LoadElfInterpreter(pLoaded, data, size);
-			logger.debug(u8"Entry of interpreter: ", str::As{ U"#018x", pLoaded.entry });
+			logger.debug(u8"Entry of interpreter: ", str::As{ U"#018x", pLoaded.start });
 			return fLoadCompleted();
 		}
 
 		/* load the elf */
 		pLoaded = sys::LoadElf(data, size);
-		logger.debug(u8"Entry of program   : ", str::As{ U"#018x", pLoaded.entry });
+		logger.debug(u8"Entry of program   : ", str::As{ U"#018x", pLoaded.start });
 		logger.debug(u8"Start of heap      : ", str::As{ U"#018x", pLoaded.endOfData });
 	}
 	catch (const elf::Exception& e) {
@@ -230,7 +242,7 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 }
 bool sys::Userspace::fLoadCompleted() {
 	/* initialize the starting address */
-	pAddress = pLoaded.entry;
+	pAddress = pLoaded.start;
 
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
 	env::guest_t spAddress = fPrepareStack();

@@ -10,8 +10,6 @@ namespace sys::detail {
 		size_t phEntrySize = 0;
 		size_t phOffset = 0;
 		size_t phCount = 0;
-		size_t dynOffset = 0;
-		size_t dynSize = 0;
 		elf::MachineType machine = elf::MachineType::none;
 		bool dynamic = false;
 	};

@@ -20,11 +20,16 @@ namespace sys {
 		/* load-state describing the result of the load-operation */
 		struct LoadState {
 			std::u8string interpreter;
-			env::guest_t entry = 0;
+			struct {
+				env::guest_t pageSize = 0;
+				env::guest_t entry = 0;
+				env::guest_t phAddress = 0;
+				env::guest_t base = 0;
+				size_t phEntrySize = 0;
+				size_t phCount = 0;
+			} aux;
 			env::guest_t endOfData = 0;
-			env::guest_t phAddress = 0;
-			size_t phEntrySize = 0;
-			size_t phCount = 0;
+			env::guest_t start = 0;
 			elf::MachineType machine = elf::MachineType::none;
 			uint8_t bitWidth = 0;
 
