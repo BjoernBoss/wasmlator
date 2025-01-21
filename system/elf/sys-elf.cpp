@@ -15,8 +15,10 @@ sys::elf::LoadState sys::LoadElf(const uint8_t* data, size_t size) {
 	detail::ElfConfig config = detail::ValidateElfLoad(reader, bitWidth);
 
 	/* check if a base-address needs to be picked (sufficiently far away from start of large allocations-address) */
-	env::guest_t baseAddress = (config.dynamic ? (env::guest_t(host::Random() & 0x00ff'ffff) * env::Instance()->pageSize()) : 0);
-	logger.debug(u8"selecting base-address as: ", str::As{ U"#018x", baseAddress });
+	env::guest_t baseAddress = 0;
+	if (config.dynamic)
+		baseAddress = env::guest_t(1 + (host::Random() & 0x00ff'ffff)) * env::Instance()->pageSize();
+	logger.debug(u8"Selecting base-address as: ", str::As{ U"#018x", baseAddress });
 
 	/* load all program headers to memory */
 	env::guest_t endOfData = detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);
@@ -58,9 +60,13 @@ void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t 
 	if (!config.interpreter.empty())
 		throw elf::Exception{ L"Interpreter expects recursive interpreter" };
 
-	/* check if a base-address needs to be picked (sufficiently far away from start of large allocations-address) */
-	env::guest_t baseAddress = (config.dynamic ? (env::guest_t(host::Random() & 0x00ff'ffff) * env::Instance()->pageSize()) : 0);
-	logger.debug(u8"selecting base-address for interpreter as: ", str::As{ U"#018x", baseAddress });
+	/* check if a base-address needs to be picked (move it far behind the main application) */
+	env::guest_t baseAddress = 0;
+	if (config.dynamic) {
+		baseAddress = 0x0000'0400'0000'0000 + (state.endOfData & env::guest_t(env::Instance()->pageSize() - 1));
+		baseAddress += env::guest_t(host::Random() & 0x00ff'ffff) * env::Instance()->pageSize();
+	}
+	logger.debug(u8"Selecting base-address for interpreter as: ", str::As{ U"#018x", baseAddress });
 
 	/* load all program headers to memory (discard end-of-data, as the previous end-of-data value is being used) */
 	detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);

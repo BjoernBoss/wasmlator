@@ -507,6 +507,26 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		out.ctime_sec = (ctime / 1000'0000);
 		out.ctime_ns = (ctime * 1000) % 1000'000'000;
 
+		/* write the type to the mode */
+		switch (stats.type) {
+		case env::FileType::directory:
+			out.mode |= uint32_t(linux::FileMode::directory);
+			break;
+		case env::FileType::file:
+			out.mode |= uint32_t(linux::FileMode::regular);
+			break;
+		case env::FileType::link:
+			out.mode |= uint32_t(linux::FileMode::link);
+			break;
+		case env::FileType::pipe:
+			out.mode |= uint32_t(linux::FileMode::fifoPipe);
+			break;
+		case env::FileType::tty:
+			out.mode |= uint32_t(linux::FileMode::charDevice);
+			break;
+		default:
+			logger.fatal(u8"Unsupported stat type [", size_t(stats.type), u8"] encountered");
+		}
 		return errCode::eSuccess;
 		});
 }

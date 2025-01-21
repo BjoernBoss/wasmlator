@@ -188,7 +188,6 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		pLoaded = sys::LoadElf(data, size);
 		logger.debug(u8"Entry of program   : ", str::As{ U"#018x", pLoaded.entry });
 		logger.debug(u8"Start of heap      : ", str::As{ U"#018x", pLoaded.endOfData });
-		pAddress = pLoaded.entry;
 	}
 	catch (const elf::Exception& e) {
 		logger.error(u8"Error while loading elf: ", e.what());
@@ -230,6 +229,9 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 	return true;
 }
 bool sys::Userspace::fLoadCompleted() {
+	/* initialize the starting address */
+	pAddress = pLoaded.entry;
+
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
 	env::guest_t spAddress = fPrepareStack();
 	if (spAddress == 0)

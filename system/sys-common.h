@@ -93,6 +93,16 @@ namespace sys {
 			random = 25,
 			executableFilename = 31
 		};
+		enum class FileMode : uint32_t {
+			socket = 0xc000,
+			link = 0xa000,
+			regular = 0x8000,
+			blockDevice = 0x6000,
+			directory = 0x4000,
+			charDevice = 0x2000,
+			fifoPipe = 0x1000,
+		};
+
 		struct UName {
 			char8_t sysName[65] = { 0 };
 			char8_t nodeName[65] = { 0 };

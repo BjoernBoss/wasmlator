@@ -104,15 +104,15 @@ namespace sys {
 			static constexpr uint32_t instructions = 4;
 		}
 
-		template <class BaseType>
+		template <class Base>
 		struct ElfHeader {
 			uint8_t identifier[16];
 			elf::ElfType type;
 			elf::MachineType machine;
 			detail::VersionType version;
-			BaseType entry;
-			BaseType phOffset;
-			BaseType shOffset;
+			Base entry;
+			Base phOffset;
+			Base shOffset;
 			uint32_t flags;
 			uint16_t ehsize;
 			uint16_t phEntrySize;
@@ -142,21 +142,21 @@ namespace sys {
 			uint64_t memSize;
 			uint64_t align;
 		};
-		template <class BaseType>
-		using ProgramHeader = std::conditional_t<std::is_same_v<BaseType, uint64_t>, detail::ProgramHeader64, detail::ProgramHeader32>;
+		template <class Base>
+		using ProgramHeader = std::conditional_t<std::is_same_v<Base, uint64_t>, detail::ProgramHeader64, detail::ProgramHeader32>;
 
-		template <class BaseType>
+		template <class Base>
 		struct SectionHeader {
 			uint32_t name;
 			detail::SectionType type;
-			BaseType flags;
-			BaseType address;
-			BaseType offset;
-			BaseType size;
+			Base flags;
+			Base address;
+			Base offset;
+			Base size;
 			uint32_t link;
 			uint32_t info;
-			BaseType addressAlign;
-			BaseType entrySize;
+			Base addressAlign;
+			Base entrySize;
 		};
 
 		class Reader {
