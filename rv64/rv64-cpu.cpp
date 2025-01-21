@@ -152,6 +152,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 
 	/* map the index */
 	switch (call.rawIndex) {
+	case 48:
+		call.index = sys::SyscallIndex::faccessat;
+		break;
 	case 56:
 		call.index = sys::SyscallIndex::openat;
 		break;
@@ -196,6 +199,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 		break;
 	case 222:
 		call.index = sys::SyscallIndex::mmap;
+		break;
+	case 439:
+		call.index = sys::SyscallIndex::faccessat2;
 		break;
 	default:
 		call.index = sys::SyscallIndex::unknown;

@@ -156,7 +156,10 @@ namespace sys {
 		readlinkat,
 		readlink,
 		fstat,
-		exit_group
+		exit_group,
+		access,
+		faccessat,
+		faccessat2
 	};
 
 	struct SyscallArgs {

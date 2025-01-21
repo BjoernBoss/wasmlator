@@ -114,6 +114,24 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall fstat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8')');
 		return pFileIO.fstat(int64_t(args.args[0]), args.args[1]);
 	}
+	case sys::SyscallIndex::access: {
+		logger.debug(u8"Syscall access(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8')');
+		std::u8string path = fReadString(args.args[0]);
+		logger.debug(u8"pathname: [", path, u8']');
+		return pFileIO.access(path, args.args[1]);
+	}
+	case sys::SyscallIndex::faccessat: {
+		logger.debug(u8"Syscall faccessat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
+		std::u8string path = fReadString(args.args[1]);
+		logger.debug(u8"pathname: [", path, u8']');
+		return pFileIO.faccessat(args.args[0], path, args.args[2]);
+	}
+	case sys::SyscallIndex::faccessat2: {
+		logger.debug(u8"Syscall faccessat2(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8')');
+		std::u8string path = fReadString(args.args[1]);
+		logger.debug(u8"pathname: [", path, u8']');
+		return pFileIO.faccessat2(args.args[0], path, args.args[2], args.args[3]);
+	}
 	case sys::SyscallIndex::unknown:
 		throw detail::UnknownSyscall{ pCurrent.address, args.rawIndex };
 		break;
