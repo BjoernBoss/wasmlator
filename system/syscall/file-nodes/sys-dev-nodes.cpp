@@ -6,10 +6,10 @@ sys::detail::impl::Terminal::Terminal(env::FileAccess access) : VirtualFileNode{
 int64_t sys::detail::impl::Terminal::open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eSuccess);
 }
-int64_t sys::detail::impl::Terminal::virtualStats(std::function<int64_t(const env::FileStats&)> callback) const {
+int64_t sys::detail::impl::Terminal::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::tty;
-	return callback(stats);
+	return callback(&stats);
 }
 int64_t sys::detail::impl::Terminal::virtualRead(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	logger.fatal(u8"Reading from [/dev/tty] is not yet implemented");

@@ -63,6 +63,7 @@ namespace sys::detail {
 		std::vector<uint64_t> pCached;
 		detail::Syscall* pSyscall = 0;
 		struct {
+			std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback;
 			size_t linkFollow = 0;
 			bool follow = false;
 			bool findExisting = false;
@@ -81,7 +82,8 @@ namespace sys::detail {
 
 	private:
 		int64_t fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
-		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, detail::SharedNode node, const env::FileStats& stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
+		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, detail::SharedNode node, const env::FileStats& stats);
+		int64_t fResolveLookup(detail::SharedNode node, const std::u8string& name, const std::u8string& path, const std::u8string& remainder, const env::FileStats& stats);
 
 	private:
 		int64_t fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute);

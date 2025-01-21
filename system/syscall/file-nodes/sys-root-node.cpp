@@ -15,12 +15,12 @@ void sys::detail::impl::RootFileNode::enable() {
 	pEnabled = true;
 }
 
-int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const env::FileStats&)> callback) const {
+int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
 	/* check if the node is not yet enabled, in which case the empty stats need to be provided */
 	if (!pEnabled) {
 		env::FileStats stats;
 		fPatchStats(stats);
-		return callback(stats);
+		return callback(&stats);
 	}
 
 	/* query the actual stats */
@@ -30,13 +30,13 @@ int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const env::
 			if (stats == 0) {
 				env::FileStats astats;
 				fPatchStats(astats);
-				return callback(astats);
+				return callback(&astats);
 			}
 
 			/* update the stats and return them */
 			env::FileStats astats{ *stats };
 			fPatchStats(astats);
-			return callback(astats);
+			return callback(&astats);
 			});
 		});
 

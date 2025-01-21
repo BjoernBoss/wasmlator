@@ -1,21 +1,13 @@
 #include "../../system.h"
 
-static util::Logger logger{ u8"sys::syscall" };
-
 sys::detail::impl::NativeFileNode::NativeFileNode(detail::Syscall* syscall, uint64_t openId) : pSyscall{ syscall }, pOpenId{ openId } {}
 
-int64_t sys::detail::impl::NativeFileNode::stats(std::function<int64_t(const env::FileStats&)> callback) const {
+int64_t sys::detail::impl::NativeFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
 	std::u8string path;
 
 	/* query the actual stats */
 	env::Instance()->filesystem().readStats(path, [this, callback, path](const env::FileStats* stats) {
-		pSyscall->callContinue([callback, stats, path]() -> int64_t {
-			if (stats == 0) {
-				logger.fatal(u8"Stats for [", path, u8"] do not exist anymore");
-				return callback({});
-			}
-			return callback(*stats);
-			});
+		pSyscall->callContinue([callback, stats]() -> int64_t { return callback(stats); });
 		});
 
 	/* defer the call */

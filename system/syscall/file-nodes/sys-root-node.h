@@ -23,6 +23,6 @@ namespace sys::detail::impl {
 		void enable();
 
 	public:
-		int64_t stats(std::function<int64_t(const env::FileStats&)> callback) const final;
+		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const final;
 	};
 }

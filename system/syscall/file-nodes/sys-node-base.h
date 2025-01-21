@@ -22,7 +22,7 @@ namespace sys::detail {
 
 	public:
 		/* generic-interactions */
-		virtual int64_t stats(std::function<int64_t(const env::FileStats&)> callback) const = 0;
+		virtual int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const = 0;
 		virtual int64_t linkRead(std::function<int64_t(bool)> callback);
 
 	public:
@@ -56,15 +56,14 @@ namespace sys::detail {
 		int64_t fCreateNew(const std::u8string& name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback);
 
 	public:
-		virtual int64_t virtualStats(std::function<int64_t(const env::FileStats&)> callback) const = 0;
-		virtual int64_t virtualValid(std::function<int64_t(bool)> callback) const;
+		virtual int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const = 0;
 		virtual int64_t virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const;
 		virtual int64_t virtualCreate(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback);
 		virtual int64_t virtualRead(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual int64_t virtualWrite(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 
 	public:
-		int64_t stats(std::function<int64_t(const env::FileStats&)> callback) const final;
+		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const final;
 		int64_t linkRead(std::function<int64_t(bool)> callback) final;
 		int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
 		int64_t create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
@@ -82,7 +81,7 @@ namespace sys::detail {
 			LinkNode(std::u8string_view link, env::FileAccess access);
 
 		public:
-			int64_t virtualStats(std::function<int64_t(const env::FileStats&)> callback) const final;
+			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
 		};
 
 		/* file-node, which provides an empty directory */
@@ -91,7 +90,7 @@ namespace sys::detail {
 			EmpyDirectory(env::FileAccess access);
 
 		public:
-			int64_t virtualStats(std::function<int64_t(const env::FileStats&)> callback) const final;
+			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
 		};
 	}
 }

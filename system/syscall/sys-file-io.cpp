@@ -86,18 +86,21 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 }
 
 int64_t sys::detail::FileIO::fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
+	pResolve.callback = callback;
+
 	/* check if the maximum number of link expansions has been reached */
 	if (++pResolve.linkFollow >= detail::MaxFollowSymLinks) {
 		logger.error(u8"Link expansion limit for [", path, u8"] reached");
-		return callback(errCode::eLoop, path, {}, {}, false);
+		return pResolve.callback(errCode::eLoop, path, {}, {}, false);
 	}
 
 	/* fetch the stats of the current node and resolve the path further */
-	return pRoot->stats([this, path, callback](const env::FileStats& stats) -> int64_t {
-		return fResolveNext(u8"/", path, pRoot, stats, callback);
+	return pRoot->stats([this, path](const env::FileStats* stats) -> int64_t {
+		/* root stats can never be null */
+		return fResolveNext(u8"/", path, pRoot, *stats);
 		});
 }
-int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8string_view lookup, detail::SharedNode node, const env::FileStats& stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
+int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8string_view lookup, detail::SharedNode node, const env::FileStats& stats) {
 	/* split the path up to check if the node needs to be entered further */
 	auto [name, remainder] = util::SplitRoot(lookup);
 
@@ -106,51 +109,59 @@ int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8stri
 		/* check if the permissions allow for the link to be read */
 		if (!fCheckAccess(stats, true, false, false, pResolve.effectiveIds)) {
 			logger.error(u8"Access to link [", path, u8"] denied");
-			return callback(errCode::eAccess, path, {}, {}, false);
+			return pResolve.callback(errCode::eAccess, path, {}, {}, false);
 		}
 
 		/* construct the actual new absolute path to be resolved and resolve it */
 		std::u8string base = util::MergePaths(util::SplitName(path).first, stats.link);
 		base.append(lookup);
-		return fResolveNode(base, callback);
+		return fResolveNode(base, pResolve.callback);
 	}
 
 	/* check if the end has been reached */
 	if (name.empty())
-		return callback(errCode::eSuccess, path, node, stats, true);
+		return pResolve.callback(errCode::eSuccess, path, node, stats, true);
 
 	/* check if the node is a directory */
 	if (stats.type != env::FileType::directory) {
 		logger.error(u8"Path [", path, u8"] is not a directory");
-		return callback(errCode::eNotDirectory, path, {}, {}, false);
+		return pResolve.callback(errCode::eNotDirectory, path, {}, {}, false);
 	}
 
 	/* check if the permissions allow for the directory to be traversed */
 	if (!fCheckAccess(stats, false, false, true, pResolve.effectiveIds)) {
 		logger.error(u8"Access to directory [", path, u8"] denied");
-		return callback(errCode::eAccess, path, {}, {}, false);
+		return pResolve.callback(errCode::eAccess, path, {}, {}, false);
 	}
 
-	/* check if the node is mounted */
-	std::u8string _name = std::u8string{ name }, _remainder = std::u8string{ remainder }, _next = util::MergePaths(path, _name);
-	auto it = pMounted.find(_next);
-	if (it != pMounted.end()) {
-		return it->second->stats([this, _next, _remainder, node = it->second, callback](const env::FileStats& stats) -> int64_t {
-			return fResolveNext(_next, _remainder, node, stats, callback);
-			});
-	}
+	/* check if the node is not mounted, in which case a normal lookup needs to be performed */
+	std::u8string _name = std::u8string{ name }, _remainder = std::u8string{ remainder }, _path = util::MergePaths(path, _name);
+	auto it = pMounted.find(_path);
+	if (it == pMounted.end())
+		return fResolveLookup(node, _name, _path, _remainder, stats);
 
-	/* lookup the next child and continue resolving the path */
-	return node->lookup(_name, _next, [this, _next, _remainder, callback, node, stats](detail::SharedNode cnode, const env::FileStats& cstats) -> int64_t {
+	/* query the mount-stats and check if its still valid */
+	return it->second->stats([this, _path, _remainder, it, node, _name, stats](const env::FileStats* mstats) -> int64_t {
+		/* check if the mount is still valid */
+		if (mstats != 0)
+			return fResolveNext(_path, _remainder, it->second, *mstats);
+
+		/* remove the mount and perform a normal lookup */
+		pMounted.erase(it);
+		return fResolveLookup(node, _name, _path, _remainder, stats);
+		});
+}
+int64_t sys::detail::FileIO::fResolveLookup(detail::SharedNode node, const std::u8string& name, const std::u8string& path, const std::u8string& remainder, const env::FileStats& stats) {
+	return node->lookup(name, path, [this, path, remainder, node, stats](detail::SharedNode cnode, const env::FileStats& cstats) -> int64_t {
 		/* check if the node was found */
 		if (cnode.get() != 0)
-			return fResolveNext(_next, _remainder, cnode, cstats, callback);
+			return fResolveNext(path, remainder, cnode, cstats);
 
 		/* check if this was the last entry */
-		if (_remainder.empty() && !pResolve.findExisting)
-			return callback(errCode::eSuccess, _next, node, stats, false);
-		logger.error(u8"Path [", _next, u8"] does not exit");
-		return callback(errCode::eNoEntry, _next, {}, {}, false);
+		if (remainder.empty() && !pResolve.findExisting)
+			return pResolve.callback(errCode::eSuccess, path, node, stats, false);
+		logger.error(u8"Path [", path, u8"] does not exit");
+		return pResolve.callback(errCode::eNoEntry, path, {}, {}, false);
 		});
 }
 
@@ -429,7 +440,7 @@ int64_t sys::detail::FileIO::fAccessAt(int64_t dirfd, std::u8string_view path, u
 bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	pSyscall = syscall;
 
-	/* setup the initial root node and auto-mounted components*/
+	/* setup the initial root node and auto-mounted components (mount stats can never fail) */
 	env::FileAccess rootDirs = env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::OwnerAllElseRW }, rootAll = { fs::RootOwner, fs::RootGroup, fs::All };
 	pRoot = std::make_shared<impl::RootFileNode>(pSyscall, rootDirs);
 	pMounted[u8"/dev"] = std::make_shared<impl::EmpyDirectory>(rootDirs);
@@ -579,9 +590,12 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		return errCode::eBadFd;
 
 	/* request the stats from the file */
-	return pInstance[pOpen[fd].instance].node->stats([this, address](const env::FileStats& stats) -> int64_t {
+	return pInstance[pOpen[fd].instance].node->stats([this, address](const env::FileStats* stats) -> int64_t {
+		if (stats == 0)
+			logger.fatal(u8"Failed to fetch stats for an open file");
+
 		/* construct the linux-stats */
-		linux::FileStats lstats = fBuildLinuxStats(stats);
+		linux::FileStats lstats = fBuildLinuxStats(*stats);
 
 		/* write them to the guest */
 		env::Instance()->memory().mwrite(address, &lstats, sizeof(linux::FileStats), env::Usage::Write);

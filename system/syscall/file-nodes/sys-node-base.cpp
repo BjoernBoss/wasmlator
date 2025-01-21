@@ -36,14 +36,13 @@ int64_t sys::detail::VirtualFileNode::fLookupNew(const std::u8string& name, std:
 			return callback({}, {});
 
 		/* check if the node is valid and query its stats */
-		return node->virtualValid([this, node, callback, name](bool valid) -> int64_t {
-			if (!valid)
+		return node->stats([this, node, callback, name](const env::FileStats* stats) -> int64_t {
+			if (stats == 0)
 				return callback({}, {});
-			return node->stats([this, node, callback, name](const env::FileStats& stats) -> int64_t {
-				/* add the node to the cache and return it */
-				pCache[name] = node;
-				return callback(node, stats);
-				});
+
+			/* add the node to the cache and return it */
+			pCache[name] = node;
+			return callback(node, *stats);
 			});
 		});
 }
@@ -61,9 +60,6 @@ int64_t sys::detail::VirtualFileNode::fCreateNew(const std::u8string& name, cons
 		return callback(errCode::eSuccess, node);
 		});
 }
-int64_t sys::detail::VirtualFileNode::virtualValid(std::function<int64_t(bool)> callback) const {
-	return callback(true);
-}
 int64_t sys::detail::VirtualFileNode::virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const {
 	return callback({});
 }
@@ -76,18 +72,21 @@ int64_t sys::detail::VirtualFileNode::virtualRead(std::vector<uint8_t>& buffer, 
 int64_t sys::detail::VirtualFileNode::virtualWrite(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
-int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::FileStats&)> callback) const {
-	return virtualStats([this, callback](const env::FileStats& stats) -> int64_t {
+int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
+	return virtualStats([this, callback](const env::FileStats* stats) -> int64_t {
+		if (stats == 0)
+			return callback(0);
+
 		env::FileStats out;
-		out.link = stats.link;
-		out.size = stats.size;
-		out.type = stats.type;
+		out.link = stats->link;
+		out.size = stats->size;
+		out.type = stats->type;
 		out.timeAccessedUS = pLastRead;
 		out.timeModifiedUS = pLastWrite;
 		out.access = pAccess;
 		out.virtualized = true;
 		out.uniqueId = pUniqueId;
-		return callback(out);
+		return callback(&out);
 		});
 }
 int64_t sys::detail::VirtualFileNode::linkRead(std::function<int64_t(bool)> callback) {
@@ -102,17 +101,13 @@ int64_t sys::detail::VirtualFileNode::lookup(std::u8string_view name, const std:
 	if (it == pCache.end())
 		return fLookupNew(_name, callback);
 
-	/* check if the cache is still valid and fetch its stats */
-	return it->second->virtualValid([this, _name, it, callback](bool valid) -> int64_t {
-		if (!valid) {
+	/* fetch the stats of the file */
+	return it->second->stats([this, _name, it, callback](const env::FileStats* stats) -> int64_t {
+		if (stats == 0) {
 			pCache.erase(it);
 			return fLookupNew(_name, callback);
 		}
-
-		/* fetch the stats of the file */
-		return it->second->stats([this, _name, it, callback](const env::FileStats& stats) -> int64_t {
-			return callback(it->second, stats);
-			});
+		return callback(it->second, *stats);
 		});
 }
 int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
@@ -127,9 +122,9 @@ int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std:
 	if (config.exclusive)
 		return callback(errCode::eExists, {});
 
-	/* check if the cache is still valid and fetch its stats */
-	return it->second->virtualValid([this, _name, it, callback, config](bool valid) -> int64_t {
-		if (!valid) {
+	/* check if the cache is still valid and open it */
+	return it->second->virtualStats([this, _name, it, callback, config](const env::FileStats* stats) -> int64_t {
+		if (stats == 0) {
 			pCache.erase(it);
 			return fCreateNew(_name, config, callback);
 		}
@@ -157,18 +152,18 @@ int64_t sys::detail::VirtualFileNode::write(const std::vector<uint8_t>& buffer, 
 
 
 sys::detail::impl::LinkNode::LinkNode(std::u8string_view link, env::FileAccess access) : VirtualFileNode{ access }, pLink{ link } {}
-int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const env::FileStats&)> callback) const {
+int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.link = pLink;
 	stats.size = pLink.size();
 	stats.type = env::FileType::link;
-	return callback(stats);
+	return callback(&stats);
 }
 
 
 sys::detail::impl::EmpyDirectory::EmpyDirectory(env::FileAccess access) : VirtualFileNode{ access } {}
-int64_t sys::detail::impl::EmpyDirectory::virtualStats(std::function<int64_t(const env::FileStats&)> callback) const {
+int64_t sys::detail::impl::EmpyDirectory::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::directory;
-	return callback(stats);
+	return callback(&stats);
 }
