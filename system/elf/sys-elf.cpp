@@ -2,69 +2,69 @@
 
 static util::Logger logger{ u8"sys::elf" };
 
-bool sys::elf::CheckValid(const uint8_t* data, size_t size) {
-	if (size < sizeof(detail::ElfHeader<uint32_t>))
-		return false;
-
-	/* validate the header identification structure */
-	if (data[0] != detail::ident::_0Magic || data[1] != detail::ident::_1Magic || data[2] != detail::ident::_2Magic || data[3] != detail::ident::_3Magic)
-		return false;
-	if (data[4] != detail::ident::_4elfClass32 && data[4] != detail::ident::_4elfClass64)
-		return false;
-	if (data[5] != detail::ident::_5elfData2LSB)
-		return false;
-	if (data[6] != detail::ident::_6versionCurrent)
-		return false;
-	if (data[7] != detail::ident::_7osABILinux && data[7] != detail::ident::_7osABISYSV)
-		return false;
-	if (data[8] != detail::ident::_8osABIVersion)
-		return false;
-	return true;
-}
-sys::elf::ElfType sys::elf::GetType(const uint8_t* data, size_t size) {
-	if (size < sizeof(detail::ElfHeader<uint32_t>))
-		return elf::ElfType::none;
-	const detail::ElfHeader<uint32_t>* header = reinterpret_cast<const detail::ElfHeader<uint32_t>*>(data);
-	return header->type;
-}
-sys::elf::MachineType sys::elf::GetMachine(const uint8_t* data, size_t size) {
-	if (size < sizeof(detail::ElfHeader<uint32_t>))
-		return elf::MachineType::none;
-	const detail::ElfHeader<uint32_t>* header = reinterpret_cast<const detail::ElfHeader<uint32_t>*>(data);
-	return header->machine;
-}
-uint32_t sys::elf::GetBitWidth(const uint8_t* data, size_t size) {
-	if (size < sizeof(detail::ElfHeader<uint32_t>))
-		return 0;
-	const detail::ElfHeader<uint32_t>* header = reinterpret_cast<const detail::ElfHeader<uint32_t>*>(data);
-	if (header->identifier[4] == detail::ident::_4elfClass32)
-		return 32;
-	if (header->identifier[4] == detail::ident::_4elfClass64)
-		return 64;
-	return 0;
-}
-
 sys::elf::LoadState sys::LoadElf(const uint8_t* data, size_t size) {
 	detail::Reader reader{ data, size };
 
-	/* validate the raw file-header (bit-width agnostic) */
-	if (!elf::CheckValid(data, size))
+	/* validate the fundamental elf-signature */
+	uint8_t bitWidth = detail::CheckElfSignature(reader);
+	if (bitWidth == 0)
 		throw elf::Exception{ L"Data do not have a valid elf-signature" };
-	uint32_t bitWidth = elf::GetBitWidth(data, size);
+	logger.debug(u8"Loading ", bitWidth, u8" bit elf binary");
 
-	/* validate the sized elf-header */
-	detail::ElfHeaderOut out;
-	env::guest_t phAddress = 0;
-	if (bitWidth == 32) {
-		logger.debug(u8"Loading static 32bit elf binary");
-		out = detail::ValidateElfHeader(reader.get<detail::ElfHeader<uint32_t>>(0), reader);
-		phAddress = detail::CheckProgramHeaders<uint32_t>(out, reader);
-	}
-	else {
-		logger.debug(u8"Loading static 64bit elf binary");
-		out = detail::ValidateElfHeader(reader.get<detail::ElfHeader<uint64_t>>(0), reader);
-		phAddress = detail::CheckProgramHeaders<uint64_t>(out, reader);
-	}
+	/* validate the initial elf header and all of the program headers */
+	detail::ElfConfig config = detail::ValidateElfLoad(reader, bitWidth);
 
-	return {};
+	/* check if a base-address needs to be picked (sufficiently far away from start of large allocations-address) */
+	env::guest_t baseAddress = (config.dynamic ? (env::guest_t(host::Random() & 0x00ff'ffff) * env::Instance()->pageSize()) : 0);
+	logger.debug(u8"selecting base-address as: ", str::As{ U"#018x", baseAddress });
+
+	/* load all program headers to memory */
+	env::guest_t endOfData = detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);
+
+	/* setup the loaded state */
+	elf::LoadState loaded;
+	std::swap(loaded.interpreter, config.interpreter);
+	loaded.entry = config.entry + baseAddress;
+	loaded.endOfData = endOfData;
+	loaded.phAddress = config.phAddress + baseAddress;
+	loaded.phCount = config.phCount;
+	loaded.phEntrySize = config.phEntrySize;
+	loaded.machine = config.machine;
+	loaded.bitWidth = bitWidth;
+	return loaded;
+}
+
+void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t size) {
+	detail::Reader reader{ data, size };
+
+	/* validate the fundamental elf-signature */
+	uint8_t bitWidth = detail::CheckElfSignature(reader);
+	if (bitWidth == 0)
+		throw elf::Exception{ L"Data do not have a valid elf-signature" };
+
+	/* check if the bit-width matches */
+	if (bitWidth != state.bitWidth)
+		throw elf::Exception{ L"Interpreter does not match the word-width of the application" };
+	logger.debug(u8"Loading ", bitWidth, u8" bit elf interpreter");
+
+	/* validate the initial elf header and all of the program headers */
+	detail::ElfConfig config = detail::ValidateElfLoad(reader, bitWidth);
+
+	/* check if the machine type matches */
+	if (config.machine != state.machine)
+		throw elf::Exception{ L"Interpreter does not match the machine of the application" };
+
+	/* validate the initial configuration */
+	if (!config.interpreter.empty())
+		throw elf::Exception{ L"Interpreter expects recursive interpreter" };
+
+	/* check if a base-address needs to be picked (sufficiently far away from start of large allocations-address) */
+	env::guest_t baseAddress = (config.dynamic ? (env::guest_t(host::Random() & 0x00ff'ffff) * env::Instance()->pageSize()) : 0);
+	logger.debug(u8"selecting base-address for interpreter as: ", str::As{ U"#018x", baseAddress });
+
+	/* load all program headers to memory (discard end-of-data, as the previous end-of-data value is being used) */
+	detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);
+
+	/* patch the final state */
+	state.entry = config.entry + baseAddress;
 }

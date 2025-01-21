@@ -12,9 +12,9 @@ std::u8string_view sys::Userspace::fArchType(sys::ArchType architecture) const {
 		return u8"unknown";
 	}
 }
-env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded, bool is64Bit) const {
+env::guest_t sys::Userspace::fPrepareStack() const {
 	env::Memory& mem = env::Instance()->memory();
-	size_t wordWidth = (is64Bit ? 8 : 4);
+	size_t wordWidth = ((pLoaded.bitWidth == 64) ? 8 : 4);
 
 	/* count the size of the blob of data at the end (16 bytes for random data) */
 	size_t blobSize = 16 + pBinary.size() + 1;
@@ -83,13 +83,13 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded, bool is
 
 	/* write the auxiliary vector entries out */
 	writeWord(uint64_t(linux::AuxiliaryType::phAddress));
-	writeWord(loaded.phAddress);
+	writeWord(pLoaded.phAddress);
 	writeWord(uint64_t(linux::AuxiliaryType::phCount));
-	writeWord(loaded.phCount);
+	writeWord(pLoaded.phCount);
 	writeWord(uint64_t(linux::AuxiliaryType::phEntrySize));
-	writeWord(loaded.phEntrySize);
+	writeWord(pLoaded.phEntrySize);
 	writeWord(uint64_t(linux::AuxiliaryType::entry));
-	writeWord(loaded.start);
+	writeWord(pLoaded.entry);
 	writeWord(uint64_t(linux::AuxiliaryType::random));
 	writeWord(blobPtr);
 	blobPtr += 16;
@@ -125,24 +125,86 @@ env::guest_t sys::Userspace::fPrepareStack(const sys::ElfLoaded& loaded, bool is
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 	return stack;
 }
+void sys::Userspace::fStartLoad(const std::u8string& path) {
+	/* load the binary */
+	env::Instance()->filesystem().readStats(path, [this, path](const env::FileStats* stats) {
+		/* check if the file could be resolved */
+		if (stats == 0) {
+			logger.error(u8"Path [", path, u8"] does not exist");
+			env::Instance()->shutdown();
+			return;
+		}
+
+		/* check the file-type */
+		if (stats->type != env::FileType::file) {
+			logger.error(u8"Path [", path, u8"] is not a file");
+			env::Instance()->shutdown();
+			return;
+		}
+
+		/* setup the opening of the file */
+		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, env::FileAccess{}, [this, path](bool success, uint64_t id, const env::FileStats* stats) {
+			/* check if the file could be opened */
+			if (!success) {
+				logger.error(u8"Failed to open file [", path, u8"] for reading");
+				env::Instance()->shutdown();
+				return;
+			}
+
+			/* allocate the buffer for the file-content and read it into memory */
+			uint64_t size = stats->size;
+			uint8_t* buffer = new uint8_t[size];
+			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [this, buffer, size, id](uint64_t count) {
+				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
+
+				/* close the file again, as no more data will be read */
+				env::Instance()->filesystem().closeFile(id);
+
+				/* check if the size still matches */
+				if (count != size) {
+					logger.error(u8"File size does not match expected size");
+					env::Instance()->shutdown();
+					return;
+				}
+
+				/* perform the actual loading of the file */
+				if (!fBinaryLoaded(buffer, size))
+					env::Instance()->shutdown();
+				});
+			});
+		});
+}
 bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
-	/* validate the initial elf-header */
-	if (!elf::CheckValid(data, size)) {
-		logger.error(u8"Binary [", pBinary, u8"] is not a valid elf binary");
+	/* load the elf-image and configure the startup-address */
+	try {
+		/* check if just the interpreter needs to be loaded (no need to perform architecture checks again - as it will remain unchanged) */
+		if (!pLoaded.interpreter.empty()) {
+			sys::LoadElfInterpreter(pLoaded, data, size);
+			logger.debug(u8"Entry of interpreter: ", str::As{ U"#018x", pLoaded.entry });
+			return fLoadCompleted();
+		}
+
+		/* load the elf */
+		pLoaded = sys::LoadElf(data, size);
+		logger.debug(u8"Entry of program   : ", str::As{ U"#018x", pLoaded.entry });
+		logger.debug(u8"Start of heap      : ", str::As{ U"#018x", pLoaded.endOfData });
+		pAddress = pLoaded.entry;
+	}
+	catch (const elf::Exception& e) {
+		logger.error(u8"Error while loading elf: ", e.what());
 		return false;
 	}
 
 	/* validate the word-width (necessary, as env::Memory's allocate function currently
 	*	allocates into the unreachable portion of the 32 bit address space) */
-	if (elf::GetBitWidth(data, size) != 64) {
+	if (pLoaded.bitWidth != 64) {
 		logger.error(u8"Only 64 bit elf binaries are supported");
 		return false;
 	}
-	bool is64Bit = true;
 
 	/* validate the machine type and match it */
 	sys::ArchType arch = sys::ArchType::unknown;
-	switch (elf::GetMachine(data, size)) {
+	switch (pLoaded.machine) {
 	case elf::MachineType::riscv:
 		arch = sys::ArchType::riscv64;
 		break;
@@ -160,48 +222,22 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		return false;
 	}
 
-	/* check the elf-kind */
-	elf::ElfType elfType = elf::GetType(data, size);
-	if (elfType != elf::ElfType::executable && elfType != elf::ElfType::dynamic) {
-		logger.error(u8"Elf is not an executable");
-		return false;
-	}
-
-	/* load the static elf-image and configure the startup-address */
-	sys::ElfLoaded loaded;
-	try {
-		/* load the static elf */
-		sys::LoadElf(data, size);
-		logger.debug(u8"Start of program: ", str::As{ U"#018x", loaded.start });
-		logger.debug(u8"Start of heap   : ", str::As{ U"#018x", loaded.endOfData });
-		pAddress = loaded.start;
-	}
-	catch (const elf::Exception& e) {
-		logger.error(u8"Failed to load static elf: ", e.what());
-		return false;
-	}
-	catch (const elf::Interpreter& e) {
-		/* check if this was already the interpreter */
-		if (!pInterpreter.empty()) {
-			logger.error(u8"Recursive interpreter requirements encountered");
-			return false;
-		}
-		pInterpreter = e.path();
-
-		/* load the interpreter */
-		logger.info(u8"Binary requires interpreter [", pInterpreter, u8']');
-		fStartLoad(pInterpreter);
-		return true;
-	}
-
+	/* check if an interpreter needs to be loaded or if the elf has been loaded successfully */
+	if (pLoaded.interpreter.empty())
+		return fLoadCompleted();
+	logger.info(u8"Binary requires interpreter [", pLoaded.interpreter, u8']');
+	fStartLoad(pLoaded.interpreter);
+	return true;
+}
+bool sys::Userspace::fLoadCompleted() {
 	/* initialize the stack based on the system-v ABI stack specification (architecture independent) */
-	env::guest_t spAddress = fPrepareStack(loaded, is64Bit);
+	env::guest_t spAddress = fPrepareStack();
 	if (spAddress == 0)
 		return false;
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* initialize the syscall environment */
-	if (!pSyscall.setup(this, loaded.endOfData, pBinary, fArchType(pCpu->architecture()))) {
+	if (!pSyscall.setup(this, pLoaded.endOfData, pBinary, fArchType(pCpu->architecture()))) {
 		logger.error(u8"Failed to setup the userspace syscalls");
 		return false;
 	}
@@ -270,55 +306,6 @@ void sys::Userspace::fExecute() {
 		pAddress = e.address;
 		logger.trace(u8"Awaiting syscall result from [", str::As{ U"#018x", e.address }, u8']');
 	}
-}
-void sys::Userspace::fStartLoad(const std::u8string& path) {
-	/* load the binary */
-	env::Instance()->filesystem().readStats(path, [this, path](const env::FileStats* stats) {
-		/* check if the file could be resolved */
-		if (stats == 0) {
-			logger.error(u8"Path [", path, u8"] does not exist");
-			env::Instance()->shutdown();
-			return;
-		}
-
-		/* check the file-type */
-		if (stats->type != env::FileType::file) {
-			logger.error(u8"Path [", path, u8"] is not a file");
-			env::Instance()->shutdown();
-			return;
-		}
-
-		/* setup the opening of the file */
-		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, env::FileAccess{}, [this, path](bool success, uint64_t id, const env::FileStats* stats) {
-			/* check if the file could be opened */
-			if (!success) {
-				logger.error(u8"Failed to open file [", path, u8"] for reading");
-				env::Instance()->shutdown();
-				return;
-			}
-
-			/* allocate the buffer for the file-content and read it into memory */
-			uint64_t size = stats->size;
-			uint8_t* buffer = new uint8_t[size];
-			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [this, buffer, size, id](uint64_t count) {
-				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
-
-				/* close the file again, as no more data will be read */
-				env::Instance()->filesystem().closeFile(id);
-
-				/* check if the size still matches */
-				if (count != size) {
-					logger.error(u8"File size does not match expected size");
-					env::Instance()->shutdown();
-					return;
-				}
-
-				/* perform the actual loading of the file */
-				if (!fBinaryLoaded(buffer, size))
-					env::Instance()->shutdown();
-				});
-			});
-		});
 }
 
 bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {

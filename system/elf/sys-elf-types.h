@@ -19,30 +19,21 @@ namespace sys {
 
 		/* load-state describing the result of the load-operation */
 		struct LoadState {
-			env::guest_t start = 0;
+			std::u8string interpreter;
+			env::guest_t entry = 0;
+			env::guest_t endOfData = 0;
 			env::guest_t phAddress = 0;
+			size_t phEntrySize = 0;
 			size_t phCount = 0;
-			size_t phSize = 0;
+			elf::MachineType machine = elf::MachineType::none;
+			uint8_t bitWidth = 0;
+
 		};
 
 		/* exception thrown for any issues regarding elf-file parsing/loading */
 		struct Exception : public str::BuildException {
 			template <class... Args>
 			constexpr Exception(const Args&... args) : str::BuildException{ args... } {}
-		};
-
-		/* exception thrown when an interpreter is required */
-		struct Interpreter {
-		private:
-			std::u8string pPath;
-
-		public:
-			constexpr Interpreter(const std::u8string& path) : pPath{ path } {}
-
-		public:
-			const std::u8string& path() const {
-				return pPath;
-			}
 		};
 	}
 
@@ -54,7 +45,7 @@ namespace sys {
 		enum class ProgramType : uint32_t {
 			null = 0,
 			load = 1,
-			dymaic = 2,
+			dynamic = 2,
 			interpreter = 3,
 			note = 4,
 			programHeader = 6,
@@ -183,6 +174,9 @@ namespace sys {
 			}
 
 		public:
+			size_t size() const {
+				return pSize;
+			}
 			template <class Type>
 			const Type* get(size_t offset) const {
 				fCheck(offset + sizeof(Type));

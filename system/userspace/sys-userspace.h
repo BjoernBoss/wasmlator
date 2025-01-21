@@ -9,7 +9,7 @@
 #include "../elf/sys-elf.h"
 
 namespace sys {
-	/* userspace single-threaded system, which set up an environment, loads a static-elf
+	/* userspace single-threaded system, which set up an environment, loads an elf
 	*	file to be executed, and passes the calls to the cpu implementation, as well as
 	*	a system-v ABI conform initial stack configuration (only 64 bit support)
 	*	Note: The assumption is made, that the stack grows downwards
@@ -24,8 +24,8 @@ namespace sys {
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
+		elf::LoadState pLoaded;
 		std::u8string pBinary;
-		std::u8string pInterpreter;
 		detail::Syscall pSyscall;
 		sys::Debugger pDebugger;
 		sys::Writer pWriter;
@@ -39,10 +39,11 @@ namespace sys {
 
 	private:
 		std::u8string_view fArchType(sys::ArchType architecture) const;
-		env::guest_t fPrepareStack(const sys::ElfLoaded& loaded, bool is64Bit) const;
-		bool fBinaryLoaded(const uint8_t* data, size_t size);
-		void fExecute();
+		env::guest_t fPrepareStack() const;
 		void fStartLoad(const std::u8string& path);
+		bool fBinaryLoaded(const uint8_t* data, size_t size);
+		bool fLoadCompleted();
+		void fExecute();
 
 	public:
 		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger);

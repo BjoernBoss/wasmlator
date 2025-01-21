@@ -3,17 +3,34 @@
 #include "sys-elf-types.h"
 
 namespace sys::detail {
-	struct ElfHeaderOut {
-		env::guest_t start = 0;
+	struct ElfConfig {
+		std::u8string interpreter;
+		env::guest_t phAddress = 0;
+		env::guest_t entry = 0;
+		size_t phEntrySize = 0;
 		size_t phOffset = 0;
 		size_t phCount = 0;
-		size_t phSize = 0;
+		size_t dynOffset = 0;
+		size_t dynSize = 0;
+		elf::MachineType machine = elf::MachineType::none;
 		bool dynamic = false;
 	};
 
 	template <class Base>
-	detail::ElfHeaderOut ValidateElfHeader(const detail::ElfHeader<Base>* header, const detail::Reader& reader);
+	detail::ElfConfig ValidateElfHeader(const detail::Reader& reader);
 
 	template <class Base>
-	env::guest_t CheckProgramHeaders(const detail::ElfHeaderOut& config, const detail::Reader& reader);
+	detail::ElfConfig ValidateElfLoadTyped(const detail::Reader& reader);
+
+	template <class Base>
+	env::guest_t LoadElfSingleProgHeader(env::guest_t baseAddress, size_t index, const detail::ProgramHeader<Base>& header, const detail::Reader& reader);
+
+	template <class Base>
+	env::guest_t LoadElfProgHeadersTyped(env::guest_t baseAddress, const detail::ElfConfig& config, const detail::Reader& reader);
+
+	uint8_t CheckElfSignature(const detail::Reader& reader);
+
+	detail::ElfConfig ValidateElfLoad(const detail::Reader& reader, uint8_t bitWidth);
+
+	env::guest_t LoadElfProgHeaders(env::guest_t baseAddress, const detail::ElfConfig& config, const detail::Reader& reader, uint8_t bitWidth);
 }

@@ -16,7 +16,7 @@ namespace env {
 		/* start any allocations above the given start-address and use the given spacing
 		*	between addresses, if possible - in order to allow growth of allocations (> 32gb) */
 		static constexpr env::guest_t StartOfAllocations = 0x0000'4000'0000'0000;
-		static constexpr env::guest_t EndOfAllocations = 0x8000'0000'0000'0000;
+		static constexpr env::guest_t EndOfAllocations = 0x0800'0000'0000'0000;
 		static constexpr env::guest_t SpacingBetweenAllocations = 0x8'0000'0000;
 
 		struct MemoryCache {
