@@ -148,6 +148,8 @@ setup_wasmlator = function (logPrint, cb) {
 		}
 		else if (cmd == 'close')
 			_state.fs.closeFile(parseInt(payload), () => _state.task_completed(process, null));
+		else if (cmd == 'accessed')
+			_state.fs.accessedFile(payload, (s) => _state.task_completed(process, s));
 
 		/* default catch-handler for unknown commands */
 		else

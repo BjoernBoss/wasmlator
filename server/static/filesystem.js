@@ -284,4 +284,20 @@ class MemFileSystem {
 		/* notify the listener about the completion */
 		cb();
 	}
+
+	/* cb(success): mark the file as read */
+	accessedFile(path) {
+		/* fetch the node of the file */
+		this._getNode(path, (node) => {
+			/* check if the node does not exist (i.e. ancestor does not exist) or its stats do not exit */
+			if (node == null || node.stats == null)
+				cb(false);
+
+			/* mark the file as read */
+			else {
+				node.read();
+				cb(true);
+			}
+		});
+	}
 }

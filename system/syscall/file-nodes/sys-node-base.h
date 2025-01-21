@@ -9,10 +9,7 @@ namespace sys::detail {
 		bool exclusive = false;
 	};
 
-	/* Note
-	*	- operations must at most throw syscall-await exception, but always call the callback
-	*	- object might be deleted within its callback
-	*/
+	/* Note: operations must at most throw syscall-await exception, but always call the callback */
 	class FileNode {
 	protected:
 		FileNode() = default;
