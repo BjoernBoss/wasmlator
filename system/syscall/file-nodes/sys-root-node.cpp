@@ -1,6 +1,6 @@
 #include "../../system.h"
 
-sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall, env::FileAccess access) : NativeFileNode{ syscall, 0 }, pAccess{ access } {
+sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall, env::FileAccess access) : NativeFileNode{ u8"/", syscall, 0 }, pAccess{ access } {
 	pUniqueId = util::UniqueId();
 }
 
@@ -40,7 +40,6 @@ int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const env::
 			});
 		});
 
-	/* defer the call */
-	pSyscall->callIncomplete();
-	return errCode::eUnknown;
+	/* potentially defer the call */
+	return pSyscall->callIncomplete();
 }

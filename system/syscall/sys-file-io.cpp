@@ -214,7 +214,7 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	out.rdev = 0xabc0'0456;
 	out.size = stats.size;
 	out.blockSize = 512;
-	out.blockCount = (out.size + out.blockSize - 1) & uint64_t(out.blockSize - 1);
+	out.blockCount = (out.size + out.blockSize - 1) & ~uint64_t(out.blockSize - 1);
 	out.atime_sec = (stats.timeAccessedUS / 1000'0000);
 	out.atime_ns = (stats.timeAccessedUS * 1000) % 1000'000'000;
 	out.mtime_sec = (stats.timeModifiedUS / 1000'0000);
@@ -591,8 +591,11 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 
 	/* request the stats from the file */
 	return pInstance[pOpen[fd].instance].node->stats([this, address](const env::FileStats* stats) -> int64_t {
-		if (stats == 0)
-			logger.fatal(u8"Failed to fetch stats for an open file");
+		/* check if the stats failed */
+		if (stats == 0) {
+			logger.error(u8"Failed to fetch stats for an open file");
+			return errCode::eStale;
+		}
 
 		/* construct the linux-stats */
 		linux::FileStats lstats = fBuildLinuxStats(*stats);

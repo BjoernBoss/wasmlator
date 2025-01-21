@@ -13,10 +13,9 @@ std::u8string sys::detail::Syscall::fReadString(env::guest_t address) const {
 	return out;
 }
 
-void sys::detail::Syscall::fWrap(std::function<int64_t()> callback) {
-	++pCurrent.nested;
-
+void sys::detail::Syscall::fWrap(bool inplace, std::function<int64_t()> callback) {
 	/* execute the wrapped call (to catch any memory exceptions and nested incomplete-calls) */
+	++pCurrent.nested;
 	try {
 		pCurrent.result = callback();
 		pCurrent.completed = true;
@@ -24,25 +23,27 @@ void sys::detail::Syscall::fWrap(std::function<int64_t()> callback) {
 	catch (const env::MemoryFault& e) {
 		logger.debug(u8"Memory fault at [", str::As{ U"#018x", e.accessed }, u8"] while handling syscall");
 		pCurrent.result = errCode::eFault;
+		pCurrent.completed = true;
 	}
-	catch (const detail::AwaitingSyscall&) {
-		/* check if this is a nested execution, in which case the exception needs to be passed through */
-		if (pCurrent.nested > 1)
+	catch (const detail::AwaitingSyscall&) {}
+	--pCurrent.nested;
+
+	/* check if this is a nested call, or the call has not yet been completed, in which
+	*	case the execution needs to be propagated further down (exception cannot be
+	*	thrown from outside, as they will otherwise be passed out of the application) */
+	if (pCurrent.nested > 0 || !pCurrent.completed) {
+		if (inplace)
 			throw detail::AwaitingSyscall{ pCurrent.next };
+		return;
 	}
 
-	/* check if this is a nested execution, in which case the execution cannot yet
-	*	continue (implementation must internally throw the awaiting exception again) */
-	if (--pCurrent.next > 0)
-		return;
-
-	/* if this point is reached, the call has been completed (otherwise await-exception will be thrown) */
+	/* write the result back */
 	logger.debug(u8"result: ", str::As{ U"#018x", pCurrent.result });
 	pUserspace->cpu()->syscallSetResult(pCurrent.result);
 
-	/* check if this is not in-place execution, in which case the execution needs to be
-	*	restarted at the next address (pc will already be set by the await-exception) */
-	if (!pCurrent.inplace)
+	/* check if this is not in-place execution, in which case the execution needs to be restarted at the
+	*	next address (pc will already have been set by at least one await-syscall exception being thrown) */
+	if (!inplace)
 		pUserspace->execute();
 }
 int64_t sys::detail::Syscall::fDispatch() {
@@ -200,12 +201,11 @@ void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress
 	/* setup the new syscall */
 	pCurrent.address = address;
 	pCurrent.next = nextAddress;
-	pCurrent.inplace = true;
 	pCurrent.completed = false;
 	pCurrent.nested = 0;
 
 	/* dispatch the call (will write the result back properly and continue execution at the right address) */
-	fWrap([this]() { return fDispatch(); });
+	fWrap(true, [this]() { return fDispatch(); });
 }
 
 sys::detail::ProcessConfig& sys::detail::Syscall::config() {
@@ -214,12 +214,9 @@ sys::detail::ProcessConfig& sys::detail::Syscall::config() {
 sys::detail::FileIO& sys::detail::Syscall::fileIO() {
 	return pFileIO;
 }
-void sys::detail::Syscall::callIncomplete() {
-	/* reset the in-place flag (only if the result has not yet already been provided) */
-	if (!pCurrent.completed)
-		pCurrent.inplace = false;
+int64_t sys::detail::Syscall::callIncomplete() {
 	throw detail::AwaitingSyscall{ pCurrent.next };
 }
 void sys::detail::Syscall::callContinue(std::function<int64_t()> callback) {
-	fWrap(callback);
+	fWrap(false, callback);
 }

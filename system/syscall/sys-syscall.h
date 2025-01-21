@@ -41,9 +41,8 @@ namespace sys::detail {
 		struct {
 			env::guest_t address = 0;
 			env::guest_t next = 0;
-			int64_t result = 0;
 			size_t nested = 0;
-			bool inplace = false;
+			int64_t result = 0;
 			bool completed = false;
 		} pCurrent;
 		detail::ProcessConfig pConfig;
@@ -56,7 +55,7 @@ namespace sys::detail {
 		std::u8string fReadString(env::guest_t address) const;
 
 	private:
-		void fWrap(std::function<int64_t()> callback);
+		void fWrap(bool inplace, std::function<int64_t()> callback);
 		int64_t fDispatch();
 		int64_t fHandleUName(env::guest_t addr) const;
 
@@ -67,7 +66,7 @@ namespace sys::detail {
 	public:
 		detail::ProcessConfig& config();
 		detail::FileIO& fileIO();
-		void callIncomplete();
+		int64_t callIncomplete();
 		void callContinue(std::function<int64_t()> callback);
 	};
 }

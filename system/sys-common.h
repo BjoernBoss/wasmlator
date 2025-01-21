@@ -39,6 +39,7 @@ namespace sys {
 			static constexpr int64_t eInvalid = -22;
 			static constexpr int64_t eReadOnly = -30;
 			static constexpr int64_t eLoop = -40;
+			static constexpr int64_t eStale = -116;
 
 			/* custom error (not mapped to any linux errors) */
 			static constexpr int64_t eUnknown = -0xffff;

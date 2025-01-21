@@ -8,13 +8,14 @@ namespace sys::detail::impl {
 	/* file-node, which provides access to actual native file-objects */
 	class NativeFileNode : public detail::FileNode {
 	private:
+		std::u8string pPath;
 		uint64_t pOpenId = 0;
 
 	protected:
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		NativeFileNode(detail::Syscall* syscall, uint64_t openId);
+		NativeFileNode(std::u8string_view path, detail::Syscall* syscall, uint64_t openId);
 
 	public:
 		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const;
