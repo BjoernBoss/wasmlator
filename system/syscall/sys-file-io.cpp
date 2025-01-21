@@ -214,12 +214,12 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	out.rdev = 0xabc0'0456;
 	out.size = stats.size;
 	out.blockSize = 512;
-	out.blockCount = (out.size + out.blockSize - 1) & ~uint64_t(out.blockSize - 1);
-	out.atime_sec = (stats.timeAccessedUS / 1000'0000);
+	out.blockCount = (out.size + out.blockSize - 1) / out.blockSize;
+	out.atime_sec = (stats.timeAccessedUS / 1000'000);
 	out.atime_ns = (stats.timeAccessedUS * 1000) % 1000'000'000;
-	out.mtime_sec = (stats.timeModifiedUS / 1000'0000);
+	out.mtime_sec = (stats.timeModifiedUS / 1000'000);
 	out.mtime_ns = (stats.timeModifiedUS * 1000) % 1000'000'000;
-	out.ctime_sec = (ctime / 1000'0000);
+	out.ctime_sec = (ctime / 1000'000);
 	out.ctime_ns = (ctime * 1000) % 1000'000'000;
 
 	/* write the type to the mode */

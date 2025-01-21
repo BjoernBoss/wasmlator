@@ -119,8 +119,8 @@ namespace sys {
 			uint32_t nlinks = 0;
 			uint32_t uid = 0;
 			uint32_t gid = 0;
-			uint32_t _unused0 = 0;
 			uint64_t rdev = 0;
+			uint64_t _unused0 = 0;
 			uint64_t size = 0;
 			uint32_t blockSize = 0;
 			uint32_t _unused1 = 0;
