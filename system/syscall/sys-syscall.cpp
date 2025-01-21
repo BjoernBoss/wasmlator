@@ -114,6 +114,12 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall fstat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8')');
 		return pFileIO.fstat(int64_t(args.args[0]), args.args[1]);
 	}
+	case sys::SyscallIndex::fstatat: {
+		logger.debug(u8"Syscall fstatat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", str::As{ U"#018x", args.args[2] }, u8", ", args.args[3], u8')');
+		std::u8string path = fReadString(args.args[1]);
+		logger.debug(u8"pathname: [", path, u8']');
+		return pFileIO.fstatat(args.args[0], path, args.args[2], args.args[3]);
+	}
 	case sys::SyscallIndex::access: {
 		logger.debug(u8"Syscall access(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8')');
 		std::u8string path = fReadString(args.args[0]);

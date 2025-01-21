@@ -145,6 +145,96 @@ int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8stri
 		});
 }
 
+int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
+	/* lookup the new instance for the node */
+	size_t instance = 0;
+	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
+		++instance;
+	if (instance == pInstance.size())
+		pInstance.emplace_back();
+
+	/* configure the new instance */
+	pInstance[instance].node = node;
+	pInstance[instance].path = path;
+	pInstance[instance].user = 1;
+	pInstance[instance].directory = directory;
+
+	/* lookup the new open entry for the node */
+	size_t index = 0;
+	while (index < pOpen.size() && pOpen[index].used)
+		++index;
+	if (index == pOpen.size())
+		pOpen.emplace_back();
+
+	/* configure the new opened file */
+	pOpen[index].instance = instance;
+	pOpen[index].read = read;
+	pOpen[index].write = write;
+	pOpen[index].modify = modify;
+	pOpen[index].closeOnExecute = closeOnExecute;
+	pOpen[index].used = true;
+	return int64_t(index);
+}
+sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats& stats) const {
+	linux::FileStats out;
+	uint64_t ctime = std::max<uint64_t>(stats.timeAccessedUS, stats.timeModifiedUS);
+
+	/*
+	*	no support for hard-links
+	*	virtual-device: 0x0345
+	*	real-device: 0x0123
+	*	rdev: (major: 0xabc, minor: 0x456))
+	*/
+	out.dev = (stats.virtualized ? 0x0123 : 0x0345);
+	out.inode = stats.uniqueId;
+	out.mode = stats.access.permissions.all;
+	out.nlinks = 1;
+	out.uid = stats.access.owner;
+	out.gid = stats.access.group;
+	out.rdev = 0xabc0'0456;
+	out.size = stats.size;
+	out.blockSize = 512;
+	out.blockCount = (out.size + out.blockSize - 1) & uint64_t(out.blockSize - 1);
+	out.atime_sec = (stats.timeAccessedUS / 1000'0000);
+	out.atime_ns = (stats.timeAccessedUS * 1000) % 1000'000'000;
+	out.mtime_sec = (stats.timeModifiedUS / 1000'0000);
+	out.mtime_ns = (stats.timeModifiedUS * 1000) % 1000'000'000;
+	out.ctime_sec = (ctime / 1000'0000);
+	out.ctime_ns = (ctime * 1000) % 1000'000'000;
+
+	/* write the type to the mode */
+	switch (stats.type) {
+	case env::FileType::directory:
+		out.mode |= uint32_t(linux::FileMode::directory);
+		break;
+	case env::FileType::file:
+		out.mode |= uint32_t(linux::FileMode::regular);
+		break;
+	case env::FileType::link:
+		out.mode |= uint32_t(linux::FileMode::link);
+		break;
+	case env::FileType::pipe:
+		out.mode |= uint32_t(linux::FileMode::fifoPipe);
+		break;
+	case env::FileType::tty:
+		out.mode |= uint32_t(linux::FileMode::charDevice);
+		break;
+	default:
+		logger.fatal(u8"Unsupported stat type [", size_t(stats.type), u8"] encountered");
+	}
+	return out;
+}
+int64_t sys::detail::FileIO::fRead(size_t instance, std::function<int64_t(int64_t)> callback) {
+	return pInstance[instance].node->read(pBuffer, callback);
+}
+int64_t sys::detail::FileIO::fWrite(size_t instance) const {
+	return pInstance[instance].node->write(pBuffer, [](int64_t result) -> int64_t { return result; });
+}
+void sys::detail::FileIO::fDropInstance(size_t instance) {
+	if (--pInstance[instance].user == 0)
+		pInstance[instance].node.reset();
+}
+
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
 	/* check if all flags are supported */
 	if ((flags & ~consts::openFlagMask) != 0)
@@ -262,47 +352,6 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			});
 		});
 }
-int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
-	/* lookup the new instance for the node */
-	size_t instance = 0;
-	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
-		++instance;
-	if (instance == pInstance.size())
-		pInstance.emplace_back();
-
-	/* configure the new instance */
-	pInstance[instance].node = node;
-	pInstance[instance].path = path;
-	pInstance[instance].user = 1;
-	pInstance[instance].directory = directory;
-
-	/* lookup the new open entry for the node */
-	size_t index = 0;
-	while (index < pOpen.size() && pOpen[index].used)
-		++index;
-	if (index == pOpen.size())
-		pOpen.emplace_back();
-
-	/* configure the new opened file */
-	pOpen[index].instance = instance;
-	pOpen[index].read = read;
-	pOpen[index].write = write;
-	pOpen[index].modify = modify;
-	pOpen[index].closeOnExecute = closeOnExecute;
-	pOpen[index].used = true;
-	return int64_t(index);
-}
-void sys::detail::FileIO::fDropInstance(size_t instance) {
-	if (--pInstance[instance].user == 0)
-		pInstance[instance].node.reset();
-}
-
-int64_t sys::detail::FileIO::fRead(size_t instance, std::function<int64_t(int64_t)> callback) {
-	return pInstance[instance].node->read(pBuffer, callback);
-}
-int64_t sys::detail::FileIO::fWrite(size_t instance) const {
-	return pInstance[instance].node->write(pBuffer, [](int64_t result) -> int64_t { return result; });
-}
 int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size) {
 	if (size == 0)
 		return errCode::eInvalid;
@@ -383,7 +432,6 @@ int64_t sys::detail::FileIO::fAccessAt(int64_t dirfd, std::u8string_view path, u
 			return errCode::eAccess;
 		return errCode::eSuccess;
 		});
-
 }
 
 bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
@@ -536,53 +584,51 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		return errCode::eBadFd;
 
 	/* request the stats from the file */
-	return pInstance[pOpen[fd].instance].node->stats([](const env::FileStats& stats) -> int64_t {
-		linux::FileStats out;
-		uint64_t ctime = std::max<uint64_t>(stats.timeAccessedUS, stats.timeModifiedUS);
+	return pInstance[pOpen[fd].instance].node->stats([this, address](const env::FileStats& stats) -> int64_t {
+		/* construct the linux-stats */
+		linux::FileStats lstats = fBuildLinuxStats(stats);
 
-		/*
-		*	no support for hard-links
-		*	virtual-device: 0x0345
-		*	real-device: 0x0123
-		*	rdev: (major: 0xabc, minor: 0x456))
-		*/
-		out.dev = (stats.virtualized ? 0x0123 : 0x0345);
-		out.inode = stats.uniqueId;
-		out.mode = stats.access.permissions.all;
-		out.nlinks = 1;
-		out.uid = stats.access.owner;
-		out.gid = stats.access.group;
-		out.rdev = 0xabc0'0456;
-		out.size = stats.size;
-		out.blockSize = 512;
-		out.blockCount = (out.size + out.blockSize - 1) & uint64_t(out.blockSize - 1);
-		out.atime_sec = (stats.timeAccessedUS / 1000'0000);
-		out.atime_ns = (stats.timeAccessedUS * 1000) % 1000'000'000;
-		out.mtime_sec = (stats.timeModifiedUS / 1000'0000);
-		out.mtime_ns = (stats.timeModifiedUS * 1000) % 1000'000'000;
-		out.ctime_sec = (ctime / 1000'0000);
-		out.ctime_ns = (ctime * 1000) % 1000'000'000;
+		/* write them to the guest */
+		env::Instance()->memory().mwrite(address, &lstats, sizeof(linux::FileStats), env::Usage::Write);
+		return errCode::eSuccess;
+		});
+}
+int64_t sys::detail::FileIO::fstatat(int64_t dirfd, std::u8string_view path, env::guest_t address, int64_t flags) {
+	std::u8string actual;
 
-		/* write the type to the mode */
-		switch (stats.type) {
-		case env::FileType::directory:
-			out.mode |= uint32_t(linux::FileMode::directory);
-			break;
-		case env::FileType::file:
-			out.mode |= uint32_t(linux::FileMode::regular);
-			break;
-		case env::FileType::link:
-			out.mode |= uint32_t(linux::FileMode::link);
-			break;
-		case env::FileType::pipe:
-			out.mode |= uint32_t(linux::FileMode::fifoPipe);
-			break;
-		case env::FileType::tty:
-			out.mode |= uint32_t(linux::FileMode::charDevice);
-			break;
-		default:
-			logger.fatal(u8"Unsupported stat type [", size_t(stats.type), u8"] encountered");
-		}
+	/* check if the empty-path flag is used */
+	if (detail::IsSet(flags, consts::accEmptyPath) && path.empty()) {
+		if (dirfd == consts::fdWDirectory)
+			actual = pSyscall->config().wDirectory;
+		else if (!fCheckFd(dirfd))
+			return errCode::eBadFd;
+		else
+			actual = pInstance[pOpen[dirfd].instance].path;
+	}
+
+	/* validate and construct the final path */
+	else {
+		int64_t result = fCheckPath(dirfd, path, actual);
+		if (result != errCode::eSuccess)
+			return result;
+	}
+
+	/* configure the resolve-operation to be performed */
+	pResolve.linkFollow = 0;
+	pResolve.follow = !detail::IsSet(flags, consts::accNoFollow);
+	pResolve.findExisting = true;
+	pResolve.effectiveIds = true;
+
+	/* resolve the node and perform the stat-read */
+	return fResolveNode(actual, [this, address](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool) -> int64_t {
+		if (result != errCode::eSuccess)
+			return result;
+
+		/* construct the linux-stats */
+		linux::FileStats lstats = fBuildLinuxStats(stats);
+
+		/* write them to the guest */
+		env::Instance()->memory().mwrite(address, &lstats, sizeof(linux::FileStats), env::Usage::Write);
 		return errCode::eSuccess;
 		});
 }

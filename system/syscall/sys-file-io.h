@@ -84,13 +84,14 @@ namespace sys::detail {
 		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, detail::SharedNode node, const env::FileStats& stats, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
 
 	private:
-		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
 		int64_t fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
+		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
+		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
+		int64_t fWrite(size_t instance) const;
 		void fDropInstance(size_t instance);
 
 	private:
-		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
-		int64_t fWrite(size_t instance) const;
+		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
 		int64_t fReadLinkAt(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size);
 		int64_t fAccessAt(int64_t dirfd, std::u8string_view path, uint64_t mode, uint64_t flags);
 
@@ -107,6 +108,7 @@ namespace sys::detail {
 		int64_t readlinkat(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size);
 		int64_t readlink(std::u8string_view path, env::guest_t address, uint64_t size);
 		int64_t fstat(int64_t fd, env::guest_t address);
+		int64_t fstatat(int64_t dirfd, std::u8string_view path, env::guest_t address, int64_t flags);
 		int64_t access(std::u8string_view path, int64_t mode);
 		int64_t faccessat(int64_t dirfd, std::u8string_view path, int64_t mode);
 		int64_t faccessat2(int64_t dirfd, std::u8string_view path, int64_t mode, int64_t flags);

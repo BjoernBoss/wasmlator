@@ -156,6 +156,7 @@ namespace sys {
 		readlinkat,
 		readlink,
 		fstat,
+		fstatat,
 		exit_group,
 		access,
 		faccessat,
