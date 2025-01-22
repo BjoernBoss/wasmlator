@@ -585,7 +585,7 @@ int64_t sys::detail::FileIO::readlink(std::u8string_view path, env::guest_t addr
 	return fReadLinkAt(consts::fdWDirectory, path, address, size);
 }
 int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
-	/* vaidate the file descriptor */
+	/* validate the file descriptor */
 	if (!fCheckFd(fd))
 		return errCode::eBadFd;
 
@@ -638,4 +638,10 @@ int64_t sys::detail::FileIO::faccessat(int64_t dirfd, std::u8string_view path, i
 }
 int64_t sys::detail::FileIO::faccessat2(int64_t dirfd, std::u8string_view path, int64_t mode, int64_t flags) {
 	return fAccessAt(dirfd, path, mode, flags);
+}
+int64_t sys::detail::FileIO::ioctl(int64_t fd, uint64_t cmd, uint64_t arg) {
+	/* validate the file descriptor */
+	if (!fCheckFd(fd))
+		return errCode::eBadFd;
+	return errCode::eNoTTY;
 }

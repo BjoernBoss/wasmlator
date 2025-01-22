@@ -152,6 +152,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 
 	/* map the index */
 	switch (call.rawIndex) {
+	case 29:
+		call.index = sys::SyscallIndex::ioctl;
+		break;
 	case 48:
 		call.index = sys::SyscallIndex::faccessat;
 		break;

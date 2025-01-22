@@ -37,6 +37,7 @@ namespace sys {
 			static constexpr int64_t eNotDirectory = -20;
 			static constexpr int64_t eIsDirectory = -21;
 			static constexpr int64_t eInvalid = -22;
+			static constexpr int64_t eNoTTY = -25;
 			static constexpr int64_t eReadOnly = -30;
 			static constexpr int64_t eLoop = -40;
 			static constexpr int64_t eStale = -116;
@@ -162,7 +163,8 @@ namespace sys {
 		exit_group,
 		access,
 		faccessat,
-		faccessat2
+		faccessat2,
+		ioctl
 	};
 
 	struct SyscallArgs {

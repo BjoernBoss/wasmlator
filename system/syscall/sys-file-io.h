@@ -114,5 +114,6 @@ namespace sys::detail {
 		int64_t access(std::u8string_view path, int64_t mode);
 		int64_t faccessat(int64_t dirfd, std::u8string_view path, int64_t mode);
 		int64_t faccessat2(int64_t dirfd, std::u8string_view path, int64_t mode, int64_t flags);
+		int64_t ioctl(int64_t fd, uint64_t cmd, uint64_t arg);
 	};
 }
