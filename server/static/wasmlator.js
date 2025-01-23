@@ -134,22 +134,27 @@ setup_wasmlator = function (logPrint, cb) {
 		}
 
 		/* handle the file-system commands */
+		else if (cmd.startsWith('resolve'))
+			_state.fs.getNode(payload, (v) => _state.task_completed(process, v));
 		else if (cmd == 'stats')
-			_state.fs.getStats(payload, (s) => _state.task_completed(process, s));
-		else if (cmd.startsWith('open$')) {
-			let args = splitArgs(3);
-			_state.fs.openFile(args[3], cmd.includes('c'), cmd.includes('o'), cmd.includes('t'),
-				args[0], args[1], args[2], (id, s) => _state.task_completed(process, { id: id, stats: s }));
+			_state.fs.getStats(parseInt(payload), (v) => _state.task_completed(process, v));
+		else if (cmd.startsWith('path'))
+			_state.fs.getPath(parseInt(payload), (v) => _state.task_completed(process, v));
+		else if (cmd == 'accessed')
+			_state.fs.setDirty(parseInt(payload), (v) => _state.task_completed(process, v));
+		else if (cmd == 'truncate') {
+			let args = splitArgs(2);
+			_state.fs.fileTruncate(args[0], args[1], (v) => _state.task_completed(process, v));
 		}
 		else if (cmd == 'read') {
 			let args = splitArgs(4);
 			let buf = new Uint8Array(_state.main.memory, args[1], args[3]);
-			_state.fs.readFile(args[0], buf, args[2], (r) => _state.task_completed(process, r));
+			_state.fs.fileRead(args[0], buf, args[2], (v) => _state.task_completed(process, v));
 		}
-		else if (cmd == 'close')
-			_state.fs.closeFile(parseInt(payload), () => _state.task_completed(process, null));
-		else if (cmd == 'accessed')
-			_state.fs.accessedFile(payload, (s) => _state.task_completed(process, s));
+		else if (cmd == 'create') {
+			let args = splitArgs(4);
+			_state.fs.fileCreate(args[0], payload, args[1], args[2], args[3], (v) => _state.task_completed(process, v));
+		}
 
 		/* default catch-handler for unknown commands */
 		else

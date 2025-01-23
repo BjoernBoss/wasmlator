@@ -1,158 +1,115 @@
-const fsDefaultUser = 1001;
-const fsDefaultGroup = 1001;
-const fsDirPermissions = 0o755;
-const fsDefaultPermissions = 0o754;
-const fsRootUser = 0;
-const fsRootGroup = 0;
-const fsRootPermissions = 0o755;
-
 class FileNode {
-	constructor(stats, ancestor, uniqueId) {
+	constructor(ancestor, id, name) {
+		this.children = {};
 		this.ancestor = ancestor;
-		this.dataDirty = false;
-		this.metaDirty = false;
-		this.stats = stats;
-		this.users = 0;
+		this.name = name;
+		this.modified = false;
 		this.data = null;
 		this.timeout = null;
-		this.uniqueId = uniqueId;
-		if (this.stats != null)
-			this.stats.id = this.uniqueId;
+		this.id = id;
+		this.stats = null;
 	}
-
-	setupEmptyStats(type) {
+	setupStats(stats, owner, group, permissions) {
+		this.stats = stats;
+		this.stats.id = this.id;
+		this.stats.owner = owner;
+		this.stats.group = group;
+		this.stats.permissions = permissions;
+	}
+	setupEmptyStats(type, owner, group, permissions) {
 		this.stats = {};
 		this.stats.link = '';
 		this.stats.size = 0;
 		this.stats.atime_us = Date.now() * 1000;
 		this.stats.mtime_us = this.stats.atime_us;
 		this.stats.type = type;
-		this.stats.id = this.uniqueId;
-	}
-	setupAccess(owner, group, permissions) {
+		this.stats.id = this.id;
 		this.stats.owner = owner;
 		this.stats.group = group;
 		this.stats.permissions = permissions;
 	}
-	ensureBuffer() {
-		if (this.data == null)
-			this.data = new ArrayBuffer(0, { maxByteLength: 40_000_000 });
-	}
-	addUser() {
-		++this.users;
-
-		/* check if a delete-timeout has been set and remove it */
-		if (this.timeout != null)
-			clearTimeout(this.timeout);
-		this.timeout = null;
-	}
-	dropUser() {
-		if (--this.users > 0 || this.dataDirty)
-			return;
-
-		/* check if the data should be held in memory or be discarded (delete files from memory after 1 minute of not being accessed) */
-		this.timeout = setTimeout(() => {
-			this.data = null;
-		}, 60 * 1000);
-	}
 	read() {
-		this.metaDirty = true;
 		this.stats.atime_us = Date.now() * 1000;
 	}
 	written() {
-		this.dataDirty = true;
-		this.metaDirty = true;
+		this.modified = true;
 		this.stats.mtime_us = Date.now() * 1000;
 	}
 }
 
 class MemFileSystem {
+	static fsRoot = {
+		user: 0,
+		group: 0,
+		dir: 0o755
+	};
+	static fsDefault = {
+		user: 1001,
+		group: 1001,
+		dir: 0o755,
+		file: 0o754,
+		link: 0o754
+	};
+
 	constructor(log, err) {
 		this._log = log;
 		this._err = err;
-		this._nextId = 0;
 
-		/* set of all open or queried files */
-		this._files = {};
+		/* setup the root node */
+		this._root = new FileNode(null, 0, '');
+		this._root.setupEmptyStats('dir', MemFileSystem.fsRoot.user, MemFileSystem.fsRoot.group, MemFileSystem.fsRoot.dir);
 
-		/* map of ids to file nodes */
-		this._open = [];
+		/* map of all files */
+		this._nodes = [this._root];
 	}
 
-	_getNode(path, cb) {
-		/* check if the path has already been requested */
-		if (path in this._files) {
-			cb(this._files[path]);
-			return;
-		}
+	_getNode(node, current, path, cb) {
+		/* check if the end has been reached */
+		if (path.length == 0 || path == '/')
+			return cb(node);
 
-		/* check if the ancestor exists */
-		new Promise((resolve) => {
-			/* check if this is the root, in which case nothing needs to be done */
-			if (path == '/')
-				resolve(null);
+		/* strip the next part of the name and advance the path */
+		if (path.startsWith('/'))
+			path = path.substr(1);
+		let index = path.indexOf('/');
+		let name = path.substr(0, index - 1);
+		path = path.substr(index);
 
-			/* resolve the ancestor node */
-			else {
-				let index = path.lastIndexOf('/');
-				this._getNode(index == 0 ? '/' : path.substr(0, index), (n) => resolve(n));
-			}
-		}).then((ancestor) => {
-			if (path != '/') {
-				/* check if the ancestor exists */
-				if (ancestor == null || ancestor.stats == null) {
-					cb(null);
-					return;
-				}
+		/* lookup the name in the parent */
+		if (name in node.children)
+			return this._getNode(node.children[name], `${current}/${name}`, path, cb);
 
-				/* check if the ancstor is a director */
-				if (ancestor.stats.type != 'dir') {
-					cb(null);
-					return;
-				}
-			}
+		/* check if the node itself is valid (i.e. exists in the read-only file-system) and is a directory */
+		if (node.stats == null || node.stats.type != 'dir')
+			return cb(null);
 
-			/* request the stats */
-			this._log(`Fetching stats for [${path}]...`);
-			fetch(`/stat${path}`, { credentials: 'same-origin' })
-				.then((resp) => {
-					if (!resp.ok)
-						throw new Error(`Failed to load [${path}]`);
-					return resp.json();
-				})
-				.then((json) => {
-					this._log(`Stats for [${path}] received`);
-					this._files[path] = new FileNode(json, ancestor, ++this._nextId);
-				})
-				.catch((err) => {
-					/* pretend the object does not exist */
-					this._err(`Failed to fetch stats for [${path}]: ${err}`);
-					this._files[path] = new FileNode(null, ancestor, ++this._nextId);
-				})
-				.finally(() => {
-					let node = this._files[path];
+		/* setup the new node */
+		let next = new FileNode(node, this._nodes.length, name);
+		this._nodes.push(next);
+		node.children[name] = next;
 
-					/* check if the node exists, and configure its access rights */
-					if (node.stats != null)
-						node.setupAccess(fsDefaultUser, fsDefaultGroup, (node.stats.type == 'dir' ? fsDirPermissions : fsDefaultPermissions));
-
-					/* check if the node was not found, but is the root node, in which case an empty root is created */
-					else if (path == '/') {
-						node.setupEmptyStats('dir');
-						node.setupAccess(fsRootUser, fsRootGroup, fsRootPermissions);
-					}
-					cb(node);
-				});
-		});
+		/* request the stats (on errors, just pretend the object does not exist) */
+		this._log(`Fetching stats for [${path}]...`);
+		fetch(`/stat${path}`, { credentials: 'same-origin' })
+			.then((resp) => {
+				if (!resp.ok)
+					throw new Error(`Failed to load [${path}]`);
+				return resp.json();
+			})
+			.then((json) => {
+				this._log(`Stats for [${path}] received`);
+				if (json != null)
+					next.setupStats(json, fsDefault.owner, fsDefault.group, fsDefault[json.type]);
+			})
+			.catch((err) => this._err(`Failed to fetch stats for [${path}]: ${err}`))
+			.finally(() => this._getNode(next, `${current}/${name}`, path, cb));
 	}
 	_openFile(node, path, create, open, truncate, owner, group, permissions, cb) {
 		/* validate already existing objects */
 		if (node.stats != null) {
 			/* check if the type is valid */
-			if (node.stats.type != 'file') {
-				cb(null, node.stats);
-				return;
-			}
+			if (node.stats.type != 'file')
+				return cb(null, node.stats);
 
 			/* check if an existing file can be opened */
 			if (!open) {
@@ -229,75 +186,151 @@ class MemFileSystem {
 			})
 			.finally(() => cb(openId, node.stats));
 	}
+	_getValid(id) {
+		if (id >= this._nodes.length || this._nodes[id] == null || this._nodes[id].stats == null)
+			return null;
+		return this._nodes[id];
+	}
+	_getNodePath(node) {
+		let path = '';
+		do {
+			path = `/${node.name}${path}`;
+		} while ((node = node.ancestor) != null);
+		return path;
+	}
+	_loadData(node, cb) {
+		/* check if the data already exist */
+		if (node.data != null)
+			return cb();
+		let path = this._getNodePath(node);
+
+		/* fetch the existing file data */
+		this._log(`Reading file [${path}]...`);
+		fetch(`/data${path}`, { credentials: 'same-origin' })
+			.then((resp) => {
+				if (!resp.ok)
+					throw new Error(`Failed to load [${path}]`);
+				return resp.arrayBuffer();
+			})
+			.then((buf) => {
+				this._log(`Data of [${path}] received`);
+				node.data = buf;
+				node.stats.size = node.data.byteLength;
+			})
+			.catch((err) => {
+				this._err(`Failed to read data of [${path}]: ${err}`);
+
+				/* pretend the file is empty */
+				node.stats.size = 0;
+				node.data = new ArrayBuffer();
+			})
+			.finally(() => cb());
+	}
 
 	/* cb(stats): stats either stats-object or null, if not found */
-	getStats(path, cb) {
+	getNode(path, cb) {
 		this._getNode(path, (n) => cb(n == null ? null : n.stats));
 	}
 
-	/* cb(id, stats): id if succedded, else null, stats if exists, else null */
-	openFile(path, create, open, truncate, owner, group, permissions, cb) {
-		/* fetch the stats of the file */
-		this._getNode(path, (node) => {
-			/* check if the node does not exist (i.e. ancestor does not exist) */
-			if (node == null)
-				cb(null, null);
+	/* cb(stats): fetch stats of node with given id (or null if does not exist) */
+	getStats(id, cb) {
+		let node = this._getValid(id);
+		cb(node == null ? null : node.stats);
+	}
 
-			/* open or create the new file */
-			else
-				this._openFile(node, path, create, open, truncate, owner, group, permissions, cb);
+	/* cb(path): fetch path of node with given id (or null if does not exist) */
+	getPath(id, cb) {
+		let node = this._getValid(id);
+		if (node == null)
+			return cb(null);
+		return cb(this._getNodePath(node));
+	}
+
+	/* cb(success): mark file as read */
+	setDirty(id, cb) {
+		let node = this._getValid(id);
+		if (node != null)
+			node.read();
+		return cb(node != null);
+	}
+
+	/* cb(success): true if succeeded, else false */
+	fileTruncate(id, size, cb) {
+		let node = this._getValid(id);
+		if (node == null || node.stats.type != 'file')
+			return cb(false);
+
+		/* check if the size should be set to zero */
+		if (size == 0) {
+			if (node.stats.size != 0)
+				node.written();
+			node.stats.size = 0;
+			node.data = null;
+			return cb(true);
+		}
+
+		/* fetch the data of the file */
+		this._loadData(node, () => {
+			if (size == node.stats.size)
+				return cb(true);
+
+			/* check if the file should be reduced in size */
+			if (size <= node.stats.size) {
+				node.stats.size = size;
+				node.data = node.data.slice(0, size);
+				node.written();
+				return cb(true);
+			}
+
+			/* increase the size of the buffer */
+			try {
+				let buf = new ArrayBuffer(size);
+				new Uint8Array(buf).set(new Uint8Array(node.data), 0);
+				node.stats.size = size;
+				node.data = buf;
+				node.written();
+				return cb(true);
+			} catch (e) {
+				this._err(`Failed to allocate memory for node [${this._getNodePath(node)}]`);
+				return cb(false);
+			}
 		});
 	}
 
 	/* cb(read): returns number of bytes read or null on failure */
-	readFile(id, buffer, offset, cb) {
-		/* validate the id */
-		if (id >= this._open.length || this._open[id] == null) {
-			cb(0);
-			return;
-		}
+	fileRead(id, buffer, offset, cb) {
+		let node = this._getValid(id);
+		if (node == null || node.stats.type != 'file')
+			return cb(null);
 
-		/* compute the number of bytes to read */
-		let count = Math.min(buffer.byteLength, this._open[id].data.byteLength - offset);
-		if (count <= 0) {
-			cb(0);
-			return;
-		}
+		/* fetch the data of the node */
+		this._loadData(node, () => {
+			/* compute the number of bytes to read */
+			let count = Math.min(buffer.byteLength, node.stats.size - offset);
+			if (count <= 0)
+				return cb(0);
 
-		/* read the data to the buffer */
-		buffer.set(new Uint8Array(this._open[id].data, offset, count));
-
-		/* update the meta-data and notify the caller */
-		this._open[id].read();
-		cb(count);
+			/* read the data to the buffer */
+			buffer.set(new Uint8Array(node.data, offset, count));
+			node.read();
+			cb(count);
+		});
 	}
 
-	/* cb(): close the file and simply return */
-	closeFile(id, cb) {
-		/* validate the id and simply discard any operations on
-		*	unknown ids and otherwise remove the user */
-		if (id < this._open.length && this._open[id] != null) {
-			this._open[id].dropUser();
-			this._open[id] = null;
-		}
+	/* cb(id): id if succeeded, else null */
+	fileCreate(id, name, owner, group, permissions, cb) {
+		let node = this._getValid(id);
+		if (node == null || node.stats.type != 'dir')
+			return cb(null);
 
-		/* notify the listener about the completion */
-		cb();
-	}
+		/* check if the child already exists */
+		this._getNode(node, this._getNodePath(node), name, (n) => {
+			if (n.stats != null)
+				return cb(null);
 
-	/* cb(success): mark the file as read */
-	accessedFile(path) {
-		/* fetch the node of the file */
-		this._getNode(path, (node) => {
-			/* check if the node does not exist (i.e. ancestor does not exist) or its stats do not exit */
-			if (node == null || node.stats == null)
-				cb(false);
-
-			/* mark the file as read */
-			else {
-				node.read();
-				cb(true);
-			}
+			/* setup the new file */
+			n.setupEmptyStats('file', owner, group, permissions);
+			return cb(n.id);
 		});
 	}
 }

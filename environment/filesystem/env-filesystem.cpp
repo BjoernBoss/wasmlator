@@ -3,26 +3,8 @@
 
 static util::Logger logger{ u8"env::filesystem" };
 
-bool env::FileSystem::fCheck(uint64_t id) const {
-	return (id < pOpen.size() && pOpen[id].has_value());
-}
-std::u8string env::FileSystem::fPrepare(std::u8string_view path) const {
-	/* ensure that the path is absolute */
-	if (util::TestPath(path) != util::PathState::absolute)
-		logger.fatal(u8"Path [", path, u8"] is not a valid absolute path");
-
-	/* return the canonicalized path */
-	return util::CanonicalPath(path);
-}
-bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(bool)> callback) {
-	return detail::ProcessAccess::HandleTask(task, [callback](std::u8string_view response, bool) {
-		callback(!response.empty());
-		});
-}
 bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(json::Reader<std::u8string_view>)> callback) {
 	return detail::ProcessAccess::HandleTask(task, [callback](std::u8string_view response, bool) {
-		if (response.empty())
-			response = u8"null";
 		try {
 			callback(json::Read(response));
 		}
@@ -91,166 +73,73 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 		logger.fatal(u8"Received incomplete file-stats");
 	return out;
 }
-void env::FileSystem::fCloseAll() {
-	/* the value must exist, as close would otherwise have released it */
-	while (!pOpen.empty())
-		fCloseFile(pOpen.size() - 1);
-}
 
-void env::FileSystem::fReadStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
-	fHandleTask(str::u8::Build(u8"stats:", path), [this, callback](json::Reader<std::u8string_view> resp) {
-		/* check if the operation succeded */
+void env::FileSystem::readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
+	/* ensure that the path is absolute */
+	if (util::TestPath(path) != util::PathState::absolute)
+		logger.fatal(u8"Path [", path, u8"] is not a valid absolute path");
+
+	/* canonicalize the path */
+	std::u8string actual = util::CanonicalPath(path);
+	logger.debug(u8"Reading stats of [", actual, u8']');
+
+	/* queue the task */
+	fHandleTask(str::u8::Build(u8"resolve:", path), [this, callback](json::Reader<std::u8string_view> resp) {
 		if (resp.isNull())
 			callback(0);
-
-		/* pass the stats to the callback */
 		else {
 			env::FileStats stats = fParseStats(resp.obj());
 			callback(&stats);
 		}
 		});
 }
-void env::FileSystem::fCloseFile(uint64_t id) {
-	/* queue the task to close the file and cleanup the id (operation cannot fail) */
-	bool inplace = fHandleTask(str::u8::Build(u8"close:", pOpen[id].value()), [this, id](bool success) {
-		/* cleanup the id */
-		pOpen[id] = std::nullopt;
-		while (!pOpen.empty() && !pOpen.back().has_value())
-			pOpen.pop_back();
-		});
-
-	/* check if the closing was peformed in-place (necessary) */
-	if (!inplace)
-		logger.fatal(u8"Closing of file [", id, u8"] was not performed inplace");
-}
-
-void env::FileSystem::readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
-	logger.debug(u8"Reading stats of [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fReadStats(actual, callback);
-}
-void env::FileSystem::readDir(std::u8string_view path, std::function<void(bool, const std::vector<std::u8string>&)> callback) {
-	logger.debug(u8"Reading directory [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fHandleTask(str::u8::Build(u8"list:", actual), [callback](json::Reader<std::u8string_view> resp) {
-		/* check if the operation succeded */
-		if (resp.isNull()) {
-			callback(false, {});
-			return;
+void env::FileSystem::readStats(uint64_t id, std::function<void(const env::FileStats*)> callback) {
+	logger.debug(u8"Reading stats of [", id, u8']');
+	fHandleTask(str::u8::Build(u8"stats:", id), [this, callback](json::Reader<std::u8string_view> resp) {
+		if (resp.isNull())
+			callback(0);
+		else {
+			env::FileStats stats = fParseStats(resp.obj());
+			callback(&stats);
 		}
-		json::ArrReader<std::u8string_view> list = resp.arr();
-
-		/* read all of the children */
-		std::vector<std::u8string> children;
-		for (const auto& entry : list)
-			children.push_back(str::u8::To(entry.str()));
-		callback(true, children);
 		});
 }
-void env::FileSystem::createDir(std::u8string_view path, std::function<void(bool)> callback) {
-	logger.debug(u8"Creating directory [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fHandleTask(str::u8::Build(u8"mkdir:", actual), callback);
-}
-void env::FileSystem::deleteDir(std::u8string_view path, std::function<void(bool)> callback) {
-	logger.debug(u8"Removing directory [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fHandleTask(str::u8::Build(u8"rmdir:", actual), callback);
-}
-void env::FileSystem::deleteFile(std::u8string_view path, std::function<void(bool)> callback) {
-	logger.debug(u8"Removing file [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fHandleTask(str::u8::Build(u8"rmfile:", actual), callback);
-}
-void env::FileSystem::accessedObject(std::u8string_view path, std::function<void(bool)> callback) {
-	logger.debug(u8"Accessed object [", path, u8']');
-	std::u8string actual = fPrepare(path);
-	fHandleTask(str::u8::Build(u8"accessed:", actual), callback);
-}
-
-void env::FileSystem::openFile(std::u8string_view path, env::FileOpen open, env::FileAccess access, std::function<void(bool, uint64_t, const env::FileStats*)> callback) {
-	logger.debug(u8"Opening file [", path, u8']');
-	std::u8string actual = fPrepare(path);
-
-	/* setup the task (open$cto; create/truncate/open) */
-	std::u8string task = u8"open$";
-	switch (open) {
-	case env::FileOpen::createAlways:
-		task.append(u8"cto:");
-		break;
-	case env::FileOpen::openAlways:
-		task.append(u8"c-o:");
-		break;
-	case env::FileOpen::createNew:
-		task.append(u8"c--:");
-		break;
-	case env::FileOpen::openExisting:
-		task.append(u8"--o:");
-		break;
-	case env::FileOpen::truncateExisting:
-		task.append(u8"-to:");
-		break;
-	}
-
-	/* add the owner, group, and permissions, and the path */
-	str::BuildTo(task, access.owner, u8':', access.group, u8':', access.permissions.all, u8':');
-	task.append(path);
-
-	/* queue the task to open the file */
-	fHandleTask(task, [this, callback](json::Reader<std::u8string_view> resp) {
-		bool hasId = false, hasStats = false;
-		uint64_t id = 0;
-		env::FileStats stats;
-
-		/* read the stats and id */
-		for (const auto& [key, value] : resp.obj()) {
-			if (key == L"id" && !value.isNull()) {
-				id = value.unum();
-				hasId = true;
-			}
-			else if (key == L"stats" && !value.isNull()) {
-				stats = fParseStats(value.obj());
-				hasStats = true;
-			}
-		}
-
-		/* check if the call itself succeded and register the id */
-		if (hasId) {
-			/* lookup the id-slot to be used */
-			uint64_t slot = 0;
-			while (slot < pOpen.size() && pOpen[slot].has_value())
-				++slot;
-			if (slot >= pOpen.size())
-				pOpen.push_back(std::nullopt);
-
-			/* register the id and notify the callback */
-			pOpen[slot] = id;
-			callback(true, slot, &stats);
-			return;
-		}
-
-		/* notify the callback about the failed open */
-		callback(false, 0, (hasStats ? &stats : 0));
+void env::FileSystem::readPath(uint64_t id, std::function<void(std::u8string_view)> callback) {
+	logger.debug(u8"Reading path of [", id, u8']');
+	fHandleTask(str::u8::Build(u8"path:", id), [this, callback](json::Reader<std::u8string_view> resp) {
+		if (resp.isNull())
+			callback(u8"");
+		else
+			callback(str::u8::To(resp.str()));
 		});
 }
-void env::FileSystem::readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(uint64_t)> callback) {
-	if (fCheck(id))
-		fHandleTask(str::u8::Build(u8"read:", pOpen[id].value(), u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [callback](json::Reader<std::u8string_view> resp) {
-		callback(resp.unum());
-			});
-}
-void env::FileSystem::writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(bool)> callback) {
-	if (fCheck(id))
-		fHandleTask(str::u8::Build(u8"write:", pOpen[id].value(), u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), callback);
+void env::FileSystem::accessedObject(uint64_t id, std::function<void(bool)> callback) {
+	logger.debug(u8"Marking object [", id, u8"] as accessed");
+	fHandleTask(str::u8::Build(u8"accessed:", id), [this, callback](json::Reader<std::u8string_view> resp) {
+		callback(resp.boolean());
+		});
 }
 void env::FileSystem::truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback) {
-	if (fCheck(id))
-		fHandleTask(str::u8::Build(u8"trunc:", pOpen[id].value(), u8':', str::As{ U"#x", size }), callback);
+	logger.debug(u8"Truncating file [", id, u8"] to [", size, u8']');
+	fHandleTask(str::u8::Build(u8"truncate:", id, u8':', size), [this, callback](json::Reader<std::u8string_view> resp) {
+		callback(resp.boolean());
+		});
 }
-void env::FileSystem::closeFile(uint64_t id) {
-	if (fCheck(id))
-		fCloseFile(id);
+void env::FileSystem::createFile(uint64_t id, std::u8string_view name, env::FileAccess access, std::function<void(std::optional<uint64_t>)> callback) {
+	logger.debug(u8"Creating file [", name, u8"] in [", id, u8']');
+	fHandleTask(str::u8::Build(u8"create:", id, u8':', access.owner, u8':', access.group, u8':', access.permissions.all, u8':', name), [this, callback](json::Reader<std::u8string_view> resp) {
+		if (resp.isNull())
+			callback(std::nullopt);
+		else
+			callback(resp.unum());
+		});
 }
-bool env::FileSystem::checkFile(uint64_t id) const {
-	return fCheck(id);
+void env::FileSystem::readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(std::optional<uint64_t>)> callback) {
+	logger.debug(u8"Reading file [", id, u8"] range [", str::As{ U"#010x", offset }, u8" - ", str::As{ U"#010x", (offset + size) }, u8']');
+	fHandleTask(str::u8::Build(u8"read:", id, u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [callback](json::Reader<std::u8string_view> resp) {
+		if (resp.isNull())
+			callback(std::nullopt);
+		else
+			callback(resp.unum());
+		});
 }

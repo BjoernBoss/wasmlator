@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../env-common.h"
-#include "filesystem-access.h"
 
 namespace env {
 	enum class FileType : uint8_t {
@@ -12,13 +11,6 @@ namespace env {
 		pipe,
 		tty,
 		_last
-	};
-	enum class FileOpen : uint8_t {
-		createAlways,
-		openAlways,
-		createNew,
-		openExisting,
-		truncateExisting
 	};
 
 	static constexpr uint16_t fileModeMask = 0x01ff;
@@ -51,7 +43,7 @@ namespace env {
 		uint64_t timeModifiedUS = 0;
 		uint64_t timeAccessedUS = 0;
 		uint64_t size = 0;
-		uint64_t uniqueId = 0;
+		uint64_t id = 0;
 		env::FileType type = env::FileType::none;
 		env::FileAccess access;
 		bool virtualized = false;
@@ -75,42 +67,35 @@ namespace env {
 	/* Note: all paths are expected to be fully qualified real absolute paths (symlinks will not be followed along the path)
 	*	Note: env::FileSystem will only ever produce file/directory/link */
 	class FileSystem {
-		friend struct detail::FileSystemAccess;
-
-	private:
-		std::vector<std::optional<uint64_t>> pOpen;
-
 	public:
 		FileSystem() = default;
 		FileSystem(env::FileSystem&&) = delete;
 		FileSystem(const env::FileSystem&) = delete;
 
 	private:
-		bool fCheck(uint64_t id) const;
-		std::u8string fPrepare(std::u8string_view path) const;
-		bool fHandleTask(const std::u8string& task, std::function<void(bool)> callback);
 		bool fHandleTask(const std::u8string& task, std::function<void(json::Reader<std::u8string_view>)> callback);
 		env::FileStats fParseStats(json::ObjReader<std::u8string_view> obj) const;
-		void fCloseAll();
-
-	private:
-		void fReadStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback);
-		void fCloseFile(uint64_t id);
 
 	public:
+		/* fetch stats for path (null if does not exist) */
 		void readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback);
-		void readDir(std::u8string_view path, std::function<void(bool, const std::vector<std::u8string>&)> callback);
-		void createDir(std::u8string_view path, std::function<void(bool)> callback);
-		void deleteDir(std::u8string_view path, std::function<void(bool)> callback);
-		void deleteFile(std::u8string_view path, std::function<void(bool)> callback);
-		void accessedObject(std::u8string_view path, std::function<void(bool)> callback);
 
-	public:
-		void openFile(std::u8string_view path, env::FileOpen open, env::FileAccess access, std::function<void(bool, uint64_t, const env::FileStats*)> callback);
-		void readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(uint64_t)> callback);
-		void writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(bool)> callback);
+		/* fetch stats for id (null if does not exist) */
+		void readStats(uint64_t id, std::function<void(const env::FileStats*)> callback);
+
+		/* fetch path for it (empty if does not exist) */
+		void readPath(uint64_t id, std::function<void(std::u8string_view)> callback);
+
+		/* mark object as read (false if does not exist) */
+		void accessedObject(uint64_t id, std::function<void(bool)> callback);
+
+		/* truncate file to given length (false if does not exist or not file or no memory) */
 		void truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);
-		void closeFile(uint64_t id);
-		bool checkFile(uint64_t id) const;
+
+		/* create file in given directory (nullopt if parent is not directory or does already exist) */
+		void createFile(uint64_t id, std::u8string_view name, env::FileAccess access, std::function<void(std::optional<uint64_t>)> callback);
+
+		/* read data from file (nullopt if not a file else number of bytes read) */
+		void readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(std::optional<uint64_t>)> callback);
 	};
 }

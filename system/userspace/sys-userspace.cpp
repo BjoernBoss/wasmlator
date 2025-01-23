@@ -154,35 +154,21 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 			return;
 		}
 
-		/* setup the opening of the file */
-		env::Instance()->filesystem().openFile(path, env::FileOpen::openExisting, env::FileAccess{}, [this, path](bool success, uint64_t id, const env::FileStats* stats) {
-			/* check if the file could be opened */
-			if (!success) {
-				logger.error(u8"Failed to open file [", path, u8"] for reading");
+		/* allocate the buffer for the file-content and read it into memory */
+		uint8_t* buffer = new uint8_t[stats->size];
+		env::Instance()->filesystem().readFile(stats->id, 0, buffer, stats->size, [this, size = stats->size, buffer](std::optional<uint64_t> read) {
+			std::unique_ptr<uint8_t[]> _cleanup{ buffer };
+
+			/* check if the size still matches */
+			if (size != read) {
+				logger.error(read.has_value() ? u8"Unable to read entire file" : u8"Error while reading file");
 				env::Instance()->shutdown();
 				return;
 			}
 
-			/* allocate the buffer for the file-content and read it into memory */
-			uint64_t size = stats->size;
-			uint8_t* buffer = new uint8_t[size];
-			env::Instance()->filesystem().readFile(id, 0, buffer, stats->size, [this, buffer, size, id](uint64_t count) {
-				std::unique_ptr<uint8_t[]> _cleanup{ buffer };
-
-				/* close the file again, as no more data will be read */
-				env::Instance()->filesystem().closeFile(id);
-
-				/* check if the size still matches */
-				if (count != size) {
-					logger.error(u8"File size does not match expected size");
-					env::Instance()->shutdown();
-					return;
-				}
-
-				/* perform the actual loading of the file */
-				if (!fBinaryLoaded(buffer, size))
-					env::Instance()->shutdown();
-				});
+			/* perform the actual loading of the file */
+			if (!fBinaryLoaded(buffer, size))
+				env::Instance()->shutdown();
 			});
 		});
 }
