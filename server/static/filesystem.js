@@ -9,14 +9,14 @@ class FileNode {
 		this.id = id;
 		this.stats = null;
 	}
-	setupStats(stats, owner, group, permissions) {
+	setupStats(stats, access) {
 		this.stats = stats;
 		this.stats.id = this.id;
-		this.stats.owner = owner;
-		this.stats.group = group;
-		this.stats.permissions = permissions;
+		this.stats.owner = access.owner;
+		this.stats.group = access.group;
+		this.stats.permissions = access[this.stats.type];
 	}
-	setupEmptyStats(type, owner, group, permissions) {
+	setupEmptyStats(type, access) {
 		this.stats = {};
 		this.stats.link = '';
 		this.stats.size = 0;
@@ -24,9 +24,9 @@ class FileNode {
 		this.stats.mtime_us = this.stats.atime_us;
 		this.stats.type = type;
 		this.stats.id = this.id;
-		this.stats.owner = owner;
-		this.stats.group = group;
-		this.stats.permissions = permissions;
+		this.stats.owner = access.owner;
+		this.stats.group = access.group;
+		this.stats.permissions = access[type];
 	}
 	read() {
 		this.stats.atime_us = Date.now() * 1000;
@@ -39,12 +39,12 @@ class FileNode {
 
 class MemFileSystem {
 	static fsRoot = {
-		user: 0,
+		owner: 0,
 		group: 0,
 		dir: 0o755
 	};
 	static fsDefault = {
-		user: 1001,
+		owner: 1001,
 		group: 1001,
 		dir: 0o755,
 		file: 0o754,
@@ -57,7 +57,7 @@ class MemFileSystem {
 
 		/* setup the root node */
 		this._root = new FileNode(null, 0, '');
-		this._root.setupEmptyStats('dir', MemFileSystem.fsRoot.user, MemFileSystem.fsRoot.group, MemFileSystem.fsRoot.dir);
+		this._root.setupEmptyStats('dir', MemFileSystem.fsRoot);
 
 		/* map of all files */
 		this._nodes = [this._root];
@@ -71,13 +71,20 @@ class MemFileSystem {
 		/* strip the next part of the name and advance the path */
 		if (path.startsWith('/'))
 			path = path.substr(1);
-		let index = path.indexOf('/');
-		let name = path.substr(0, index - 1);
-		path = path.substr(index);
+		let index = path.indexOf('/'), name = '';
+		if (index == -1) {
+			name = path;
+			path = '';
+		}
+		else {
+			name = path.substr(0, index);
+			path = path.substr(index);
+		}
+		let actual = `${current}/${name}`;
 
 		/* lookup the name in the parent */
 		if (name in node.children)
-			return this._getNode(node.children[name], `${current}/${name}`, path, cb);
+			return this._getNode(node.children[name], actual, path, cb);
 
 		/* check if the node itself is valid (i.e. exists in the read-only file-system) and is a directory */
 		if (node.stats == null || node.stats.type != 'dir')
@@ -89,102 +96,20 @@ class MemFileSystem {
 		node.children[name] = next;
 
 		/* request the stats (on errors, just pretend the object does not exist) */
-		this._log(`Fetching stats for [${path}]...`);
-		fetch(`/stat${path}`, { credentials: 'same-origin' })
+		this._log(`Fetching stats for [${actual}]...`);
+		fetch(`/stat${actual}`, { credentials: 'same-origin' })
 			.then((resp) => {
 				if (!resp.ok)
-					throw new Error(`Failed to load [${path}]`);
+					throw new Error(`Failed to load [${actual}]`);
 				return resp.json();
 			})
 			.then((json) => {
-				this._log(`Stats for [${path}] received`);
+				this._log(`Stats for [${actual}] received`);
 				if (json != null)
-					next.setupStats(json, fsDefault.owner, fsDefault.group, fsDefault[json.type]);
+					next.setupStats(json, MemFileSystem.fsDefault);
 			})
-			.catch((err) => this._err(`Failed to fetch stats for [${path}]: ${err}`))
-			.finally(() => this._getNode(next, `${current}/${name}`, path, cb));
-	}
-	_openFile(node, path, create, open, truncate, owner, group, permissions, cb) {
-		/* validate already existing objects */
-		if (node.stats != null) {
-			/* check if the type is valid */
-			if (node.stats.type != 'file')
-				return cb(null, node.stats);
-
-			/* check if an existing file can be opened */
-			if (!open) {
-				cb(null, node.stats);
-				return;
-			}
-		}
-
-		/* check if the file can be created */
-		else if (!create) {
-			cb(null, node.stats);
-			return;
-		}
-
-		/* add the user and allocate the open-file index */
-		node.addUser();
-		let openId = this._open.length;
-		this._open.push(node);
-
-
-		/* check if the file should be truncated or is being newly created */
-		if (truncate || node.stats == null) {
-			node.ensureBuffer();
-
-			/* setup the new file and its access permissions and mark the ancstor as written (parent-directory) */
-			if (node.stats == null) {
-				node.setupEmptyStats('file');
-				node.setupAccess(owner, group, permissions);
-				node.ancestor.written();
-			}
-
-			/* truncate the existing file */
-			if (node.data.byteLength > 0 || node.stats.size > 0) {
-				node.stats.size = 0;
-				node.data.resize(0);
-				node.written();
-			}
-
-			/* notify the callback about the opened file */
-			cb(openId, node.stats);
-			return;
-		}
-
-		/* check if the file data have already been fetched */
-		if (node.data != null) {
-			cb(openId, node.stats);
-			return;
-		}
-		node.ensureBuffer();
-
-		/* fetch the existing file data */
-		this._log(`Reading file [${path}]...`);
-		fetch(`/data${path}`, { credentials: 'same-origin' })
-			.then((resp) => {
-				if (!resp.ok)
-					throw new Error(`Failed to load [${path}]`);
-				return resp.arrayBuffer();
-			})
-			.then((buf) => {
-				this._log(`Data of [${path}] received`);
-				buf = new Uint8Array(buf);
-
-				/* write the data to the node */
-				node.stats.size = buf.byteLength;
-				node.data.resize(buf.byteLength);
-				new Uint8Array(node.data).set(buf);
-			})
-			.catch((err) => {
-				this._err(`Failed to read data of [${path}]: ${err}`);
-
-				/* pretend the file has been cleared (i.e. all data have been deleted by another user) */
-				node.stats.size = 0;
-				node.data.resize(0);
-			})
-			.finally(() => cb(openId, node.stats));
+			.catch((err) => this._err(`Failed to fetch stats for [${actual}]: ${err}`))
+			.finally(() => this._getNode(next, actual, path, cb));
 	}
 	_getValid(id) {
 		if (id >= this._nodes.length || this._nodes[id] == null || this._nodes[id].stats == null)
@@ -195,7 +120,7 @@ class MemFileSystem {
 		let path = '';
 		do {
 			path = `/${node.name}${path}`;
-		} while ((node = node.ancestor) != null);
+		} while ((node = node.ancestor) != null && node.ancestor != null);
 		return path;
 	}
 	_loadData(node, cb) {
@@ -229,7 +154,7 @@ class MemFileSystem {
 
 	/* cb(stats): stats either stats-object or null, if not found */
 	getNode(path, cb) {
-		this._getNode(path, (n) => cb(n == null ? null : n.stats));
+		this._getNode(this._root, '', path, (n) => cb(n == null ? null : n.stats));
 	}
 
 	/* cb(stats): fetch stats of node with given id (or null if does not exist) */
@@ -349,7 +274,7 @@ class MemFileSystem {
 				return cb(null);
 
 			/* setup the new file */
-			n.setupEmptyStats('file', owner, group, permissions);
+			n.setupEmptyStats('file', { owner: owner, group: group, file: permissions });
 			return cb(n.id);
 		});
 	}

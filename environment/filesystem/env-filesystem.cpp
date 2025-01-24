@@ -5,6 +5,8 @@ static util::Logger logger{ u8"env::filesystem" };
 
 bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(json::Reader<std::u8string_view>)> callback) {
 	return detail::ProcessAccess::HandleTask(task, [callback](std::u8string_view response, bool) {
+		if (response.empty())
+			response = u8"null";
 		try {
 			callback(json::Read(response));
 		}

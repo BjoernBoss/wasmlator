@@ -29,7 +29,7 @@ int64_t sys::detail::impl::NativeFileNode::lookup(std::u8string_view name, const
 				return callback({}, {});
 
 			/* spawn the native node */
-			return callback(std::make_shared<impl::NativeFileNode>(path, pSyscall, 0), *stats);
+			return callback(std::make_shared<impl::NativeFileNode>(pSyscall, stats->id), *stats);
 			});
 		});
 
@@ -53,19 +53,19 @@ int64_t sys::detail::impl::NativeFileNode::create(std::u8string_view name, const
 	return pSyscall->callIncomplete();
 }
 int64_t sys::detail::impl::NativeFileNode::open(bool truncate, std::function<int64_t(int64_t)> callback) {
-	/* configure the open-mode */
-	env::FileOpen mode = env::FileOpen::openExisting;
-	if (config.truncate)
-		mode = env::FileOpen::truncateExisting;
+	/* check if the file should be truncated */
+	if (truncate) {
+		env::Instance()->filesystem().resizeFile(pFileId, 0, [this, callback](bool success) {
+			pSyscall->callContinue([this, callback, success]() -> int64_t {
+				return callback(success ? errCode::eSuccess : errCode::eInterrupted);
+				});
+			});
+	}
 
-	/* try to create the file-object */
-	env::Instance()->filesystem().openFile(pPath, mode, config.access, [this, callback](bool success, uint64_t id, const env::FileStats* stats) {
-		pSyscall->callContinue([this, callback, success, id, stats]() -> int64_t {
-			/* check if the open succeeded */
-			if (!success)
-				return callback(errCode::eInterrupted);
-			pOpenId = id;
-			return callback(errCode::eSuccess);
+	/* simply validate the existance of the file */
+	env::Instance()->filesystem().readStats(pFileId, [this, callback](const env::FileStats* stats) {
+		pSyscall->callContinue([this, callback, stats]() -> int64_t {
+			return callback(stats != 0 ? errCode::eSuccess : errCode::eInterrupted);
 			});
 		});
 
