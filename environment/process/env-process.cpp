@@ -31,9 +31,6 @@ bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, 
 void env::ClearInstance() {
 	logger.log(u8"Destroying process with id [", global::ProcId, u8"]...");
 
-	/* reset all open files */
-	detail::FileSystemAccess::CleanupFiles();
-
 	/* reset all mapped core-functions and release the current instance */
 	detail::ProcessBridge::ResetCoreMap();
 	global::Instance.reset();

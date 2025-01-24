@@ -255,7 +255,7 @@ class MemFileSystem {
 	}
 
 	/* cb(success): true if succeeded, else false */
-	fileTruncate(id, size, cb) {
+	fileResize(id, size, cb) {
 		let node = this._getValid(id);
 		if (node == null || node.stats.type != 'file')
 			return cb(false);
@@ -313,6 +313,26 @@ class MemFileSystem {
 			/* read the data to the buffer */
 			buffer.set(new Uint8Array(node.data, offset, count));
 			node.read();
+			cb(count);
+		});
+	}
+
+	/* cb(written): returns number of bytes written or null on failure */
+	fileWrite(id, buffer, offset, cb) {
+		let node = this._getValid(id);
+		if (node == null || node.stats.type != 'file')
+			return cb(null);
+
+		/* fetch the data of the node */
+		this._loadData(node, () => {
+			/* compute the number of bytes to write */
+			let count = Math.min(buffer.byteLength, node.stats.size - offset);
+			if (count <= 0)
+				return cb(0);
+
+			/* write the data to the buffer */
+			new Uint8Array(node.data, offset, count).set(buffer);
+			node.written();
 			cb(count);
 		});
 	}

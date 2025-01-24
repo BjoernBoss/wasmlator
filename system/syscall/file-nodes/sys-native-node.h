@@ -8,23 +8,21 @@ namespace sys::detail::impl {
 	/* file-node, which provides access to actual native file-objects */
 	class NativeFileNode : public detail::FileNode {
 	private:
-		std::u8string pPath;
-		uint64_t pOpenId = 0;
+		uint64_t pFileId = 0;
 
 	protected:
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		NativeFileNode(std::u8string_view path, detail::Syscall* syscall, uint64_t openId);
+		NativeFileNode(detail::Syscall* syscall, uint64_t fileId);
 
 	public:
 		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const;
 		int64_t linkRead(std::function<int64_t(bool)> callback) final;
 		int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
-		int64_t create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
-		int64_t open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) final;
+		int64_t create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
+		int64_t open(bool truncate, std::function<int64_t(int64_t)> callback) final;
 		int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 		int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
-		void close() final;
 	};
 }

@@ -3,7 +3,7 @@
 static util::Logger logger{ u8"sys::syscall" };
 
 sys::detail::impl::Terminal::Terminal(env::FileAccess access) : VirtualFileNode{ access } {}
-int64_t sys::detail::impl::Terminal::open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::impl::Terminal::open(bool truncate, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eSuccess);
 }
 int64_t sys::detail::impl::Terminal::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {

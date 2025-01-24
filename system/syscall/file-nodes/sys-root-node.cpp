@@ -7,7 +7,7 @@ sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall, env::Fil
 void sys::detail::impl::RootFileNode::fPatchStats(env::FileStats& stats) const {
 	stats.type = env::FileType::directory;
 	stats.access = pAccess;
-	stats.uniqueId = pUniqueId;
+	stats.id = pUniqueId;
 	stats.virtualized = true;
 }
 

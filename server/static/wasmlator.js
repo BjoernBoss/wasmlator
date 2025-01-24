@@ -142,14 +142,19 @@ setup_wasmlator = function (logPrint, cb) {
 			_state.fs.getPath(parseInt(payload), (v) => _state.task_completed(process, v));
 		else if (cmd == 'accessed')
 			_state.fs.setDirty(parseInt(payload), (v) => _state.task_completed(process, v));
-		else if (cmd == 'truncate') {
+		else if (cmd == 'resize') {
 			let args = splitArgs(2);
-			_state.fs.fileTruncate(args[0], args[1], (v) => _state.task_completed(process, v));
+			_state.fs.fileResize(args[0], args[1], (v) => _state.task_completed(process, v));
 		}
 		else if (cmd == 'read') {
 			let args = splitArgs(4);
 			let buf = new Uint8Array(_state.main.memory, args[1], args[3]);
 			_state.fs.fileRead(args[0], buf, args[2], (v) => _state.task_completed(process, v));
+		}
+		else if (cmd == 'write') {
+			let args = splitArgs(4);
+			let buf = new Uint8Array(_state.main.memory, args[1], args[3]);
+			_state.fs.fileWrite(args[0], buf, args[2], (v) => _state.task_completed(process, v));
 		}
 		else if (cmd == 'create') {
 			let args = splitArgs(4);

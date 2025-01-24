@@ -8,10 +8,10 @@ int64_t sys::detail::FileNode::linkRead(std::function<int64_t(bool)> callback) {
 int64_t sys::detail::FileNode::lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
 	return callback({}, {});
 }
-int64_t sys::detail::FileNode::create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
+int64_t sys::detail::FileNode::create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
 	return callback(errCode::eReadOnly, {});
 }
-int64_t sys::detail::FileNode::open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::FileNode::open(bool truncate, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
 int64_t sys::detail::FileNode::read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
@@ -46,24 +46,10 @@ int64_t sys::detail::VirtualFileNode::fLookupNew(const std::u8string& name, std:
 			});
 		});
 }
-int64_t sys::detail::VirtualFileNode::fCreateNew(const std::u8string& name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
-	/* create the new node and check if it could be created */
-	return virtualCreate(name, config, [this, callback, name](int64_t result, std::shared_ptr<detail::VirtualFileNode> node) -> int64_t {
-		if (result != errCode::eSuccess)
-			return callback(result, {});
-
-		/* update the current write-time as the directory has been modified */
-		pLastWrite = host::GetStampUS();
-
-		/* add the node to the cache and return it */
-		pCache[name] = node;
-		return callback(errCode::eSuccess, node);
-		});
-}
 int64_t sys::detail::VirtualFileNode::virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const {
 	return callback({});
 }
-int64_t sys::detail::VirtualFileNode::virtualCreate(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback) {
+int64_t sys::detail::VirtualFileNode::virtualCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback) {
 	return callback(errCode::eReadOnly, {});
 }
 int64_t sys::detail::VirtualFileNode::virtualRead(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
@@ -85,7 +71,7 @@ int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::Fil
 		out.timeModifiedUS = pLastWrite;
 		out.access = pAccess;
 		out.virtualized = true;
-		out.uniqueId = pUniqueId;
+		out.id = pUniqueId;
 		return callback(&out);
 		});
 }
@@ -110,29 +96,26 @@ int64_t sys::detail::VirtualFileNode::lookup(std::u8string_view name, const std:
 		return callback(it->second, *stats);
 		});
 }
-int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
+int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
 	const std::u8string& _name = std::u8string{ name };
 
-	/* check if the node has already been cached */
+	/* check if the node has already been cached - in which case the result is interrupted,
+	*	as the file was somehow already created while the last lookup did not yet show it */
 	auto it = pCache.find(_name);
-	if (it == pCache.end())
-		return fCreateNew(_name, config, callback);
+	if (it != pCache.end())
+		return callback(errCode::eInterrupted, {});
 
-	/* check if the node may also just be opened */
-	if (config.exclusive)
-		return callback(errCode::eExists, {});
+	/* create the new node and check if it could be created */
+	return virtualCreate(name, access, [this, callback, _name](int64_t result, std::shared_ptr<detail::VirtualFileNode> node) -> int64_t {
+		if (result != errCode::eSuccess)
+			return callback(result, {});
 
-	/* check if the cache is still valid and open it */
-	return it->second->virtualStats([this, _name, it, callback, config](const env::FileStats* stats) -> int64_t {
-		if (stats == 0) {
-			pCache.erase(it);
-			return fCreateNew(_name, config, callback);
-		}
+		/* update the current write-time as the directory has been modified */
+		pLastWrite = host::GetStampUS();
 
-		/* open the node */
-		return it->second->open(config, [callback, it](int64_t result) -> int64_t {
-			return callback(result, (result == errCode::eSuccess ? it->second : detail::SharedNode{}));
-			});
+		/* add the node to the cache and return it */
+		pCache[_name] = node;
+		return callback(errCode::eSuccess, node);
 		});
 }
 int64_t sys::detail::VirtualFileNode::read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {

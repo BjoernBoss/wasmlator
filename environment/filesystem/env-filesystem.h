@@ -89,13 +89,16 @@ namespace env {
 		/* mark object as read (false if does not exist) */
 		void accessedObject(uint64_t id, std::function<void(bool)> callback);
 
-		/* truncate file to given length (false if does not exist or not file or no memory) */
-		void truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);
+		/* resize file to given size (false if does not exist or not file or no memory) */
+		void resizeFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);
 
 		/* create file in given directory (nullopt if parent is not directory or does already exist) */
 		void createFile(uint64_t id, std::u8string_view name, env::FileAccess access, std::function<void(std::optional<uint64_t>)> callback);
 
 		/* read data from file (nullopt if not a file else number of bytes read) */
 		void readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(std::optional<uint64_t>)> callback);
+
+		/* write data to file (nullopt if not a file else number of bytes written - will not resize file) */
+		void writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(std::optional<uint64_t>)> callback);
 	};
 }

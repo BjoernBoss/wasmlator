@@ -60,7 +60,7 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 			required &= ~0b0000'0000'0010;
 		}
 		else if (key == L"id") {
-			out.uniqueId = value.unum();
+			out.id = value.unum();
 			required &= ~0b0000'0000'0001;
 		}
 	}
@@ -119,9 +119,9 @@ void env::FileSystem::accessedObject(uint64_t id, std::function<void(bool)> call
 		callback(resp.boolean());
 		});
 }
-void env::FileSystem::truncateFile(uint64_t id, uint64_t size, std::function<void(bool)> callback) {
-	logger.debug(u8"Truncating file [", id, u8"] to [", size, u8']');
-	fHandleTask(str::u8::Build(u8"truncate:", id, u8':', size), [this, callback](json::Reader<std::u8string_view> resp) {
+void env::FileSystem::resizeFile(uint64_t id, uint64_t size, std::function<void(bool)> callback) {
+	logger.debug(u8"Resizing file [", id, u8"] to [", size, u8']');
+	fHandleTask(str::u8::Build(u8"resize:", id, u8':', size), [this, callback](json::Reader<std::u8string_view> resp) {
 		callback(resp.boolean());
 		});
 }
@@ -137,6 +137,15 @@ void env::FileSystem::createFile(uint64_t id, std::u8string_view name, env::File
 void env::FileSystem::readFile(uint64_t id, uint64_t offset, void* data, uint64_t size, std::function<void(std::optional<uint64_t>)> callback) {
 	logger.debug(u8"Reading file [", id, u8"] range [", str::As{ U"#010x", offset }, u8" - ", str::As{ U"#010x", (offset + size) }, u8']');
 	fHandleTask(str::u8::Build(u8"read:", id, u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [callback](json::Reader<std::u8string_view> resp) {
+		if (resp.isNull())
+			callback(std::nullopt);
+		else
+			callback(resp.unum());
+		});
+}
+void env::FileSystem::writeFile(uint64_t id, uint64_t offset, const void* data, uint64_t size, std::function<void(std::optional<uint64_t>)> callback) {
+	logger.debug(u8"Writing file [", id, u8"] range [", str::As{ U"#010x", offset }, u8" - ", str::As{ U"#010x", (offset + size) }, u8']');
+	fHandleTask(str::u8::Build(u8"write:", id, u8":0x", data, u8':', str::As{ U"#x", offset }, u8':', str::As{ U"#x", size }), [callback](json::Reader<std::u8string_view> resp) {
 		if (resp.isNull())
 			callback(std::nullopt);
 		else

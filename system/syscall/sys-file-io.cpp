@@ -206,7 +206,7 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	*	rdev: (major: 0xabc, minor: 0x456))
 	*/
 	out.dev = (stats.virtualized ? 0x0123 : 0x0345);
-	out.inode = stats.uniqueId;
+	out.inode = stats.id;
 	out.mode = stats.access.permissions.all;
 	out.nlinks = 1;
 	out.uid = stats.access.owner;
@@ -299,14 +299,6 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		if (result != errCode::eSuccess)
 			return result;
 
-		/* setup the creation-config */
-		detail::SetupConfig config;
-		config.access.permissions.all = (mode & env::fileModeMask);
-		config.access.owner = pSyscall->config().euid;
-		config.access.group = pSyscall->config().egid;
-		config.truncate = truncate;
-		config.exclusive = exclusive;
-
 		/* check if the child does not exist yet (create must be set to true) */
 		if (!found) {
 			/* check if the parent directory is writable (i.e. the file could be created) */
@@ -315,8 +307,14 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 				return errCode::eAccess;
 			}
 
+			/* setup the creation-access */
+			env::FileAccess access;
+			access.permissions.all = (mode & env::fileModeMask);
+			access.owner = pSyscall->config().euid;
+			access.group = pSyscall->config().egid;
+
 			/* try to create the file */
-			return node->create(util::SplitName(path).second, path, config, [this, read, write, openOnly, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
+			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
 				return fSetupFile(cnode, path, false, read, write, !openOnly, closeOnExecute);
@@ -364,7 +362,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			return fSetupFile(node, path, stats.type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
 
 		/* perform the open-call on the file-node */
-		return node->open(config, [this, node, read, write, openOnly, closeOnExecute, path](int64_t result) -> int64_t {
+		return node->open(truncate, [this, node, read, write, openOnly, closeOnExecute, path](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
 				return result;
 			return fSetupFile(node, path, false, read, write, !openOnly, closeOnExecute);

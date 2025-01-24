@@ -3,12 +3,6 @@
 #include "../../sys-common.h"
 
 namespace sys::detail {
-	struct SetupConfig {
-		env::FileAccess access;
-		bool truncate = false;
-		bool exclusive = false;
-	};
-
 	/* Note: operations must at most throw syscall-await exception, but always call the callback */
 	class FileNode {
 	protected:
@@ -25,11 +19,11 @@ namespace sys::detail {
 	public:
 		/* dir-interactions */
 		virtual int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback);
-		virtual int64_t create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback);
+		virtual int64_t create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback);
 
 	public:
 		/* file-interactions */
-		virtual int64_t open(const detail::SetupConfig& config, std::function<int64_t(int64_t)> callback);
+		virtual int64_t open(bool truncate, std::function<int64_t(int64_t)> callback);
 		virtual int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual void close();
@@ -50,12 +44,11 @@ namespace sys::detail {
 
 	private:
 		int64_t fLookupNew(const std::u8string& name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback);
-		int64_t fCreateNew(const std::u8string& name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback);
 
 	public:
 		virtual int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const = 0;
 		virtual int64_t virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const;
-		virtual int64_t virtualCreate(std::u8string_view name, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback);
+		virtual int64_t virtualCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback);
 		virtual int64_t virtualRead(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual int64_t virtualWrite(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 
@@ -63,7 +56,7 @@ namespace sys::detail {
 		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const final;
 		int64_t linkRead(std::function<int64_t(bool)> callback) final;
 		int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
-		int64_t create(std::u8string_view name, const std::u8string& path, const detail::SetupConfig& config, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
+		int64_t create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
 		int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 		int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 	};
