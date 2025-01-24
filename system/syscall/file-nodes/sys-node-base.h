@@ -14,6 +14,7 @@ namespace sys::detail {
 	public:
 		/* generic-interactions */
 		virtual int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const = 0;
+		virtual int64_t getPath(std::function<int64_t(std::u8string_view)> callback) = 0;
 		virtual int64_t linkRead(std::function<int64_t(bool)> callback);
 
 	public:

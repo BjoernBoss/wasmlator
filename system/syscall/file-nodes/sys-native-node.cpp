@@ -11,6 +11,15 @@ int64_t sys::detail::impl::NativeFileNode::stats(std::function<int64_t(const env
 	/* potentially defer the call */
 	return pSyscall->callIncomplete();
 }
+int64_t sys::detail::impl::NativeFileNode::getPath(std::function<int64_t(std::u8string_view)> callback) {
+	/* perform the query-operation */
+	env::Instance()->filesystem().readPath(pFileId, [this, callback](std::u8string_view path) {
+		pSyscall->callContinue([callback, path]() -> int64_t { return callback(path); });
+		});
+
+	/* potentially defer the call */
+	return pSyscall->callIncomplete();
+}
 int64_t sys::detail::impl::NativeFileNode::linkRead(std::function<int64_t(bool)> callback) {
 	/* perform the access-operation */
 	env::Instance()->filesystem().accessedObject(pFileId, [this, callback](bool success) {

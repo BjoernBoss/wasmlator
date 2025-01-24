@@ -165,7 +165,7 @@ int64_t sys::detail::FileIO::fResolveLookup(detail::SharedNode node, const std::
 		});
 }
 
-int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
+int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
 	/* lookup the new instance for the node */
 	size_t instance = 0;
 	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
@@ -175,7 +175,6 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, const std::u8st
 
 	/* configure the new instance */
 	pInstance[instance].node = node;
-	pInstance[instance].path = path;
 	pInstance[instance].user = 1;
 	pInstance[instance].directory = directory;
 
@@ -317,7 +316,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
-				return fSetupFile(cnode, path, false, read, write, !openOnly, closeOnExecute);
+				return fSetupFile(cnode, false, read, write, !openOnly, closeOnExecute);
 				});
 		}
 
@@ -359,13 +358,13 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 
 		/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
 		if (stats.type == env::FileType::link || stats.type == env::FileType::directory)
-			return fSetupFile(node, path, stats.type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
+			return fSetupFile(node, stats.type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
 
 		/* perform the open-call on the file-node */
-		return node->open(truncate, [this, node, read, write, openOnly, closeOnExecute, path](int64_t result) -> int64_t {
+		return node->open(truncate, [this, node, read, write, openOnly, closeOnExecute](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
 				return result;
-			return fSetupFile(node, path, false, read, write, !openOnly, closeOnExecute);
+			return fSetupFile(node, false, read, write, !openOnly, closeOnExecute);
 			});
 		});
 }

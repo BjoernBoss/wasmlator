@@ -40,7 +40,6 @@ namespace sys::detail {
 	private:
 		struct Instance {
 			detail::SharedNode node;
-			std::u8string path;
 			uint64_t id = 0;
 			size_t user = 0;
 			bool directory = false;
@@ -86,7 +85,7 @@ namespace sys::detail {
 		int64_t fResolveLookup(detail::SharedNode node, const std::u8string& name, const std::u8string& path, const std::u8string& remainder, const env::FileStats& stats);
 
 	private:
-		int64_t fSetupFile(detail::SharedNode node, const std::u8string& path, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
+		int64_t fSetupFile(detail::SharedNode node, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
 		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
 		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
 		int64_t fWrite(size_t instance) const;
