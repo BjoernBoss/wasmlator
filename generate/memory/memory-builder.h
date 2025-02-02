@@ -45,9 +45,6 @@ namespace gen::detail {
 	private:
 		wasm::Function pLookup;
 
-	private:
-		void fMakeLookup(const wasm::Memory& memory, const wasm::Function& function, size_t cache, size_t size, uint32_t usage) const;
-
 	public:
 		void setupGlueMappings(detail::GlueState& glue);
 		void setupCoreImports();

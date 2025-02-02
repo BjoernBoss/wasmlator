@@ -23,6 +23,8 @@ namespace gen {
 
 	private:
 		const gen::Writer* pWriter = 0;
+		env::guest_t pAddress = 0;
+		uint32_t pCacheIndex = 0;
 		gen::MemoryType pType = gen::MemoryType::i64;
 		Operation pOperation = Operation::none;
 
@@ -30,7 +32,7 @@ namespace gen {
 		FulFill() = default;
 
 	private:
-		FulFill(const gen::Writer* writer, gen::MemoryType type, Operation operation);
+		FulFill(const gen::Writer* writer, env::guest_t address, uint32_t cacheIndex, gen::MemoryType type, Operation operation);
 
 	public:
 		/* expects value on top of stack */

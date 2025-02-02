@@ -759,18 +759,11 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 	);
 	detail::MemoryLookup lookup = fLookup(address, access, size, usage);
 
-	/* check if the cache index is valid */
-	if (cache < pCacheCount) {
-		if (usage != env::Usage::Read)
-			logger.fatal(u8"Using Read-Cache for writing/executing");
-	}
-	else if (cache < pCacheCount * 2 && (usage != env::Usage::Write))
-		logger.fatal(u8"Using Write-Cache for reading/executing");
-
 	/* write the lookup back to the cache */
 	pCaches[cache] = {
 		lookup.address,
 		uint32_t(lookup.physical),
+		uint32_t(lookup.size - 0),
 		uint32_t(lookup.size - 1),
 		uint32_t(lookup.size - 2),
 		uint32_t(lookup.size - 4),

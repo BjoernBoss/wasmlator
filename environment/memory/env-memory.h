@@ -22,6 +22,7 @@ namespace env {
 		struct MemoryCache {
 			env::guest_t address{ 0 };
 			uint32_t physical{ 0 };
+			uint32_t total{ 0 };
 			uint32_t size1{ 0 };
 			uint32_t size2{ 0 };
 			uint32_t size4{ 0 };
