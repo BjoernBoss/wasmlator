@@ -20,6 +20,8 @@ enum class FormatType : uint8_t {
 	csr_s1i,
 	csr_imx,
 	s1i_jmp,
+	s2i_mem,
+	s2f_mem,
 	s2i_jmp,
 	dti_csr_s1i,
 	dti_csr_imx,
@@ -82,10 +84,10 @@ static constexpr PrintOpcode opcodeStrings[] = {
 	PrintOpcode{ u8"lhu", FormatType::dti_mem },
 	PrintOpcode{ u8"lwu", FormatType::dti_mem },
 	PrintOpcode{ u8"ld", FormatType::dti_mem },
-	PrintOpcode{ u8"sb", FormatType::dti_mem },
-	PrintOpcode{ u8"sh", FormatType::dti_mem },
-	PrintOpcode{ u8"sw", FormatType::dti_mem },
-	PrintOpcode{ u8"sd", FormatType::dti_mem },
+	PrintOpcode{ u8"sb", FormatType::s2i_mem },
+	PrintOpcode{ u8"sh", FormatType::s2i_mem },
+	PrintOpcode{ u8"sw", FormatType::s2i_mem },
+	PrintOpcode{ u8"sd", FormatType::s2i_mem },
 
 	PrintOpcode{ u8"addi", FormatType::dti_s1i_imd },
 	PrintOpcode{ u8"addiw", FormatType::dti_s1i_imd },
@@ -166,8 +168,8 @@ static constexpr PrintOpcode opcodeStrings[] = {
 
 	PrintOpcode{ u8"flw", FormatType::dtf_mem },
 	PrintOpcode{ u8"fld", FormatType::dtf_mem },
-	PrintOpcode{ u8"fsw", FormatType::dtf_mem },
-	PrintOpcode{ u8"fsd", FormatType::dtf_mem },
+	PrintOpcode{ u8"fsw", FormatType::s2f_mem },
+	PrintOpcode{ u8"fsd", FormatType::s2f_mem },
 
 	PrintOpcode{ u8"fmadd.s", FormatType::dtf_s1f_s2f_s3f },
 	PrintOpcode{ u8"fmsub.s", FormatType::dtf_s1f_s2f_s3f },
@@ -366,7 +368,11 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 		str::BuildTo(out, u8' ', iRegisters[inst.src1]);
 		break;
 	case FormatType::s2i_jmp:
+	case FormatType::s2i_mem:
 		str::BuildTo(out, u8' ', iRegisters[inst.src2]);
+		break;
+	case FormatType::s2f_mem:
+		str::BuildTo(out, u8' ', fRegisters[inst.src2]);
 		break;
 	case FormatType::dtf_mem:
 	case FormatType::dtf_s1f:
@@ -420,6 +426,8 @@ std::u8string rv64::ToString(const rv64::Instruction& inst) {
 		break;
 	case FormatType::dti_mem:
 	case FormatType::dtf_mem:
+	case FormatType::s2i_mem:
+	case FormatType::s2f_mem:
 		str::BuildTo(out, u8", ", inst.imm, u8'(', iRegisters[inst.src1], u8')');
 		break;
 	case FormatType::dti_s1f:

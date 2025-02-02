@@ -20,13 +20,13 @@ void rv64::DetectPseudo::fCloseLI(rv64::Instruction& inst) const {
 bool rv64::DetectPseudo::fMatchFirst(rv64::Instruction& inst) {
 	switch (inst.opcode) {
 	case rv64::Opcode::add_imm:
-		/* mv */
-		if (inst.imm == 0)
-			inst.pseudo = rv64::Pseudo::mv;
-
 		/* li */
-		else if (inst.src1 == reg::Zero)
+		if (inst.src1 == reg::Zero)
 			inst.opcode = rv64::Opcode::multi_load_imm;
+
+		/* mv */
+		else if (inst.imm == 0)
+			inst.pseudo = rv64::Pseudo::mv;
 		break;
 	case rv64::Opcode::xor_imm:
 		/* not */
@@ -135,17 +135,17 @@ bool rv64::DetectPseudo::fMatchFirst(rv64::Instruction& inst) {
 			inst.pseudo = rv64::Pseudo::jump_and_link;
 		break;
 	case rv64::Opcode::jump_and_link_reg:
+		/* ret */
+		if (inst.dest == reg::Zero && inst.src1 == reg::X1 && inst.imm == 0)
+			inst.pseudo = rv64::Pseudo::ret;
+
 		/* jr */
-		if (inst.dest == reg::Zero && inst.imm == 0)
+		else if (inst.dest == reg::Zero && inst.imm == 0)
 			inst.pseudo = rv64::Pseudo::jump_reg;
 
 		/* jalr */
-		else if (inst.dest == reg::Zero && inst.imm == 0)
+		else if (inst.dest == reg::X1 && inst.imm == 0)
 			inst.pseudo = rv64::Pseudo::jump_and_link_reg;
-
-		/* ret */
-		else if (inst.dest == reg::Zero && inst.src1 == reg::X1 && inst.imm == 0)
-			inst.pseudo = rv64::Pseudo::ret;
 		break;
 	case rv64::Opcode::fence:
 		/* fence */
