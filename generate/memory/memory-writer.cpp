@@ -97,7 +97,7 @@ void gen::detail::MemoryWriter::fMakeAddress(uint32_t cache, const wasm::Functio
 		/* perform the call to patch the cache (leaves the new absolute address as i32 on the stack) */
 		gen::Add[I::Call::Direct(lookup)];
 
-		/* less-equal, compute the final absolute address */
+		/* less, compute the final absolute address */
 		_if.otherwise();
 		gen::Add[I::Local::Get(pAccess)];
 		gen::Add[I::U64::Shrink()];

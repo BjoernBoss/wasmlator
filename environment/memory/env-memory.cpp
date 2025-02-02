@@ -763,10 +763,10 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 	pCaches[cache] = {
 		lookup.address,
 		uint32_t(lookup.physical),
+		uint32_t(lookup.size),
 		uint32_t(lookup.size - 1),
-		uint32_t(lookup.size - 2),
-		uint32_t(lookup.size - 4),
-		uint32_t(lookup.size - 8)
+		uint32_t(lookup.size - 3),
+		uint32_t(lookup.size - 7)
 	};
 }
 uint64_t env::Memory::fRead(env::guest_t address, uint64_t size) const {
