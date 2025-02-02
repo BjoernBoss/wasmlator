@@ -6,7 +6,7 @@ static util::Logger logger{ u8"gen::memory" };
 gen::detail::MemoryWriter::MemoryWriter(const detail::MemoryState& state) : pState{ state } {}
 
 void gen::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
-	uint32_t caches = uint32_t(env::detail::MemoryAccess::CacheCount());
+	uint32_t caches = env::detail::MemoryAccess::CacheCount();
 	if (cache >= caches)
 		logger.fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
@@ -111,7 +111,7 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 	if (lookup != 0)
 		fMakeAddress(cache, *lookup, type, address);
 	else
-		fMakeAddress(cache, pState.reads[fMakeIndex(cache, type)], type, address);
+		fMakeAddress(cache + env::detail::MemoryAccess::StartOfReadCaches(), pState.reads[fMakeIndex(cache, type)], type, address);
 
 	/* add the final read-instruction */
 	switch (type) {
@@ -164,7 +164,7 @@ void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType 
 	if (lookup != 0)
 		fMakeAddress(cache, *lookup, type, address);
 	else
-		fMakeAddress(cache, pState.writes[fMakeIndex(cache, type)], type, address);
+		fMakeAddress(cache + env::detail::MemoryAccess::StartOfWriteCaches(), pState.writes[fMakeIndex(cache, type)], type, address);
 }
 void gen::detail::MemoryWriter::fMakeStopWrite(gen::MemoryType type) const {
 	/* add the store-instruction */

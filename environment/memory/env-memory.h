@@ -55,6 +55,7 @@ namespace env {
 		std::vector<detail::MemoryPhysical> pPhysical;
 		std::vector<detail::MemoryVirtual> pVirtual;
 		uint64_t pPageSize = 0;
+		uint32_t pCacheCount = 0;
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
 		uint32_t pCodeCache = 0;

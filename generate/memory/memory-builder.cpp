@@ -42,7 +42,7 @@ void gen::detail::MemoryBuilder::setupCoreImports() {
 	pLookup = gen::Module->function(u8"main_lookup", prototype, wasm::Import{ u8"main" });
 
 	/* define the bindings passed to the blocks */
-	size_t caches = env::detail::MemoryAccess::CacheCount() - env::detail::InternalCaches;
+	size_t caches = env::detail::MemoryAccess::CacheCount();
 	for (size_t i = 0; i < caches * 4; ++i) {
 		size_t cache = (i / 4), size = MemoryBuilder::Sizes[i % 4];
 		env::detail::ProcessAccess::AddCoreBinding(u8"mem", str::u8::Build(u8"mem_lookup_read_", size, u8'_', cache));
@@ -89,25 +89,21 @@ void gen::detail::MemoryBuilder::setupCoreBody(const wasm::Memory& memory, const
 	wasm::Function coreCodeLookup[4] = {};
 	{
 		wasm::Prototype prototype = gen::Module->prototype(u8"mem_lookup_type", { { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 } }, { wasm::Type::i32 });
-		size_t caches = env::detail::MemoryAccess::CacheCount() - env::detail::InternalCaches;
 
-		/* iteratively create the lookups for all size/cache-indices combinations (minus the internal caches) */
+		/* iteratively create the lookups for all size/cache-indices combinations */
+		size_t caches = env::detail::MemoryAccess::CacheCount();
 		for (size_t i = 0; i < caches * 4; ++i) {
 			size_t cache = (i / 4), size = MemoryBuilder::Sizes[i % 4];
 
 			/* create the read-function and add the implementation */
 			wasm::Function read = gen::Module->function(str::u8::Build(u8"mem_lookup_read_", size, u8'_', cache), prototype, wasm::Export{});
 			state.reads.push_back(read);
-			fMakeLookup(memory, read, cache, size, env::Usage::Read);
+			fMakeLookup(memory, read, cache + env::detail::MemoryAccess::StartOfReadCaches(), size, env::Usage::Read);
 
 			/* create the write-function and add the implementation */
 			wasm::Function write = gen::Module->function(str::u8::Build(u8"mem_lookup_write_", size, u8'_', cache), prototype, wasm::Export{});
 			state.writes.push_back(write);
-			fMakeLookup(memory, write, cache, size, env::Usage::Write);
-
-			/* create the corecode-function and add the implementation */
-			if (i >= 4)
-				continue;
+			fMakeLookup(memory, write, cache + env::detail::MemoryAccess::StartOfWriteCaches(), size, env::Usage::Write);
 		}
 
 		/* create the core lookup-functions */
@@ -326,7 +322,7 @@ void gen::detail::MemoryBuilder::setupBlockImports(const wasm::Memory& memory, c
 	wasm::Prototype prototype = gen::Module->prototype(u8"mem_lookup_usage_type", { { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 } }, { wasm::Type::i32 });
 
 	/* define the bindings passed to the blocks */
-	size_t caches = env::detail::MemoryAccess::CacheCount() - env::detail::InternalCaches;
+	size_t caches = env::detail::MemoryAccess::CacheCount();
 	for (size_t i = 0; i < caches * 4; ++i) {
 		size_t cache = (i / 4), size = MemoryBuilder::Sizes[i % 4];
 		state.reads.push_back(gen::Module->function(str::u8::Build(u8"mem_lookup_read_", size, u8'_', cache), prototype, wasm::Import{ u8"mem" }));

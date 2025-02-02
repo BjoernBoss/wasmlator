@@ -488,31 +488,31 @@ void rv64::Translate::fMakeLoad(bool multi) const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_byte_s:
 	case rv64::Opcode::multi_load_byte_s:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::i8To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_s:
 	case rv64::Opcode::multi_load_half_s:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::i16To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_s:
 	case rv64::Opcode::multi_load_word_s:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::i32To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i32To64, pAddress);
 		break;
 	case rv64::Opcode::load_byte_u:
 	case rv64::Opcode::multi_load_byte_u:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::u8To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::u8To64, pAddress);
 		break;
 	case rv64::Opcode::load_half_u:
 	case rv64::Opcode::multi_load_half_u:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::u16To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::u16To64, pAddress);
 		break;
 	case rv64::Opcode::load_word_u:
 	case rv64::Opcode::multi_load_word_u:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::u32To64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::u32To64, pAddress);
 		break;
 	case rv64::Opcode::load_dword:
 	case rv64::Opcode::multi_load_dword:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::i64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		break;
@@ -536,19 +536,19 @@ void rv64::Translate::fMakeStore(bool multi) const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
 	case rv64::Opcode::multi_store_byte:
-		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::u8To32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::u8To32, pAddress);
 		break;
 	case rv64::Opcode::store_half:
 	case rv64::Opcode::multi_store_half:
-		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::u16To32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::u16To32, pAddress);
 		break;
 	case rv64::Opcode::store_word:
 	case rv64::Opcode::multi_store_word:
-		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::i32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::i32, pAddress);
 		break;
 	case rv64::Opcode::store_dword:
 	case rv64::Opcode::multi_store_dword:
-		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::i64, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		break;
@@ -705,14 +705,14 @@ void rv64::Translate::fMakeAMO(bool half) {
 	/* perform the reading of the original value (dont write it to the destination yet, as the destination migth also be the source) */
 	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
 	gen::Add[I::Local::Get(addr)];
-	gen::Make->read(rv64::ReadCaches + pInst->src1, type, pAddress);
+	gen::Make->read(pInst->src1, type, pAddress);
 	gen::Add[I::Local::Set(value)];
 
 	/* write the destination address to the stack */
 	gen::Add[I::Local::Get(addr)];
 
 	/* prepare the writing of the value to memory */
-	gen::FulFill fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, type, pAddress);
+	gen::FulFill fulfill = gen::Make->write(pInst->src1, type, pAddress);
 
 	/* write the new value to the stack (perform the operation in the corresponding width) */
 	switch (pInst->opcode) {
@@ -846,7 +846,7 @@ void rv64::Translate::fMakeAMOLR() {
 	if (pInst->dest != reg::Zero) {
 		gen::FulFill fulfill = fStoreDest();
 		gen::Add[I::Local::Get(addr)];
-		gen::Make->read(rv64::ReadCaches + pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
+		gen::Make->read(pInst->src1, (half ? gen::MemoryType::i32To64 : gen::MemoryType::i64), pAddress);
 		fulfill.now();
 	}
 }
@@ -874,7 +874,7 @@ void rv64::Translate::fMakeAMOSC() {
 
 	/* write the source value to the address (assumption that reservation is always valid) */
 	gen::Add[I::Local::Get(addr)];
-	gen::FulFill fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	gen::FulFill fulfill = gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
 	fLoadSrc2(true, half);
 	fulfill.now();
 
@@ -1192,12 +1192,12 @@ void rv64::Translate::fMakeFLoad(bool multi) const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_float:
 	case rv64::Opcode::multi_load_float:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::i32, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i32, pAddress);
 		fExpandFloat(true, true);
 		break;
 	case rv64::Opcode::load_double:
 	case rv64::Opcode::multi_load_double:
-		gen::Make->read(rv64::ReadCaches + pInst->src1, gen::MemoryType::i64, pAddress);
+		gen::Make->read(pInst->src1, gen::MemoryType::i64, pAddress);
 		break;
 	default:
 		break;
@@ -1221,11 +1221,11 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_float:
 	case rv64::Opcode::multi_store_float:
-		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::f32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::f32, pAddress);
 		break;
 	case rv64::Opcode::store_double:
 	case rv64::Opcode::multi_store_double:
-		fulfill = gen::Make->write(rv64::WriteCaches + pInst->src1, gen::MemoryType::f64, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::f64, pAddress);
 		break;
 	default:
 		break;

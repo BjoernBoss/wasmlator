@@ -4,7 +4,6 @@ static util::Logger logger{ u8"env::memory" };
 
 std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();
-	uint32_t caches = env::Instance()->memoryCaches();
 	self.pPageSize = env::Instance()->pageSize();
 
 	/* ensure the page-size is valid */
@@ -13,17 +12,18 @@ std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialP
 		return std::nullopt;
 	}
 
-	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up */
-	self.pReadCache = caches + 0;
-	self.pWriteCache = caches + 1;
-	self.pCodeCache = caches + 2;
+	/* allocate the caches for both the guest-application and the internal read/write/code caches and set them up (times
+	*	two as the lower 'cache-count' number are the read-caches, and the upper 'cache-count' number are the write-caches) */
+	self.pCacheCount = env::Instance()->memoryCaches();
+	uint32_t totalCaches = self.pCacheCount * 2;
+	self.pCaches.resize(size_t(totalCaches) + detail::InternalCaches);
+	self.pReadCache = totalCaches + 0;
+	self.pWriteCache = totalCaches + 1;
+	self.pCodeCache = totalCaches + 2;
 
 	/* setup the initial physical page-count and physical mapping */
 	initialPageCount = detail::PhysPageCount(detail::InitAllocPages * self.pPageSize);
 	self.pPhysical.push_back(detail::MemoryPhysical{ 0, detail::PhysPageSize * initialPageCount, false });
-
-	/* setup the caches */
-	self.pCaches.resize(size_t(caches) + detail::InternalCaches);
 
 	/* return the highest accessed address */
 	return uintptr_t(self.pCaches.data() + self.pCaches.size());
@@ -31,8 +31,14 @@ std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialP
 uintptr_t env::detail::MemoryAccess::CacheAddress() {
 	return uintptr_t(env::Instance()->memory().pCaches.data());
 }
-size_t env::detail::MemoryAccess::CacheCount() {
-	return env::Instance()->memory().pCaches.size();
+uint32_t env::detail::MemoryAccess::StartOfReadCaches() {
+	return 0;
+}
+uint32_t env::detail::MemoryAccess::StartOfWriteCaches() {
+	return env::Instance()->memory().pCacheCount;
+}
+uint32_t env::detail::MemoryAccess::CacheCount() {
+	return env::Instance()->memory().pCacheCount;
 }
 uint32_t env::detail::MemoryAccess::ReadCache() {
 	return env::Instance()->memory().pReadCache;
