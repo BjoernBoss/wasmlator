@@ -186,21 +186,46 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 		else
 			gen::Add[I::Call::Direct(pState.reads[fMakeIndex(cache, type)])];
 
-		/* patch or reinterpret the read value to the expected value */
+		/* patch or reinterpret the read value to the expected value (and perform the sign extension) */
 		switch (type) {
+		case gen::MemoryType::i8To64:
+			gen::Add[I::U64::Const(54)];
+			gen::Add[I::U64::ShiftLeft()];
+			gen::Add[I::U64::Const(54)];
+			gen::Add[I::I64::ShiftRight()];
+			break;
+		case gen::MemoryType::i16To64:
+			gen::Add[I::U64::Const(48)];
+			gen::Add[I::U64::ShiftLeft()];
+			gen::Add[I::U64::Const(48)];
+			gen::Add[I::I64::ShiftRight()];
+			break;
+		case gen::MemoryType::i32To64:
+			gen::Add[I::U64::Shrink()];
+			gen::Add[I::I32::Expand()];
+			break;
+		case gen::MemoryType::i8To32:
+			gen::Add[I::U64::Shrink()];
+			gen::Add[I::U32::Const(24)];
+			gen::Add[I::U32::ShiftLeft()];
+			gen::Add[I::U32::Const(24)];
+			gen::Add[I::I32::ShiftRight()];
+			break;
+		case gen::MemoryType::i16To32:
+			gen::Add[I::U64::Shrink()];
+			gen::Add[I::U32::Const(16)];
+			gen::Add[I::U32::ShiftLeft()];
+			gen::Add[I::U32::Const(16)];
+			gen::Add[I::I32::ShiftRight()];
+			break;
 		case gen::MemoryType::u8To32:
 		case gen::MemoryType::u16To32:
-		case gen::MemoryType::i8To32:
-		case gen::MemoryType::i16To32:
 		case gen::MemoryType::i32:
 			gen::Add[I::U64::Shrink()];
 			break;
 		case gen::MemoryType::u8To64:
 		case gen::MemoryType::u16To64:
 		case gen::MemoryType::u32To64:
-		case gen::MemoryType::i8To64:
-		case gen::MemoryType::i16To64:
-		case gen::MemoryType::i32To64:
 		case gen::MemoryType::i64:
 			break;
 		case gen::MemoryType::f32:
