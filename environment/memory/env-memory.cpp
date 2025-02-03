@@ -53,10 +53,14 @@ env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_
 		lookup.size += pVirtual[i].size;
 	}
 
-	/* check if the access-size is valid */
-	if (lookup.address + lookup.size < access + size)
-		throw env::MemoryFault{ address, access, size, usage, 0 };
-	return lookup;
+	/* check if size-validation needs to be performed or if the entire range can be serviced by this lookup */
+	if (size == 0 || lookup.address + lookup.size >= access + size)
+		return lookup;
+
+	/* check if the upcoming address is also mapped and valid
+	*	Note: as of now, double-mapping is not yet active, therefore the lookup will always consume the entire range, and
+	*	there is no chance of it not being contiguous, therefore only the size of the first lookup needs to be checked */
+	throw env::MemoryFault{ address, access, size, usage, 0 };
 }
 
 uint64_t env::Memory::fPageOffset(env::guest_t address) const {
@@ -943,10 +947,26 @@ void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-')
 	);
+	if (size == 0)
+		return;
+	uint8_t* ptr = static_cast<uint8_t*>(dest);
 
-	/* lookup the address to ensure it is mapped and to fetch the physical address */
+	/* lookup the address to ensure it is mapped and perform the read operations */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, source, size, usage);
-	detail::MemoryBridge::ReadFromPhysical(dest, lookup.physical + (source - lookup.address), size);
+	while (true) {
+		uint64_t offset = (source - lookup.address);
+		uint64_t count = std::min<uint64_t>(lookup.size - offset, size);
+		detail::MemoryBridge::ReadFromPhysical(ptr, lookup.physical + offset, count);
+
+		/* check if the end has been reached and otherwise advance the parameter (no need to perform size
+		*	validations again, as the first lookup will have ensured that the entire range is mapped correctly) */
+		if (count >= size)
+			return;
+		ptr += count;
+		source += count;
+		size -= count;
+		lookup = fLookup(detail::MainAccessAddress, source, 0, usage);
+	}
 }
 void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage) {
 	logger.fmtTrace(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
@@ -954,10 +974,26 @@ void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, u
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-')
 	);
+	if (size == 0)
+		return;
+	const uint8_t* ptr = static_cast<const uint8_t*>(source);
 
-	/* lookup the address to ensure it is mapped and to fetch the physical address */
+	/* lookup the address to ensure it is mapped and perform the write operations */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
-	detail::MemoryBridge::WriteToPhysical(lookup.physical + (dest - lookup.address), source, size);
+	while (true) {
+		uint64_t offset = (dest - lookup.address);
+		uint64_t count = std::min<uint64_t>(lookup.size - offset, size);
+		detail::MemoryBridge::WriteToPhysical(lookup.physical + offset, ptr, count);
+
+		/* check if the end has been reached and otherwise advance the parameter (no need to perform size
+		*	validations again, as the first lookup will have ensured that the entire range is mapped correctly) */
+		if (count >= size)
+			return;
+		ptr += count;
+		dest += count;
+		size -= count;
+		lookup = fLookup(detail::MainAccessAddress, dest, 0, usage);
+	}
 }
 void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
 	logger.fmtTrace(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
@@ -965,8 +1001,22 @@ void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-')
 	);
+	if (size == 0)
+		return;
 
-	/* lookup the address to ensure it is mapped and to fetch the physical address */
+	/* lookup the address to ensure it is mapped and perform the clear operations */
 	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
-	detail::MemoryBridge::ClearPhysical(lookup.physical + (dest - lookup.address), size);
+	while (true) {
+		uint64_t offset = (dest - lookup.address);
+		uint64_t count = std::min<uint64_t>(lookup.size - offset, size);
+		detail::MemoryBridge::ClearPhysical(lookup.physical + offset, count);
+
+		/* check if the end has been reached and otherwise advance the parameter (no need to perform size
+		*	validations again, as the first lookup will have ensured that the entire range is mapped correctly) */
+		if (count >= size)
+			return;
+		dest += count;
+		size -= count;
+		lookup = fLookup(detail::MainAccessAddress, dest, 0, usage);
+	}
 }

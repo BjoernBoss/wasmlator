@@ -50,8 +50,6 @@ namespace env {
 		friend struct detail::MemoryBridge;
 		friend struct detail::MemoryAccess;
 	private:
-
-	private:
 		mutable std::vector<detail::MemoryCache> pCaches;
 		std::vector<detail::MemoryPhysical> pPhysical;
 		std::vector<detail::MemoryVirtual> pVirtual;

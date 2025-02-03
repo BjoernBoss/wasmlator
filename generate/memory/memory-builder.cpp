@@ -141,13 +141,13 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& 
 			sink[I::Branch::Direct(_loop)];
 		}
 
-		/* perform the next cache lookup */
+		/* perform the next cache lookup (set the size to null, as no more validation needs to be performed) */
 		sink[I::Param::Get(0)];
 		sink[I::Param::Get(1)];
 		sink[I::Local::Get(index)];
 		sink[I::U32::Expand()];
 		sink[I::U64::Add()];
-		sink[I::Param::Get(2)];
+		sink[I::U32::Const(0)];
 		sink[I::Param::Get(3)];
 		sink[I::Param::Get(4)];
 		sink[I::Call::Direct(pLookup)];
@@ -305,13 +305,13 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 			sink[I::Branch::Direct(_loop)];
 		}
 
-		/* perform the next cache lookup */
+		/* perform the next cache lookup (size the size to null, as more validation needs to be performed) */
 		sink[I::Param::Get(0)];
 		sink[I::Param::Get(1)];
 		sink[I::Local::Get(index)];
 		sink[I::U32::Expand()];
 		sink[I::U64::Add()];
-		sink[I::Param::Get(2)];
+		sink[I::U32::Const(0)];
 		sink[I::Param::Get(3)];
 		sink[I::Param::Get(4)];
 		sink[I::Call::Direct(pLookup)];
