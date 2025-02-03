@@ -16,11 +16,16 @@ namespace sys::detail {
 		static constexpr uint32_t opCreate = 0x000040;
 		static constexpr uint32_t opExclusive = 0x000080;
 		static constexpr uint32_t opTruncate = 0x000200;
+		static constexpr uint32_t opAppend = 0x000400;
 		static constexpr uint32_t opDirectory = 0x010000;
 		static constexpr uint32_t opNoFollow = 0x020000;
 		static constexpr uint32_t opCloseOnExecute = 0x080000;
 		static constexpr uint32_t opOpenOnly = 0x200000;
-		static constexpr uint32_t openFlagMask = 0x2b0ec3;
+
+		static constexpr uint32_t openFlagMask = consts::opReadOnly | consts::opWriteOnly |
+			consts::opReadWrite | consts::opCreate | consts::opExclusive | consts::opTruncate |
+			consts::opAppend | consts::opDirectory | consts::opNoFollow | consts::opCloseOnExecute |
+			consts::opOpenOnly;
 
 		/* used by faccessat */
 		static constexpr uint64_t accFOk = 0x00;
@@ -32,9 +37,15 @@ namespace sys::detail {
 		static constexpr uint64_t accEmptyPath = 0x0800;
 	}
 
-	bool IsSet(auto value, auto mask) {
-		return (value & mask) == mask;
-	}
+	struct FdState {
+		size_t instance = 0;
+		bool valid = false;
+		bool read = false;
+		bool write = false;
+		bool modify = false;
+		bool append = false;
+		env::FileType type = env::FileType::_last;
+	};
 
 	class FileIO {
 	private:
@@ -43,14 +54,15 @@ namespace sys::detail {
 			std::u8string path;
 			uint64_t id = 0;
 			size_t user = 0;
-			bool directory = false;
+			env::FileType type = env::FileType::_last;
+			bool append = false;
+			bool read = false;
+			bool write = false;
+			bool modify = false;
 		};
 		struct Open {
 			size_t instance = 0;
 			bool used = false;
-			bool read = false;
-			bool write = false;
-			bool modify = false;
 			bool closeOnExecute = false;
 		};
 
@@ -86,7 +98,7 @@ namespace sys::detail {
 		int64_t fResolveLookup(detail::SharedNode node, const std::u8string& name, const std::u8string& path, const std::u8string& remainder, const env::FileStats& stats);
 
 	private:
-		int64_t fSetupFile(detail::SharedNode node, std::u8string_view path, bool directory, bool read, bool write, bool modify, bool closeOnExecute);
+		int64_t fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, bool read, bool write, bool modify, bool append, bool closeOnExecute);
 		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
 		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
 		int64_t fWrite(size_t instance) const;
@@ -115,5 +127,9 @@ namespace sys::detail {
 		int64_t faccessat(int64_t dirfd, std::u8string_view path, int64_t mode);
 		int64_t faccessat2(int64_t dirfd, std::u8string_view path, int64_t mode, int64_t flags);
 		int64_t ioctl(int64_t fd, uint64_t cmd, uint64_t arg);
+
+	public:
+		detail::FdState fdCheck(int64_t fd) const;
+		int64_t fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const;
 	};
 }

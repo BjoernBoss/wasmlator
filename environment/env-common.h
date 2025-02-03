@@ -33,12 +33,32 @@ namespace env {
 
 	/* memory page usage flags */
 	struct Usage {
+		static constexpr uint32_t Usages = 0x0f;
 		static constexpr uint32_t Read = 0x01;
 		static constexpr uint32_t Write = 0x02;
 		static constexpr uint32_t Execute = 0x04;
+		static constexpr uint32_t Lock = 0x08;
 		static constexpr uint32_t ReadWrite = Usage::Read | Usage::Write;
 		static constexpr uint32_t ReadExecute = Usage::Read | Usage::Execute;
-		static constexpr uint32_t All = Usage::Read | Usage::Write | Usage::Execute;
+		static constexpr uint32_t RWE = Usage::Read | Usage::Write | Usage::Execute;
+
+		struct Print {
+		private:
+			str::u8::Local<4> pLocal;
+
+		public:
+			constexpr Print(uint32_t usage) {
+				pLocal.push_back((usage & env::Usage::Read) ? u8'r' : u8'-');
+				pLocal.push_back((usage & env::Usage::Write) ? u8'w' : u8'-');
+				pLocal.push_back((usage & env::Usage::Execute) ? u8'x' : u8'-');
+				pLocal.push_back((usage & env::Usage::Lock) ? u8'l' : u8'-');
+			}
+
+		public:
+			constexpr str::u8::Local<4> str() const {
+				return pLocal;
+			}
+		};
 	};
 
 	/* block exported function entry */
@@ -119,3 +139,10 @@ namespace env {
 		Decoding(env::guest_t address, bool memoryFault) : env::Exception{ address }, memoryFault{ memoryFault } {}
 	};
 }
+
+/* format-helper for usage-printer */
+template <> struct str::Formatter<env::Usage::Print> {
+	constexpr bool operator()(str::IsSink auto& sink, const env::Usage::Print& val, std::u32string_view fmt) const {
+		return str::CallFormat(sink, val.str(), fmt);
+	}
+};

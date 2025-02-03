@@ -9,17 +9,15 @@ bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
 	return true;
 }
 int64_t sys::detail::FileIO::fCheckRead(int64_t fd) const {
-	if (!fCheckFd(fd) || !pOpen[fd].read)
+	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].read)
 		return errCode::eBadFd;
-	if (pInstance[pOpen[fd].instance].directory)
+	if (pInstance[pOpen[fd].instance].type == env::FileType::directory)
 		return errCode::eIsDirectory;
 	return 0;
 }
 int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
-	if (!fCheckFd(fd) || !pOpen[fd].write)
+	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].write)
 		return errCode::eBadFd;
-	if (pInstance[pOpen[fd].instance].directory)
-		return errCode::eIsDirectory;
 	return 0;
 }
 bool sys::detail::FileIO::fCheckAccess(const env::FileStats& stats, bool read, bool write, bool execute, bool effIds) const {
@@ -27,12 +25,12 @@ bool sys::detail::FileIO::fCheckAccess(const env::FileStats& stats, bool read, b
 
 	/* fetch the ids to be used */
 	if (effIds) {
-		uid = pSyscall->config().euid;
-		gid = pSyscall->config().egid;
+		uid = pSyscall->process().euid;
+		gid = pSyscall->process().egid;
 	}
 	else {
-		uid = pSyscall->config().uid;
-		gid = pSyscall->config().gid;
+		uid = pSyscall->process().uid;
+		gid = pSyscall->process().gid;
 	}
 
 	/* check for root-privileges */
@@ -60,7 +58,7 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 	if (allowEmpty && path.empty()) {
 		/* extract the path of the file-descriptor */
 		if (dirfd == consts::fdWDirectory)
-			return { pSyscall->config().wDirectory, errCode::eSuccess };
+			return { pSyscall->process().wDirectory, errCode::eSuccess };
 		else if (!fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
 		return { pInstance[pOpen[dirfd].instance].path, errCode::eSuccess };
@@ -77,12 +75,12 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 		if (dirfd != consts::fdWDirectory && !fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
 		instance = &pInstance[pOpen[dirfd].instance];
-		if (!instance->directory)
+		if (instance->type != env::FileType::directory)
 			return { u8"", errCode::eNotDirectory };
 	}
 
 	/* construct the actual path */
-	return { util::MergePaths(instance != 0 ? instance->path : pSyscall->config().wDirectory, path), errCode::eSuccess };
+	return { util::MergePaths(instance != 0 ? instance->path : pSyscall->process().wDirectory, path), errCode::eSuccess };
 }
 
 int64_t sys::detail::FileIO::fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
@@ -165,7 +163,7 @@ int64_t sys::detail::FileIO::fResolveLookup(detail::SharedNode node, const std::
 		});
 }
 
-int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_view path, bool directory, bool read, bool write, bool modify, bool closeOnExecute) {
+int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, bool read, bool write, bool modify, bool append, bool closeOnExecute) {
 	/* lookup the new instance for the node */
 	size_t instance = 0;
 	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
@@ -177,7 +175,11 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_v
 	pInstance[instance].node = node;
 	pInstance[instance].path = std::u8string{ path };
 	pInstance[instance].user = 1;
-	pInstance[instance].directory = directory;
+	pInstance[instance].type = type;
+	pInstance[instance].append = append;
+	pInstance[instance].read = read;
+	pInstance[instance].write = write;
+	pInstance[instance].modify = modify;
 
 	/* lookup the new open entry for the node */
 	size_t index = 0;
@@ -188,9 +190,6 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_v
 
 	/* configure the new opened file */
 	pOpen[index].instance = instance;
-	pOpen[index].read = read;
-	pOpen[index].write = write;
-	pOpen[index].modify = modify;
 	pOpen[index].closeOnExecute = closeOnExecute;
 	pOpen[index].used = true;
 	return int64_t(index);
@@ -275,11 +274,14 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	bool create = detail::IsSet(flags, consts::opCreate);
 	bool exclusive = detail::IsSet(flags, consts::opExclusive);
 	bool truncate = detail::IsSet(flags, consts::opTruncate);
+	bool append = detail::IsSet(flags, consts::opAppend);
 	bool closeOnExecute = detail::IsSet(flags, consts::opCloseOnExecute);
 	if (openOnly)
 		read = (write = false);
 	if (create && exclusive)
 		follow = false;
+	if (!write)
+		append = false;
 	if (directory && (create || exclusive || truncate))
 		return errCode::eInvalid;
 
@@ -295,7 +297,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	pResolve.effectiveIds = true;
 
 	/* lookup the file-node to the file (ensure that it cannot fail anymore once the file has been created) */
-	return fResolveNode(actual, [this, mode, truncate, exclusive, read, write, openOnly, closeOnExecute, directory](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool found) -> int64_t {
+	return fResolveNode(actual, [this, mode, truncate, append, exclusive, read, write, openOnly, closeOnExecute, directory](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool found) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -310,14 +312,14 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			/* setup the creation-access */
 			env::FileAccess access;
 			access.permissions.all = (mode & env::fileModeMask);
-			access.owner = pSyscall->config().euid;
-			access.group = pSyscall->config().egid;
+			access.owner = pSyscall->process().euid;
+			access.group = pSyscall->process().egid;
 
 			/* try to create the file */
-			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
+			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, append, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
-				return fSetupFile(cnode, path, false, read, write, !openOnly, closeOnExecute);
+				return fSetupFile(cnode, path, env::FileType::file, read, write, !openOnly, append, closeOnExecute);
 				});
 		}
 
@@ -359,13 +361,13 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 
 		/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
 		if (stats.type == env::FileType::link || stats.type == env::FileType::directory)
-			return fSetupFile(node, path, stats.type == env::FileType::directory, read, write, !openOnly, closeOnExecute);
+			return fSetupFile(node, path, stats.type, read, write, !openOnly, append, closeOnExecute);
 
 		/* perform the open-call on the file-node */
-		return node->open(truncate, [this, node, path, read, write, openOnly, closeOnExecute](int64_t result) -> int64_t {
+		return node->open(truncate, [this, node, path, read, write, openOnly, append, closeOnExecute, type = stats.type](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
 				return result;
-			return fSetupFile(node, path, false, read, write, !openOnly, closeOnExecute);
+			return fSetupFile(node, path, type, read, write, !openOnly, append, closeOnExecute);
 			});
 		});
 }
@@ -443,7 +445,7 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	pRoot = std::make_shared<impl::RootFileNode>(pSyscall, rootDirs);
 	pMounted[u8"/dev"] = std::make_shared<impl::EmpyDirectory>(rootDirs);
 	pMounted[u8"/proc"] = std::make_shared<impl::ProcDirectory>(pSyscall, rootDirs);
-	pMounted[u8"/proc/self"] = std::make_shared<impl::LinkNode>(str::u8::Build(u8"/proc/", pSyscall->config().pid), rootAll);
+	pMounted[u8"/proc/self"] = std::make_shared<impl::LinkNode>(str::u8::Build(u8"/proc/", pSyscall->process().pid), rootAll);
 	pMounted[u8"/dev/tty"] = std::make_shared<impl::Terminal>(env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite });
 	pMounted[u8"/dev/stdin"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/0", rootAll);
 	pMounted[u8"/dev/stdout"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/1", rootAll);
@@ -464,13 +466,13 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	}
 
 	/* validate the current path */
-	std::u8string_view wDirectory = util::SplitName(pSyscall->config().path).first;
+	std::u8string_view wDirectory = util::SplitName(pSyscall->process().path).first;
 	if (util::TestPath(wDirectory) != util::PathState::absolute) {
 		logger.error(u8"Current directory [", wDirectory, u8"] must be a valid absolute path");
 		return false;
 	}
-	pSyscall->config().wDirectory = util::CanonicalPath(wDirectory);
-	logger.info(u8"Configured with current working directory [", pSyscall->config().wDirectory, u8']');
+	pSyscall->process().wDirectory = util::CanonicalPath(wDirectory);
+	logger.info(u8"Configured with current working directory [", pSyscall->process().wDirectory, u8']');
 
 	/* enable the root node to ensure any upcoming calls are performed on the actual filesystem */
 	pRoot->enable();
@@ -587,11 +589,17 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 	if (!fCheckFd(fd))
 		return errCode::eBadFd;
 
-	/* request the stats from the file */
+	/* request the stats from the object */
 	return pInstance[pOpen[fd].instance].node->stats([this, address, fd](const env::FileStats* stats) -> int64_t {
 		/* check if the stats failed */
 		if (stats == 0) {
 			logger.error(u8"Failed to fetch stats for an open file [", fd, u8']');
+			return errCode::eStale;
+		}
+
+		/* check if an unexpected change of the underlying object occurred */
+		if (stats->type != pInstance[pOpen[fd].instance].type) {
+			logger.error(u8"Type of opened file-descriptor has changed [", fd, u8']');
 			return errCode::eStale;
 		}
 
@@ -642,4 +650,44 @@ int64_t sys::detail::FileIO::ioctl(int64_t fd, uint64_t cmd, uint64_t arg) {
 	if (!fCheckFd(fd))
 		return errCode::eBadFd;
 	return errCode::eNoTTY;
+}
+
+sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
+	detail::FdState state;
+
+	/* validate the index itself */
+	if (!fCheckFd(fd))
+		return state;
+	state.valid = true;
+
+	/* populate the meta-data of the file-descriptor */
+	state.instance = pOpen[fd].instance;
+	state.read = pInstance[pOpen[fd].instance].read;
+	state.write = pInstance[pOpen[fd].instance].write;
+	state.modify = pInstance[pOpen[fd].instance].modify;
+	state.append = pInstance[pOpen[fd].instance].append;
+	state.type = pInstance[pOpen[fd].instance].type;
+	return state;
+}
+int64_t sys::detail::FileIO::fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const {
+	if (!fCheckFd(fd))
+		return callback(errCode::eBadFd, 0);
+
+	/* request the stats from the object */
+	return pInstance[pOpen[fd].instance].node->stats([this, fd, callback](const env::FileStats* stats) -> int64_t {
+		/* check if the stats failed */
+		if (stats == 0) {
+			logger.error(u8"Failed to fetch stats for an open file [", fd, u8']');
+			return callback(errCode::eStale, 0);
+		}
+
+		/* check if an unexpected change of the underlying object occurred */
+		if (stats->type != pInstance[pOpen[fd].instance].type) {
+			logger.error(u8"Type of opened file-descriptor has changed [", fd, u8']');
+			return errCode::eStale;
+		}
+
+		/* notify the callback about the successful stats */
+		return callback(errCode::eSuccess, stats);
+		});
 }

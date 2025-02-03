@@ -64,8 +64,8 @@ namespace sys::detail {
 		void handle(env::guest_t address, env::guest_t nextAddress);
 
 	public:
-		detail::ProcessConfig& config();
-		detail::FileIO& fileIO();
+		detail::ProcessConfig& process();
+		detail::FileIO& files();
 		int64_t callIncomplete();
 		void callContinue(std::function<int64_t()> callback);
 	};

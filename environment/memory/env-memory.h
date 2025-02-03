@@ -121,6 +121,7 @@ namespace env {
 		void mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage) const;
 		void mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage);
 		void mclear(env::guest_t dest, uint64_t size, uint32_t usage);
+		std::pair<env::guest_t, uint64_t> findNext(env::guest_t address) const;
 		template <class Type>
 		Type read(env::guest_t address) const {
 			static_assert(std::is_arithmetic_v<Type>, "Can only read arithmetic types");

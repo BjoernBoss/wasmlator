@@ -21,7 +21,7 @@ int64_t sys::detail::impl::ProcId::virtualStats(std::function<int64_t(const env:
 	return callback(&stats);
 }
 int64_t sys::detail::impl::ProcId::virtualLookup(std::u8string_view name, std::function<int64_t(std::shared_ptr<detail::VirtualFileNode>)> callback) const {
-	if (name == u8"exe" && pId == pSyscall->config().pid)
-		return callback(std::make_shared<impl::LinkNode>(pSyscall->config().path, env::FileAccess{ fs::DefOwner, fs::DefGroup, fs::All }));
+	if (name == u8"exe" && pId == pSyscall->process().pid)
+		return callback(std::make_shared<impl::LinkNode>(pSyscall->process().path, env::FileAccess{ fs::DefOwner, fs::DefGroup, fs::All }));
 	return callback({});
 }

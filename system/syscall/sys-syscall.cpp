@@ -197,7 +197,7 @@ bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfDa
 		return false;
 
 	/* setup the memory interactions */
-	if (!pMemory.setup(endOfData))
+	if (!pMemory.setup(this, endOfData))
 		return false;
 	return true;
 }
@@ -212,10 +212,10 @@ void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress
 	fWrap(true, [this]() { return fDispatch(); });
 }
 
-sys::detail::ProcessConfig& sys::detail::Syscall::config() {
+sys::detail::ProcessConfig& sys::detail::Syscall::process() {
 	return pConfig;
 }
-sys::detail::FileIO& sys::detail::Syscall::fileIO() {
+sys::detail::FileIO& sys::detail::Syscall::files() {
 	return pFileIO;
 }
 int64_t sys::detail::Syscall::callIncomplete() {

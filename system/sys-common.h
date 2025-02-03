@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <limits>
 #include <map>
+#include <set>
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"
@@ -23,6 +24,10 @@ namespace sys {
 	class Userspace;
 	namespace detail {
 		class Syscall;
+
+		bool IsSet(auto value, auto mask) {
+			return (value & mask) == mask;
+		}
 
 		namespace errCode {
 			static constexpr int64_t eSuccess = 0;
@@ -40,6 +45,7 @@ namespace sys {
 			static constexpr int64_t eNoTTY = -25;
 			static constexpr int64_t eReadOnly = -30;
 			static constexpr int64_t eLoop = -40;
+			static constexpr int64_t eOpNotSupported = -95;
 			static constexpr int64_t eStale = -116;
 
 			/* custom error (not mapped to any linux errors) */

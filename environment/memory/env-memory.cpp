@@ -350,18 +350,14 @@ uint64_t env::Memory::fMemMergePhysical(size_t virt, size_t phys, uint64_t size,
 	return actual;
 }
 bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
-	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-')
-	);
+	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}]", address, size, env::Usage::Print{ usage });
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0 || size == 0) {
 		logger.error(u8"Mapping requires address and size to be page-aligned and size greater than zero");
 		return false;
 	}
-	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0) {
+	if ((usage & ~env::Usage::Usages) != 0) {
 		logger.error(u8"Memory-usage must only consist of read/write/execute usage");
 		return false;
 	}
@@ -783,12 +779,8 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 	}
 
 	/* perform the actual lookup */
-	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}] - index: [{}] | fast: [{}]", access, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-'),
-		address, cache, index
-	);
+	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}] from [{:#018x}] - index: [{}] | fast: [{}]",
+		access, size, env::Usage::Print{ usage }, address, cache, index);
 	detail::MemoryLookup lookup = fLookup(address, access, size, usage);
 
 	/* write the lookup back to the cache */
@@ -927,18 +919,14 @@ bool env::Memory::munmap(env::guest_t address, uint64_t size) {
 	return true;
 }
 bool env::Memory::mprotect(env::guest_t address, uint64_t size, uint32_t usage) {
-	logger.fmtDebug(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", address, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-')
-	);
+	logger.fmtDebug(u8"Changing [{:#018x}] with size [{:#010x}] and usage [{}]", address, size, env::Usage::Print{ usage });
 
 	/* check if the address and size are aligned properly and validate the usage */
 	if (fPageOffset(address) != 0 || fPageOffset(size) != 0) {
 		logger.error(u8"Changing requires address and size to be page-aligned");
 		return false;
 	}
-	if ((usage & ~(env::Usage::Read | env::Usage::Write | env::Usage::Execute)) != 0) {
+	if ((usage & ~env::Usage::Usages) != 0) {
 		logger.error(u8"Memory-usage must only consist of read/write/execute usage");
 		return false;
 	}
@@ -973,11 +961,7 @@ bool env::Memory::mprotect(env::guest_t address, uint64_t size, uint32_t usage) 
 	return true;
 }
 void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage) const {
-	logger.fmtTrace(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", source, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-')
-	);
+	logger.fmtTrace(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}]", source, size, env::Usage::Print{ usage });
 	if (size == 0)
 		return;
 	uint8_t* ptr = static_cast<uint8_t*>(dest);
@@ -1000,11 +984,7 @@ void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t
 	}
 }
 void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage) {
-	logger.fmtTrace(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-')
-	);
+	logger.fmtTrace(u8"Writing [{:#018x}] with size [{:#010x}] and usage [{}]", dest, size, env::Usage::Print{ usage });
 	if (size == 0)
 		return;
 	const uint8_t* ptr = static_cast<const uint8_t*>(source);
@@ -1027,11 +1007,7 @@ void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, u
 	}
 }
 void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
-	logger.fmtTrace(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}{}{}]", dest, size,
-		(usage & env::Usage::Read ? u8'r' : u8'-'),
-		(usage & env::Usage::Write ? u8'w' : u8'-'),
-		(usage & env::Usage::Execute ? u8'x' : u8'-')
-	);
+	logger.fmtTrace(u8"Clearing [{:#018x}] with size [{:#010x}] and usage [{}]", dest, size, env::Usage::Print{ usage });
 	if (size == 0)
 		return;
 
@@ -1050,4 +1026,14 @@ void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
 		size -= count;
 		lookup = fLookup(detail::MainAccessAddress, dest, 0, usage);
 	}
+}
+std::pair<env::guest_t, uint64_t> env::Memory::findNext(env::guest_t address) const {
+	size_t index = fLookupVirtual(address);
+
+	/* check if the index lies to the right of all mappings */
+	if (index >= pVirtual.size() || address >= pVirtual[index].address + pVirtual[index].size)
+		return { 0, 0 };
+
+	/* return the mapping, which contains this address, or the upcoming mapping */
+	return { pVirtual[index].address, pVirtual[index].size };
 }

@@ -272,8 +272,8 @@ void sys::Userspace::fExecute() {
 	}
 	catch (const env::MemoryFault& e) {
 		pAddress = e.address;
-		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] with attributes [{:03b}] while page is mapped as [{:03b}]",
-			e.address, e.accessed, e.usedUsage, e.actualUsage);
+		logger.fmtFatal(u8"MemoryFault detected at: [{:#018x}] while accessing [{:#018x}] as [{}] while page is mapped as [{}]",
+			e.address, e.accessed, env::Usage::Print{ e.usedUsage }, env::Usage::Print{ e.actualUsage });
 	}
 	catch (const env::Decoding& e) {
 		pAddress = e.address;
