@@ -183,7 +183,7 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 		/* update the shared mappings (no chance for collisions, as the shared-mappings are a subset of the memory-mapper) */
 		if (shared)
 			pShared.insert({ address, detail::MemShared{ length } });
-		return address;
+		return result;
 	}
 
 	/* validate the validity of the file-descriptor */
