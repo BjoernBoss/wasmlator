@@ -7,7 +7,7 @@ void env::Mapping::fFlush() {
 
 	/* clear the mapping and cache */
 	pMapping.clear();
-	std::memset(pCaches, 0, sizeof(detail::MappingCache) * detail::BlockCacheCount);
+	std::memset(pFastCache, 0, sizeof(detail::MappingCache) * detail::BlockFastCount);
 	pTotalBlockCount = 0;
 
 	/* clear the actual reference to all blocks (to allow the garbage collection to run) */
@@ -28,9 +28,9 @@ void env::Mapping::fCheckFlush() {
 }
 uint32_t env::Mapping::fResolve(env::guest_t address) {
 	/* fast-cache lookup, check if the address is in the cache (index will be zero, if its a miss) */
-	uint32_t index = uint32_t((address >> detail::BlockLookupCacheBits) ^ address) & ((1 << detail::BlockLookupCacheBits) - 1);
-	if (pCaches[index].address == address && pCaches[index].index != detail::InvalidMapping)
-		return pCaches[index].index;
+	uint32_t index = uint32_t((address >> detail::BlockFastCacheBits) ^ address) & (detail::BlockFastCount - 1);
+	if (pFastCache[index].address == address && pFastCache[index].index != detail::InvalidMapping)
+		return pFastCache[index].index;
 
 	/* check if the address has already been translated */
 	auto it = pMapping.find(address);
@@ -41,8 +41,8 @@ uint32_t env::Mapping::fResolve(env::guest_t address) {
 	logger.trace(u8"Lookup block: [", str::As{ U"#018x", address }, u8"] resulted in: [", it->second, u8']');
 
 	/* write the result to the cache and return the index */
-	pCaches[index] = { address, it->second };
-	return pCaches[index].index;
+	pFastCache[index] = { address, it->second };
+	return pFastCache[index].index;
 }
 void env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
 	/* validate the uniqueness of all blocks to be loaded */

@@ -6,8 +6,8 @@
 
 namespace env {
 	namespace detail {
-		static constexpr uint32_t BlockLookupCacheBits = 10;
-		static constexpr uint32_t BlockCacheCount = (1 << detail::BlockLookupCacheBits);
+		static constexpr uint32_t BlockFastCacheBits = 10;
+		static constexpr uint32_t BlockFastCount = (1 << detail::BlockFastCacheBits);
 
 		struct MappingCache {
 			env::guest_t address = 0;
@@ -29,7 +29,7 @@ namespace env {
 		friend struct detail::MappingAccess;
 	private:
 		std::unordered_map<env::guest_t, uint32_t> pMapping;
-		detail::MappingCache pCaches[detail::BlockCacheCount];
+		detail::MappingCache pFastCache[detail::BlockFastCount];
 		size_t pTotalBlockCount = 0;
 
 	public:

@@ -6,6 +6,11 @@ std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialP
 	env::Memory& self = env::Instance()->memory();
 	self.pPageSize = env::Instance()->pageSize();
 
+	/* compute the number of bits for the offset within each page */
+	self.pPageBitShift = 1;
+	while ((self.pPageSize >> self.pPageBitShift) > 1)
+		++self.pPageBitShift;
+
 	/* ensure the page-size is valid */
 	if (detail::PhysPageSize < self.pPageSize || (detail::PhysPageSize % self.pPageSize) != 0) {
 		logger.error(u8"The physical page size [", detail::PhysPageSize, u8"] must a multiple of virtual page size [", self.pPageSize, u8']');

@@ -44,16 +44,30 @@ namespace env {
 			uint64_t size = 0;
 			uint32_t usage = 0;
 		};
+		struct MemoryFast {
+			env::guest_t address{ 0 };
+			uint32_t physical{ 0 };
+			uint32_t size{ 0 };
+			uint32_t usage = 0;
+		};
+
+		static constexpr uint32_t MemoryFastCacheBits = 6;
+		static constexpr uint32_t MemoryFastCount = (1 << detail::MemoryFastCacheBits);
+		static constexpr uint32_t MemoryFastCacheConstRead = 31;
+		static constexpr uint32_t MemoryFastCacheConstWrite = 37;
+		static constexpr uint32_t MemoryFastCacheConstElse = 1;
 	}
 
 	class Memory {
 		friend struct detail::MemoryBridge;
 		friend struct detail::MemoryAccess;
 	private:
+		detail::MemoryFast pFastCache[detail::MemoryFastCount];
 		mutable std::vector<detail::MemoryCache> pCaches;
 		std::vector<detail::MemoryPhysical> pPhysical;
 		std::vector<detail::MemoryVirtual> pVirtual;
 		uint64_t pPageSize = 0;
+		uint64_t pPageBitShift = 0;
 		uint32_t pCacheCount = 0;
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
@@ -73,7 +87,7 @@ namespace env {
 		uint64_t fPageOffset(env::guest_t address) const;
 		uint64_t fExpandPhysical(uint64_t size, uint64_t growth) const;
 		void fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const;
-		void fFlushCaches() const;
+		void fFlushCaches();
 		void fCheckConsistency() const;
 		bool fCheckAllMapped(size_t virt, env::guest_t end) const;
 
@@ -94,7 +108,7 @@ namespace env {
 		bool fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint64_t size, uint32_t usage);
 
 	private:
-		void fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const;
+		void fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache);
 		uint64_t fRead(env::guest_t address, uint64_t size) const;
 		void fWrite(env::guest_t address, uint64_t size, uint64_t value) const;
 		uint64_t fCode(env::guest_t address, uint64_t size) const;

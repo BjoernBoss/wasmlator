@@ -61,7 +61,6 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 	/* initialize the components */
 	uintptr_t endOfMemory = 0;
 	endOfMemory = std::max(endOfMemory, detail::ContextAccess::Configure());
-	endOfMemory = std::max(endOfMemory, detail::MappingAccess::Configure());
 	auto memoryConfig = detail::MemoryAccess::Configure(pPhysicalPages);
 	if (!memoryConfig.has_value())
 		return false;

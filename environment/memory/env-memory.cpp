@@ -84,10 +84,11 @@ uint64_t env::Memory::fExpandPhysical(uint64_t size, uint64_t growth) const {
 void env::Memory::fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const {
 	detail::MemoryBridge::MovePhysical(dest, source, size);
 }
-void env::Memory::fFlushCaches() const {
+void env::Memory::fFlushCaches() {
 	fCheckConsistency();
 	logger.trace(u8"Flushing caches");
 	std::memset(pCaches.data(), 0, sizeof(detail::MemoryCache) * pCaches.size());
+	std::memset(pFastCache, 0, sizeof(detail::MemoryFast) * detail::MemoryFastCount);
 }
 void env::Memory::fCheckConsistency() const {
 	if (pPhysical.empty())
@@ -754,12 +755,39 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	return true;
 }
 
-void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) const {
-	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}] - index: [{}]", access, size,
+void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) {
+	/* compute the index into the fast-cache */
+	uint64_t pageAddress = (access >> pPageBitShift);
+	pageAddress ^= (pageAddress >> detail::MemoryFastCacheBits);
+	if (usage == env::Usage::Read)
+		pageAddress *= detail::MemoryFastCacheConstRead;
+	else if (usage == env::Usage::Write)
+		pageAddress *= detail::MemoryFastCacheConstWrite;
+	else
+		pageAddress *= detail::MemoryFastCacheConstElse;
+	uint32_t index = uint32_t(pageAddress) & (detail::MemoryFastCount - 1);
+
+	/* check if the memory-cache is already cached in the fast-caches (usage will be null for empty caches) */
+	uint64_t offset = (access - pFastCache[index].address);
+	if (pFastCache[index].usage == usage && offset < pFastCache[index].size && size <= pFastCache[index].size - offset) {
+		pCaches[cache] = {
+			pFastCache[index].address,
+			pFastCache[index].physical,
+			(pFastCache[index].size - 0),
+			(pFastCache[index].size - 1),
+			(pFastCache[index].size - 2),
+			(pFastCache[index].size - 4),
+			(pFastCache[index].size - 8)
+		};
+		return;
+	}
+
+	/* perform the actual lookup */
+	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}{}{}] from [{:#018x}] - index: [{}] | fast: [{}]", access, size,
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-'),
-		address, cache
+		address, cache, index
 	);
 	detail::MemoryLookup lookup = fLookup(address, access, size, usage);
 
@@ -773,6 +801,9 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 		uint32_t(lookup.size - 4),
 		uint32_t(lookup.size - 8)
 	};
+
+	/* write the cache entry also to the fast-cache */
+	pFastCache[index] = { lookup.address, uint32_t(lookup.physical), uint32_t(lookup.size), usage };
 }
 uint64_t env::Memory::fRead(env::guest_t address, uint64_t size) const {
 	return detail::MemoryBridge::Read(address, size);
