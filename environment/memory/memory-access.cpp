@@ -28,7 +28,7 @@ std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialP
 
 	/* setup the initial physical page-count and physical mapping */
 	initialPageCount = detail::PhysPageCount(detail::InitAllocPages * self.pPageSize);
-	self.pPhysical.push_back(detail::MemoryPhysical{ 0, detail::PhysPageSize * initialPageCount, false });
+	self.pPhysical.insert({ 0, detail::MemoryPhysical{ detail::PhysPageSize * initialPageCount, false } });
 
 	/* return the highest accessed address */
 	return uintptr_t(self.pCaches.data() + self.pCaches.size());

@@ -34,7 +34,6 @@ namespace env {
 			uint64_t size = 0;
 		};
 		struct MemoryPhysical {
-			uint64_t physical = 0;
 			uint64_t size = 0;
 			bool used = false;
 		};
@@ -51,6 +50,8 @@ namespace env {
 			uint32_t usage = 0;
 		};
 
+		using MemPhysIt = std::map<uint64_t, detail::MemoryPhysical>::iterator;
+
 		static constexpr uint32_t MemoryFastCacheBits = 6;
 		static constexpr uint32_t MemoryFastCount = (1 << detail::MemoryFastCacheBits);
 		static constexpr uint32_t MemoryFastCacheConstRead = 31;
@@ -64,7 +65,7 @@ namespace env {
 	private:
 		detail::MemoryFast pFastCache[detail::MemoryFastCount];
 		mutable std::vector<detail::MemoryCache> pCaches;
-		std::vector<detail::MemoryPhysical> pPhysical;
+		mutable std::map<uint64_t, detail::MemoryPhysical> pPhysical;
 		std::vector<detail::MemoryVirtual> pVirtual;
 		uint64_t pPageSize = 0;
 		uint64_t pPageBitShift = 0;
@@ -80,7 +81,7 @@ namespace env {
 
 	private:
 		size_t fLookupVirtual(env::guest_t address) const;
-		size_t fLookupPhysical(uint64_t physical) const;
+		detail::MemPhysIt fLookupPhysical(uint64_t physical) const;
 		detail::MemoryLookup fLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const;
 
 	private:
@@ -92,16 +93,17 @@ namespace env {
 		bool fCheckAllMapped(size_t virt, env::guest_t end) const;
 
 	private:
+		void fMemMakePhysicalUnused(detail::MemPhysIt phys);
 		bool fMemExpandPrevious(size_t virt, env::guest_t address, uint64_t size, uint32_t usage);
-		size_t fMemAllocatePhysical(uint64_t size, uint64_t growth);
+		detail::MemPhysIt fMemAllocatePhysical(uint64_t size, uint64_t growth);
 		bool fMemAllocateIntermediate(size_t virt, uint64_t size, uint32_t usage);
-		uint64_t fMemMergePhysical(size_t virt, size_t phys, uint64_t size, size_t physPrev, size_t physNext);
+		uint64_t fMemMergePhysical(size_t virt, detail::MemPhysIt phys, uint64_t size, detail::MemPhysIt physPrev, detail::MemPhysIt physNext);
 		bool fMMap(env::guest_t address, uint64_t size, uint32_t usage);
 
 	private:
 		void fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint64_t size);
 		bool fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end);
-		void fMemUnmapPhysical(size_t phys, uint64_t offset, uint64_t size);
+		void fMemUnmapPhysical(detail::MemPhysIt phys, uint64_t offset, uint64_t size);
 
 	private:
 		void fMemProtectSingleBlock(size_t virt, env::guest_t address, uint64_t size, uint32_t usage);

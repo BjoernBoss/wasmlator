@@ -109,16 +109,12 @@ env::guest_t sys::detail::LoadElfSingleProgHeader(env::guest_t baseAddress, size
 		(usage & env::Usage::Read ? u8'r' : u8'-'),
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-'));
-	if (!env::Instance()->memory().mmap(address, size, env::Usage::Write))
+	if (!env::Instance()->memory().mmap(address, size, usage))
 		throw elf::Exception{ L"Failed to allocate memory for program-header [", index, L']' };
 
-	/* write the actual data to the section */
+	/* write the actual data to the section (no usage to ensure it cannot fail - as the flags have already been applied) */
 	const uint8_t* data = reader.base<uint8_t>(header.offset, header.fileSize);
-	env::Instance()->memory().mwrite(virtAddress, data, header.fileSize, env::Usage::Write);
-
-	/* update the protection flags to match the actual flags */
-	if (!env::Instance()->memory().mprotect(address, size, usage))
-		throw elf::Exception{ L"Failed to change the protection for program-header [", index, L']' };
+	env::Instance()->memory().mwrite(virtAddress, data, header.fileSize, 0);
 
 	/* return the end-of-data address */
 	return (address + size);

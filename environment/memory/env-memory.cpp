@@ -13,16 +13,18 @@ size_t env::Memory::fLookupVirtual(env::guest_t address) const {
 	}
 	return begin;
 }
-size_t env::Memory::fLookupPhysical(uint64_t physical) const {
-	size_t begin = 0, end = pPhysical.size();
-	while ((end - begin) > 1) {
-		size_t index = (begin + end + 1) / 2;
-		if (physical < pPhysical[index].physical)
-			end = index;
-		else
-			begin = index;
-	}
-	return begin;
+env::detail::MemPhysIt env::Memory::fLookupPhysical(uint64_t physical) const {
+	env::detail::MemPhysIt it = pPhysical.upper_bound(physical);
+
+	/* check if no entry is greater than the physical address */
+	if (it == pPhysical.begin())
+		return pPhysical.end();
+	--it;
+
+	/* check if the range contains the given address (cannot be equal to end) */
+	if (it->first + it->second.size <= physical)
+		return pPhysical.end();
+	return it;
 }
 env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const {
 	/* lookup the virtual mapping containing the corresponding accessed-address */
@@ -94,19 +96,21 @@ void env::Memory::fCheckConsistency() const {
 	if (pPhysical.empty())
 		logger.fatal(u8"Physical slots invalid");
 
-	uint64_t totalPhys = 0, totalVirt = 0;
-	for (size_t i = 0; i < pPhysical.size(); ++i) {
-		totalPhys += (pPhysical[i].used ? pPhysical[i].size : 0);
+	uint64_t totalPhys = 0, totalVirt = 0, walkPhys = 0;
+	bool lastUsed = true;
+	for (const auto& [address, phys] : pPhysical) {
+		totalPhys += (phys.used ? phys.size : 0);
 
-		if (fLookupPhysical(pPhysical[i].physical) != i)
-			logger.fatal(u8"Physical slot [", i, u8"] lookup failed");
-		if (pPhysical[i].size == 0 || fPageOffset(pPhysical[i].size) != 0)
-			logger.fatal(u8"Physical slot [", i, u8"] size is invalid");
+		if (phys.size == 0 || fPageOffset(phys.size) != 0)
+			logger.fatal(u8"Physical slot [", str::As{ "#018x", address }, u8"] size is invalid");
 
-		if ((i > 0 ? (pPhysical[i - 1].physical + pPhysical[i - 1].size) : 0) != pPhysical[i].physical)
-			logger.fatal(u8"Physical slot [", i, u8"] address is invalid");
-		if (i > 0 && !pPhysical[i - 1].used && !pPhysical[i].used)
-			logger.fatal(u8"Physical slot [", i, u8"] usage is invalid");
+		if (address != walkPhys)
+			logger.fatal(u8"Physical slot [", str::As{ "#018x", address }, u8"] address is invalid");
+		if (!lastUsed && !phys.used)
+			logger.fatal(u8"Physical slot [", str::As{ "#018x", address }, u8"] usage is invalid");
+
+		walkPhys += phys.size;
+		lastUsed = phys.used;
 	}
 
 	for (size_t i = 0; i < pVirtual.size(); ++i) {
@@ -115,9 +119,9 @@ void env::Memory::fCheckConsistency() const {
 		if (fLookupVirtual(pVirtual[i].address) != i)
 			logger.fatal(u8"Virtual slot [", i, u8"] lookup failed");
 
-		size_t phys = fLookupPhysical(pVirtual[i].physical);
-		if (phys >= pPhysical.size() || !pPhysical[phys].used || pVirtual[i].physical < pPhysical[phys].physical ||
-			pVirtual[i].physical + pVirtual[i].size > pPhysical[phys].physical + pPhysical[phys].size)
+		detail::MemPhysIt phys = fLookupPhysical(pVirtual[i].physical);
+		if (phys == pPhysical.end() || !phys->second.used || pVirtual[i].physical < phys->first ||
+			pVirtual[i].physical + pVirtual[i].size > phys->first + phys->second.size)
 			logger.fatal(u8"Virtual slot [", i, u8"] physical is invalid");
 
 		if (pVirtual[i].size == 0 || fPageOffset(pVirtual[i].size) != 0)
@@ -153,89 +157,98 @@ bool env::Memory::fCheckAllMapped(size_t virt, env::guest_t end) const {
 	return false;
 }
 
+void env::Memory::fMemMakePhysicalUnused(detail::MemPhysIt phys) {
+	phys->second.used = false;
+
+	/* check if the next entry is unused as well */
+	detail::MemPhysIt next = std::next(phys);
+	if (next != pPhysical.end() && !next->second.used) {
+		phys->second.size += next->second.size;
+		pPhysical.erase(next);
+	}
+
+	/* check if the previous entry is unused as well */
+	next = phys;
+	if (phys != pPhysical.begin() && !(--phys)->second.used) {
+		phys->second.size += next->second.size;
+		pPhysical.erase(next);
+	}
+}
 bool env::Memory::fMemExpandPrevious(size_t virt, env::guest_t address, uint64_t size, uint32_t usage) {
-	size_t phys = fLookupPhysical(pVirtual[virt].physical);
+	detail::MemPhysIt phys = fLookupPhysical(pVirtual[virt].physical);
 
 	/* check if the next page is already used, in which case no expansion is possible */
-	if (phys + 1 < pPhysical.size() && pPhysical[phys + 1].used)
+	detail::MemPhysIt next = std::next(phys);
+	if (next != pPhysical.end() && next->second.used)
 		return false;
 
 	/* check if the next physical page can be consumed */
-	if (phys + 1 < pPhysical.size() && pPhysical[phys + 1].size >= size) {
-		pPhysical[phys].size += size;
+	if (next != pPhysical.end() && next->second.size >= size) {
+		phys->second.size += size;
 
-		/* either reduce the next physical slot or remove it entirely if consumed */
-		if (size < pPhysical[phys + 1].size) {
-			pPhysical[phys + 1].physical += size;
-			pPhysical[phys + 1].size -= size;
-		}
-		else
-			pPhysical.erase(pPhysical.begin() + phys + 1);
+		/* check if a new intermediate block needs to be inserted */
+		if (size < next->second.size)
+			pPhysical.insert(next, { next->first + size, detail::MemoryPhysical{ next->second.size - size, false } });
+		pPhysical.erase(next);
 	}
 
 	/* expand the physical memory at the end */
 	else {
 		/* check if the physical page is at the end */
-		if (phys + 2 < pPhysical.size())
+		if (next != pPhysical.end() && std::next(next) != pPhysical.end())
 			return false;
 
 		/* try to expand the physical memory (may allocate more than the needed amount) */
-		uint64_t needed = size - (phys + 1 < pPhysical.size() ? pPhysical[phys + 1].size : 0);
+		uint64_t needed = size - (next != pPhysical.end() ? next->second.size : 0);
 		uint64_t allocate = fExpandPhysical(needed, size);
 		if (allocate == 0)
 			return false;
 
-		/* check if the entire memory has been consumed */
-		if (allocate == needed) {
-			if (phys + 1 >= pPhysical.size())
-				pPhysical.pop_back();
-			pPhysical[phys].size += size;
+		/* merge the size of the next unused block with the current unused block */
+		if (next != pPhysical.end()) {
+			allocate += next->second.size;
+			pPhysical.erase(next);
 		}
 
-		/* add the empty block at the end to house the newly allocated overhead */
-		else {
-			if (phys + 1 >= pPhysical.size())
-				pPhysical.push_back(detail::MemoryPhysical{ 0, allocate, false });
-			else
-				pPhysical[phys + 1].size += allocate;
-
-			pPhysical[phys].size += size;
-			pPhysical[phys + 1].physical = pPhysical[phys].physical + pPhysical[phys].size;
-			pPhysical[phys + 1].size -= size;
-		}
+		/* patch the size of the expanded block and insert the new block of unused size */
+		phys->second.size += size;
+		if (allocate > size)
+			pPhysical.insert(phys, { phys->first + phys->second.size, detail::MemoryPhysical{ allocate - size, false } });
 	}
 
 	/* update the virtual slot */
-	uint64_t actual = pVirtual[virt].physical + pVirtual[virt].size;
+	uint64_t physical = pVirtual[virt].physical + pVirtual[virt].size;
 	if (pVirtual[virt].usage == usage)
 		pVirtual[virt].size += size;
 	else
-		pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ address, actual, size, usage });
+		pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ address, physical, size, usage });
 
 	/* clear the next allocated block of memory */
-	detail::MemoryBridge::ClearPhysical(actual, size);
+	detail::MemoryBridge::ClearPhysical(physical, size);
 	return true;
 }
-size_t env::Memory::fMemAllocatePhysical(uint64_t size, uint64_t growth) {
-	size_t phys = 0;
+env::detail::MemPhysIt env::Memory::fMemAllocatePhysical(uint64_t size, uint64_t growth) {
+	detail::MemPhysIt phys = pPhysical.begin();
 
 	/* look for the next region large enough to store the required memory */
-	for (; phys < pPhysical.size(); ++phys) {
-		if (!pPhysical[phys].used && pPhysical[phys].size >= size)
+	for (; phys != pPhysical.end(); ++phys) {
+		if (!phys->second.used && phys->second.size >= size)
 			break;
 	}
 
 	/* check if the physical memory needs to be allocated */
-	if (phys == pPhysical.size()) {
+	if (phys == pPhysical.end()) {
 		uint64_t allocate = fExpandPhysical(size, growth);
 		if (allocate == 0)
 			return phys;
 
-		/* add the newly allocated physical memory/slot */
-		if (!pPhysical[phys - 1].used)
-			pPhysical[--phys].size += allocate;
+		/* add the newly allocated physical memory/slot (physical map can never be empty,
+		*	as it will always be initialized with at least some unused memory) */
+		--phys;
+		if (!phys->second.used)
+			phys->second.size += allocate;
 		else
-			pPhysical.push_back(detail::MemoryPhysical{ pPhysical.back().physical + pPhysical.back().size, allocate, false });
+			pPhysical.insert(phys, { phys->first + phys->second.size,  detail::MemoryPhysical{ allocate, false } });
 	}
 	return phys;
 }
@@ -244,17 +257,21 @@ bool env::Memory::fMemAllocateIntermediate(size_t virt, uint64_t size, uint32_t 
 	if (pVirtual[virt].physical + pVirtual[virt].size + size != pVirtual[virt + 1].physical)
 		return false;
 
-	/* check if the intermediate physical block is not yet allocated */
-	size_t phys = fLookupPhysical(pVirtual[virt].physical);
-	if (pPhysical[phys + 1].used || pPhysical[phys + 1].size != size)
+	/* check if the intermediate physical block is not yet allocated (next block
+	*	must exist, as the upcoming virtual entry is at a higher address) */
+	detail::MemPhysIt phys = fLookupPhysical(pVirtual[virt].physical);
+	detail::MemPhysIt next = std::next(phys);
+	if (next->second.used || next->second.size != size)
 		return false;
 
 	/* clear the next allocated block of memory */
-	detail::MemoryBridge::ClearPhysical(pPhysical[phys].physical + pPhysical[phys].size, size);
+	detail::MemoryBridge::ClearPhysical(next->first, next->second.size);
 
 	/* merge the three physical ranges back together */
-	pPhysical[phys].size += pPhysical[phys + 1].size + pPhysical[phys + 2].size;
-	pPhysical.erase(pPhysical.begin() + phys + 1, pPhysical.begin() + phys + 3);
+	detail::MemPhysIt last = std::next(next);
+	phys->second.size += next->second.size + last->second.size;
+	pPhysical.erase(next);
+	pPhysical.erase(last);
 
 	/* check if the lower virtual block can consume the current block */
 	if (pVirtual[virt].usage == usage) {
@@ -280,74 +297,62 @@ bool env::Memory::fMemAllocateIntermediate(size_t virt, uint64_t size, uint32_t 
 	pVirtual.insert(pVirtual.begin() + virt + 1, detail::MemoryVirtual{ pVirtual[virt].address + pVirtual[virt].size, pVirtual[virt].physical + pVirtual[virt].size, size, usage });
 	return true;
 }
-uint64_t env::Memory::fMemMergePhysical(size_t virt, size_t phys, uint64_t size, size_t physPrev, size_t physNext) {
-	uint64_t capacity = pPhysical[phys].size;
-
-	/* check which sides exist */
-	bool hasPrev = (physPrev < pPhysical.size());
-	bool hasNext = (physNext < pPhysical.size());
+uint64_t env::Memory::fMemMergePhysical(size_t virt, detail::MemPhysIt phys, uint64_t size, detail::MemPhysIt physPrev, detail::MemPhysIt physNext) {
+	uint64_t capacity = phys->second.size;
 
 	/* mark the new physical slot as used and initialize its size */
-	pPhysical[phys].size = size;
-	pPhysical[phys].used = true;
+	phys->second.size = size;
+	phys->second.used = true;
 
-	/* move the original regions into place */
-	uint64_t actual = pPhysical[phys].physical;
-	if (hasPrev) {
-		/* move the memory into place and patch the old and new physical slot */
-		fMovePhysical(actual, pPhysical[physPrev].physical, pPhysical[physPrev].size);
-		pPhysical[phys].size += pPhysical[physPrev].size;
-		pPhysical[physPrev].used = false;
+	/* move the neighboring regions into place */
+	uint64_t physical = phys->first;
+	if (physPrev != pPhysical.end()) {
+		/* move the memory into place and patch the new physical slot */
+		fMovePhysical(physical, physPrev->first, physPrev->second.size);
+		phys->second.size += physPrev->second.size;
 
 		/* patch the virtual slots */
-		uint64_t offset = pPhysical[physPrev].size;
+		uint64_t offset = physPrev->second.size;
 		for (size_t i = virt; offset > 0; --i) {
 			offset -= pVirtual[i].size;
-			pVirtual[i].physical = actual + offset;
+			pVirtual[i].physical = physical + offset;
 		}
-		actual += pPhysical[physPrev].size;
+		physical += physPrev->second.size;
+
+		/* mark the previous physical slot as unused */
+		fMemMakePhysicalUnused(physPrev);
 	}
-	if (hasNext) {
+	if (physNext != pPhysical.end()) {
 		/* move the memory into place and patch the old and new physical slot */
-		fMovePhysical(actual + size, pPhysical[physNext].physical, pPhysical[physNext].size);
-		pPhysical[phys].size += pPhysical[physNext].size;
-		pPhysical[physNext].used = false;
+		fMovePhysical(physical + size, physNext->first, physNext->second.size);
+		phys->second.size += physNext->second.size;
 
 		/* patch the virtual slots */
 		uint64_t offset = 0;
-		for (size_t i = virt + 1; offset < pPhysical[physNext].size; ++i) {
-			pVirtual[i].physical = actual + size + offset;
+		for (size_t i = virt + 1; offset < physNext->second.size; ++i) {
+			pVirtual[i].physical = physical + size + offset;
 			offset += pVirtual[i].size;
 		}
+
+		/* mark the next physical slot as unused */
+		fMemMakePhysicalUnused(physNext);
 	}
 
 	/* check if capacity remains, which needs to be written to a new slot */
-	capacity -= pPhysical[phys].size;
+	capacity -= phys->second.size;
 	if (capacity > 0) {
-		uint64_t end = pPhysical[phys].physical + pPhysical[phys].size;
+		uint64_t end = phys->first + phys->second.size;
 
 		/* check if an existing slot can be expanded */
-		if (phys + 1 < pPhysical.size() && !pPhysical[phys + 1].used)
-			pPhysical[phys + 1] = detail::MemoryPhysical{ end, pPhysical[phys + 1].size + capacity, false };
+		detail::MemPhysIt next = std::next(phys);
+		if (next != pPhysical.end() && !next->second.used)
+			next->second.size += capacity;
 
 		/* allocate or insert the new physical slot */
 		else
-			pPhysical.insert(pPhysical.begin() + phys + 1, detail::MemoryPhysical{ end, capacity, false });
+			pPhysical.insert(next, { end, detail::MemoryPhysical{ capacity, false } });
 	}
-
-	/* merge any remaining empty slots and remove duplicates */
-	size_t last = std::min<size_t>((hasPrev ? physPrev : pPhysical.size()), (hasNext ? physNext : pPhysical.size()));
-	if (last > 0)
-		--last;
-	for (size_t i = last + 1; i < pPhysical.size(); ++i) {
-		if (!pPhysical[last].used && !pPhysical[i].used)
-			pPhysical[last].size += pPhysical[i].size;
-		else if (++last < i)
-			pPhysical[last] = pPhysical[i];
-	}
-	if (++last < pPhysical.size())
-		pPhysical.resize(last);
-	return actual;
+	return physical;
 }
 bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 	logger.fmtDebug(u8"Mapping [{:#018x}] with size [{:#010x}] and usage [{}]", address, size, env::Usage::Print{ usage });
@@ -390,21 +395,20 @@ bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 		return true;
 	}
 
-	/* lookup the previous and next physical page (increase index by 1 to ensure indices are
-	*	out-of-bounds even after allocate-physical has potentially added another entry) */
-	size_t physPrev = (hasPrev ? fLookupPhysical(pVirtual[virt].physical) : pPhysical.size() + 1);
-	size_t physNext = (hasNext ? fLookupPhysical(pVirtual[virt + 1].physical) : pPhysical.size() + 1);
+	/* lookup the previous and next physical page */
+	detail::MemPhysIt physPrev = (hasPrev ? fLookupPhysical(pVirtual[virt].physical) : pPhysical.end());
+	detail::MemPhysIt physNext = (hasNext ? fLookupPhysical(pVirtual[virt + 1].physical) : pPhysical.end());
 
 	/* check if the size can be serviced (i.e. size does not overflow) */
-	uint64_t required = (hasPrev ? pPhysical[physPrev].size : 0) + (hasNext ? pPhysical[physNext].size : 0);
+	uint64_t required = (hasPrev ? physPrev->second.size : 0) + (hasNext ? physNext->second.size : 0);
 	if (required + size < required) {
 		logger.error(u8"Size cannot be serviced by mmap");
 		return false;
 	}
 
 	/* lookup a physical slot large enough to house the contiguous memory region */
-	size_t phys = fMemAllocatePhysical(required + size, size);
-	if (phys >= pPhysical.size()) {
+	detail::MemPhysIt phys = fMemAllocatePhysical(required + size, size);
+	if (phys == pPhysical.end()) {
 		logger.debug(u8"Allocation failed");
 		return false;
 	}
@@ -439,17 +443,30 @@ bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 
 	/* check if the lowest physical memory should be reduced and moved down
 	*	(there must at least be two slots, as an allocation has occurred in this call) */
-	uint64_t end = pPhysical.back().physical + pPhysical.back().size;
-	if (!pPhysical[0].used && pPhysical[0].size >= (end / detail::ShiftMemoryFactor)) {
-		uint64_t shift = pPhysical[1].physical;
+	uint64_t end = std::prev(pPhysical.end())->first + std::prev(pPhysical.end())->second.size;
+	if (!pPhysical.begin()->second.used && pPhysical.begin()->second.size >= (end / detail::ShiftMemoryFactor)) {
+		uint64_t shift = pPhysical.begin()->second.size;
 		fMovePhysical(0, shift, end - shift);
 
-		/* move the physical and virtual memory down */
-		for (size_t i = 1; i < pPhysical.size(); ++i)
-			pPhysical[i - 1] = detail::MemoryPhysical{ pPhysical[i].physical - shift, pPhysical[i].size, pPhysical[i].used };
-		pPhysical.pop_back();
+		/* shift the virtual slots down */
 		for (size_t i = 0; i < pVirtual.size(); ++i)
 			pVirtual[i].physical -= shift;
+
+		/* move the physical and virtual memory down */
+		detail::MemPhysIt it = pPhysical.begin();
+		while (true) {
+			detail::MemPhysIt nt = std::next(it);
+
+			/* check if the last block has been reached and remove it */
+			if (nt == pPhysical.end()) {
+				pPhysical.erase(it);
+				break;
+			}
+
+			/* move the slot down */
+			it->second = nt->second;
+			it = nt;
+		}
 	}
 
 	/* flush the caches to ensure the new mapping is accepted */
@@ -528,69 +545,53 @@ bool env::Memory::fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env
 		pVirtual.erase(pVirtual.begin() + virt, pVirtual.begin() + virt + dropped);
 	return true;
 }
-void env::Memory::fMemUnmapPhysical(size_t phys, uint64_t offset, uint64_t size) {
+void env::Memory::fMemUnmapPhysical(detail::MemPhysIt phys, uint64_t offset, uint64_t size) {
 	/* check if the entire physical range is being removed */
-	if (offset == 0 && pPhysical[phys].size == size) {
-		pPhysical[phys].used = false;
-
-		/* check if it can be merged with the next range */
-		size_t dropped = 0;
-		if (phys + 1 < pPhysical.size() && !pPhysical[phys + 1].used) {
-			pPhysical[phys].size += pPhysical[phys + 1].size;
-			++dropped;
-		}
-
-		/* check if it can be merged with the previous range */
-		if (phys > 0 && !pPhysical[phys - 1].used) {
-			pPhysical[phys - 1].size += pPhysical[phys].size;
-			--phys;
-			++dropped;
-		}
-
-		/* remove all dropped physical slots */
-		if (dropped > 0)
-			pPhysical.erase(pPhysical.begin() + phys + 1, pPhysical.begin() + phys + 1 + dropped);
+	if (offset == 0 && phys->second.size == size) {
+		fMemMakePhysicalUnused(phys);
 		return;
 	}
 
 	/* check if the physical range aligns with the upper bound */
-	if (offset + size == pPhysical[phys].size) {
-		pPhysical[phys].size -= size;
+	if (offset + size == phys->second.size) {
+		phys->second.size -= size;
 
 		/* check if it can be merged with the next slot */
-		if (phys + 1 < pPhysical.size() && !pPhysical[phys + 1].used) {
-			pPhysical[phys + 1].physical -= size;
-			pPhysical[phys + 1].size += size;
+		detail::MemPhysIt next = std::next(phys);
+		if (next != pPhysical.end() && !next->second.used) {
+			pPhysical.insert(next, { next->first - size, detail::MemoryPhysical{ next->second.size + size, false } });
+			pPhysical.erase(next);
 			return;
 		}
 
 		/* insert the new intermediate block */
-		pPhysical.insert(pPhysical.begin() + phys + 1, detail::MemoryPhysical{ pPhysical[phys].physical + pPhysical[phys].size, size, false });
+		pPhysical.insert(phys, { phys->first + phys->second.size, detail::MemoryPhysical{ size, false } });
 		return;
 	}
 
 	/* check if the physical range aligns with the lower bound */
 	if (offset == 0) {
-		pPhysical[phys].physical += size;
-		pPhysical[phys].size -= size;
+		/* insert the new active slot */
+		pPhysical.insert(phys, { phys->first + size, detail::MemoryPhysical{ phys->second.size - size, true } });
 
 		/* check if it can be merged with the previous slot */
-		if (phys > 0 && !pPhysical[phys - 1].used) {
-			pPhysical[phys - 1].size += size;
+		detail::MemPhysIt prev = phys;
+		if (prev != pPhysical.begin() && !(--prev)->second.used) {
+			prev->second.size += size;
+			pPhysical.erase(phys);
 			return;
 		}
 
-		/* insert the new intermediate block */
-		pPhysical.insert(pPhysical.begin() + phys, detail::MemoryPhysical{ pPhysical[phys].physical - size, size, false });
+		/* patch the current entry to be unused */
+		phys->second.size = size;
+		phys->second.used = false;
 		return;
 	}
 
-	/* insert the two new blocks and populate them */
-	pPhysical.insert(pPhysical.begin() + phys + 1, 2, detail::MemoryPhysical{});
-	pPhysical[phys + 1] = detail::MemoryPhysical{ pPhysical[phys].physical + offset, size, false };
-	size += offset;
-	pPhysical[phys + 2] = detail::MemoryPhysical{ pPhysical[phys].physical + size, pPhysical[phys].size - size, true };
-	pPhysical[phys].size = offset;
+	/* insert the two new blocks and populate them and patch the current entry */
+	pPhysical.insert(phys, { phys->first + offset + size, detail::MemoryPhysical{ phys->second.size - (offset + size), true } });
+	pPhysical.insert(phys, { phys->first + offset, detail::MemoryPhysical{ size, false } });
+	phys->second.size = offset;
 }
 
 void env::Memory::fMemProtectSingleBlock(size_t virt, env::guest_t address, uint64_t size, uint32_t usage) {
@@ -674,17 +675,15 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 	}
 
 	/* check if the first slot needs to be split up or if it can be used directly */
-	uint64_t start = pVirtual[virt].physical;
+	uint64_t physical = pVirtual[virt].physical;
 	if (pVirtual[virt].address < address) {
-		if (pVirtual[virt].usage != usage) {
+		if (pVirtual[virt].usage != usage)
 			pVirtual[virt].size = address - pVirtual[virt].address;
-			start += pVirtual[virt].size;
-		}
 		else {
 			address = pVirtual[virt].address + pVirtual[virt].size;
-			start = pPhysical[virt].physical + pVirtual[virt].size;
 			hasValue = true;
 		}
+		physical += pVirtual[virt].size;
 		++virt;
 	}
 
@@ -708,7 +707,7 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 
 			/* make this the initial slot (cannot be the first slot, as this call requires multiple blocks) */
 			else {
-				pVirtual[next] = detail::MemoryVirtual{ address, start, pVirtual[next].size + (pVirtual[next].address - address), usage };
+				pVirtual[next] = detail::MemoryVirtual{ address, physical, pVirtual[next].size + (pVirtual[next].address - address), usage };
 				hasValue = true;
 				++virt;
 			}
@@ -726,7 +725,7 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 				++dropped;
 			}
 			else
-				pVirtual[next] = { address, start, pVirtual[next].size + (pVirtual[next].address - address), usage };
+				pVirtual[next] = { address, physical, pVirtual[next].size + (pVirtual[next].address - address), usage };
 		}
 
 		/* shift the remainder to the next block and either add the rest to the previous block, or insert the new block */
@@ -740,7 +739,7 @@ bool env::Memory::fMemProtectMultipleBlocks(size_t virt, env::guest_t address, e
 			if (hasValue)
 				pVirtual[virt - 1].size += offset;
 			else
-				pVirtual.insert(pVirtual.begin() + next, detail::MemoryVirtual{ end, start, (end - address), usage });
+				pVirtual.insert(pVirtual.begin() + next, detail::MemoryVirtual{ end, physical, (end - address), usage });
 		}
 		break;
 	}
@@ -897,8 +896,8 @@ bool env::Memory::munmap(env::guest_t address, uint64_t size) {
 		return true;
 
 	/* cache the physical state to be able to patch it afterwards */
-	size_t phys = fLookupPhysical(pVirtual[virt].physical);
-	uint64_t offset = (pVirtual[virt].physical - pPhysical[phys].physical) + (address - pVirtual[virt].address);
+	detail::MemPhysIt phys = fLookupPhysical(pVirtual[virt].physical);
+	uint64_t offset = (pVirtual[virt].physical - phys->first) + (address - pVirtual[virt].address);
 
 	/* check if the size overflows */
 	env::guest_t end = address + size;

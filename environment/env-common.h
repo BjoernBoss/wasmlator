@@ -14,6 +14,8 @@
 #include <optional>
 #include <algorithm>
 #include <vector>
+#include <map>
+#include <iterator>
 
 #include "../util/util-logger.h"
 #include "../util/util-path.h"
