@@ -157,6 +157,7 @@ namespace sys {
 		uname,
 		openat,
 		open,
+		close,
 		read,
 		readv,
 		write,

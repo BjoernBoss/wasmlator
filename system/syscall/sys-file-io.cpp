@@ -249,10 +249,6 @@ int64_t sys::detail::FileIO::fRead(size_t instance, std::function<int64_t(int64_
 int64_t sys::detail::FileIO::fWrite(size_t instance) const {
 	return pInstance[instance].node->write(pBuffer, [](int64_t result) -> int64_t { return result; });
 }
-void sys::detail::FileIO::fDropInstance(size_t instance) {
-	if (--pInstance[instance].user == 0)
-		pInstance[instance].node.reset();
-}
 
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
 	/* check if all flags are supported */
@@ -484,6 +480,17 @@ int64_t sys::detail::FileIO::openat(int64_t dirfd, std::u8string_view path, uint
 }
 int64_t sys::detail::FileIO::open(std::u8string_view path, uint64_t flags, uint64_t mode) {
 	return fOpenAt(consts::fdWDirectory, path, flags, mode);
+}
+int64_t sys::detail::FileIO::close(int64_t fd) {
+	if (!fCheckFd(fd))
+		return errCode::eBadFd;
+
+	/* close the underlying file object and remove the reference to it */
+	pInstance[pOpen[fd].instance].node->close();
+	if (--pInstance[pOpen[fd].instance].user == 0)
+		pInstance[pOpen[fd].instance].node.reset();
+	pOpen[fd].used = false;
+	return errCode::eSuccess;
 }
 int64_t sys::detail::FileIO::read(int64_t fd, env::guest_t address, uint64_t size) {
 	/* validate the fd and access */

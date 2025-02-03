@@ -102,7 +102,6 @@ namespace sys::detail {
 		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
 		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
 		int64_t fWrite(size_t instance) const;
-		void fDropInstance(size_t instance);
 
 	private:
 		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
@@ -115,6 +114,7 @@ namespace sys::detail {
 	public:
 		int64_t openat(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
 		int64_t open(std::u8string_view path, uint64_t flags, uint64_t mode);
+		int64_t close(int64_t fd);
 		int64_t read(int64_t fd, env::guest_t address, uint64_t size);
 		int64_t readv(int64_t fd, env::guest_t vec, uint64_t count);
 		int64_t write(int64_t fd, env::guest_t address, uint64_t size);

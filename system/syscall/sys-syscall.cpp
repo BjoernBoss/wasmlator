@@ -96,6 +96,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"pathname: [", path, u8']');
 		return pFileIO.open(path, args.args[1], args.args[2]);
 	}
+	case sys::SyscallIndex::close: {
+		logger.debug(u8"Syscall close(", int64_t(args.args[0]), u8')');
+		return pFileIO.close(args.args[0]);
+	}
 	case sys::SyscallIndex::readv: {
 		logger.debug(u8"Syscall readv(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
 		return pFileIO.readv(args.args[0], args.args[1], args.args[2]);

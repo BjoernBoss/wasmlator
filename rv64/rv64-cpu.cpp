@@ -161,6 +161,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 56:
 		call.index = sys::SyscallIndex::openat;
 		break;
+	case 57:
+		call.index = sys::SyscallIndex::close;
+		break;
 	case 63:
 		call.index = sys::SyscallIndex::read;
 		break;
