@@ -26,16 +26,23 @@ void env::Mapping::fCheckFlush() {
 		fFlush();
 	}
 }
-uint32_t env::Mapping::fResolve(env::guest_t address) const {
+uint32_t env::Mapping::fResolve(env::guest_t address) {
+	/* fast-cache lookup, check if the address is in the cache (index will be zero, if its a miss) */
+	uint32_t index = uint32_t((address >> detail::BlockLookupCacheBits) ^ address) & ((1 << detail::BlockLookupCacheBits) - 1);
+	if (pCaches[index].address == address && pCaches[index].index != detail::InvalidMapping)
+		return pCaches[index].index;
+
 	/* check if the address has already been translated */
 	auto it = pMapping.find(address);
 	if (it == pMapping.end()) {
 		logger.trace(u8"Lookup block: [", str::As{ U"#018x", address }, u8"] resulted in: None");
 		throw env::Translate{ address };
 	}
-
 	logger.trace(u8"Lookup block: [", str::As{ U"#018x", address }, u8"] resulted in: [", it->second, u8']');
-	return it->second;
+
+	/* write the result to the cache and return the index */
+	pCaches[index] = { address, it->second };
+	return pCaches[index].index;
 }
 void env::Mapping::fCheckLoadable(const std::vector<env::BlockExport>& exports) {
 	/* validate the uniqueness of all blocks to be loaded */

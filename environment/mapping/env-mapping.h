@@ -14,7 +14,7 @@ namespace env {
 			uint32_t index = 0;
 		};
 
-		/* must be zero, as both EqualZero and memset(null) are used */
+		/* must be zero, as memset(null) are used */
 		static constexpr uint32_t InvalidMapping = 0;
 	}
 
@@ -40,7 +40,7 @@ namespace env {
 	private:
 		void fFlush();
 		void fCheckFlush();
-		uint32_t fResolve(env::guest_t address) const;
+		uint32_t fResolve(env::guest_t address);
 		void fCheckLoadable(const std::vector<env::BlockExport>& exports);
 		void fBlockExports(const std::vector<env::BlockExport>& exports);
 

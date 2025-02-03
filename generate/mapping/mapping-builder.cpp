@@ -37,58 +37,8 @@ void gen::detail::MappingBuilder::setupCoreBody(const wasm::Memory& memory) cons
 		wasm::Prototype prototype = gen::Module->prototype(u8"map_lookup_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
 		state.lookup = gen::Module->function(u8"map_lookup", prototype, wasm::Export{});
 		wasm::Sink sink{ state.lookup };
-		wasm::Variable address = sink.param(0);
-		wasm::Variable hashAddress = sink.local(wasm::Type::i32, u8"hash_address");
-		wasm::Variable index = sink.local(wasm::Type::i32, u8"index");
-
-		/* compute the address in the block-cache from the guest-address */
-		sink[I::Local::Get(address)];
-		sink[I::Local::Get(address)];
-		sink[I::U64::Const(env::detail::BlockLookupCacheBits)];
-		sink[I::U64::ShiftRight()];
-		sink[I::U64::XOr()];
-		sink[I::U64::Shrink()];
-		sink[I::U32::Const((1 << env::detail::BlockLookupCacheBits) - 1)];
-		sink[I::U32::And()];
-		sink[I::U32::Const(sizeof(env::detail::MappingCache))];
-		sink[I::U32::Mul()];
-		sink[I::U32::Const(env::detail::MappingAccess::CacheAddress())];
-		sink[I::U32::Add()];
-		sink[I::Local::Tee(hashAddress)];
-
-		/* check if this is a cache-hit */
-		sink[I::U64::Load(memory, offsetof(env::detail::MappingCache, address))];
-		sink[I::Local::Get(address)];
-		sink[I::U64::Equal()];
-		{
-			/* fetch the current index and check if its actually valid */
-			wasm::IfThen _if{ sink };
-			sink[I::Local::Get(hashAddress)];
-			sink[I::U32::Load(memory, offsetof(env::detail::MappingCache, index))];
-			sink[I::Local::Tee(index)];
-			sink[I::U32::EqualZero()];
-			sink[I::Branch::If(_if)];
-
-			/* return the index */
-			sink[I::Local::Get(index)];
-			sink[I::Return()];
-		}
-
-		/* resolve the actual address, which has not yet been cached (will either return a valid index or throw an exception) */
-		sink[I::Local::Get(address)];
-		sink[I::Call::Direct(pResolve)];
-		sink[I::Local::Set(index)];
-
-		/* write the index to the cache */
-		sink[I::Local::Get(hashAddress)];
-		sink[I::Local::Get(address)];
-		sink[I::U64::Store(memory, offsetof(env::detail::MappingCache, address))];
-		sink[I::Local::Get(hashAddress)];
-		sink[I::Local::Get(index)];
-		sink[I::U32::Store(memory, offsetof(env::detail::MappingCache, index))];
-
-		/* return the function-index */
-		sink[I::Local::Get(index)];
+		sink[I::Param::Get(0)];
+		sink[I::Call::Tail(pResolve)];
 	}
 
 	/* add the load-block function */
