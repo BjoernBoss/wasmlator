@@ -25,9 +25,14 @@ bool sys::detail::MemoryInteract::fCheckRange(env::guest_t address, uint64_t len
 			return false;
 
 		/* patch the range to unmap all of the memory, which overlaps with the source paramter */
-		range.second = std::min<uint64_t>(range.first + range.second, end);
-		if (!env::Instance()->memory().munmap(range.first, range.second))
-			logger.fatal(u8"Failed to unmap existing range [", str::As{ U"#018x", range.first }, u8"] - [", str::As{ U"#018x", range.first + range.second - 1 });
+		uint64_t tBegin = std::max<uint64_t>(range.first, address);
+		uint64_t tSize = std::min<uint64_t>(range.first + range.second, end) - tBegin;
+		if (!env::Instance()->memory().munmap(tBegin, tSize))
+			logger.fatal(u8"Failed to unmap existing range [", str::As{ U"#018x", tBegin }, u8"] - [", str::As{ U"#018x", tBegin + tSize - 1 }, u8']');
+
+		/* check if this was the last range */
+		if (range.first + range.second >= end)
+			break;
 	}
 
 	/* iterate over the shared ranges and remove all overlapping entries (no need to check th replace-flags, as
@@ -66,6 +71,27 @@ bool sys::detail::MemoryInteract::fCheckRange(env::guest_t address, uint64_t len
 		it = pShared.erase(it);
 	}
 	return true;
+}
+int64_t sys::detail::MemoryInteract::fMapRange(env::guest_t address, uint64_t length, uint32_t usage, uint32_t flags) {
+	/* check if a any address can be picked */
+	if (!detail::IsSet(flags, consts::mmFlagFixed) && !detail::IsSet(flags, consts::mmFlagFixedNoReplace)) {
+		address = env::Instance()->memory().alloc(length, usage);
+		if (address == 0)
+			return errCode::eNoMemory;
+	}
+
+	/* ensure that the address cannot be interpreted as a negative number (otherwise no distinction between errors possible) */
+	else if (int64_t(address) < 0)
+		return errCode::eNoMemory;
+
+	/* first check if the range is empty or needs to be cleared */
+	else if (!fCheckRange(address, length, !detail::IsSet(flags, consts::mmFlagFixedNoReplace)))
+		return errCode::eExists;
+
+	/* allocate the requested range */
+	else if (!env::Instance()->memory().mmap(address, length, usage))
+		return errCode::eNoMemory;
+	return address;
 }
 
 bool sys::detail::MemoryInteract::setup(detail::Syscall* syscall, env::guest_t endOfData) {
@@ -149,24 +175,10 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 		if (fd != -1)
 			return errCode::eInvalid;
 
-		/* check if a any address can be picked */
-		if (!detail::IsSet(flags, consts::mmFlagFixed) && !detail::IsSet(flags, consts::mmFlagFixedNoReplace)) {
-			address = env::Instance()->memory().alloc(alignedLength, usage);
-			if (address == 0)
-				return errCode::eNoMemory;
-		}
-
-		/* ensure that the address cannot be interpreted as a negative number (otherwise no distinction between errors possible) */
-		else if (int64_t(address) < 0)
-			return errCode::eNoMemory;
-
-		/* first check if the range is empty or needs to be cleared */
-		else if (!fCheckRange(address, alignedLength, !detail::IsSet(flags, consts::mmFlagFixedNoReplace)))
-			return errCode::eExists;
-
-		/* allocate the requested range */
-		else if (!env::Instance()->memory().mmap(address, alignedLength, usage))
-			return errCode::eNoMemory;
+		/* map the range and check if an error occurred */
+		int64_t result = fMapRange(address, alignedLength, usage, flags);
+		if (result < 0)
+			return result;
 
 		/* update the shared mappings (no chance for collisions, as the shared-mappings are a subset of the memory-mapper) */
 		if (shared)
@@ -185,12 +197,44 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 			return errCode::eAccess;
 	}
 
+	/* check if the file should be shared (not supported for-now) */
+	if (shared) {
+		logger.error(u8"MMap trying to share mapped file");
+		return errCode::eNoDevice;
+	}
+
 	/* fetch the file-states */
-	return pSyscall->files().fdStats(fd, [](int64_t result, const env::FileStats* stats) -> int64_t {
+	return pSyscall->files().fdStats(fd, [this, fd, offset, length, flags, address, alignedLength, usage](int64_t result, const env::FileStats* stats) -> int64_t {
 		/* check if an error occurred */
 		if (result != errCode::eSuccess)
 			return result;
 
-		return errCode::eNoMemory;
+		/* compute the actual number of bytes to be mapped and the corresponding page-count */
+		uint64_t actual = length;
+		if (offset >= stats->size)
+			actual = 0;
+		else if (offset + length >= stats->size)
+			actual = stats->size - offset;
+
+		/* map the range and check if an error occurred */
+		int64_t allocated = fMapRange(address, alignedLength, usage, flags);
+		if (allocated < 0)
+			return allocated;
+
+		/* read the file and write the data to the range */
+		return pSyscall->files().fdRead(fd, offset, actual, [this, allocated, alignedLength](const uint8_t* ptr, uint64_t size) -> int64_t {
+			/* write the received data to the guest */
+			if (size > 0)
+				env::Instance()->memory().mwrite(allocated, ptr, size, env::Usage::None);
+
+			/* mark the remaining pages as locked (i.e. update the mapping to highlight its not part of the
+			*	file - first after the entire range has been allocated to ensure the allocation succeeded) */
+			uint64_t alignedSize = fPageAlignUp(size);
+			if (alignedSize < alignedLength && !env::Instance()->memory().mprotect(allocated + alignedSize, alignedLength - alignedSize, env::Usage::Lock))
+				logger.fatal(u8"Unexpected error while locking remainder of allocated range for mmap");
+
+			/* return the finally allocated and mapped size */
+			return allocated;
+			});
 		});
 }

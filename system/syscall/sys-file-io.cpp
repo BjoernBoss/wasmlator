@@ -243,11 +243,11 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	}
 	return out;
 }
-int64_t sys::detail::FileIO::fRead(size_t instance, std::function<int64_t(int64_t)> callback) {
-	return pInstance[instance].node->read(pBuffer, callback);
+int64_t sys::detail::FileIO::fRead(size_t instance, uint64_t offset, std::function<int64_t(int64_t)> callback) {
+	return pInstance[instance].node->read(offset, pBuffer, callback);
 }
-int64_t sys::detail::FileIO::fWrite(size_t instance) const {
-	return pInstance[instance].node->write(pBuffer, [](int64_t result) -> int64_t { return result; });
+int64_t sys::detail::FileIO::fWrite(size_t instance, uint64_t offset) const {
+	return pInstance[instance].node->write(offset, pBuffer, [](int64_t result) -> int64_t { return result; });
 }
 
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
@@ -500,7 +500,7 @@ int64_t sys::detail::FileIO::read(int64_t fd, env::guest_t address, uint64_t siz
 
 	/* fetch the data to be read */
 	pBuffer.resize(size);
-	return fRead(pOpen[fd].instance, [this, address](int64_t read) -> int64_t {
+	return fRead(pOpen[fd].instance, 0, [this, address](int64_t read) -> int64_t {
 		if (read <= 0)
 			return read;
 
@@ -529,7 +529,7 @@ int64_t sys::detail::FileIO::readv(int64_t fd, env::guest_t vec, uint64_t count)
 	}
 
 	/* fetch the data to be read */
-	return fRead(pOpen[fd].instance, [this](int64_t read) -> int64_t {
+	return fRead(pOpen[fd].instance, 0, [this](int64_t read) -> int64_t {
 		if (read <= 0)
 			return read;
 
@@ -558,7 +558,7 @@ int64_t sys::detail::FileIO::write(int64_t fd, env::guest_t address, uint64_t si
 	env::Instance()->memory().mread(pBuffer.data(), address, size, env::Usage::Read);
 
 	/* write the data out */
-	return fWrite(pOpen[fd].instance);
+	return fWrite(pOpen[fd].instance, 0);
 }
 int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count) {
 	/* validate the fd and access */
@@ -583,7 +583,7 @@ int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count
 	}
 
 	/* write the data out */
-	return fWrite(pOpen[fd].instance);
+	return fWrite(pOpen[fd].instance, 0);
 }
 int64_t sys::detail::FileIO::readlinkat(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size) {
 	return fReadLinkAt(dirfd, path, address, size);
@@ -696,5 +696,19 @@ int64_t sys::detail::FileIO::fdStats(int64_t fd, std::function<int64_t(int64_t, 
 
 		/* notify the callback about the successful stats */
 		return callback(errCode::eSuccess, stats);
+		});
+}
+int64_t sys::detail::FileIO::fdRead(int64_t fd, uint64_t offset, uint64_t size, std::function<int64_t(const uint8_t*, uint64_t)> callback) {
+	if (!fCheckFd(fd))
+		return callback(0, 0);
+	if (size == 0)
+		return callback(0, 0);
+
+	/* fetch the data to be read */
+	pBuffer.resize(size);
+	return fRead(pOpen[fd].instance, offset, [this, callback](int64_t read) -> int64_t {
+		if (read <= 0)
+			return callback(0, 0);
+		return callback(pBuffer.data(), read);
 		});
 }

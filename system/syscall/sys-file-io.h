@@ -100,8 +100,8 @@ namespace sys::detail {
 	private:
 		int64_t fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, bool read, bool write, bool modify, bool append, bool closeOnExecute);
 		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
-		int64_t fRead(size_t instance, std::function<int64_t(int64_t)> callback);
-		int64_t fWrite(size_t instance) const;
+		int64_t fRead(size_t instance, uint64_t offset, std::function<int64_t(int64_t)> callback);
+		int64_t fWrite(size_t instance, uint64_t offset) const;
 
 	private:
 		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);
@@ -131,5 +131,6 @@ namespace sys::detail {
 	public:
 		detail::FdState fdCheck(int64_t fd) const;
 		int64_t fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const;
+		int64_t fdRead(int64_t fd, uint64_t offset, uint64_t size, std::function<int64_t(const uint8_t*, uint64_t)> callback);
 	};
 }

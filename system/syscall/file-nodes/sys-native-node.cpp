@@ -72,9 +72,9 @@ int64_t sys::detail::impl::NativeFileNode::open(bool truncate, std::function<int
 	/* potentially defer the call */
 	return pSyscall->callIncomplete();
 }
-int64_t sys::detail::impl::NativeFileNode::read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::impl::NativeFileNode::read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	/* perform the read-operation */
-	env::Instance()->filesystem().readFile(pFileId, 0, buffer.data(), buffer.size(), [this, callback](std::optional<uint64_t> count) {
+	env::Instance()->filesystem().readFile(pFileId, offset, buffer.data(), buffer.size(), [this, callback](std::optional<uint64_t> count) {
 		pSyscall->callContinue([callback, count]() -> int64_t {
 			if (!count.has_value())
 				return callback(errCode::eIO);
@@ -85,9 +85,9 @@ int64_t sys::detail::impl::NativeFileNode::read(std::vector<uint8_t>& buffer, st
 	/* potentially defer the call */
 	return pSyscall->callIncomplete();
 }
-int64_t sys::detail::impl::NativeFileNode::write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::impl::NativeFileNode::write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	/* perform the write-operation */
-	env::Instance()->filesystem().writeFile(pFileId, 0, buffer.data(), buffer.size(), [this, callback](std::optional<uint64_t> count) {
+	env::Instance()->filesystem().writeFile(pFileId, offset, buffer.data(), buffer.size(), [this, callback](std::optional<uint64_t> count) {
 		pSyscall->callContinue([callback, count]() -> int64_t {
 			if (!count.has_value())
 				return callback(errCode::eIO);

@@ -114,7 +114,7 @@ env::guest_t sys::detail::LoadElfSingleProgHeader(env::guest_t baseAddress, size
 
 	/* write the actual data to the section (no usage to ensure it cannot fail - as the flags have already been applied) */
 	const uint8_t* data = reader.base<uint8_t>(header.offset, header.fileSize);
-	env::Instance()->memory().mwrite(virtAddress, data, header.fileSize, 0);
+	env::Instance()->memory().mwrite(virtAddress, data, header.fileSize, env::Usage::None);
 
 	/* return the end-of-data address */
 	return (address + size);

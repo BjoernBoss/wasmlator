@@ -35,6 +35,7 @@ namespace env {
 
 	/* memory page usage flags */
 	struct Usage {
+		static constexpr uint32_t None = 0x00;
 		static constexpr uint32_t Usages = 0x0f;
 		static constexpr uint32_t Read = 0x01;
 		static constexpr uint32_t Write = 0x02;

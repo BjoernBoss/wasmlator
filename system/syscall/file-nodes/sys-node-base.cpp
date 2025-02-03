@@ -14,10 +14,10 @@ int64_t sys::detail::FileNode::create(std::u8string_view name, const std::u8stri
 int64_t sys::detail::FileNode::open(bool truncate, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
-int64_t sys::detail::FileNode::read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::FileNode::read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
-int64_t sys::detail::FileNode::write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::FileNode::write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
 void sys::detail::FileNode::close() {}
@@ -52,10 +52,10 @@ int64_t sys::detail::VirtualFileNode::virtualLookup(std::u8string_view name, std
 int64_t sys::detail::VirtualFileNode::virtualCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback) {
 	return callback(errCode::eReadOnly, {});
 }
-int64_t sys::detail::VirtualFileNode::virtualRead(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::VirtualFileNode::virtualRead(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
-int64_t sys::detail::VirtualFileNode::virtualWrite(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::VirtualFileNode::virtualWrite(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
 int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
@@ -118,15 +118,15 @@ int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std:
 		return callback(errCode::eSuccess, node);
 		});
 }
-int64_t sys::detail::VirtualFileNode::read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
-	return virtualRead(buffer, [this, callback](int64_t result) -> int64_t {
+int64_t sys::detail::VirtualFileNode::read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+	return virtualRead(offset, buffer, [this, callback](int64_t result) -> int64_t {
 		if (result >= 0)
 			pLastRead = host::GetStampUS();
 		return callback(result);
 		});
 }
-int64_t sys::detail::VirtualFileNode::write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
-	return virtualWrite(buffer, [this, callback](int64_t result) -> int64_t {
+int64_t sys::detail::VirtualFileNode::write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
+	return virtualWrite(offset, buffer, [this, callback](int64_t result) -> int64_t {
 		if (result >= 0)
 			pLastWrite = host::GetStampUS();
 		return callback(result);

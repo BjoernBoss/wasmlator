@@ -22,7 +22,7 @@ namespace sys::detail::impl {
 		int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
 		int64_t create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
 		int64_t open(bool truncate, std::function<int64_t(int64_t)> callback) final;
-		int64_t read(std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
-		int64_t write(const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
+		int64_t read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
+		int64_t write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 	};
 }

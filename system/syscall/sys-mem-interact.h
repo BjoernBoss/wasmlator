@@ -26,7 +26,6 @@ namespace sys::detail {
 
 		static constexpr uint32_t mmProtMask = consts::mmProtNone | consts::mmProtRead |
 			consts::mmProtWrite | consts::mmProtExec;
-
 		static constexpr uint32_t mmFlagMask = consts::mmFlagShared | consts::mmFlagPrivate |
 			consts::mmFlagSharedValidate | consts::mmFlagFixed | consts::mmFlagAnonymous |
 			consts::mmFlagShared | consts::mmFlagSync | consts::mmFlagFixedNoReplace |
@@ -55,6 +54,7 @@ namespace sys::detail {
 		env::guest_t fPageOffset(env::guest_t address) const;
 		env::guest_t fPageAlignUp(env::guest_t address) const;
 		bool fCheckRange(env::guest_t address, uint64_t length, bool replace);
+		int64_t fMapRange(env::guest_t address, uint64_t length, uint32_t usage, uint32_t flags);
 
 	public:
 		bool setup(detail::Syscall* syscall, env::guest_t endOfData);
