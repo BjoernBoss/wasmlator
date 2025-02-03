@@ -7,12 +7,8 @@ namespace gen::detail {
 	struct MemoryState {
 		wasm::Memory memory;
 		wasm::Memory physical;
-
-		/* size * num-caches (size => (1, 2, 4, 8)) */
-		std::vector<wasm::Function> reads;
-
-		/* size * num-caches (size => (1, 2, 4, 8)) */
-		std::vector<wasm::Function> writes;
+		wasm::Function reads[size_t(gen::MemoryType::_last)];
+		wasm::Function writes[size_t(gen::MemoryType::_last)];
 	};
 
 	/*
@@ -30,12 +26,12 @@ namespace gen::detail {
 	*		i64 mem_code(i64 address, i32 size);
 	*
 	*	Core-Exports to Body:
-	*		i32 mem_lookup_read_$size_$cache(i64 address, i64 access);
-	*		i32 mem_lookup_write_$size_$cache(i64 address, i64 access);
+	*		$type mem_lookup_read_$type(i64 address, i64 access, i32 cache);
+	*		void mem_lookup_write_$type(i64 address, i64 access, i32 cache, $type value);
 	*
 	*	Body-Imports:
-	*		i32 mem.mem_lookup_$size_$cache(i64 address, i64 access);
-	*		i32 mem.mem_lookup_$size_$cache(i64 address, i64 access);
+	*		$type mem.mem_lookup_read_$type(i64 address, i64 access, i32 cache);
+	*		void mem.mem_lookup_write_$type(i64 address, i64 access, i32 cache, $type value);
 	*/
 
 	class MemoryBuilder {
@@ -44,6 +40,12 @@ namespace gen::detail {
 
 	private:
 		wasm::Function pLookup;
+
+	private:
+		wasm::Function fMakeReadWrapper(const wasm::Memory& memory, const wasm::Memory& physical) const;
+		wasm::Function fMakeWriteWrapper(const wasm::Memory& memory, const wasm::Memory& physical) const;
+		wasm::Function fMakeReadLookup(uint32_t size, bool read, gen::MemoryType type, const wasm::Prototype& prototype, const wasm::Function& wrapper) const;
+		wasm::Function fMakeWriteLookup(uint32_t size, gen::MemoryType type, const wasm::Prototype& prototype, const wasm::Function& wrapper) const;
 
 	public:
 		void setupGlueMappings(detail::GlueState& glue);

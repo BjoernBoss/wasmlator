@@ -19,10 +19,9 @@ namespace gen::detail {
 
 	private:
 		void fCheckCache(uint32_t cache) const;
-		uint32_t fMakeIndex(uint32_t cache, gen::MemoryType type) const;
-		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const;
-		void fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const;
-		void fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* lookup) const;
+		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* code) const;
+		void fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
+		void fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
 
 	public:
 		void makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;

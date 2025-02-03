@@ -29,6 +29,8 @@ void gen::detail::ContextWriter::fCheckRange(uint32_t offset, gen::MemoryType ty
 	case gen::MemoryType::f64:
 		offset += 8;
 		break;
+	default:
+		break;
 	}
 
 	uint32_t size = uint32_t(env::detail::ContextAccess::ContextSize());
@@ -83,6 +85,8 @@ void gen::detail::ContextWriter::fMakeHostRead(uintptr_t host, gen::MemoryType t
 	case gen::MemoryType::f64:
 		gen::Add[I::F64::Load(pState.memory)];
 		break;
+	default:
+		break;
 	}
 }
 void gen::detail::ContextWriter::fMakeHostStartWrite(uintptr_t host) const {
@@ -122,6 +126,8 @@ void gen::detail::ContextWriter::fMakeHostEndWrite(gen::MemoryType type) const {
 		break;
 	case gen::MemoryType::f64:
 		gen::Add[I::F64::Store(pState.memory)];
+		break;
+	default:
 		break;
 	}
 }

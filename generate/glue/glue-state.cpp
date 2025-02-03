@@ -42,7 +42,7 @@ void gen::detail::GlueState::define(std::u8string_view name, std::initializer_li
 }
 void gen::detail::GlueState::complete() {
 	/* finalize the memory-limits */
-	uint32_t pages = env::detail::PhysPageCount(pEndOfMemory);
+	uint32_t pages = uint32_t(env::detail::PhysPageCount(pEndOfMemory));
 	pModule.limit(pMemory, wasm::Limit{ pages, pages });
 
 	/* finalize the table-limits */
