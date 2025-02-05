@@ -16,15 +16,17 @@ namespace sys::detail {
 		static constexpr uint32_t opCreate = 0x000040;
 		static constexpr uint32_t opExclusive = 0x000080;
 		static constexpr uint32_t opTruncate = 0x000200;
-		static constexpr uint32_t opAppend = 0x000400;
 		static constexpr uint32_t opDirectory = 0x010000;
 		static constexpr uint32_t opNoFollow = 0x020000;
 		static constexpr uint32_t opCloseOnExecute = 0x080000;
 		static constexpr uint32_t opOpenOnly = 0x200000;
 
+		/* remove for now, as file-offsets are currently not enforced */
+		//	static constexpr uint32_t opAppend = 0x000400;
+
 		static constexpr uint32_t openFlagMask = consts::opReadOnly | consts::opWriteOnly |
 			consts::opReadWrite | consts::opCreate | consts::opExclusive | consts::opTruncate |
-			consts::opAppend | consts::opDirectory | consts::opNoFollow | consts::opCloseOnExecute |
+			consts::opDirectory | consts::opNoFollow | consts::opCloseOnExecute |
 			consts::opOpenOnly;
 
 		/* used by faccessat */

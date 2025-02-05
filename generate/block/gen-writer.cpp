@@ -1,6 +1,6 @@
 #include "../generate.h"
 
-gen::FulFill::FulFill(const gen::Writer* writer, env::guest_t address, uint32_t cacheIndex, gen::MemoryType type, Operation operation) : pWriter{ writer }, pAddress{ address }, pCacheIndex{ cacheIndex }, pType{ type }, pOperation{ operation } {}
+gen::FulFill::FulFill(gen::Writer* writer, env::guest_t address, uint32_t cacheIndex, gen::MemoryType type, Operation operation) : pWriter{ writer }, pAddress{ address }, pCacheIndex{ cacheIndex }, pType{ type }, pOperation{ operation } {}
 void gen::FulFill::now() {
 	/* dont reset after the operation, as mutliple fulfills might happend due to case-switches */
 	if (pOperation == Operation::memory)
@@ -37,33 +37,33 @@ void gen::Writer::jump(env::guest_t target) const {
 void gen::Writer::jump() const {
 	pAddress.makeJumpIndirect();
 }
-void gen::Writer::call(env::guest_t target, env::guest_t nextAddress) const {
+void gen::Writer::call(env::guest_t target, env::guest_t nextAddress) {
 	pAddress.makeCall(target, nextAddress);
 }
-void gen::Writer::call(env::guest_t nextAddress) const {
+void gen::Writer::call(env::guest_t nextAddress) {
 	pAddress.makeCallIndirect(nextAddress);
 }
 void gen::Writer::ret() const {
 	pAddress.makeReturn();
 }
-void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
+void gen::Writer::read(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) {
 	pMemory.makeRead(cacheIndex, type, instAddress);
 }
-gen::FulFill gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) const {
+gen::FulFill gen::Writer::write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress) {
 	pMemory.makeStartWrite(cacheIndex, type, instAddress);
 	return gen::FulFill{ this, instAddress, cacheIndex, type, gen::FulFill::Operation::memory };
 }
 void gen::Writer::get(uint32_t offset, gen::MemoryType type) const {
 	pContext.makeRead(offset, type);
 }
-gen::FulFill gen::Writer::set(uint32_t offset, gen::MemoryType type) const {
+gen::FulFill gen::Writer::set(uint32_t offset, gen::MemoryType type) {
 	pContext.makeStartWrite(offset, type);
 	return gen::FulFill{ this, 0, 0, type, gen::FulFill::Operation::context };
 }
 void gen::Writer::readHost(const void* host, gen::MemoryType type) const {
 	pContext.makeHostRead(host, type);
 }
-gen::FulFill gen::Writer::writeHost(void* host, gen::MemoryType type) const {
+gen::FulFill gen::Writer::writeHost(void* host, gen::MemoryType type) {
 	pContext.makeStartHostWrite(host);
 	return gen::FulFill{ this, 0, 0, type, gen::FulFill::Operation::host };
 }

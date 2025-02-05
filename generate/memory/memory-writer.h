@@ -7,25 +7,35 @@ namespace gen::detail {
 	class MemoryWriter {
 		friend class detail::MemoryBuilder;
 	private:
+		struct Access {
+			wasm::Variable address;
+			wasm::Variable offset;
+		};
+
+	private:
 		const detail::MemoryState& pState;
-		mutable wasm::Variable pAccess;
-		mutable wasm::Variable pValuei32;
-		mutable wasm::Variable pValuei64;
-		mutable wasm::Variable pValuef32;
-		mutable wasm::Variable pValuef64;
+		std::vector<Access> pAccess;
+		wasm::Variable pValuei32;
+		wasm::Variable pValuei64;
+		wasm::Variable pValuef32;
+		wasm::Variable pValuef64;
+		size_t pReserved = 0;
 
 	public:
 		MemoryWriter(const detail::MemoryState& state);
 
 	private:
 		void fCheckCache(uint32_t cache) const;
-		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* code) const;
-		void fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
-		void fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) const;
+		Access fGetVariables();
+
+	private:
+		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* code);
+		void fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address);
+		void fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address);
 
 	public:
-		void makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
-		void makeStartWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
-		void makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) const;
+		void makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address);
+		void makeStartWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address);
+		void makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address);
 	};
 }

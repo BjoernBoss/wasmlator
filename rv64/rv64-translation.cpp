@@ -478,11 +478,13 @@ void rv64::Translate::fMakeLoad(bool multi) const {
 	/* compute the destination address and write it to the stack */
 	if (multi)
 		gen::Add[I::I64::Const(pAddress + pInst->imm)];
-	else {
+	else if (pInst->imm != 0) {
 		gen::Add[I::I64::Const(pInst->imm)];
 		if (fLoadSrc1(false, false))
 			gen::Add[I::U64::Add()];
 	}
+	else
+		fLoadSrc1(true, false);
 
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
@@ -1182,11 +1184,13 @@ void rv64::Translate::fMakeFLoad(bool multi) const {
 	/* compute the destination address and write it to the stack */
 	if (multi)
 		gen::Add[I::I64::Const(pAddress + pInst->imm)];
-	else {
+	else if (pInst->imm != 0) {
 		gen::Add[I::I64::Const(pInst->imm)];
 		if (fLoadSrc1(false, false))
 			gen::Add[I::U64::Add()];
 	}
+	else
+		fLoadSrc1(true, false);
 
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {

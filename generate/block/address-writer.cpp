@@ -2,7 +2,7 @@
 
 gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host) : pMapping{ mapping }, pHost{ host } {}
 
-void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const {
+void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) {
 	if (!pTempAddress.valid())
 		pTempAddress = gen::Sink->local(wasm::Type::i64, u8"_continuation_address");
 
@@ -19,7 +19,7 @@ void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) const
 	}
 }
 
-void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nextAddress) const {
+void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nextAddress) {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
 		gen::Add[I::U64::Const(address)];
@@ -64,7 +64,7 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 	/* add the final landing-pad of the return (to validate the return-address) */
 	fCallLandingPad(nextAddress);
 }
-void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) const {
+void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) {
 	/* check if the execution is in single-step mode, and simply add a step to the next address */
 	if (gen::Instance()->singleStep()) {
 		gen::Add[I::Return()];

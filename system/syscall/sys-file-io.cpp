@@ -270,7 +270,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	bool create = detail::IsSet(flags, consts::opCreate);
 	bool exclusive = detail::IsSet(flags, consts::opExclusive);
 	bool truncate = detail::IsSet(flags, consts::opTruncate);
-	bool append = detail::IsSet(flags, consts::opAppend);
+	bool append = false;// detail::IsSet(flags, consts::opAppend);
 	bool closeOnExecute = detail::IsSet(flags, consts::opCloseOnExecute);
 	if (openOnly)
 		read = (write = false);
