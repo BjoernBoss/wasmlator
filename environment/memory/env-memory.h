@@ -33,15 +33,14 @@ namespace env {
 			uint64_t physical = 0;
 			uint64_t size = 0;
 		};
-		struct MemoryPhysical {
-			uint64_t size = 0;
-			bool used = false;
-		};
 		struct MemoryVirtual {
-			env::guest_t address = 0;
 			uint64_t physical = 0;
 			uint64_t size = 0;
 			uint32_t usage = 0;
+		};
+		struct MemoryPhysical {
+			uint64_t size = 0;
+			uint64_t users = 0;
 		};
 		struct MemoryFast {
 			env::guest_t address{ 0 };
@@ -50,6 +49,7 @@ namespace env {
 			uint32_t usage = 0;
 		};
 
+		using MemVirtIt = std::map<env::guest_t, detail::MemoryVirtual>::iterator;
 		using MemPhysIt = std::map<uint64_t, detail::MemoryPhysical>::iterator;
 
 		static constexpr uint32_t MemoryFastCacheBits = 6;
@@ -65,8 +65,8 @@ namespace env {
 	private:
 		detail::MemoryFast pFastCache[detail::MemoryFastCount];
 		mutable std::vector<detail::MemoryCache> pCaches;
+		mutable std::map<env::guest_t, detail::MemoryVirtual> pVirtual;
 		mutable std::map<uint64_t, detail::MemoryPhysical> pPhysical;
-		std::vector<detail::MemoryVirtual> pVirtual;
 		uint64_t pPageSize = 0;
 		uint64_t pPageBitShift = 0;
 		uint32_t pCacheCount = 0;
@@ -80,34 +80,35 @@ namespace env {
 		Memory(const env::Memory&) = delete;
 
 	private:
-		size_t fLookupVirtual(env::guest_t address) const;
-		detail::MemPhysIt fLookupPhysical(uint64_t physical) const;
+		detail::MemVirtIt fLookupVirtual(env::guest_t address) const;
+		detail::MemPhysIt fLookupPhysical(uint64_t address) const;
 		detail::MemoryLookup fLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const;
 
 	private:
 		uint64_t fPageOffset(env::guest_t address) const;
 		uint64_t fExpandPhysical(uint64_t size, uint64_t growth) const;
 		void fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const;
-		void fFlushCaches();
+		void fFlushCaches(bool xDirty);
 		void fCheckConsistency() const;
-		bool fCheckAllMapped(size_t virt, env::guest_t end) const;
 
 	private:
-		void fMemMakePhysicalUnused(detail::MemPhysIt phys);
-		bool fMemExpandPrevious(size_t virt, env::guest_t address, uint64_t size, uint32_t usage);
+		uint64_t fPhysEnd(detail::MemPhysIt phys) const;
+		uint64_t fPhysEnd(detail::MemVirtIt virt) const;
+		env::guest_t fVirtEnd(detail::MemVirtIt virt) const;
+
+	private:
+		detail::MemPhysIt fPhysSplit(detail::MemPhysIt phys, uint64_t address);
+		detail::MemPhysIt fPhysMerge(detail::MemPhysIt phys);
+		detail::MemVirtIt fVirtSplit(detail::MemVirtIt virt, env::guest_t address);
+		detail::MemVirtIt fVirtMergePrev(detail::MemVirtIt virt);
+
+	private:
+		bool fMemExpandPrevious(detail::MemVirtIt prevVirt, uint64_t size, uint32_t usage);
+		bool fMemAllocateIntermediate(detail::MemVirtIt prev, detail::MemVirtIt next, uint32_t usage);
 		detail::MemPhysIt fMemAllocatePhysical(uint64_t size, uint64_t growth);
-		bool fMemAllocateIntermediate(size_t virt, uint64_t size, uint32_t usage);
-		uint64_t fMemMergePhysical(size_t virt, detail::MemPhysIt phys, uint64_t size, detail::MemPhysIt physPrev, detail::MemPhysIt physNext);
+		uint64_t fMemMergePhysical(detail::MemVirtIt virt, detail::MemPhysIt phys, uint64_t size, detail::MemPhysIt physPrev, detail::MemPhysIt physNext);
+		void fReducePhysical();
 		bool fMMap(env::guest_t address, uint64_t size, uint32_t usage);
-
-	private:
-		void fMemUnmapSingleBlock(size_t virt, env::guest_t address, uint64_t size);
-		bool fMemUnmapMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end);
-		void fMemUnmapPhysical(detail::MemPhysIt phys, uint64_t offset, uint64_t size);
-
-	private:
-		void fMemProtectSingleBlock(size_t virt, env::guest_t address, uint64_t size, uint32_t usage);
-		bool fMemProtectMultipleBlocks(size_t virt, env::guest_t address, env::guest_t end, uint64_t size, uint32_t usage);
 
 	private:
 		void fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache);
