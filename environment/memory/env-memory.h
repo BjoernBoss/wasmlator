@@ -73,6 +73,7 @@ namespace env {
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
 		uint32_t pCodeCache = 0;
+		bool pXDirty = false;
 
 	public:
 		Memory() = default;
@@ -82,7 +83,9 @@ namespace env {
 	private:
 		detail::MemVirtIt fLookupVirtual(env::guest_t address) const;
 		detail::MemPhysIt fLookupPhysical(uint64_t address) const;
-		detail::MemoryLookup fLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const;
+		detail::MemoryLookup fConstructLookup(detail::MemVirtIt virt, uint32_t usage) const;
+		detail::MemoryLookup fFastLookup(env::guest_t address, env::guest_t access, uint32_t usage) const;
+		detail::MemoryLookup fCheckLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const;
 
 	private:
 		uint64_t fPageOffset(env::guest_t address) const;
@@ -117,6 +120,7 @@ namespace env {
 		uint64_t fCode(env::guest_t address, uint64_t size) const;
 
 	public:
+		bool xDirty();
 		env::guest_t alloc(uint64_t size, uint32_t usage);
 		bool mmap(env::guest_t address, uint64_t size, uint32_t usage);
 		bool munmap(env::guest_t address, uint64_t size);

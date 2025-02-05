@@ -28,7 +28,31 @@ env::detail::MemPhysIt env::Memory::fLookupPhysical(uint64_t address) const {
 		return pPhysical.end();
 	return it;
 }
-env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const {
+env::detail::MemoryLookup env::Memory::fConstructLookup(detail::MemVirtIt virt, uint32_t usage) const {
+	detail::MemoryLookup lookup = detail::MemoryLookup{ virt->first, virt->second.physical, virt->second.size };
+
+	/* collect all previous contiguous regions of the same usage */
+	for (detail::MemVirtIt it = virt; it != pVirtual.begin();) {
+		--it;
+		if (fVirtEnd(it) != lookup.address || fPhysEnd(it) != lookup.physical || (it->second.usage & usage) != usage)
+			break;
+		lookup = { it->first, it->second.physical, it->second.size + lookup.size };
+	}
+
+	/* collect all upcoming contiguous regions of the same usage */
+	for (detail::MemVirtIt it = std::next(virt); it != pVirtual.end(); ++it) {
+		if (lookup.address + lookup.size != it->first || lookup.physical + lookup.size != it->second.physical || (it->second.usage & usage) != usage)
+			break;
+		lookup.size += it->second.size;
+	}
+	return lookup;
+}
+env::detail::MemoryLookup env::Memory::fFastLookup(env::guest_t address, env::guest_t access, uint32_t usage) const {
+	/* lookup the virtual mapping containing the corresponding accessed-address (must exist, as fast-lookup requires a previous checked lookup) */
+	env::detail::MemVirtIt virt = fLookupVirtual(access);
+	return fConstructLookup(virt, usage);
+}
+env::detail::MemoryLookup env::Memory::fCheckLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const {
 	/* lookup the virtual mapping containing the corresponding accessed-address */
 	env::detail::MemVirtIt virt = fLookupVirtual(access);
 	if (virt == pVirtual.end())
@@ -38,35 +62,18 @@ env::detail::MemoryLookup env::Memory::fLookup(env::guest_t address, env::guest_
 	if ((virt->second.usage & usage) != usage)
 		throw env::MemoryFault{ address, access, size, usage, virt->second.usage };
 
-	/* collect all previous and upcoming regions of the same usage */
-	detail::MemoryLookup lookup = detail::MemoryLookup{ virt->first, virt->second.physical, virt->second.size };
-	for (detail::MemVirtIt it = virt; it != pVirtual.begin();) {
-		detail::MemVirtIt pt = std::prev(it);
-		if (pt == pVirtual.begin())
-			break;
-		if (pt->first + pt->second.size != it->first)
-			break;
-		if ((pt->second.usage & usage) != usage)
-			break;
-		lookup = { pt->first, pt->second.physical, pt->second.size + lookup.size };
-		it = pt;
-	}
-	for (detail::MemVirtIt it = std::next(virt); it != pVirtual.end(); ++it) {
-		if (lookup.address + lookup.size != it->first)
-			break;
+	/* traverse over the virtual pages and check if they are all mapped properly */
+	uint64_t current = virt->first, end = access + size;
+	for (detail::MemVirtIt it = virt; current < end; ++it) {
+		if (it == pVirtual.end() || current != it->first)
+			throw env::MemoryFault{ address, access, size, usage, 0 };
 		if ((it->second.usage & usage) != usage)
-			break;
-		lookup.size += it->second.size;
+			throw env::MemoryFault{ address, access, size, usage, it->second.usage };
+		current = fVirtEnd(it);
 	}
 
-	/* check if size-validation needs to be performed or if the entire range can be serviced by this lookup */
-	if (size == 0 || lookup.address + lookup.size >= access + size)
-		return lookup;
-
-	/* check if the upcoming address is also mapped and valid
-	*	Note: as of now, double-mapping is not yet active, therefore the lookup will always consume the entire range, and
-	*	there is no chance of it not being contiguous, therefore only the size of the first lookup needs to be checked */
-	throw env::MemoryFault{ address, access, size, usage, 0 };
+	/* return the final contiguous lookup */
+	return fConstructLookup(virt, usage);
 }
 
 uint64_t env::Memory::fPageOffset(env::guest_t address) const {
@@ -92,12 +99,15 @@ void env::Memory::fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) c
 }
 void env::Memory::fFlushCaches(bool xDirty) {
 	fCheckConsistency();
-	logger.trace(xDirty ? u8"Flushing caches" : u8"Flushing caches and blocks");
+
+	/* flush the actual caches and fast-caches */
+	logger.trace(u8"Flushing caches", (xDirty ? u8" (Executable dirty)" : u8""));
 	std::memset(pCaches.data(), 0, sizeof(detail::MemoryCache) * pCaches.size());
 	std::memset(pFastCache, 0, sizeof(detail::MemoryFast) * detail::MemoryFastCount);
 
+	/* mark the executiable data as dirty */
 	if (xDirty)
-		logger.fatal(u8"Implement me!");
+		pXDirty = true;
 }
 void env::Memory::fCheckConsistency() const {
 	/* physical mapping can never be empty */
@@ -110,11 +120,11 @@ void env::Memory::fCheckConsistency() const {
 		totalPhysUsed += phys.users * phys.size;
 
 		if (phys.size == 0 || fPageOffset(phys.size) != 0)
-			logger.fatal(u8"Physical slot [", str::As{ "#018x", address }, u8"] size is invalid");
+			logger.fatal(u8"Physical slot [", str::As{ U"#018x", address }, u8"] size is invalid");
 		if (address != physAddress)
-			logger.fatal(u8"Physical slot [", str::As{ "#018x", address }, u8"] address is invalid");
+			logger.fatal(u8"Physical slot [", str::As{ U"#018x", address }, u8"] address is invalid");
 		if (physAddress > 0 && physLastUsers == phys.users)
-			logger.fatal(u8"Physical slot [", str::As{ "#018x", address }, u8"] usage is invalid");
+			logger.fatal(u8"Physical slot [", str::As{ U"#018x", address }, u8"] users is invalid");
 		physLastUsers = phys.users;
 		physAddress += phys.size;
 	}
@@ -127,24 +137,26 @@ void env::Memory::fCheckConsistency() const {
 
 		/* ensure the entire range is mapped to physical memory */
 		if (phys == pPhysical.end())
-			logger.fatal(u8"Virtual slot [", str::As{ "#018x", address }, u8"] physical is invalid");
-		uint64_t remaining = virt.size + (phys->first - virt.physical);
+			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] physical is invalid");
+		uint64_t remaining = virt.size + (virt.physical - phys->first);
 		while (true) {
 			if (phys->second.users > 0) {
+				if (phys->second.size >= remaining)
+					break;
 				remaining -= phys->second.size;
 				if (++phys != pPhysical.end())
 					continue;
 			}
-			logger.fatal(u8"Virtual slot [", str::As{ "#018x", address }, u8"] physical not fully mapped");
+			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] physical not fully mapped");
 		}
 
 		/* validate the slot itself */
 		if (virt.size == 0 || fPageOffset(virt.size) != 0)
-			logger.fatal(u8"Virtual slot [", str::As{ "#018x", address }, u8"] size is invalid");
-		if (totalVirtUsed > 0 && virtLastUsage == virt.usage || virt.usage == 0)
-			logger.fatal(u8"Virtual slot [", str::As{ "#018x", address }, u8"] usage is invalid");
+			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] size is invalid");
+		if ((totalVirtUsed > 0 && virtLastUsage == virt.usage && virtAddress == address) || virt.usage == 0)
+			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] usage is invalid");
 		if (virtAddress > address)
-			logger.fatal(u8"Virtual slot [", str::As{ "#018x", address }, u8"] address is invalid");
+			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] address is invalid");
 
 		virtAddress = address + virt.size;
 		totalVirtUsed += virt.size;
@@ -208,7 +220,7 @@ env::detail::MemVirtIt env::Memory::fVirtMergePrev(detail::MemVirtIt virt) {
 
 	/* check if the current entry can be removed */
 	detail::MemVirtIt prev = std::prev(virt);
-	if (prev->second.usage != virt->second.usage)
+	if (fVirtEnd(prev) != virt->first || prev->second.usage != virt->second.usage)
 		return virt;
 	if (fPhysEnd(prev) != virt->second.physical)
 		return virt;
@@ -325,7 +337,7 @@ env::detail::MemPhysIt env::Memory::fMemAllocatePhysical(uint64_t size, uint64_t
 uint64_t env::Memory::fMemMergePhysical(detail::MemVirtIt virt, detail::MemPhysIt phys, uint64_t size, detail::MemPhysIt physPrev, detail::MemPhysIt physNext) {
 	uint64_t total = size + (physPrev != pPhysical.end() ? physPrev->second.size : 0) + (physNext != pPhysical.end() ? physNext->second.size : 0);
 
-	/* ensure the physical entry is only as large as necessary and extract the actual physical size */
+	/* ensure the physical entry is only as large as necessary and extract the actual physical address */
 	if (phys->second.size > total)
 		fPhysSplit(phys, phys->first + total);
 	uint64_t physical = phys->first + (physPrev == pPhysical.end() ? 0 : physPrev->second.size);
@@ -346,13 +358,14 @@ uint64_t env::Memory::fMemMergePhysical(detail::MemVirtIt virt, detail::MemPhysI
 		fMovePhysical(phys->first, physPrev->first, physPrev->second.size);
 		std::prev(virt)->second.physical = phys->first;
 
-		/* patch the actual address of the new block */
-		virt->second.physical = phys->first + physPrev->second.size;
-
 		/* release the orignal physical block (previous users can at most have been one) */
 		physPrev->second.users = 0;
 		fPhysMerge(physPrev);
 	}
+
+	/* mark the physical page as used and merge it with neighbors */
+	phys->second.users = 1;
+	fPhysMerge(phys);
 	return physical;
 }
 void env::Memory::fReducePhysical() {
@@ -478,10 +491,14 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 		return;
 	}
 
-	/* perform the actual lookup */
+	/* perform the actual lookup (use size=0 to indicate fast-lookup) */
 	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}] from [{:#018x}] - index: [{}] | fast: [{}]",
 		access, size, env::Usage::Print{ usage }, address, cache, index);
-	detail::MemoryLookup lookup = fLookup(address, access, size, usage);
+	detail::MemoryLookup lookup = {};
+	if (size == 0)
+		lookup = fFastLookup(address, access, usage);
+	else
+		lookup = fCheckLookup(address, access, size, usage);
 
 	/* write the lookup back to the cache */
 	pCaches[cache] = {
@@ -507,6 +524,11 @@ uint64_t env::Memory::fCode(env::guest_t address, uint64_t size) const {
 	return detail::MemoryBridge::Code(address, size);
 }
 
+bool env::Memory::xDirty() {
+	bool out = pXDirty;
+	pXDirty = false;
+	return out;
+}
 env::guest_t env::Memory::alloc(uint64_t size, uint32_t usage) {
 	/* check if the allocation can be serviced */
 	if (size > detail::EndOfAllocations - detail::StartOfAllocations)
@@ -642,12 +664,12 @@ bool env::Memory::munmap(env::guest_t address, uint64_t size) {
 				phys = fPhysSplit(phys, phAddress);
 			if (phEnd < fPhysEnd(phys))
 				fPhysSplit(phys, phEnd);
+			phAddress = fPhysEnd(phys);
 
 			/* unmap the physical memory and try to merge it with the neighboring entries (will not merge with just-split
 			*	entries, as this is now considered used one time less, while the other one's are still considered more used) */
 			--phys->second.users;
-			phys = fPhysMerge(phys);
-			++phys;
+			phys = std::next(fPhysMerge(phys));
 		}
 
 		/* check if the virtual memory contained executable memory */
@@ -739,20 +761,19 @@ void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t
 	uint8_t* ptr = static_cast<uint8_t*>(dest);
 
 	/* lookup the address to ensure it is mapped and perform the read operations */
-	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, source, size, usage);
+	detail::MemoryLookup lookup = fCheckLookup(detail::MainAccessAddress, source, size, usage);
 	while (true) {
 		uint64_t offset = (source - lookup.address);
 		uint64_t count = std::min<uint64_t>(lookup.size - offset, size);
 		detail::MemoryBridge::ReadFromPhysical(ptr, lookup.physical + offset, count);
 
-		/* check if the end has been reached and otherwise advance the parameter (no need to perform size
-		*	validations again, as the first lookup will have ensured that the entire range is mapped correctly) */
+		/* check if the end has been reached and otherwise advance the parameter */
 		if (count >= size)
 			return;
 		ptr += count;
 		source += count;
 		size -= count;
-		lookup = fLookup(detail::MainAccessAddress, source, 0, usage);
+		lookup = fFastLookup(detail::MainAccessAddress, source, usage);
 	}
 }
 void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage) {
@@ -762,20 +783,19 @@ void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, u
 	const uint8_t* ptr = static_cast<const uint8_t*>(source);
 
 	/* lookup the address to ensure it is mapped and perform the write operations */
-	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
+	detail::MemoryLookup lookup = fCheckLookup(detail::MainAccessAddress, dest, size, usage);
 	while (true) {
 		uint64_t offset = (dest - lookup.address);
 		uint64_t count = std::min<uint64_t>(lookup.size - offset, size);
 		detail::MemoryBridge::WriteToPhysical(lookup.physical + offset, ptr, count);
 
-		/* check if the end has been reached and otherwise advance the parameter (no need to perform size
-		*	validations again, as the first lookup will have ensured that the entire range is mapped correctly) */
+		/* check if the end has been reached and otherwise advance the parameter */
 		if (count >= size)
 			return;
 		ptr += count;
 		dest += count;
 		size -= count;
-		lookup = fLookup(detail::MainAccessAddress, dest, 0, usage);
+		lookup = fFastLookup(detail::MainAccessAddress, dest, usage);
 	}
 }
 void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
@@ -784,24 +804,34 @@ void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
 		return;
 
 	/* lookup the address to ensure it is mapped and perform the clear operations */
-	detail::MemoryLookup lookup = fLookup(detail::MainAccessAddress, dest, size, usage);
+	detail::MemoryLookup lookup = fCheckLookup(detail::MainAccessAddress, dest, size, usage);
 	while (true) {
 		uint64_t offset = (dest - lookup.address);
 		uint64_t count = std::min<uint64_t>(lookup.size - offset, size);
 		detail::MemoryBridge::ClearPhysical(lookup.physical + offset, count);
 
-		/* check if the end has been reached and otherwise advance the parameter (no need to perform size
-		*	validations again, as the first lookup will have ensured that the entire range is mapped correctly) */
+		/* check if the end has been reached and otherwise advance the parameter */
 		if (count >= size)
 			return;
 		dest += count;
 		size -= count;
-		lookup = fLookup(detail::MainAccessAddress, dest, 0, usage);
+		lookup = fFastLookup(detail::MainAccessAddress, dest, usage);
 	}
 }
 std::pair<env::guest_t, uint64_t> env::Memory::findNext(env::guest_t address) const {
-	detail::MemVirtIt virt = pVirtual.lower_bound(address);
+	/* lookup the entry, which contains the given address */
+	detail::MemVirtIt virt = pVirtual.upper_bound(address);
+	if (virt != pVirtual.begin())
+		--virt;
+
+	/* check if the entry contains the address */
 	if (virt == pVirtual.end())
-		return{ 0, 0 };
+		return { 0, 0 };
+	if (virt->first <= address && fVirtEnd(virt) > address)
+		return { virt->first, virt->second.size };
+
+	/* return the next entry */
+	if (++virt == pVirtual.end())
+		return { 0, 0 };
 	return { virt->first, virt->second.size };
 }
