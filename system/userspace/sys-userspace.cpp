@@ -255,9 +255,20 @@ bool sys::Userspace::fLoadCompleted() {
 		env::Instance()->startNewBlock();
 	return true;
 }
+
+void sys::Userspace::fCheckContinue() const {
+	/* check if the memory detected an invalidation */
+	env::Instance()->memory().checkXInvalidated(pAddress);
+}
 void sys::Userspace::fExecute() {
+	bool executionContinued = false;
+
 	/* start execution of the next address and catch/handle any incoming exceptions */
 	try {
+		/* check if the execution can simply continue */
+		fCheckContinue();
+		executionContinued = true;
+
 		do {
 			pAddress = env::Instance()->mapping().execute(pAddress);
 		} while (pDebugger.fAdvance(pAddress));
@@ -285,13 +296,13 @@ void sys::Userspace::fExecute() {
 			logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
 		env::Instance()->startNewBlock();
 	}
-	catch (const detail::FlushInstCache& e) {
+	catch (const env::ExecuteDirty& e) {
 		pAddress = e.address;
 		logger.debug(u8"Flushing instruction cache");
 		env::Instance()->mapping().flush();
 
 		/* check if the execution should halt */
-		if (pDebugger.fAdvance(pAddress))
+		if (!executionContinued || pDebugger.fAdvance(pAddress))
 			env::Instance()->startNewBlock();
 	}
 	catch (const detail::CpuException& e) {
@@ -360,9 +371,10 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string
 	}
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
+	bool detectWriteExecute = cpu->detectWriteExecute();
 	if (!gen::SetInstance(std::move(cpu), Userspace::TranslationDepth, (debugger != 0), traceBlocks))
 		return false;
-	if (!env::SetInstance(std::move(system), Userspace::PageSize, caches, context, logBlocks)) {
+	if (!env::SetInstance(std::move(system), Userspace::PageSize, caches, context, detectWriteExecute, logBlocks)) {
 		gen::ClearInstance();
 		return false;
 	}
@@ -426,4 +438,8 @@ void sys::Userspace::setPC(env::guest_t address) {
 }
 void sys::Userspace::execute() {
 	fExecute();
+}
+void sys::Userspace::checkContinue(env::guest_t address) {
+	pAddress = address;
+	fCheckContinue();
 }

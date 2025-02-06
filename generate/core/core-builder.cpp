@@ -1,5 +1,5 @@
 #include "../generate.h"
-#include "../environment/process/process-access.h"
+#include "../../environment/process/process-access.h"
 
 void gen::detail::CoreBuilder::setupCoreImports(wasm::Memory& memory) const {
 	/* import the main memory */

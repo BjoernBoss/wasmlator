@@ -2,7 +2,7 @@
 
 static util::Logger logger{ u8"rv64::cpu" };
 
-rv64::Cpu::Cpu() : sys::Cpu{ u8"RISC-V 64", rv64::MemoryCaches, sizeof(rv64::Context), false, sys::ArchType::riscv64 } {}
+rv64::Cpu::Cpu() : sys::Cpu{ u8"RISC-V 64", rv64::MemoryCaches, sizeof(rv64::Context), false, false, sys::ArchType::riscv64 } {}
 
 rv64::Instruction rv64::Cpu::fFetchRaw(env::guest_t address) const {
 	rv64::Instruction inst;

@@ -1,5 +1,5 @@
 #include "../generate.h"
-#include "../environment/process/process-access.h"
+#include "../../environment/process/process-access.h"
 
 void gen::detail::ProcessBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"proc_export", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"index", wasm::Type::i32 } }, { wasm::Type::i32 });

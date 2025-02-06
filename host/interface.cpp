@@ -62,8 +62,14 @@ uint32_t main_resolve(uint64_t address) {
 	return env::detail::MappingBridge::Resolve(address);
 }
 
-void main_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache) {
-	env::detail::MemoryBridge::Lookup(address, access, size, usage, cache);
+void main_check_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache) {
+	env::detail::MemoryBridge::CheckLookup(address, access, size, usage, cache);
+}
+void main_fast_lookup(uint64_t access, uint32_t usage, uint32_t cache) {
+	env::detail::MemoryBridge::FastLookup(access, usage, cache);
+}
+void main_check_invalidated(uint64_t address) {
+	env::detail::MemoryBridge::CheckXInvalidated(address);
 }
 
 void main_invoke_void(uint32_t index) {

@@ -10,7 +10,7 @@ namespace global {
 env::Process* env::Instance() {
 	return global::Instance.get();
 }
-bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
+bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks) {
 	if (global::Instance.get() != 0) {
 		logger.error(u8"Cannot create process as only one process can exist at a time");
 		return false;
@@ -21,7 +21,7 @@ bool env::SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, 
 	global::Instance = std::make_unique<env::Process>();
 
 	/* configure the instance */
-	if (detail::ProcessAccess::Setup(*global::Instance.get(), std::move(system), pageSize, memoryCaches, contextSize, logBlocks)) {
+	if (detail::ProcessAccess::Setup(*global::Instance.get(), std::move(system), pageSize, memoryCaches, contextSize, detectWriteExecute, logBlocks)) {
 		logger.log(u8"Process created");
 		return true;
 	}
@@ -38,13 +38,14 @@ void env::ClearInstance() {
 }
 
 
-bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
+bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks) {
 	/* apply the configuration */
 	pSystem = std::move(system);
 	pPageSize = pageSize;
 	pMemoryCaches = memoryCaches;
 	pContextSize = contextSize;
 	pLogBlocks = logBlocks;
+	pDetectWriteExecute = detectWriteExecute;
 
 	/* validate the configuration */
 	if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0) {
@@ -53,10 +54,11 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 	}
 
 	/* log the generation-configuration */
-	logger.info(u8"  Page Size    : ", str::As{ U"#x", pPageSize });
-	logger.info(u8"  Memory Caches: ", pMemoryCaches);
-	logger.info(u8"  Context Size : ", pContextSize);
-	logger.info(u8"  Log Blocks   : ", str::As{ U"S", pLogBlocks });
+	logger.info(u8"  Page Size      : ", str::As{ U"#x", pPageSize });
+	logger.info(u8"  Memory Caches  : ", pMemoryCaches);
+	logger.info(u8"  Context Size   : ", pContextSize);
+	logger.info(u8"  Detect Write-X : ", str::As{ U"S", pDetectWriteExecute });
+	logger.info(u8"  Log Blocks     : ", str::As{ U"S", pLogBlocks });
 
 	/* initialize the components */
 	uintptr_t endOfMemory = 0;
@@ -297,4 +299,7 @@ uint32_t env::Process::contextSize() const {
 }
 bool env::Process::logBlocks() const {
 	return pLogBlocks;
+}
+bool env::Process::detectWriteExecute() const {
+	return pDetectWriteExecute;
 }

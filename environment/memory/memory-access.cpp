@@ -5,6 +5,7 @@ static util::Logger logger{ u8"env::memory" };
 std::optional<uintptr_t> env::detail::MemoryAccess::Configure(uint64_t& initialPageCount) {
 	env::Memory& self = env::Instance()->memory();
 	self.pPageSize = env::Instance()->pageSize();
+	self.pDetectExecuteWrite = env::Instance()->detectWriteExecute();
 
 	/* compute the number of bits for the offset within each page */
 	self.pPageBitShift = 1;

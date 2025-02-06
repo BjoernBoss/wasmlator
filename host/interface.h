@@ -56,7 +56,9 @@ extern "C" {
 /* environment/memory/memory-bridge interactions */
 extern "C" {
 	/* exports */
-	void main_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache);
+	void main_check_lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache);
+	void main_fast_lookup(uint64_t access, uint32_t usage, uint32_t cache);
+	void main_check_invalidated(uint64_t address);
 
 	/* imports */
 	void mem_write_to_physical(uint32_t dest, const void* source, uint32_t size);

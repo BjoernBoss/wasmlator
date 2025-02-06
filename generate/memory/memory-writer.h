@@ -30,12 +30,12 @@ namespace gen::detail {
 
 	private:
 		void fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* code);
-		void fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address);
-		void fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address);
+		void fMakeStartWrite(uint32_t cache, gen::MemoryType type);
+		void fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress);
 
 	public:
 		void makeRead(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address);
-		void makeStartWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address);
-		void makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address);
+		void makeStartWrite(uint32_t cacheIndex, gen::MemoryType type);
+		void makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress);
 	};
 }

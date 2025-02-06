@@ -53,11 +53,6 @@ namespace sys {
 			static constexpr int64_t eUnknown = -0xffff;
 		}
 
-		struct FlushInstCache : public env::Exception {
-		public:
-			FlushInstCache(env::guest_t address) : env::Exception{ address } {}
-		};
-
 		struct CpuException : public env::Exception {
 		public:
 			uint64_t id = 0;

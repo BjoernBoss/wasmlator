@@ -538,19 +538,19 @@ void rv64::Translate::fMakeStore(bool multi) const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_byte:
 	case rv64::Opcode::multi_store_byte:
-		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::u8To32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::u8To32, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::store_half:
 	case rv64::Opcode::multi_store_half:
-		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::u16To32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::u16To32, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::store_word:
 	case rv64::Opcode::multi_store_word:
-		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::i32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::i32, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::store_dword:
 	case rv64::Opcode::multi_store_dword:
-		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::i64, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::i64, pAddress, pNextAddress);
 		break;
 	default:
 		break;
@@ -714,7 +714,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::Add[I::Local::Get(addr)];
 
 	/* prepare the writing of the value to memory */
-	gen::FulFill fulfill = gen::Make->write(pInst->src1, type, pAddress);
+	gen::FulFill fulfill = gen::Make->write(pInst->src1, type, pAddress, pNextAddress);
 
 	/* write the new value to the stack (perform the operation in the corresponding width) */
 	switch (pInst->opcode) {
@@ -876,7 +876,7 @@ void rv64::Translate::fMakeAMOSC() {
 
 	/* write the source value to the address (assumption that reservation is always valid) */
 	gen::Add[I::Local::Get(addr)];
-	gen::FulFill fulfill = gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress);
+	gen::FulFill fulfill = gen::Make->write(pInst->src1, (half ? gen::MemoryType::i32 : gen::MemoryType::i64), pAddress, pNextAddress);
 	fLoadSrc2(true, half);
 	fulfill.now();
 
@@ -1225,11 +1225,11 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 	switch (pInst->opcode) {
 	case rv64::Opcode::store_float:
 	case rv64::Opcode::multi_store_float:
-		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::f32, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::f32, pAddress, pNextAddress);
 		break;
 	case rv64::Opcode::store_double:
 	case rv64::Opcode::multi_store_double:
-		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::f64, pAddress);
+		fulfill = gen::Make->write(pInst->src1, gen::MemoryType::f64, pAddress, pNextAddress);
 		break;
 	default:
 		break;

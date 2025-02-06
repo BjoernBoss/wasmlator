@@ -1,6 +1,6 @@
 #include "../generate.h"
-#include "../environment/mapping/env-mapping.h"
-#include "../environment/process/process-access.h"
+#include "../../environment/mapping/env-mapping.h"
+#include "../../environment/process/process-access.h"
 
 void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });

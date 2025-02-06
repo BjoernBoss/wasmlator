@@ -3,7 +3,7 @@
 bool sys::Writer::fSetup(detail::Syscall* syscall) {
 	/* register the functions to be invoked by the execution-environment */
 	pRegistered.flushInst = env::Instance()->interact().defineCallback([](uint64_t address) -> uint64_t {
-		throw detail::FlushInstCache{ address };
+		throw env::ExecuteDirty{ address };
 		return 0;
 		});
 	pRegistered.exception = env::Instance()->interact().defineCallback([this]() {

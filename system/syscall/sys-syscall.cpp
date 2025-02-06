@@ -43,8 +43,13 @@ void sys::detail::Syscall::fWrap(bool inplace, std::function<int64_t()> callback
 
 	/* check if this is not in-place execution, in which case the execution needs to be restarted at the
 	*	next address (pc will already have been set by at least one await-syscall exception being thrown) */
-	if (!inplace)
+	if (!inplace) {
 		pUserspace->execute();
+		return;
+	}
+
+	/* perform the check if the execution can continue at the next address (will also check for memory-invalidations) */
+	pUserspace->checkContinue(pCurrent.next);
 }
 int64_t sys::detail::Syscall::fDispatch() {
 	sys::SyscallArgs args = pUserspace->cpu()->syscallGetArgs();

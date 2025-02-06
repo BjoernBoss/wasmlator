@@ -127,6 +127,12 @@ namespace env {
 			env::Exception{ address }, accessed{ accessed }, size{ size }, usedUsage{ usedUsage }, actualUsage{ actualUsage } {}
 	};
 
+	/* thrown whenever executable data have been cleared or modified */
+	struct ExecuteDirty : public env::Exception {
+	public:
+		ExecuteDirty(env::guest_t address) : env::Exception{ address } {}
+	};
+
 	/* thrown whenever an unknown address is to be executed */
 	struct Translate : public env::Exception {
 	public:

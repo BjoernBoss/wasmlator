@@ -1,5 +1,5 @@
 #include "../generate.h"
-#include "../environment/memory/env-memory.h"
+#include "../../environment/environment.h"
 
 static util::Logger logger{ u8"gen::memory" };
 
@@ -169,7 +169,7 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 			gen::Add[I::Call::Direct(*code)];
 	}
 }
-void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) {
+void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType type) {
 	/* perform this initial preparation of the value (to ensure that the initial i32 is on the stack) */
 
 	/* check if the default-read cache is to be used and compute the actual cache address */
@@ -221,7 +221,7 @@ void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType 
 	gen::Add[I::U64::LessEqual()];
 
 }
-void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address) {
+void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress) {
 	/* address is already partially computed and condition lies on the stack */
 
 	/* fetch the top-most variables - which correspond to this write */
@@ -332,6 +332,10 @@ void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType t
 		gen::Add[I::U32::Const(cache)];
 		gen::Add[I::Local::Get(*value)];
 
+		/* check if the instruction-size needs to be supplied */
+		if (env::Instance()->detectWriteExecute())
+			gen::Add[I::U32::Const(nextAddress - address)];
+
 		/* perform the call to patch the cache (will automatically write the value) */
 		gen::Add[I::Call::Direct(pState.writes[size_t(type)])];
 	}
@@ -341,10 +345,10 @@ void gen::detail::MemoryWriter::makeRead(uint32_t cacheIndex, gen::MemoryType ty
 	fCheckCache(cacheIndex);
 	fMakeRead(cacheIndex + env::detail::MemoryAccess::StartOfReadCaches(), type, address, 0);
 }
-void gen::detail::MemoryWriter::makeStartWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) {
+void gen::detail::MemoryWriter::makeStartWrite(uint32_t cacheIndex, gen::MemoryType type) {
 	fCheckCache(cacheIndex);
-	fMakeStartWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type, address);
+	fMakeStartWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type);
 }
-void gen::detail::MemoryWriter::makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address) {
-	fMakeStopWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type, address);
+void gen::detail::MemoryWriter::makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress) {
+	fMakeStopWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type, address, nextAddress);
 }

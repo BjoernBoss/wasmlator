@@ -43,6 +43,9 @@ namespace sys {
 		void fStartLoad(const std::u8string& path);
 		bool fBinaryLoaded(const uint8_t* data, size_t size);
 		bool fLoadCompleted();
+
+	private:
+		void fCheckContinue() const;
 		void fExecute();
 
 	public:
@@ -61,5 +64,6 @@ namespace sys {
 		env::guest_t getPC() const;
 		void setPC(env::guest_t address);
 		void execute();
+		void checkContinue(env::guest_t address);
 	};
 }

@@ -31,10 +31,15 @@ env::detail::MemPhysIt env::Memory::fLookupPhysical(uint64_t address) const {
 env::detail::MemoryLookup env::Memory::fConstructLookup(detail::MemVirtIt virt, uint32_t usage) const {
 	detail::MemoryLookup lookup = detail::MemoryLookup{ virt->first, virt->second.physical, virt->second.size };
 
+	/* check if executable pages should not be considered */
+	bool skipExecutable = (pDetectExecuteWrite && (usage & env::Usage::Write) == env::Usage::Write);
+
 	/* collect all previous contiguous regions of the same usage */
 	for (detail::MemVirtIt it = virt; it != pVirtual.begin();) {
 		--it;
 		if (fVirtEnd(it) != lookup.address || fPhysEnd(it) != lookup.physical || (it->second.usage & usage) != usage)
+			break;
+		if (skipExecutable && (it->second.usage & env::Usage::Execute) == env::Usage::Execute)
 			break;
 		lookup = { it->first, it->second.physical, it->second.size + lookup.size };
 	}
@@ -43,16 +48,18 @@ env::detail::MemoryLookup env::Memory::fConstructLookup(detail::MemVirtIt virt, 
 	for (detail::MemVirtIt it = std::next(virt); it != pVirtual.end(); ++it) {
 		if (lookup.address + lookup.size != it->first || lookup.physical + lookup.size != it->second.physical || (it->second.usage & usage) != usage)
 			break;
+		if (skipExecutable && (it->second.usage & env::Usage::Execute) == env::Usage::Execute)
+			break;
 		lookup.size += it->second.size;
 	}
 	return lookup;
 }
-env::detail::MemoryLookup env::Memory::fFastLookup(env::guest_t address, env::guest_t access, uint32_t usage) const {
+env::detail::MemoryLookup env::Memory::fFastLookup(env::guest_t access, uint32_t usage) const {
 	/* lookup the virtual mapping containing the corresponding accessed-address (must exist, as fast-lookup requires a previous checked lookup) */
 	env::detail::MemVirtIt virt = fLookupVirtual(access);
 	return fConstructLookup(virt, usage);
 }
-env::detail::MemoryLookup env::Memory::fCheckLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const {
+env::detail::MemoryLookup env::Memory::fCheckLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) {
 	/* lookup the virtual mapping containing the corresponding accessed-address */
 	env::detail::MemVirtIt virt = fLookupVirtual(access);
 	if (virt == pVirtual.end())
@@ -62,7 +69,10 @@ env::detail::MemoryLookup env::Memory::fCheckLookup(env::guest_t address, env::g
 	if ((virt->second.usage & usage) != usage)
 		throw env::MemoryFault{ address, access, size, usage, virt->second.usage };
 
-	/* traverse over the virtual pages and check if they are all mapped properly */
+	/* check if checks for writes to executables must be performed */
+	bool checkWriteToExecutable = (pDetectExecuteWrite && (usage & env::Usage::Write) == env::Usage::Write);
+
+	/* traverse over the virtual pages and check if they are all mapped properly and if a write to an executable page is being performed */
 	uint64_t current = virt->first, end = access + size;
 	for (detail::MemVirtIt it = virt; current < end; ++it) {
 		if (it == pVirtual.end() || current != it->first)
@@ -70,6 +80,10 @@ env::detail::MemoryLookup env::Memory::fCheckLookup(env::guest_t address, env::g
 		if ((it->second.usage & usage) != usage)
 			throw env::MemoryFault{ address, access, size, usage, it->second.usage };
 		current = fVirtEnd(it);
+
+		/* check if the operation performs a write to an executable page */
+		if (checkWriteToExecutable && (it->second.usage & env::Usage::Execute) == env::Usage::Execute)
+			pXInvalidated = true;
 	}
 
 	/* return the final contiguous lookup */
@@ -97,17 +111,13 @@ uint64_t env::Memory::fExpandPhysical(uint64_t size, uint64_t growth) const {
 void env::Memory::fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const {
 	detail::MemoryBridge::MovePhysical(dest, source, size);
 }
-void env::Memory::fFlushCaches(bool xDirty) {
+void env::Memory::fFlushCaches() {
 	fCheckConsistency();
 
 	/* flush the actual caches and fast-caches */
-	logger.trace(u8"Flushing caches", (xDirty ? u8" (Executable dirty)" : u8""));
+	logger.trace(u8"Flushing caches");
 	std::memset(pCaches.data(), 0, sizeof(detail::MemoryCache) * pCaches.size());
 	std::memset(pFastCache, 0, sizeof(detail::MemoryFast) * detail::MemoryFastCount);
-
-	/* mark the executiable data as dirty */
-	if (xDirty)
-		pXDirty = true;
 }
 void env::Memory::fCheckConsistency() const {
 	/* physical mapping can never be empty */
@@ -420,7 +430,7 @@ bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 
 	/* check if an existing neighboring region can just be expanded or if both neighbors already align (edge-case) */
 	if (directPrev && (directNext ? fMemAllocateIntermediate(prev, next, usage) : fMemExpandPrevious(prev, size, usage))) {
-		fFlushCaches(false);
+		fFlushCaches();
 		return true;
 	}
 
@@ -460,10 +470,19 @@ bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 	fReducePhysical();
 
 	/* flush the caches to ensure the new mapping is accepted */
-	fFlushCaches(false);
+	fFlushCaches();
 	return true;
 }
 
+void env::Memory::fCheckXInvalidated(env::guest_t address) {
+	if (!pXInvalidated)
+		return;
+
+	/* flush the caches - to ensure that the next write is detect again */
+	pXInvalidated = false;
+	fFlushCaches();
+	throw env::ExecuteDirty{ address };
+}
 void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache) {
 	/* compute the index into the fast-cache */
 	uint64_t pageAddress = (access >> pPageBitShift);
@@ -492,13 +511,17 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 	}
 
 	/* perform the actual lookup (use size=0 to indicate fast-lookup) */
-	logger.fmtTrace(u8"Lookup [{:#018x}] with size [{}] and usage [{}] from [{:#018x}] - index: [{}] | fast: [{}]",
-		access, size, env::Usage::Print{ usage }, address, cache, index);
 	detail::MemoryLookup lookup = {};
-	if (size == 0)
-		lookup = fFastLookup(address, access, usage);
-	else
+	if (size != 0) {
+		logger.fmtTrace(u8"CheckLookup [{:#018x}] with size [{}] and usage [{}] from [{:#018x}] - index: [{:02}] | fast: [{:02}]",
+			access, size, env::Usage::Print{ usage }, address, cache, index);
 		lookup = fCheckLookup(address, access, size, usage);
+	}
+	else {
+		logger.fmtTrace(u8"FastLookup [{:#018x}] with usage [{}] - index: [{:02}] | fast: [{:02}]",
+			access, env::Usage::Print{ usage }, cache, index);
+		lookup = fFastLookup(access, usage);
+	}
 
 	/* write the lookup back to the cache */
 	pCaches[cache] = {
@@ -524,10 +547,8 @@ uint64_t env::Memory::fCode(env::guest_t address, uint64_t size) const {
 	return detail::MemoryBridge::Code(address, size);
 }
 
-bool env::Memory::xDirty() {
-	bool out = pXDirty;
-	pXDirty = false;
-	return out;
+void env::Memory::checkXInvalidated(env::guest_t address) {
+	fCheckXInvalidated(address);
 }
 env::guest_t env::Memory::alloc(uint64_t size, uint32_t usage) {
 	/* check if the allocation can be serviced */
@@ -649,7 +670,6 @@ bool env::Memory::munmap(env::guest_t address, uint64_t size) {
 	/* remove all intermediate pages */
 	detail::MemPhysIt phys = pPhysical.end();
 	detail::MemVirtIt end = std::next(last);
-	bool xBitDropped = false;
 	while (begin != end) {
 		uint64_t phAddress = begin->second.physical, phEnd = fPhysEnd(begin);
 
@@ -672,16 +692,16 @@ bool env::Memory::munmap(env::guest_t address, uint64_t size) {
 			phys = std::next(fPhysMerge(phys));
 		}
 
-		/* check if the virtual memory contained executable memory */
+		/* check if the virtual memory contained executable memory, which is now being removed - marks executables as invalidated */
 		if ((begin->second.usage & env::Usage::Execute) != 0)
-			xBitDropped = true;
+			pXInvalidated = true;
 
 		/* remove the virtual page */
 		begin = pVirtual.erase(begin);
 	}
 
 	/* flush the caches to ensure the new mapping is accepted */
-	fFlushCaches(xBitDropped);
+	fFlushCaches();
 	return true;
 }
 bool env::Memory::mprotect(env::guest_t address, uint64_t size, uint32_t usage) {
@@ -735,11 +755,10 @@ bool env::Memory::mprotect(env::guest_t address, uint64_t size, uint32_t usage) 
 
 	/* patch all intermediate pages */
 	detail::MemVirtIt end = std::next(last);
-	bool xBitChanged = false;
 	while (begin != end) {
-		/* check if the virtual memories x-bit changes */
+		/* check if the virtual memories x-bit changes which requires executable invalidation */
 		if ((begin->second.usage & env::Usage::Execute) != (usage & env::Usage::Execute))
-			xBitChanged = true;
+			pXInvalidated = true;
 
 		/* update the usage of the virtual memory and try to merge it with the previous range */
 		begin->second.usage = usage;
@@ -751,10 +770,10 @@ bool env::Memory::mprotect(env::guest_t address, uint64_t size, uint32_t usage) 
 		fVirtMergePrev(end);
 
 	/* flush the caches to ensure the new mapping is accepted */
-	fFlushCaches(xBitChanged);
+	fFlushCaches();
 	return true;
 }
-void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage) const {
+void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage) {
 	logger.fmtTrace(u8"Reading [{:#018x}] with size [{:#010x}] and usage [{}]", source, size, env::Usage::Print{ usage });
 	if (size == 0)
 		return;
@@ -773,7 +792,7 @@ void env::Memory::mread(void* dest, env::guest_t source, uint64_t size, uint32_t
 		ptr += count;
 		source += count;
 		size -= count;
-		lookup = fFastLookup(detail::MainAccessAddress, source, usage);
+		lookup = fFastLookup(source, usage);
 	}
 }
 void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage) {
@@ -795,7 +814,7 @@ void env::Memory::mwrite(env::guest_t dest, const void* source, uint64_t size, u
 		ptr += count;
 		dest += count;
 		size -= count;
-		lookup = fFastLookup(detail::MainAccessAddress, dest, usage);
+		lookup = fFastLookup(dest, usage);
 	}
 }
 void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
@@ -815,7 +834,7 @@ void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
 			return;
 		dest += count;
 		size -= count;
-		lookup = fFastLookup(detail::MainAccessAddress, dest, usage);
+		lookup = fFastLookup(dest, usage);
 	}
 }
 std::pair<env::guest_t, uint64_t> env::Memory::findNext(env::guest_t address) const {

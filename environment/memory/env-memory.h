@@ -52,7 +52,7 @@ namespace env {
 		using MemVirtIt = std::map<env::guest_t, detail::MemoryVirtual>::iterator;
 		using MemPhysIt = std::map<uint64_t, detail::MemoryPhysical>::iterator;
 
-		static constexpr uint32_t MemoryFastCacheBits = 6;
+		static constexpr uint32_t MemoryFastCacheBits = 8;
 		static constexpr uint32_t MemoryFastCount = (1 << detail::MemoryFastCacheBits);
 		static constexpr uint32_t MemoryFastCacheConstRead = 31;
 		static constexpr uint32_t MemoryFastCacheConstWrite = 37;
@@ -73,7 +73,8 @@ namespace env {
 		uint32_t pReadCache = 0;
 		uint32_t pWriteCache = 0;
 		uint32_t pCodeCache = 0;
-		bool pXDirty = false;
+		bool pDetectExecuteWrite = false;
+		bool pXInvalidated = false;
 
 	public:
 		Memory() = default;
@@ -84,14 +85,14 @@ namespace env {
 		detail::MemVirtIt fLookupVirtual(env::guest_t address) const;
 		detail::MemPhysIt fLookupPhysical(uint64_t address) const;
 		detail::MemoryLookup fConstructLookup(detail::MemVirtIt virt, uint32_t usage) const;
-		detail::MemoryLookup fFastLookup(env::guest_t address, env::guest_t access, uint32_t usage) const;
-		detail::MemoryLookup fCheckLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage) const;
+		detail::MemoryLookup fFastLookup(env::guest_t access, uint32_t usage) const;
+		detail::MemoryLookup fCheckLookup(env::guest_t address, env::guest_t access, uint64_t size, uint32_t usage);
 
 	private:
 		uint64_t fPageOffset(env::guest_t address) const;
 		uint64_t fExpandPhysical(uint64_t size, uint64_t growth) const;
 		void fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const;
-		void fFlushCaches(bool xDirty);
+		void fFlushCaches();
 		void fCheckConsistency() const;
 
 	private:
@@ -114,18 +115,19 @@ namespace env {
 		bool fMMap(env::guest_t address, uint64_t size, uint32_t usage);
 
 	private:
+		void fCheckXInvalidated(env::guest_t address);
 		void fCacheLookup(env::guest_t address, env::guest_t access, uint32_t size, uint32_t usage, uint32_t cache);
 		uint64_t fRead(env::guest_t address, uint64_t size) const;
 		void fWrite(env::guest_t address, uint64_t size, uint64_t value) const;
 		uint64_t fCode(env::guest_t address, uint64_t size) const;
 
 	public:
-		bool xDirty();
+		void checkXInvalidated(env::guest_t address);
 		env::guest_t alloc(uint64_t size, uint32_t usage);
 		bool mmap(env::guest_t address, uint64_t size, uint32_t usage);
 		bool munmap(env::guest_t address, uint64_t size);
 		bool mprotect(env::guest_t address, uint64_t size, uint32_t usage);
-		void mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage) const;
+		void mread(void* dest, env::guest_t source, uint64_t size, uint32_t usage);
 		void mwrite(env::guest_t dest, const void* source, uint64_t size, uint32_t usage);
 		void mclear(env::guest_t dest, uint64_t size, uint32_t usage);
 		std::pair<env::guest_t, uint64_t> findNext(env::guest_t address) const;

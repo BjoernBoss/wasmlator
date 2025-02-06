@@ -1,8 +1,14 @@
 #include "../environment.h"
 #include "../../host/interface.h"
 
-void env::detail::MemoryBridge::Lookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache) {
+void env::detail::MemoryBridge::CheckLookup(uint64_t address, uint64_t access, uint32_t size, uint32_t usage, uint32_t cache) {
 	env::Instance()->memory().fCacheLookup(address, access, size, usage, cache);
+}
+void env::detail::MemoryBridge::FastLookup(uint64_t access, uint32_t usage, uint32_t cache) {
+	env::Instance()->memory().fCacheLookup(0, access, 0, usage, cache);
+}
+void env::detail::MemoryBridge::CheckXInvalidated(uint64_t address) {
+	env::Instance()->memory().fCheckXInvalidated(address);
 }
 
 bool env::detail::MemoryBridge::ExpandPhysical(uint64_t pages) {

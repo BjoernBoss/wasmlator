@@ -12,6 +12,6 @@ namespace env {
 	*		interact with the core, which will otherwise result in a null-function execution within the glue-module.
 	*	Note: shutdown must be performed through env::System::shutdown, and must only be exeucted from within external calls */
 	env::Process* Instance();
-	bool SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks);
+	bool SetInstance(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks);
 	void ClearInstance();
 }

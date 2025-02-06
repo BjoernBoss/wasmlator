@@ -1,6 +1,5 @@
 #include "../generate.h"
-#include "../environment/memory/env-memory.h"
-#include "../environment/process/process-access.h"
+#include "../../environment/environment.h"
 
 wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& memory, const wasm::Memory& physical) const {
 	wasm::Prototype prototype = gen::Module->prototype(u8"mem_wrapper_read_type", { { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 },
@@ -23,13 +22,13 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& 
 	sink[I::U32::Mul()];
 	sink[I::Local::Set(cacheOffset)];
 
-	/* perform the call for the base address (will automatically populate the cache properly) */
+	/* perform the lookup call for the base address (will automatically populate the cache properly) */
 	sink[I::Param::Get(0)];
 	sink[I::Param::Get(1)];
 	sink[I::Param::Get(2)];
 	sink[I::Param::Get(3)];
 	sink[I::Param::Get(4)];
-	sink[I::Call::Direct(pLookup)];
+	sink[I::Call::Direct(pCheckLookup)];
 
 	/* compute the offset of the accessed address into the current cache entry */
 	sink[I::Param::Get(1)];
@@ -141,16 +140,14 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& 
 			sink[I::Branch::Direct(_loop)];
 		}
 
-		/* perform the next cache lookup (set the size to null, as no more validation needs to be performed) */
-		sink[I::Param::Get(0)];
+		/* perform the next fast cache lookup */
 		sink[I::Param::Get(1)];
 		sink[I::Local::Get(index)];
 		sink[I::U32::Expand()];
 		sink[I::U64::Add()];
-		sink[I::U32::Const(0)];
 		sink[I::Param::Get(3)];
 		sink[I::Param::Get(4)];
-		sink[I::Call::Direct(pLookup)];
+		sink[I::Call::Direct(pFastLookup)];
 
 		/* fetch the new remaining total-counter */
 		sink[I::Local::Get(cacheOffset)];
@@ -171,8 +168,10 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& 
 	return fn;
 }
 wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory& memory, const wasm::Memory& physical) const {
-	wasm::Prototype prototype = gen::Module->prototype(u8"mem_wrapper_write_type", { { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 },
-		{ u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 }, { u8"value", wasm::Type::i64 } }, {});
+	std::vector<wasm::Param> params{ { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 }, { u8"value", wasm::Type::i64 } };
+	if (env::Instance()->detectWriteExecute())
+		params.push_back({ u8"inst_size", wasm::Type::i32 });
+	wasm::Prototype prototype = gen::Module->prototype(u8"mem_wrapper_write_type", params, {});
 
 	/* add the write-lookup-wrapper function, which performs the lookup and writes the actual value to memory (will leave
 	*	the cache at the last-most address - meaning another contiguous write will have a valid cache) */
@@ -190,13 +189,13 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 	sink[I::U32::Mul()];
 	sink[I::Local::Set(cacheOffset)];
 
-	/* perform the call for the base address (will automatically populate the cache properly) */
+	/* perform the lookup call for the base address (will automatically populate the cache properly) */
 	sink[I::Param::Get(0)];
 	sink[I::Param::Get(1)];
 	sink[I::Param::Get(2)];
 	sink[I::Param::Get(3)];
 	sink[I::Param::Get(4)];
-	sink[I::Call::Direct(pLookup)];
+	sink[I::Call::Direct(pCheckLookup)];
 
 	/* compute the offset of the accessed address into the current cache entry */
 	sink[I::Param::Get(1)];
@@ -227,6 +226,7 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 
 		/* perform the sized write */
 		sink[I::Param::Get(5)];
+		wasm::Block _blockOut{ sink, u8"out", { wasm::Type::i32, wasm::Type::i64 }, {} };
 		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
 		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
 		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i32, wasm::Type::i64 }, { wasm::Type::i32, wasm::Type::i64 } };
@@ -238,22 +238,36 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 		/* add the size-1 write */
 		_block1.close();
 		sink[I::U64::Store8(physical)];
-		sink[I::Return()];
+		sink[I::Branch::Direct(_blockOut)];
 
 		/* add the size-2 write */
 		_block2.close();
 		sink[I::U64::Store16(physical)];
-		sink[I::Return()];
+		sink[I::Branch::Direct(_blockOut)];
 
 		/* add the size-4 write */
 		_block4.close();
 		sink[I::U64::Store32(physical)];
-		sink[I::Return()];
+		sink[I::Branch::Direct(_blockOut)];
 
 		/* add the size-8 write */
 		_block8.close();
 		sink[I::U64::Store(physical)];
-		sink[I::Return()];
+
+		/* add the final check for a write-to-execute and otherwise add the return */
+		_blockOut.close();
+		if (env::Instance()->detectWriteExecute()) {
+			/* compute the address of the next address */
+			sink[I::Param::Get(0)];
+			sink[I::Param::Get(6)];
+			sink[I::U32::Expand()];
+			sink[I::U64::Add()];
+
+			/* perform the check if this write wrote to an executable page */
+			sink[I::Call::Tail(pCheckXWrite)];
+		}
+		else
+			sink[I::Return()];
 	}
 
 	/* update the size counter to contain the number of available bytes */
@@ -287,7 +301,19 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 		sink[I::U32::GreaterEqual()];
 		{
 			wasm::IfThen _if{ sink };
-			sink[I::Return()];
+
+			if (env::Instance()->detectWriteExecute()) {
+				/* compute the address of the next address */
+				sink[I::Param::Get(0)];
+				sink[I::Param::Get(6)];
+				sink[I::U32::Expand()];
+				sink[I::U64::Add()];
+
+				/* perform the check if this write wrote to an executable page */
+				sink[I::Call::Tail(pCheckXWrite)];
+			}
+			else
+				sink[I::Return()];
 		}
 
 		/* check if the next byte still lies in the current cache entry */
@@ -305,16 +331,14 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 			sink[I::Branch::Direct(_loop)];
 		}
 
-		/* perform the next cache lookup (size the size to null, as more validation needs to be performed) */
-		sink[I::Param::Get(0)];
+		/* perform the next fast cache lookup */
 		sink[I::Param::Get(1)];
 		sink[I::Local::Get(index)];
 		sink[I::U32::Expand()];
 		sink[I::U64::Add()];
-		sink[I::U32::Const(0)];
 		sink[I::Param::Get(3)];
 		sink[I::Param::Get(4)];
-		sink[I::Call::Direct(pLookup)];
+		sink[I::Call::Direct(pFastLookup)];
 
 		/* fetch the new remaining total-counter */
 		sink[I::Local::Get(cacheOffset)];
@@ -438,6 +462,10 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteLookup(uint32_t size, gen::
 		break;
 	}
 
+	/* check if the inst_size argument should be passed along */
+	if (env::Instance()->detectWriteExecute())
+		sink[I::Param::Get(4)];
+
 	/* perform the actual call */
 	sink[I::Call::Tail(wrapper)];
 	return fn;
@@ -454,9 +482,15 @@ void gen::detail::MemoryBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"mem_code", { { u8"address", wasm::Type::i64 }, { u8"size", wasm::Type::i32 } }, { wasm::Type::i64 });
 }
 void gen::detail::MemoryBuilder::setupCoreImports() {
-	/* add the import to the lookup-function */
-	wasm::Prototype prototype = gen::Module->prototype(u8"main_lookup_type", { { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, {});
-	pLookup = gen::Module->function(u8"main_lookup", prototype, wasm::Import{ u8"main" });
+	/* add the import to the lookup-functions */
+	wasm::Prototype prototype = gen::Module->prototype(u8"main_check_lookup_type", { { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"size", wasm::Type::i32 }, { u8"usage", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, {});
+	pCheckLookup = gen::Module->function(u8"main_check_lookup", prototype, wasm::Import{ u8"main" });
+	prototype = gen::Module->prototype(u8"main_fast_lookup_type", { { u8"access", wasm::Type::i64 }, { u8"usage", wasm::Type::i32 }, { u8"cache", wasm::Type::i32 } }, {});
+	pFastLookup = gen::Module->function(u8"main_fast_lookup", prototype, wasm::Import{ u8"main" });
+
+	/* add the import to the check-x-write function */
+	prototype = gen::Module->prototype(u8"main_check_invalidated_type", { { u8"address", wasm::Type::i64 } }, {});
+	pCheckXWrite = gen::Module->function(u8"main_check_invalidated", prototype, wasm::Import{ u8"main" });
 
 	/* define the bindings passed to the blocks */
 	for (size_t i = 0; i < size_t(gen::MemoryType::_last); ++i) {
@@ -545,8 +579,10 @@ void gen::detail::MemoryBuilder::setupCoreBody(const wasm::Memory& memory, const
 				codeLookup[codeIndex] = fMakeReadLookup(size, false, static_cast<gen::MemoryType>(i), readPrototype, readWrapper);
 
 			/* setup the write-prototype */
-			wasm::Prototype writePrototype = gen::Module->prototype(str::u8::Build(u8"mem_lookup_write_", i, u8"_type"),
-				{ { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"cache", wasm::Type::i32 }, { u8"value", type } }, {});
+			std::vector<wasm::Param> writeParams{ { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"cache", wasm::Type::i32 }, { u8"value", type } };
+			if (env::Instance()->detectWriteExecute())
+				writeParams.push_back({ u8"inst_size", wasm::Type::i32 });
+			wasm::Prototype writePrototype = gen::Module->prototype(str::u8::Build(u8"mem_lookup_write_", i, u8"_type"), writeParams, {});
 
 			/* create the write-function and add the implementation */
 			state.writes[i] = fMakeWriteLookup(size, static_cast<gen::MemoryType>(i), writePrototype, writeWrapper);
@@ -681,27 +717,27 @@ void gen::detail::MemoryBuilder::setupCoreBody(const wasm::Memory& memory, const
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64);
 		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress);
+		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64);
 		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress);
+		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64);
 		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress);
+		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress);
+		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64);
 		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress);
+		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 
 		/* clear the sink reference */
 		gen::Instance()->setSink(0);
@@ -780,8 +816,11 @@ void gen::detail::MemoryBuilder::setupBlockImports(const wasm::Memory& memory, c
 		/* setup the prototypes */
 		wasm::Prototype readPrototype = gen::Module->prototype(str::u8::Build(u8"mem_lookup_read_", i, u8"_type"),
 			{ { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"cache", wasm::Type::i32 } }, { type });
-		wasm::Prototype writePrototype = gen::Module->prototype(str::u8::Build(u8"mem_lookup_write_", i, u8"_type"),
-			{ { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"cache", wasm::Type::i32 }, { u8"value", type } }, {});
+
+		std::vector<wasm::Param> writeParams{ { u8"address", wasm::Type::i64 }, { u8"access", wasm::Type::i64 }, { u8"cache", wasm::Type::i32 }, { u8"value", type } };
+		if (env::Instance()->detectWriteExecute())
+			writeParams.push_back({ u8"inst_size", wasm::Type::i32 });
+		wasm::Prototype writePrototype = gen::Module->prototype(str::u8::Build(u8"mem_lookup_write_", i, u8"_type"), writeParams, {});
 
 		/* add the imports */
 		state.reads[i] = gen::Module->function(str::u8::Build(u8"mem_lookup_read_", i), readPrototype, wasm::Import{ u8"mem" });

@@ -51,6 +51,7 @@ namespace env {
 		TaskState pTaskState = TaskState::none;
 		bool pBindingsClosed = false;
 		bool pLogBlocks = false;
+		bool pDetectWriteExecute = false;
 
 	public:
 		Process() = default;
@@ -59,7 +60,7 @@ namespace env {
 		~Process() = default;
 
 	private:
-		bool fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks);
+		bool fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks);
 		void fAddBinding(const std::u8string& mod, const std::u8string& name);
 		bool fHandleTask(const std::u8string& task, std::function<void(std::u8string_view, bool)> callback);
 		bool fTaskCompleted(uint32_t process, std::u8string_view response);
@@ -93,5 +94,6 @@ namespace env {
 		uint32_t memoryCaches() const;
 		uint32_t contextSize() const;
 		bool logBlocks() const;
+		bool detectWriteExecute() const;
 	};
 }

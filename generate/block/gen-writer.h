@@ -24,6 +24,7 @@ namespace gen {
 	private:
 		gen::Writer* pWriter = 0;
 		env::guest_t pAddress = 0;
+		env::guest_t pNextAddress = 0;
 		uint32_t pCacheIndex = 0;
 		gen::MemoryType pType = gen::MemoryType::i64;
 		Operation pOperation = Operation::none;
@@ -32,7 +33,7 @@ namespace gen {
 		FulFill() = default;
 
 	private:
-		FulFill(gen::Writer* writer, env::guest_t address, uint32_t cacheIndex, gen::MemoryType type, Operation operation);
+		FulFill(gen::Writer* writer, env::guest_t address, env::guest_t nextAddress, uint32_t cacheIndex, gen::MemoryType type, Operation operation);
 
 	public:
 		/* expects value on top of stack */
@@ -85,7 +86,7 @@ namespace gen {
 		/* expects [i64] address on top of stack and after the value has been pushed [fulfill::now] to be called
 		*	Note: generated code may abort the control-flow (not the now-call)
 		*	Note: pushes an i32 to the stack */
-		gen::FulFill write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress);
+		gen::FulFill write(uint32_t cacheIndex, gen::MemoryType type, env::guest_t instAddress, env::guest_t nextAddress);
 
 		/* writes value from context to stack */
 		void get(uint32_t offset, gen::MemoryType type) const;

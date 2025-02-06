@@ -1,7 +1,7 @@
 #include "../environment.h"
 
-bool env::detail::ProcessAccess::Setup(env::Process& process, std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool logBlocks) {
-	return process.fSetup(std::move(system), pageSize, memoryCaches, contextSize, logBlocks);
+bool env::detail::ProcessAccess::Setup(env::Process& process, std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks) {
+	return process.fSetup(std::move(system), pageSize, memoryCaches, contextSize, detectWriteExecute, logBlocks);
 }
 uint64_t env::detail::ProcessAccess::PhysicalPages() {
 	return env::Instance()->pPhysicalPages;
