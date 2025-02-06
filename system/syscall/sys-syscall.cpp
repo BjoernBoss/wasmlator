@@ -85,6 +85,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall mmap(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#010x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8", ", int64_t(args.args[4]), u8", ", args.args[5], u8')');
 		return pMemory.mmap(args.args[0], args.args[1], uint32_t(args.args[2]), uint32_t(args.args[3]), args.args[4], args.args[5]);
 	}
+	case sys::SyscallIndex::mprotect: {
+		logger.debug(u8"Syscall mprotect(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#010x", args.args[1] }, u8", ", args.args[2], u8')');
+		return pMemory.mprotect(args.args[0], args.args[1], uint32_t(args.args[2]));
+	}
 	case sys::SyscallIndex::uname: {
 		logger.debug(u8"Syscall uname(", str::As{ U"#018x", args.args[0] }, u8')');
 		return fHandleUName(args.args[0]);

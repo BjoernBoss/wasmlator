@@ -159,6 +159,7 @@ namespace sys {
 		write,
 		writev,
 		mmap,
+		mprotect,
 		readlinkat,
 		readlink,
 		fstat,

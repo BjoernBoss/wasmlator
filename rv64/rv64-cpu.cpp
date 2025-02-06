@@ -209,6 +209,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 222:
 		call.index = sys::SyscallIndex::mmap;
 		break;
+	case 226:
+		call.index = sys::SyscallIndex::mprotect;
+		break;
 	case 439:
 		call.index = sys::SyscallIndex::faccessat2;
 		break;

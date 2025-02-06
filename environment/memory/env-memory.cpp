@@ -163,7 +163,7 @@ void env::Memory::fCheckConsistency() const {
 		/* validate the slot itself */
 		if (virt.size == 0 || fPageOffset(virt.size) != 0)
 			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] size is invalid");
-		if ((totalVirtUsed > 0 && virtLastUsage == virt.usage && virtAddress == address) || virt.usage == 0)
+		if (totalVirtUsed > 0 && virtLastUsage == virt.usage && virtAddress == address)
 			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] usage is invalid");
 		if (virtAddress > address)
 			logger.fatal(u8"Virtual slot [", str::As{ U"#018x", address }, u8"] address is invalid");

@@ -60,5 +60,6 @@ namespace sys::detail {
 		bool setup(detail::Syscall* syscall, env::guest_t endOfData);
 		int64_t brk(env::guest_t address);
 		int64_t mmap(env::guest_t address, uint64_t length, uint32_t protect, uint32_t flags, int64_t fd, uint64_t offset);
+		int64_t mprotect(env::guest_t address, uint64_t length, uint32_t protect);
 	};
 }

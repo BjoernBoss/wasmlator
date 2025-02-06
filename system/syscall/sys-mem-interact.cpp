@@ -199,7 +199,7 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 
 	/* check if the file should be shared (not supported for-now) */
 	if (shared) {
-		logger.error(u8"MMap trying to share mapped file");
+		logger.error(u8"MMap trying to share mapped file - also not verified in mprotect");
 		return errCode::eNoDevice;
 	}
 
@@ -237,4 +237,31 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 			return allocated;
 			});
 		});
+}
+int64_t sys::detail::MemoryInteract::mprotect(env::guest_t address, uint64_t length, uint32_t protect) {
+	/* check if all flags are supported */
+	if ((protect & ~consts::mmProtMask) != 0)
+		logger.fatal(u8"Unknown protection used in mprotect");
+
+	/* check if nothing needs to be done */
+	if (length == 0)
+		return errCode::eSuccess;
+
+	/* validate the parameter */
+	if (fPageOffset(address) != 0)
+		return errCode::eInvalid;
+
+	/* map the protection to usage */
+	uint32_t usage = 0;
+	if (detail::IsSet(protect, consts::mmProtRead))
+		usage |= env::Usage::Read;
+	if (detail::IsSet(protect, consts::mmProtWrite))
+		usage |= env::Usage::Write;
+	if (detail::IsSet(protect, consts::mmProtExec))
+		usage |= env::Usage::Execute;
+
+	/* perform the memory operation */
+	if (!env::Instance()->memory().mprotect(address, fPageAlignUp(length), usage))
+		return errCode::eNoMemory;
+	return errCode::eSuccess;
 }
