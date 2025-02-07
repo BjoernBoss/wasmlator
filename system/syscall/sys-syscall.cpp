@@ -33,7 +33,7 @@ void sys::detail::Syscall::fWrap(bool inplace, std::function<int64_t()> callback
 	*	thrown from outside, as they will otherwise be passed out of the application) */
 	if (pCurrent.nested > 0 || !pCurrent.completed) {
 		if (inplace)
-			throw detail::AwaitingSyscall{ pCurrent.next };
+			throw detail::AwaitingSyscall{};
 		return;
 	}
 
@@ -41,15 +41,14 @@ void sys::detail::Syscall::fWrap(bool inplace, std::function<int64_t()> callback
 	logger.debug(u8"result: ", str::As{ U"#018x", pCurrent.result });
 	pUserspace->cpu()->syscallSetResult(pCurrent.result);
 
-	/* check if this is not in-place execution, in which case the execution needs to be restarted at the
-	*	next address (pc will already have been set by at least one await-syscall exception being thrown) */
+	/* check if this is not in-place execution, in which case the execution needs to be continued in this call */
 	if (!inplace) {
 		pUserspace->execute();
 		return;
 	}
 
 	/* perform the check if the execution can continue at the next address (will also check for memory-invalidations) */
-	pUserspace->checkContinue(pCurrent.next);
+	pUserspace->checkContinue();
 }
 int64_t sys::detail::Syscall::fDispatch() {
 	sys::SyscallArgs args = pUserspace->cpu()->syscallGetArgs();
@@ -215,9 +214,11 @@ bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfDa
 	return true;
 }
 void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress) {
+	/* update the pc to already point to the next address */
+	pUserspace->setPC(nextAddress);
+
 	/* setup the new syscall */
 	pCurrent.address = address;
-	pCurrent.next = nextAddress;
 	pCurrent.completed = false;
 	pCurrent.nested = 0;
 
@@ -232,7 +233,7 @@ sys::detail::FileIO& sys::detail::Syscall::files() {
 	return pFileIO;
 }
 int64_t sys::detail::Syscall::callIncomplete() {
-	throw detail::AwaitingSyscall{ pCurrent.next };
+	throw detail::AwaitingSyscall{};
 }
 void sys::detail::Syscall::callContinue(std::function<int64_t()> callback) {
 	fWrap(false, callback);

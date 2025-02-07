@@ -4,10 +4,7 @@
 
 namespace sys {
 	namespace detail {
-		struct DebuggerHalt : public env::Exception {
-		public:
-			DebuggerHalt(env::guest_t address) : env::Exception{ address } {}
-		};
+		struct DebuggerHalt {};
 	}
 
 	class Debugger {

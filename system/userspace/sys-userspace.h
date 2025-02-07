@@ -64,6 +64,6 @@ namespace sys {
 		env::guest_t getPC() const;
 		void setPC(env::guest_t address);
 		void execute();
-		void checkContinue(env::guest_t address);
+		void checkContinue();
 	};
 }

@@ -53,26 +53,25 @@ namespace sys {
 			static constexpr int64_t eUnknown = -0xffff;
 		}
 
-		struct CpuException : public env::Exception {
+		struct CpuException {
 		public:
+			env::guest_t address = 0;
 			uint64_t id = 0;
 
 		public:
-			CpuException(env::guest_t address, uint64_t id) : env::Exception{ address }, id{ id } {}
+			CpuException(env::guest_t address, uint64_t id) : address{ address }, id{ id } {}
 		};
 
-		struct UnknownSyscall : public env::Exception {
+		struct UnknownSyscall {
 		public:
+			env::guest_t address = 0;
 			uint64_t index = 0;
 
 		public:
-			UnknownSyscall(env::guest_t address, uint64_t index) : env::Exception{ address }, index{ index } {}
+			UnknownSyscall(env::guest_t address, uint64_t index) : address{ address }, index{ index } {}
 		};
 
-		struct AwaitingSyscall : public env::Exception {
-		public:
-			AwaitingSyscall(env::guest_t address) : env::Exception{ address } {}
-		};
+		struct AwaitingSyscall {};
 	}
 
 	/* assumptions about structures and enums made by the userspace-environment */

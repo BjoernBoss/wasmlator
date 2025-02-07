@@ -301,13 +301,11 @@ void sys::Userspace::fExecute() {
 		pAddress = e.address;
 		logger.fatal(u8"Unknown syscall caught: [", str::As{ U"#018x", e.address }, u8"] - [Index: ", e.index, u8']');
 	}
-	catch (const detail::AwaitingSyscall& e) {
-		pAddress = e.address;
-		logger.trace(u8"Awaiting syscall result from [", str::As{ U"#018x", e.address }, u8']');
+	catch (const detail::AwaitingSyscall&) {
+		logger.trace(u8"Awaiting syscall result at [", str::As{ U"#018x", pAddress }, u8']');
 	}
-	catch (const detail::DebuggerHalt& e) {
-		pAddress = e.address;
-		logger.trace(u8"Debugger halted at: [", str::As{ U"#018x", e.address }, u8']');
+	catch (const detail::DebuggerHalt&) {
+		logger.trace(u8"Debugger halted at [", str::As{ U"#018x", pAddress }, u8']');
 	}
 
 	/* will onlybe reached through: New block being generated, DebuggerHalt, AwaitingSyscall */
@@ -435,7 +433,6 @@ void sys::Userspace::setPC(env::guest_t address) {
 void sys::Userspace::execute() {
 	fExecute();
 }
-void sys::Userspace::checkContinue(env::guest_t address) {
-	pAddress = address;
+void sys::Userspace::checkContinue() {
 	fCheckContinue();
 }

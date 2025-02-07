@@ -40,7 +40,6 @@ namespace sys::detail {
 		detail::MemoryInteract pMemory;
 		struct {
 			env::guest_t address = 0;
-			env::guest_t next = 0;
 			size_t nested = 0;
 			int64_t result = 0;
 			bool completed = false;

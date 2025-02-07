@@ -40,12 +40,12 @@ void sys::Debugger::fHalted(env::guest_t address) {
 	/* reset the debugger */
 	pMode = Mode::none;
 	pCount = 0;
-
-	/* print common halting information (set the pc beforehand, as it is used by the printing) */
 	pUserspace->setPC(address);
+
+	/* print common halting information */
 	fPrintCommon();
 
-	throw detail::DebuggerHalt{ address };
+	throw detail::DebuggerHalt{};
 }
 void sys::Debugger::fPrintCommon() const {
 	printState();
