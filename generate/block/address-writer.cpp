@@ -20,12 +20,6 @@ void gen::detail::AddressWriter::fCallLandingPad(env::guest_t nextAddress) {
 }
 
 void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nextAddress) {
-	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (gen::Instance()->singleStep()) {
-		gen::Add[I::U64::Const(address)];
-		gen::Add[I::Return()];
-		return;
-	}
 	detail::PlaceAddress target = pHost.pushLocal(address);
 
 	/* check if an immediate call can be added */
@@ -65,23 +59,11 @@ void gen::detail::AddressWriter::makeCall(env::guest_t address, env::guest_t nex
 	fCallLandingPad(nextAddress);
 }
 void gen::detail::AddressWriter::makeCallIndirect(env::guest_t nextAddress) {
-	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (gen::Instance()->singleStep()) {
-		gen::Add[I::Return()];
-		return;
-	}
-
 	/* add the normal indirect call and corresponding landing-pad (to validate the return-address)  */
 	pMapping.makeDirectInvoke();
 	fCallLandingPad(nextAddress);
 }
 void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
-	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (gen::Instance()->singleStep()) {
-		gen::Add[I::U64::Const(address)];
-		gen::Add[I::Return()];
-		return;
-	}
 	detail::PlaceAddress target = pHost.pushLocal(address);
 
 	/* check if an immediate tail-call can be added */
@@ -117,22 +99,10 @@ void gen::detail::AddressWriter::makeJump(env::guest_t address) const {
 	gen::Add[I::Call::IndirectTail(pHost.addresses(), pMapping.blockPrototype())];
 }
 void gen::detail::AddressWriter::makeJumpIndirect() const {
-	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (gen::Instance()->singleStep()) {
-		gen::Add[I::Return()];
-		return;
-	}
-
 	/* add the indirect jump to the target */
 	pMapping.makeTailInvoke();
 }
 void gen::detail::AddressWriter::makeReturn() const {
-	/* check if the execution is in single-step mode, and simply add a step to the next address */
-	if (gen::Instance()->singleStep()) {
-		gen::Add[I::Return()];
-		return;
-	}
-
 	/* add the direct return, which will ensure a validation of the target address */
 	gen::Add[I::Return()];
 }

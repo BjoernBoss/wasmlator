@@ -15,6 +15,8 @@ namespace gen {
 		struct BlockState {
 			uint32_t blockCallbackId = 0;
 			uint32_t chunkCallbackId = 0;
+			uint32_t instCallbackId = 0;
+			uint32_t debugCheckCallbackId = 0;
 		};
 
 		struct BlockAccess {

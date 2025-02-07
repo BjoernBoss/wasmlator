@@ -3,6 +3,13 @@
 #include "../sys-common.h"
 
 namespace sys {
+	namespace detail {
+		struct DebuggerHalt : public env::Exception {
+		public:
+			DebuggerHalt(env::guest_t address) : env::Exception{ address } {}
+		};
+	}
+
 	class Debugger {
 		friend class sys::Userspace;
 	private:
@@ -26,10 +33,11 @@ namespace sys {
 		Debugger(const sys::Debugger&) = delete;
 
 	private:
-		bool fActive() const;
 		bool fSetup(sys::Userspace* userspace);
-		bool fAdvance(env::guest_t address);
-		void fHalted();
+		void fCheck(env::guest_t address);
+
+	private:
+		void fHalted(env::guest_t address);
 
 	public:
 		void step(size_t count);

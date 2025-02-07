@@ -45,7 +45,7 @@ namespace env {
 		void fBlockExports(const std::vector<env::BlockExport>& exports);
 
 	public:
-		env::guest_t execute(env::guest_t address);
+		void execute(env::guest_t address);
 		bool contains(env::guest_t address) const;
 		void flush();
 	};

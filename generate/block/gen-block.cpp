@@ -4,16 +4,27 @@
 static util::Logger logger{ u8"gen::block" };
 
 bool gen::detail::BlockAccess::Setup(detail::BlockState& state) {
-	if (!gen::Instance()->trace())
-		return true;
-	state.blockCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
-		logger.debug(u8"Entering Block [", str::As{ U"#018x", addr }, u8']');
-		return 0;
-		});
-	state.chunkCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
-		logger.debug(u8"Chunk Trace [", str::As{ U"#018x", addr }, u8']');
-		return 0;
-		});
+	if (gen::Instance()->trace() != gen::TraceType::none) {
+		state.blockCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
+			logger.debug(u8"Entering Block [", str::As{ U"#018x", addr }, u8']');
+			return 0;
+			});
+		state.chunkCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
+			logger.debug(u8"Chunk Trace [", str::As{ U"#018x", addr }, u8']');
+			return 0;
+			});
+		state.instCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
+			logger.debug(u8"Trace [", str::As{ U"#018x", addr }, u8']');
+			return 0;
+			});
+	}
+
+	if (gen::Instance()->debugCheck()) {
+		state.debugCheckCallbackId = env::Instance()->interact().defineCallback([](uint64_t addr) -> uint64_t {
+			detail::GeneratorAccess::DebugCheck(addr);
+			return 0;
+			});
+	}
 	return true;
 }
 
@@ -55,7 +66,7 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	detail::GeneratorAccess::SetWriter(&writer);
 
 	/* check if block-tracing is enabled */
-	if (gen::Instance()->trace()) {
+	if (gen::Instance()->trace() != gen::TraceType::none) {
 		gen::Add[I::U64::Const(next.address)];
 		gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->blockCallbackId);
 		gen::Add[I::Drop()];
@@ -84,19 +95,43 @@ void gen::Block::fProcess(const detail::OpenAddress& next) {
 	block.setupRanges();
 
 	/* iterate over the chunks of the super-block and produce them */
-	while (block.next()) {
+	bool singleInstructions = (gen::Instance()->debugCheck() || gen::Instance()->trace() == gen::TraceType::instruction);
+	while (block.next(singleInstructions)) {
 		env::guest_t address = block.chunkStart();
 
-		/* check if chunk-tracing is enabled */
-		if (gen::Instance()->trace()) {
+		/* add the debug-check stub */
+		if (gen::Instance()->debugCheck()) {
+			gen::Add[I::U64::Const(address)];
+			gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->debugCheckCallbackId);
+			gen::Add[I::Drop()];
+		}
+
+		/* check if chunk-tracing or instruction tracing is enabled */
+		if (gen::Instance()->trace() == gen::TraceType::chunk || gen::Instance()->trace() == gen::TraceType::instruction) {
 			gen::Add[I::U64::Const(address)];
 			gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->chunkCallbackId);
 			gen::Add[I::Drop()];
 		}
+		if (gen::Instance()->trace() == gen::TraceType::instruction) {
+			gen::Add[I::U64::Const(address)];
+			gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->instCallbackId);
+			gen::Add[I::Drop()];
+		}
 
+		/* produce the actual instructions of the chunk */
 		const std::vector<uintptr_t>& chunk = block.chunk();
 		detail::GeneratorAccess::Get()->produce(address, chunk.data(), chunk.size());
 	}
+
+	/* add final debug-check stub */
+	if (gen::Instance()->debugCheck()) {
+		gen::Add[I::U64::Const(block.chunkStart())];
+		gen::Make->invokeParam(detail::GeneratorAccess::GetBlock()->debugCheckCallbackId);
+		gen::Add[I::Drop()];
+	}
+
+	/* finalize the generated block */
+	block.finalize();
 
 	/* notify the interface about the completed block */
 	detail::GeneratorAccess::Get()->completed();

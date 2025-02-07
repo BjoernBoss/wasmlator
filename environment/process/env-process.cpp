@@ -54,11 +54,11 @@ bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSi
 	}
 
 	/* log the generation-configuration */
-	logger.info(u8"  Page Size      : ", str::As{ U"#x", pPageSize });
-	logger.info(u8"  Memory Caches  : ", pMemoryCaches);
-	logger.info(u8"  Context Size   : ", pContextSize);
-	logger.info(u8"  Detect Write-X : ", str::As{ U"S", pDetectWriteExecute });
-	logger.info(u8"  Log Blocks     : ", str::As{ U"S", pLogBlocks });
+	logger.info(u8"  Page Size     : ", str::As{ U"#x", pPageSize });
+	logger.info(u8"  Memory Caches : ", pMemoryCaches);
+	logger.info(u8"  Context Size  : ", pContextSize);
+	logger.info(u8"  Detect Write-X: ", str::As{ U"S", pDetectWriteExecute });
+	logger.info(u8"  Log Blocks    : ", str::As{ U"S", pLogBlocks });
 
 	/* initialize the components */
 	uintptr_t endOfMemory = 0;

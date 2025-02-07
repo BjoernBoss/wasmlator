@@ -113,28 +113,6 @@ void gen::detail::SuperBlock::fConflictCluster(std::set<detail::InstRange>& set,
 	pRanges.insert(detail::InstRange{ first, last, detail::RangeType::backwards });
 }
 
-void gen::detail::SuperBlock::fFinalizeBlock(bool lastAndInvalid) {
-	pStack.clear();
-
-	/* check if the not-decodable/not-readable stub needs to be added */
-	if (lastAndInvalid) {
-		if (pList[pIndex].readFailure)
-			pContext.makeNotReadable(pNextAddress);
-		else
-			pContext.makeNotDecodable(pNextAddress);
-		gen::Add[I::Unreachable()];
-	}
-
-	/* add the single-step-handler */
-	else if (gen::Instance()->singleStep())
-		gen::Add[I::U64::Const(pNextAddress)];
-
-	/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued */
-	else {
-		pContext.makeNotReachable(pNextAddress);
-		gen::Add[I::Unreachable()];
-	}
-}
 void gen::detail::SuperBlock::fPrepareStack() {
 	/* pop all closed ranges */
 	while (!pStack.empty() && pIndex > pStack.back().last)
@@ -261,7 +239,14 @@ void gen::detail::SuperBlock::fPrepareStack() {
 		gen::Add[I::Branch::Table(targets, _default)];
 	}
 }
-void gen::detail::SuperBlock::fPrepareChunk() {
+void gen::detail::SuperBlock::fPrepareChunk(bool single) {
+	/* check if only a single instruction is to be produced */
+	if (single) {
+		pCurrentChunk = pList[pIndex].address;
+		pChunk.push_back(pList[pIndex++].self);
+		return;
+	}
+
 	/* extract the number of instructions until the next range either needs to start or has to be closed */
 	size_t last = pList.size() - 1;
 	if (!pStack.empty() && pStack.back().last < last)
@@ -269,8 +254,8 @@ void gen::detail::SuperBlock::fPrepareChunk() {
 	if (pIt != pRanges.end() && pIt->first <= last)
 		last = pIt->first - 1;
 
-	/* check if the chunk contains a potential last un-decodable instruction, and remove it from this chunk (cannot
-	*	be the only instruction, as the header-guard of this function would otherwise already have caught it) */
+	/* check if the chunk contains a potential last un-decodable instruction, and remove it from this chunk
+	*	(cannot be the only instruction, as the chunk would otherwise not have been produced at all) */
 	if (last + 1 == pList.size() && pList.back().invalid)
 		--last;
 
@@ -302,8 +287,6 @@ bool gen::detail::SuperBlock::push(const gen::Instruction& inst) {
 	pNextAddress += inst.size;
 
 	/* check if the current strand can be continued or if the overall super-block is considered closed */
-	if (gen::Instance()->singleStep())
-		return false;
 	if (inst.type != gen::InstType::endOfBlock && inst.type != gen::InstType::jumpDirect)
 		return true;
 
@@ -334,13 +317,6 @@ void gen::detail::SuperBlock::readFailure() {
 	logger.debug(u8"Unable read memory for instruction [", str::As{ U"#018x", pNextAddress }, u8']');
 }
 void gen::detail::SuperBlock::setupRanges() {
-	/* check if this is single-step mode, in which case the iterators can just be reset */
-	if (gen::Instance()->singleStep()) {
-		pIndex = 0;
-		pIt = pRanges.begin();
-		return;
-	}
-
 	/* create the set of jump-ranges */
 	std::set<detail::InstRange> raw = fSetupRanges();
 
@@ -405,14 +381,13 @@ gen::detail::InstTarget gen::detail::SuperBlock::lookup(env::guest_t target) con
 		return { 0, 0, false };
 	return{ &pStack[pTargets[index].stack].target, pTargets[index].index, pTargets[index].conditional };
 }
-bool gen::detail::SuperBlock::next() {
+bool gen::detail::SuperBlock::next(bool single) {
 	pChunk.clear();
 
 	/* check if the end has been reached (either because only one remaining invalid instruction has been encountered or because
 	*	all chunks have been processed; block cannot be empty, as at least one push will occur before any chunks are fetched) */
-	bool lastAndInvalid = (pIndex < pList.size() && pList[pIndex].invalid);
-	if (lastAndInvalid || pIndex >= pList.size()) {
-		fFinalizeBlock(lastAndInvalid);
+	if ((pIndex < pList.size() && pList[pIndex].invalid) || pIndex >= pList.size()) {
+		pCurrentChunk = pNextAddress;
 		return false;
 	}
 
@@ -420,8 +395,26 @@ bool gen::detail::SuperBlock::next() {
 	fPrepareStack();
 
 	/* setup the next chunk of instructions until the next range needs to be opened or closed */
-	fPrepareChunk();
+	fPrepareChunk(single);
 	return true;
+}
+void gen::detail::SuperBlock::finalize() {
+	pStack.clear();
+
+	/* check if the not-decodable/not-readable stub needs to be added */
+	if (pIndex < pList.size() && pList[pIndex].invalid) {
+		if (pList[pIndex].readFailure)
+			pContext.makeNotReadable(pNextAddress);
+		else
+			pContext.makeNotDecodable(pNextAddress);
+		gen::Add[I::Unreachable()];
+	}
+
+	/* add the not-reachable stub, as this address should never be reached as the super-block would otherwise have been continued */
+	else {
+		pContext.makeNotReachable(pNextAddress);
+		gen::Add[I::Unreachable()];
+	}
 }
 const std::vector<uintptr_t>& gen::detail::SuperBlock::chunk() const {
 	return pChunk;

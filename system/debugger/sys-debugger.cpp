@@ -3,43 +3,43 @@
 static util::Logger logger{ u8"sys::debugger" };
 static util::Logger outLog{ u8"" };
 
-bool sys::Debugger::fActive() const {
-	return (pMode != Mode::disabled);
-}
 bool sys::Debugger::fSetup(sys::Userspace* userspace) {
 	pUserspace = userspace;
 	pRegisters = pUserspace->cpu()->debugQueryNames();
 	pMode = Mode::none;
 	return true;
 }
-bool sys::Debugger::fAdvance(env::guest_t address) {
+void sys::Debugger::fCheck(env::guest_t address) {
 	if (pMode == Mode::disabled)
-		return true;
+		return;
 
 	/* check if a breakpoint has been hit */
 	if (pBreakPoints.contains(address)) {
-		fHalted();
-		return false;
+		fHalted(address);
+		return;
 	}
 
 	/* check if the current mode is considered done */
 	switch (pMode) {
 	case Mode::step:
-		if (--pCount > 0)
-			return true;
+		if (pCount > 0) {
+			--pCount;
+			return;
+		}
 		break;
 	case Mode::run:
-		return true;
+		return;
 	default:
 		break;
 	}
 
 	/* mark the debugger as halted */
-	fHalted();
-	return false;
+	fHalted(address);
 }
-void sys::Debugger::fHalted() {
+
+void sys::Debugger::fHalted(env::guest_t address) {
 	pMode = Mode::none;
+	throw detail::DebuggerHalt{ address };
 }
 
 void sys::Debugger::step(size_t count) {

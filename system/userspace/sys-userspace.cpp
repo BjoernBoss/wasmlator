@@ -249,10 +249,8 @@ bool sys::Userspace::fLoadCompleted() {
 	/* log the system as fully loaded */
 	logger.log(u8"Userspace environment fully initialized");
 
-	/* check if this is debug-mode, in which case no block needs to be translated
-	*	yet, otherwise immediately startup the translation and execution */
-	if (!pDebugger.fActive())
-		env::Instance()->startNewBlock();
+	/* startup the translation and execution of the blocks */
+	env::Instance()->startNewBlock();
 	return true;
 }
 
@@ -261,17 +259,11 @@ void sys::Userspace::fCheckContinue() const {
 	env::Instance()->memory().checkXInvalidated(pAddress);
 }
 void sys::Userspace::fExecute() {
-	bool executionContinued = false;
-
 	/* start execution of the next address and catch/handle any incoming exceptions */
 	try {
-		/* check if the execution can simply continue */
+		/* check if the execution can simply continue and execute the next address */
 		fCheckContinue();
-		executionContinued = true;
-
-		do {
-			pAddress = env::Instance()->mapping().execute(pAddress);
-		} while (pDebugger.fAdvance(pAddress));
+		env::Instance()->mapping().execute(pAddress);
 	}
 	catch (const env::Terminated& e) {
 		pAddress = e.address;
@@ -292,18 +284,14 @@ void sys::Userspace::fExecute() {
 	}
 	catch (const env::Translate& e) {
 		pAddress = e.address;
-		if (!pDebugger.fActive())
-			logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
+		logger.debug(u8"Translate caught: [", str::As{ U"#018x", e.address }, u8']');
 		env::Instance()->startNewBlock();
 	}
 	catch (const env::ExecuteDirty& e) {
 		pAddress = e.address;
 		logger.debug(u8"Flushing instruction cache");
 		env::Instance()->mapping().flush();
-
-		/* check if the execution should halt */
-		if (!executionContinued || pDebugger.fAdvance(pAddress))
-			env::Instance()->startNewBlock();
+		env::Instance()->startNewBlock();
 	}
 	catch (const detail::CpuException& e) {
 		pAddress = e.address;
@@ -317,16 +305,22 @@ void sys::Userspace::fExecute() {
 		pAddress = e.address;
 		logger.trace(u8"Awaiting syscall result from [", str::As{ U"#018x", e.address }, u8']');
 	}
+	catch (const detail::DebuggerHalt& e) {
+		pAddress = e.address;
+		logger.trace(u8"Debugger halted at: [", str::As{ U"#018x", e.address }, u8']');
+	}
+
+	/* will onlybe reached through: New block being generated, DebuggerHalt, AwaitingSyscall */
 }
 
-bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger) {
+bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, gen::TraceType trace, sys::Debugger** debugger) {
 	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
 
 	/* log the configuration */
 	logger.info(u8"  Cpu         : [", cpu->name(), u8']');
 	logger.info(u8"  Debug       : ", str::As{ U"S", (debugger != 0) });
 	logger.info(u8"  Log Blocks  : ", str::As{ U"S", logBlocks });
-	logger.info(u8"  Trace Blocks: ", str::As{ U"S", traceBlocks });
+	logger.info(u8"  Trace Blocks: ", trace);
 	logger.info(u8"  Binary      : ", binary);
 	logger.info(u8"  Arguments   : ", args.size());
 	for (size_t i = 0; i < args.size(); ++i)
@@ -358,21 +352,23 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string
 
 	/* check if the debugger could be created */
 	sys::Debugger* debugObject = 0;
+	std::function<void(env::guest_t)> debugCheck;
 	if (debugger != 0) {
-		if (system->pDebugger.fSetup(system.get())) {
-			logger.info(u8"Debugger attached successfully");
-			debugObject = &system->pDebugger;
+		/* setup the debugger itself */
+		if (!system->pDebugger.fSetup(system.get())) {
+			logger.error(u8"Failed to attach debugger");
+			return false;
 		}
-		else {
-			logger.warn(u8"Failed to attach debugger");
-			*debugger = 0;
-			debugger = 0;
-		}
+		logger.info(u8"Debugger attached successfully");
+		debugObject = &system->pDebugger;
+
+		/* setup the debug-check function */
+		debugCheck = [debugObject](env::guest_t address) { debugObject->fCheck(address); };
 	}
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
 	bool detectWriteExecute = cpu->detectWriteExecute();
-	if (!gen::SetInstance(std::move(cpu), Userspace::TranslationDepth, (debugger != 0), traceBlocks))
+	if (!gen::SetInstance(std::move(cpu), Userspace::TranslationDepth, trace, debugCheck))
 		return false;
 	if (!env::SetInstance(std::move(system), Userspace::PageSize, caches, context, detectWriteExecute, logBlocks)) {
 		gen::ClearInstance();

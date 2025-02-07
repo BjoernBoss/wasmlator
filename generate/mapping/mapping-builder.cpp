@@ -5,7 +5,7 @@
 void gen::detail::MappingBuilder::setupGlueMappings(detail::GlueState& glue) {
 	glue.define(u8"map_reserve", { { u8"exports", wasm::Type::i32 } }, { wasm::Type::i32 });
 	glue.define(u8"map_define", { { u8"name", wasm::Type::i32 }, { u8"size", wasm::Type::i32 }, { u8"address", wasm::Type::i64 } }, { wasm::Type::i32 });
-	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
+	glue.define(u8"map_execute", { { u8"address", wasm::Type::i64 } }, {});
 	glue.define(u8"map_flush", {}, {});
 }
 void gen::detail::MappingBuilder::setupCoreImports() {
@@ -123,36 +123,23 @@ void gen::detail::MappingBuilder::setupCoreBody(const wasm::Memory& memory) cons
 
 	/* add the blocks-execute function */
 	{
-		wasm::Prototype prototype = gen::Module->prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, { wasm::Type::i64 });
+		wasm::Prototype prototype = gen::Module->prototype(u8"map_execute_type", { { u8"address", wasm::Type::i64 } }, {});
 		wasm::Sink sink{ gen::Module->function(u8"map_execute", prototype, wasm::Export{}) };
 
 		sink[I::Param::Get(0)];
 
-		/* check if this is single-step mode, in which case only the single block
-		*	needs to be executed, and otherwise loop until an exception is thrown */
-		if (gen::Instance()->singleStep()) {
+		/* simply perform the lookup and execution until until an exception automatically exists the loop */
+		wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
 
-			/* perform the lookup of the address (will either find the index, or throw an exception) */
-			sink[I::Call::Direct(state.lookup)];
+		/* perform the lookup of the address (will either find the index, or throw an exception) */
+		sink[I::Call::Direct(state.lookup)];
 
-			/* execute the address */
-			sink[I::Call::IndirectTail(state.functions, pBlockPrototype)];
-		}
-		else {
-			/* simply perform the lookup and execution until until an exception automatically exists the loop */
-			wasm::Loop _loop{ sink, u8"exec_loop", { wasm::Type::i64 }, {} };
+		/* execute the address */
+		sink[I::Call::Indirect(state.functions, pBlockPrototype)];
 
-			/* perform the lookup of the address (will either find the index, or throw an exception) */
-			sink[I::Call::Direct(state.lookup)];
-
-			/* execute the address */
-			sink[I::Call::Indirect(state.functions, pBlockPrototype)];
-
-			/* loop back to the start of the loop (add unreachable, as loop is only exited via exceptions) */
-			sink[I::Branch::Direct(_loop)];
-			_loop.close();
-			sink[I::Unreachable()];
-		}
+		/* loop back to the start of the loop (loop is only exited via exceptions) */
+		sink[I::Branch::Direct(_loop)];
+		_loop.close();
 	}
 
 	/* add the flush-blocks function */

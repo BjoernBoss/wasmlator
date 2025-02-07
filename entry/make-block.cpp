@@ -20,7 +20,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 int main(int argc, char** argv) {
 	util::SetLogLevel(util::LogLevel::fatal);
 	env::SetInstance(std::make_unique<NullSystem>(), 0x1000, 1, 1, true, false);
-	gen::SetInstance(std::make_unique<NullTranslator>(), 1, false, false);
+	gen::SetInstance(std::make_unique<NullTranslator>(), 1, gen::TraceType::none, {});
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };

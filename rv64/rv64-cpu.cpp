@@ -36,7 +36,7 @@ rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
 	rv64::Instruction inst = fFetchRaw(address);
 
 	/* check if it might be a pseudo-instruction */
-	rv64::DetectPseudo pseudo{ !gen::Instance()->singleStep() };
+	rv64::DetectPseudo pseudo{ !gen::Instance()->debugCheck() };
 	try {
 		while (pseudo.next(inst))
 			inst = fFetchRaw(address += inst.size);

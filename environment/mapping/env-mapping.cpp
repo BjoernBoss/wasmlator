@@ -70,9 +70,9 @@ void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 	}
 }
 
-env::guest_t env::Mapping::execute(env::guest_t address) {
+void env::Mapping::execute(env::guest_t address) {
 	logger.debug(u8"Executing [", str::As{ U"#018x", address }, u8']');
-	return detail::MappingBridge::Execute(address);
+	detail::MappingBridge::Execute(address);
 }
 bool env::Mapping::contains(env::guest_t address) const {
 	return (pMapping.find(address) != pMapping.end());

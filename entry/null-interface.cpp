@@ -27,7 +27,7 @@ void proc_block_imports_commit(uint32_t null) {}
 
 uint32_t map_reserve(uint32_t exports) { return 1; }
 uint32_t map_define(const char8_t* name, uint32_t size, uint64_t address) { return {}; }
-uint64_t map_execute(uint64_t address) { return {}; }
+void map_execute(uint64_t address) {}
 void map_flush() {}
 
 static std::vector<uint8_t> memory = std::vector<uint8_t>(env::detail::PhysPageSize * env::detail::InitAllocPages);

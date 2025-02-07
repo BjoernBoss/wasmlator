@@ -49,7 +49,7 @@ namespace sys {
 		void fExecute();
 
 	public:
-		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, bool traceBlocks, sys::Debugger** debugger);
+		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, gen::TraceType trace, sys::Debugger** debugger);
 
 	public:
 		bool setupCore(wasm::Module& mod) final;

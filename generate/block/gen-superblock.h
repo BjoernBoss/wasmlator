@@ -80,9 +80,8 @@ namespace gen::detail {
 		void fConflictCluster(std::set<detail::InstRange>& set, detail::RangeIt begin, detail::RangeIt end, size_t first, size_t last);
 
 	private:
-		void fFinalizeBlock(bool lastAndInvalid);
 		void fPrepareStack();
-		void fPrepareChunk();
+		void fPrepareChunk(bool single);
 
 	public:
 		bool push(const gen::Instruction& inst);
@@ -92,7 +91,8 @@ namespace gen::detail {
 
 	public:
 		detail::InstTarget lookup(env::guest_t target) const;
-		bool next();
+		bool next(bool single);
+		void finalize();
 		const std::vector<uintptr_t>& chunk() const;
 		env::guest_t chunkStart() const;
 	};

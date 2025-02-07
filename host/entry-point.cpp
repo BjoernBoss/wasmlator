@@ -224,7 +224,7 @@ void HandleCommand(std::u8string_view cmd) {
 
 		/* try to setup the userspace system */
 		debugger = 0;
-		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace, (debug ? &debugger : 0)))
+		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace ? gen::TraceType::instruction : gen::TraceType::none, (debug ? &debugger : 0)))
 			logger.error(u8"Failed to create process");
 		else
 			logger.log(u8"Process creation completed");
