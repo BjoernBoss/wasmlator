@@ -244,6 +244,10 @@ env::detail::MemVirtIt env::Memory::fVirtMergePrev(detail::MemVirtIt virt) {
 bool env::Memory::fMemExpandPrevious(detail::MemVirtIt prevVirt, uint64_t size, uint32_t usage) {
 	detail::MemPhysIt phys = fLookupPhysical(prevVirt->second.physical);
 
+	/* check if the allocation aligns with the physical block as the physical block is otherwise shared with other virtual mappings */
+	if (fPhysEnd(prevVirt) != fPhysEnd(phys))
+		return false;
+
 	/* check if the next page is already used, in which case no expansion is possible */
 	detail::MemPhysIt next = std::next(phys);
 	if (next != pPhysical.end() && next->second.users > 0)
@@ -299,9 +303,14 @@ bool env::Memory::fMemAllocateIntermediate(detail::MemVirtIt prev, detail::MemVi
 	if (fPhysEnd(prev) + inbetween != next->second.physical)
 		return false;
 
+	/* check if they both lie in the same physical block, in which case the intermediate range must already be allocated */
+	detail::MemPhysIt phys = fLookupPhysical(prev->second.physical);
+	if (fPhysEnd(phys) > next->second.physical)
+		return false;
+
 	/* check if the intermediate physical block is not yet allocated (next block
 	*	must exist, as the upcoming virtual entry is at a higher address) */
-	detail::MemPhysIt phys = std::next(fLookupPhysical(prev->second.physical));
+	++phys;
 	if (phys->second.users > 0 || phys->second.size != inbetween)
 		return false;
 
@@ -356,7 +365,15 @@ uint64_t env::Memory::fMemMergePhysical(detail::MemVirtIt virt, detail::MemPhysI
 	if (physNext != pPhysical.end()) {
 		uint64_t address = fPhysEnd(phys) - physNext->second.size;
 		fMovePhysical(address, physNext->first, physNext->second.size);
-		std::next(virt)->second.physical = address;
+
+		/* patch the physical address of all moved virtual blocks */
+		detail::MemVirtIt it = virt;
+		while (true) {
+			(++it)->second.physical = address;
+			address += it->second.size;
+			if (fPhysEnd(it) == fPhysEnd(phys))
+				break;
+		}
 
 		/* release the orignal physical block (previous users can at most have been one) */
 		physNext->second.users = 0;
@@ -365,8 +382,18 @@ uint64_t env::Memory::fMemMergePhysical(detail::MemVirtIt virt, detail::MemPhysI
 
 	/* move the lower range into place and release the original blocks */
 	if (physPrev != pPhysical.end()) {
+		uint64_t address = phys->first + physPrev->second.size;
 		fMovePhysical(phys->first, physPrev->first, physPrev->second.size);
 		std::prev(virt)->second.physical = phys->first;
+
+		/* patch the physical address of all moved virtual blocks */
+		detail::MemVirtIt it = virt;
+		while (true) {
+			address -= (--it)->second.size;
+			it->second.physical = address;
+			if (address == phys->first)
+				break;
+		}
 
 		/* release the orignal physical block (previous users can at most have been one) */
 		physPrev->second.users = 0;
@@ -434,13 +461,65 @@ bool env::Memory::fMMap(env::guest_t address, uint64_t size, uint32_t usage) {
 		return true;
 	}
 
-	/* lookup the previous and next physical page and check if they can be moved */
+	/* lookup the previous physical page and split it up such that it describes the single contigous block
+	*	of previous virtual memory (upon releasing the moved blocks, they will automatically be merged) */
 	detail::MemPhysIt physPrev = (directPrev ? fLookupPhysical(prev->second.physical) : pPhysical.end());
-	detail::MemPhysIt physNext = (directNext ? fLookupPhysical(next->second.physical) : pPhysical.end());
 	if (physPrev != pPhysical.end() && physPrev->second.users > 1)
 		physPrev = pPhysical.end();
+	if (physPrev != pPhysical.end()) {
+		/* split the physical pages at the upper edge */
+		if (fPhysEnd(physPrev) != fPhysEnd(prev))
+			fPhysSplit(physPrev, fPhysEnd(prev));
+
+		/* find the first virtual page, which is less/equal to prev, and lies contiguous both in virtual and physical memory */
+		detail::MemVirtIt first = prev;
+		while (first != pVirtual.begin()) {
+			detail::MemVirtIt temp = std::prev(first);
+
+			/* check if the next virtual range lies contigous to the current next range */
+			if (fVirtEnd(temp) != first->first)
+				break;
+
+			/* check if it also lies contigous in physical memory */
+			if (fPhysEnd(temp) != first->second.physical || first->second.physical == physPrev->first)
+				break;
+			first = temp;
+		}
+
+		/* split the physical pages at the lower edge */
+		if (first->second.physical != physPrev->first)
+			physPrev = fPhysSplit(physPrev, first->second.physical);
+	}
+
+	/* lookup the next physical page and split it up such that it describes the single contigous block
+	*	of upcoming virtual memory (upon releasing the moved blocks, they will automatically be merged) */
+	detail::MemPhysIt physNext = (directNext ? fLookupPhysical(next->second.physical) : pPhysical.end());
 	if (physNext != pPhysical.end() && physNext->second.users > 1)
 		physNext = pPhysical.end();
+	if (physNext != pPhysical.end()) {
+		/* split the physical pages at the lower edge */
+		if (physNext->first != next->second.physical)
+			physNext = fPhysSplit(physNext, next->second.physical);
+
+		/* find the last virtual page, which is greater/equal to next, and lies contiguous both in virtual and physical memory */
+		detail::MemVirtIt last = next;
+		while (true) {
+			detail::MemVirtIt temp = std::next(last);
+
+			/* check if the next virtual range lies contigous to the current next range */
+			if (temp == pVirtual.end() || temp->first != fVirtEnd(last))
+				break;
+
+			/* check if it also lies contigous in physical memory */
+			if (temp->second.physical != fPhysEnd(last) || fPhysEnd(last) == fPhysEnd(physNext))
+				break;
+			last = temp;
+		}
+
+		/* split the physical pages at the upper edge */
+		if (fPhysEnd(last) != fPhysEnd(physNext))
+			fPhysSplit(physNext, fPhysEnd(last));
+	}
 
 	/* check if the size can be serviced (i.e. size does not overflow) */
 	uint64_t required = (physPrev != pPhysical.end() ? physPrev->second.size : 0) + (physNext != pPhysical.end() ? physNext->second.size : 0);
@@ -673,7 +752,7 @@ bool env::Memory::munmap(env::guest_t address, uint64_t size) {
 	while (begin != end) {
 		uint64_t phAddress = begin->second.physical, phEnd = fPhysEnd(begin);
 
-		/* check if the physical page stil matches or lookup the next proper page */
+		/* check if the physical page still matches or lookup the next proper page */
 		if (phys == pPhysical.end() || phys->first > phAddress || fPhysEnd(phys) < phAddress)
 			phys = fLookupPhysical(phAddress);
 

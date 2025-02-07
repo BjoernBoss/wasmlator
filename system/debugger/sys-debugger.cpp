@@ -14,18 +14,17 @@ void sys::Debugger::fCheck(env::guest_t address) {
 		return;
 
 	/* check if a breakpoint has been hit */
-	if (pBreakPoints.contains(address)) {
+	if (pBreakPoints.contains(address) && !pBreakSkip) {
 		fHalted(address);
 		return;
 	}
+	pBreakSkip = false;
 
 	/* check if the current mode is considered done */
 	switch (pMode) {
 	case Mode::step:
-		if (pCount > 0) {
-			--pCount;
+		if (pCount-- > 0)
 			return;
-		}
 		break;
 	case Mode::run:
 		return;
@@ -38,12 +37,29 @@ void sys::Debugger::fCheck(env::guest_t address) {
 }
 
 void sys::Debugger::fHalted(env::guest_t address) {
+	/* reset the debugger */
 	pMode = Mode::none;
+	pCount = 0;
+
+	/* print common halting information (set the pc beforehand, as it is used by the printing) */
+	pUserspace->setPC(address);
+	fPrintCommon();
+
 	throw detail::DebuggerHalt{ address };
 }
+void sys::Debugger::fPrintCommon() const {
+	printState();
+	printInstructions(10);
+}
 
+void sys::Debugger::run() {
+	pMode = Mode::run;
+	pBreakSkip = true;
+	pUserspace->execute();
+}
 void sys::Debugger::step(size_t count) {
 	pMode = Mode::step;
+	pBreakSkip = true;
 	if ((pCount = count) > 0)
 		pUserspace->execute();
 }
@@ -52,10 +68,6 @@ void sys::Debugger::addBreak(env::guest_t address) {
 }
 void sys::Debugger::dropBreak(env::guest_t address) {
 	pBreakPoints.erase(address);
-}
-void sys::Debugger::run() {
-	pMode = Mode::run;
-	pUserspace->execute();
 }
 
 void sys::Debugger::printState() const {

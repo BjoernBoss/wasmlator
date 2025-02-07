@@ -26,6 +26,7 @@ namespace sys {
 		std::vector<std::u8string> pRegisters;
 		size_t pCount = 0;
 		Mode pMode = Mode::disabled;
+		bool pBreakSkip = false;
 
 	private:
 		Debugger() = default;
@@ -38,12 +39,13 @@ namespace sys {
 
 	private:
 		void fHalted(env::guest_t address);
+		void fPrintCommon() const;
 
 	public:
+		void run();
 		void step(size_t count);
 		void addBreak(env::guest_t address);
 		void dropBreak(env::guest_t address);
-		void run();
 
 	public:
 		void printState() const;
