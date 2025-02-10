@@ -251,8 +251,11 @@ bool rv64::DetectPseudo::fMatchFirst(rv64::Instruction& inst) {
 			inst.pseudo = rv64::Pseudo::csr_clear_bits_imm;
 		break;
 	case rv64::Opcode::add_upper_imm_pc:
-		pState = State::auipc;
-		return true;
+		if (inst.dest != reg::Zero) {
+			pState = State::auipc;
+			return true;
+		}
+		break;
 	case rv64::Opcode::load_upper_imm:
 		pState = State::lui;
 		pLUI.size = inst.size;
@@ -377,6 +380,7 @@ rv64::DetectPseudo::Result rv64::DetectPseudo::fContinueAUIPC(rv64::Instruction&
 	}
 
 	/* setup the completed instruction */
+	inst.tempValue = pOriginal.imm;
 	inst.imm = pOriginal.imm + inst.imm;
 	inst.size = pOriginal.size + inst.size;
 	return Result::success;

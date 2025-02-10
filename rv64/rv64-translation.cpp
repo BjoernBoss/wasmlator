@@ -533,6 +533,14 @@ void rv64::Translate::fMakeStore(bool multi) const {
 			gen::Add[I::U64::Add()];
 	}
 
+	/* check if its a mutli-operation, which requires the intermediate register to be set accordingly (will never be zero) */
+	if (pInst->opcode == rv64::Opcode::multi_store_byte || pInst->opcode == rv64::Opcode::multi_store_half ||
+		pInst->opcode == rv64::Opcode::multi_store_word || pInst->opcode == rv64::Opcode::multi_store_dword) {
+		gen::FulFill fulfill = fStoreReg(pInst->src1);
+		gen::Add[I::I64::Const(pAddress + pInst->tempValue)];
+		fulfill.now();
+	}
+
 	/* prepare the store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	gen::FulFill fulfill;
 	switch (pInst->opcode) {
@@ -1192,6 +1200,13 @@ void rv64::Translate::fMakeFLoad(bool multi) const {
 	else
 		fLoadSrc1(true, false);
 
+	/* check if its a mutli-operation, which requires the intermediate register to be set accordingly (will never be zero) */
+	if (pInst->opcode == rv64::Opcode::multi_load_float || pInst->opcode == rv64::Opcode::multi_load_double) {
+		gen::FulFill fulfill = fStoreReg(pInst->src1);
+		gen::Add[I::I64::Const(pAddress + pInst->tempValue)];
+		fulfill.now();
+	}
+
 	/* perform the actual load of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */
 	switch (pInst->opcode) {
 	case rv64::Opcode::load_float:
@@ -1218,6 +1233,13 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 		gen::Add[I::I64::Const(pInst->imm)];
 		if (fLoadSrc1(false, false))
 			gen::Add[I::U64::Add()];
+	}
+
+	/* check if its a mutli-operation, which requires the intermediate register to be set accordingly (will never be zero) */
+	if (pInst->opcode == rv64::Opcode::multi_store_float || pInst->opcode == rv64::Opcode::multi_store_double) {
+		gen::FulFill fulfill = fStoreReg(pInst->src1);
+		gen::Add[I::I64::Const(pAddress + pInst->tempValue)];
+		fulfill.now();
 	}
 
 	/* prepare the store of the value (memory-register maps 1-to-1 to memory-cache no matter if read or write) */

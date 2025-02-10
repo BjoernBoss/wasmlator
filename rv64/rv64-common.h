@@ -441,6 +441,7 @@ namespace rv64 {
 		uint8_t src3 = 0;
 		uint8_t size = 0;
 		int64_t imm = 0;
+		int64_t tempValue = 0;
 
 	public:
 		constexpr bool isCall() const {
