@@ -18,7 +18,10 @@ gen::detail::Addresses::Placement& gen::detail::Addresses::fPush(env::guest_t ad
 
 	/* check if the depth-limit has been reached or the entry already exists and setup the address-table required for linking */
 	if (entry.alreadyExists || depth > gen::Instance()->translationDepth()) {
-		entry.index = pLinks++;
+		auto it = pLinks.find(address);
+		if (it == pLinks.end())
+			it = pLinks.insert({ address, uint32_t(pLinks.size()) }).first;
+		entry.index = it->second;
 		if (!pAddresses.valid())
 			pAddresses = gen::Module->table(u8"linked_addresses", true);
 		return entry;
@@ -62,7 +65,7 @@ gen::detail::OpenAddress gen::detail::Addresses::start() {
 std::vector<env::BlockExport> gen::detail::Addresses::close(const detail::MappingState& mappingState) {
 	/* setup the addresses-table limit */
 	if (pAddresses.valid())
-		gen::Module->limit(pAddresses, wasm::Limit{ uint32_t(pLinks), uint32_t(pLinks) });
+		gen::Module->limit(pAddresses, wasm::Limit{ uint32_t(pLinks.size()), uint32_t(pLinks.size()) });
 
 	/* ensure that all functions have been written and collect the exports */
 	std::vector<env::BlockExport> exports;

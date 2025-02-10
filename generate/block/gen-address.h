@@ -37,11 +37,11 @@ namespace gen::detail {
 
 	private:
 		std::unordered_map<env::guest_t, Placement> pTranslated;
+		std::unordered_map<env::guest_t, uint32_t> pLinks;
 		std::priority_queue<Queued> pQueue;
 		wasm::Table pAddresses;
 		wasm::Prototype pBlockPrototype;
 		size_t pDepth = 0;
-		uint32_t pLinks = 0;
 		bool pNeedsStartup = false;
 
 	public:
