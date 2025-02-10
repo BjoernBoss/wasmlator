@@ -615,6 +615,8 @@ void rv64::Translate::fMakeDivRem() {
 		gen::Add[I::Drop()];
 		gen::Add[I::I64::Const(-1)];
 	}
+	else if (half)
+		gen::Add[I::I32::Expand()];
 	fulfill.now();
 
 	/* restore the second operand */
@@ -627,20 +629,20 @@ void rv64::Translate::fMakeDivRem() {
 		overflown = std::move(wasm::Block{ gen::Sink, u8"", { wasm::Type::i32, type, type }, {} });
 		gen::Add[half ? I::I32::Const(-1) : I::I64::Const(-1)];
 		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
-		wasm::IfThen mayOverflow{ gen::Sink, u8"", { wasm::Type::i32, type }, { type, type } };
+		wasm::IfThen mayOverflow{ gen::Sink, u8"", { wasm::Type::i32, type }, { wasm::Type::i32, type, type } };
 
 		/* check the second operand (temp can be overwritten, as the divisor is now known) */
 		gen::Add[I::Local::Tee(temp)];
 		gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
 		gen::Add[half ? I::U32::Equal() : I::U64::Equal()];
 		{
-			wasm::IfThen isOverflow{ gen::Sink, u8"", { wasm::Type::i32 }, { type, type } };
+			wasm::IfThen isOverflow{ gen::Sink, u8"", { wasm::Type::i32 }, { wasm::Type::i32, type, type } };
 
 			/* write the overflow result to the destination */
 			if (div)
-				gen::Add[half ? I::I32::Const(std::numeric_limits<int32_t>::min()) : I::I64::Const(std::numeric_limits<int64_t>::min())];
+				gen::Add[I::I64::Const(std::numeric_limits<int64_t>::min())];
 			else
-				gen::Add[half ? I::I32::Const(0) : I::I64::Const(0)];
+				gen::Add[I::I64::Const(0)];
 			fulfill.now();
 			gen::Add[I::Branch::Direct(overflown)];
 
