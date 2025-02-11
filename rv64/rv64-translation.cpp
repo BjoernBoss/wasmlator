@@ -1225,6 +1225,12 @@ void rv64::Translate::fMakeCSR() {
 	pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
 }
 void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
+	/* ensure that the frm is supported */
+	if (pInst->misc != 0) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
 	/* check if the operation can be discarded */
 	if (pInst->dest == reg::Zero)
 		return;
@@ -1280,6 +1286,12 @@ void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
 	fulfill.now();
 }
 void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) {
+	/* ensure that the frm is supported */
+	if (pInst->misc != 0) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+	
 	/* prepare the result writeback */
 	gen::FulFill fulfill = fStoreFDest(fHalf);
 
