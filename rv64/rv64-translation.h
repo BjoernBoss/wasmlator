@@ -58,6 +58,8 @@ namespace rv64 {
 		void fMakeAMOSC();
 		void fMakeMul();
 		void fMakeCSR();
+		void fMakeFloatToInt(bool iHalf, bool fHalf);
+		void fMakeIntToFloat(bool iHalf, bool fHalf);
 
 	private:
 		void fMakeFLoad(bool multi) const;

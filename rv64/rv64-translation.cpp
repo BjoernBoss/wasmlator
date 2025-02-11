@@ -1224,6 +1224,111 @@ void rv64::Translate::fMakeCSR() {
 	gen::Add[I::Drop()];
 	pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
 }
+void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
+	/* check if the operation can be discarded */
+	if (pInst->dest == reg::Zero)
+		return;
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
+	/* fetch the source operand */
+	fLoadFSrc1(fHalf);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_convert_to_word_s:
+		gen::Add[I::I32::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_word_s:
+		gen::Add[I::I32::FromF64()];
+		break;
+	case rv64::Opcode::float_convert_to_word_u:
+		gen::Add[I::U32::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_word_u:
+		gen::Add[I::U32::FromF64()];
+		break;
+	case rv64::Opcode::float_convert_to_dword_s:
+		gen::Add[I::I64::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_dword_s:
+		gen::Add[I::I64::FromF64()];
+		break;
+	case rv64::Opcode::float_convert_to_dword_u:
+		gen::Add[I::U64::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_dword_u:
+		gen::Add[I::U64::FromF64()];
+		break;
+	case rv64::Opcode::float_move_to_word:
+		gen::Add[I::F32::AsInt()];
+		break;
+	case rv64::Opcode::double_move_to_dword:
+		gen::Add[I::F64::AsInt()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the sign extension to the 64-bit (also valid for moves,
+	*	as ieee 754 also has its sign bit in the highest position) */
+	if (iHalf)
+		gen::Add[I::I32::Expand()];
+
+	/* write the result to the register */
+	fulfill.now();
+}
+void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) {
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(fHalf);
+
+	/* fetch the source operand */
+	fLoadSrc1(true, iHalf);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_convert_from_word_s:
+		gen::Add[I::I32::ToF32()];
+		break;
+	case rv64::Opcode::float_convert_from_word_u:
+		gen::Add[I::U32::ToF32()];
+		break;
+	case rv64::Opcode::float_move_from_word:
+		gen::Add[I::U32::AsFloat()];
+		break;
+	case rv64::Opcode::float_convert_from_dword_s:
+		gen::Add[I::I64::ToF32()];
+		break;
+	case rv64::Opcode::float_convert_from_dword_u:
+		gen::Add[I::U64::ToF32()];
+		break;
+	case rv64::Opcode::double_convert_from_word_s:
+		gen::Add[I::I32::ToF64()];
+		break;
+	case rv64::Opcode::double_convert_from_word_u:
+		gen::Add[I::U32::ToF64()];
+		break;
+	case rv64::Opcode::double_convert_from_dword_s:
+		gen::Add[I::I64::ToF64()];
+		break;
+	case rv64::Opcode::double_convert_from_dword_u:
+		gen::Add[I::U64::ToF64()];
+		break;
+	case rv64::Opcode::double_move_from_dword:
+		gen::Add[I::U64::AsFloat()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the float extension */
+	if (fHalf)
+		fExpandFloat(false, true);
+
+	/* write the result to the register */
+	fulfill.now();
+}
 
 void rv64::Translate::fMakeFLoad(bool multi) const {
 	/* prepare the result writeback */
@@ -1501,6 +1606,45 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::csr_read_and_clear_imm:
 		fMakeCSR();
 		break;
+	case rv64::Opcode::float_convert_to_word_s:
+	case rv64::Opcode::float_convert_to_word_u:
+	case rv64::Opcode::float_move_to_word:
+		fMakeFloatToInt(true, true);
+		break;
+	case rv64::Opcode::float_convert_to_dword_s:
+	case rv64::Opcode::float_convert_to_dword_u:
+		fMakeFloatToInt(false, true);
+		break;
+	case rv64::Opcode::double_convert_to_word_s:
+	case rv64::Opcode::double_convert_to_word_u:
+		fMakeFloatToInt(true, false);
+		break;
+	case rv64::Opcode::double_convert_to_dword_s:
+	case rv64::Opcode::double_convert_to_dword_u:
+	case rv64::Opcode::double_move_to_dword:
+		fMakeFloatToInt(false, false);
+		break;
+	case rv64::Opcode::float_convert_from_word_s:
+	case rv64::Opcode::float_convert_from_word_u:
+	case rv64::Opcode::float_move_from_word:
+		fMakeIntToFloat(true, true);
+		break;
+	case rv64::Opcode::float_convert_from_dword_s:
+	case rv64::Opcode::float_convert_from_dword_u:
+		fMakeIntToFloat(false, true);
+		break;
+	case rv64::Opcode::double_convert_from_word_s:
+	case rv64::Opcode::double_convert_from_word_u:
+		fMakeIntToFloat(true, false);
+		break;
+	case rv64::Opcode::double_convert_from_dword_s:
+	case rv64::Opcode::double_convert_from_dword_u:
+	case rv64::Opcode::double_move_from_dword:
+		fMakeIntToFloat(false, false);
+		break;
+
+	case rv64::Opcode::float_to_double:
+	case rv64::Opcode::double_to_float:
 	case rv64::Opcode::float_mul_add:
 	case rv64::Opcode::float_mul_sub:
 	case rv64::Opcode::float_neg_mul_add:
@@ -1537,28 +1681,6 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_less_than:
 	case rv64::Opcode::double_equal:
 	case rv64::Opcode::double_classify:
-	case rv64::Opcode::float_convert_to_word_s:
-	case rv64::Opcode::float_convert_to_word_u:
-	case rv64::Opcode::float_convert_to_dword_s:
-	case rv64::Opcode::float_convert_to_dword_u:
-	case rv64::Opcode::double_convert_to_word_s:
-	case rv64::Opcode::double_convert_to_word_u:
-	case rv64::Opcode::double_convert_to_dword_s:
-	case rv64::Opcode::double_convert_to_dword_u:
-	case rv64::Opcode::float_convert_from_word_s:
-	case rv64::Opcode::float_convert_from_word_u:
-	case rv64::Opcode::float_convert_from_dword_s:
-	case rv64::Opcode::float_convert_from_dword_u:
-	case rv64::Opcode::double_convert_from_word_s:
-	case rv64::Opcode::double_convert_from_word_u:
-	case rv64::Opcode::double_convert_from_dword_s:
-	case rv64::Opcode::double_convert_from_dword_u:
-	case rv64::Opcode::float_move_to_word:
-	case rv64::Opcode::float_move_from_word:
-	case rv64::Opcode::double_move_to_dword:
-	case rv64::Opcode::double_move_from_dword:
-	case rv64::Opcode::float_to_double:
-	case rv64::Opcode::double_to_float:
 	case rv64::Opcode::_invalid:
 		/* raise the not-implemented exception for all remaining instructions */
 		pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
