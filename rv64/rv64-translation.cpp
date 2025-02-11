@@ -3,6 +3,26 @@
 
 static util::Logger logger{ u8"rv64::cpu" };
 
+std::pair<uint32_t, uint32_t> rv64::Translate::fGetCsrPlacement(uint16_t csr) const {
+	uint32_t shift = 0, mask = 0;
+
+	switch (csr) {
+	case csr::fpExceptionFlags:
+		shift = 0;
+		mask = 0x1f;
+		break;
+	case csr::fpRoundingMode:
+		shift = 5;
+		mask = 0x07;
+		break;
+	case csr::fpStatus:
+		shift = 0;
+		mask = 0xff;
+		break;
+	}
+
+	return { shift, mask };
+}
 wasm::Variable rv64::Translate::fTemp32(size_t index) {
 	wasm::Variable& var = pTemp[4 + index];
 	if (!var.valid())
@@ -1016,6 +1036,14 @@ void rv64::Translate::fMakeCSR() {
 	*	Note:
 	*		reading a value: read the value prior to executing the instruction
 	*		writing a value: write the value after executing the instruction
+	*
+	*	Currently only float csrs are supported
+	*		=> Raise Translate::CsrUnsupported
+	*
+	*	Currently only the current operations are supported for float csrs
+	*		- float-csr cannot be read (Translate::CsrReadingFloatCsr)
+	*		- float-flags cannot be read (Translate::CsrReadingFloatFlags)
+	*		- float-frm can only be set to 0 (Translate::CsrUnsupportedFRM)
 	*/
 
 	/* fetch the properties about the csr value */
@@ -1064,7 +1092,7 @@ void rv64::Translate::fMakeCSR() {
 
 	/* check if the csr is not implemented (currently only support for fp-status-register) */
 	if (notImplemented) {
-		pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
+		pWriter->makeException(Translate::CsrUnsupported, pAddress, pNextAddress);
 		return;
 	}
 
@@ -1074,20 +1102,15 @@ void rv64::Translate::fMakeCSR() {
 		return;
 
 	/* fetch the shift and mask properties of the actual csr */
-	uint32_t shift = 0, mask = 0;
-	switch (pInst->misc) {
-	case csr::fpExceptionFlags:
-		shift = 0;
-		mask = 0x1f;
-		break;
-	case csr::fpRoundingMode:
-		shift = 5;
-		mask = 0x07;
-		break;
-	case csr::fpStatus:
-		shift = 0;
-		mask = 0xff;
-		break;
+	auto [shift, mask] = fGetCsrPlacement(pInst->misc);
+
+	/* check if the float read operation is supported */
+	if (read && pInst->misc != csr::fpRoundingMode) {
+		if (pInst->misc == csr::fpExceptionFlags)
+			pWriter->makeException(Translate::CsrReadingFloatFlags, pAddress, pNextAddress);
+		else
+			pWriter->makeException(Translate::CsrReadingFloatCsr, pAddress, pNextAddress);
+		return;
 	}
 
 	/* prepare the result writebacks */
@@ -1183,8 +1206,23 @@ void rv64::Translate::fMakeCSR() {
 		break;
 	}
 
-	/* write the value from the stack back to the float status-register */
+	/* check if the float write operation is supported */
+	auto [frmShift, frmMask] = fGetCsrPlacement(csr::fpRoundingMode);
+	wasm::Variable temp = fTemp64((read && write) ? 1 : 0);
+	gen::Add[I::Local::Tee(temp)];
+	gen::Add[I::U64::Const(frmMask << frmShift)];
+	gen::Add[I::U64::And()];
+	gen::Add[I::U64::EqualZero()];
+	wasm::IfThen _if{ gen::Sink, u8"", { wasm::Type::i32 }, {} };
+
+	/* write the value to the float status-register */
+	gen::Add[I::Local::Get(temp)];
 	csrFulfill.now();
+
+	/* raise the exception */
+	_if.otherwise();
+	gen::Add[I::Drop()];
+	pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
 }
 
 void rv64::Translate::fMakeFLoad(bool multi) const {

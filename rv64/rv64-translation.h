@@ -9,7 +9,11 @@ namespace rv64 {
 		static constexpr uint64_t EBreakException = 0;
 		static constexpr uint64_t MisalignedException = 1;
 		static constexpr uint64_t IllegalException = 2;
-		static constexpr uint64_t NotImplException = 3;
+		static constexpr uint64_t CsrUnsupported = 3;
+		static constexpr uint64_t CsrReadingFloatFlags = 4;
+		static constexpr uint64_t CsrReadingFloatCsr = 5;
+		static constexpr uint64_t UnsupportedFRM = 6;
+		static constexpr uint64_t NotImplException = 7;
 
 	private:
 		wasm::Variable pTemp[6];
@@ -22,6 +26,7 @@ namespace rv64 {
 		Translate() = default;
 
 	private:
+		std::pair<uint32_t, uint32_t> fGetCsrPlacement(uint16_t csr) const;
 		wasm::Variable fTemp32(size_t index);
 		wasm::Variable fTemp64(size_t index);
 
