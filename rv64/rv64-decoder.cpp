@@ -473,7 +473,7 @@ rv64::Instruction rv64::detail::Opcode53(uint32_t data) {
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
 	out.src2 = detail::GetU<20, 24>(data);
-	out.misc = detail::GetS<12, 14>(data);
+	out.misc = detail::GetU<12, 14>(data);
 
 	switch (detail::GetU<25, 31>(data)) {
 	case 0x00:
@@ -635,7 +635,7 @@ rv64::Instruction rv64::detail::Opcode60(uint32_t data) {
 	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
-	out.misc = detail::GetS<12, 14>(data);
+	out.misc = detail::GetU<12, 14>(data);
 
 	uint32_t funct5 = detail::GetU<20, 24>(data);
 
@@ -699,7 +699,7 @@ rv64::Instruction rv64::detail::Opcode68(uint32_t data) {
 	out.size = 4;
 	out.dest = detail::GetU<7, 11>(data);
 	out.src1 = detail::GetU<15, 19>(data);
-	out.misc = detail::GetS<12, 14>(data);
+	out.misc = detail::GetU<12, 14>(data);
 
 	uint32_t funct5 = detail::GetU<20, 24>(data);
 

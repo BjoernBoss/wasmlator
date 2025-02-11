@@ -58,12 +58,13 @@ namespace rv64 {
 		void fMakeAMOSC();
 		void fMakeMul();
 		void fMakeCSR();
-		void fMakeFloatToInt(bool iHalf, bool fHalf);
-		void fMakeIntToFloat(bool iHalf, bool fHalf);
 
 	private:
 		void fMakeFLoad(bool multi) const;
 		void fMakeFStore(bool multi) const;
+		void fMakeFloatToInt(bool iHalf, bool fHalf) const;
+		void fMakeIntToFloat(bool iHalf, bool fHalf) const;
+		void fMakeFloatALU(bool half) const;
 
 	public:
 		void resetAll(sys::Writer* writer);

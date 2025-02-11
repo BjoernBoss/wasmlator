@@ -430,6 +430,14 @@ namespace rv64 {
 		static constexpr uint16_t instRetired = 0xc02;
 	}
 
+	namespace frm {
+		/* round-to-nearest, ties to even */
+		static constexpr uint16_t roundNearestTiesToEven = 0x00;
+
+		/* dynamic rounding mode - from csr */
+		static constexpr uint16_t dynamicRounding = 0x07;
+	}
+
 	struct Instruction {
 	public:
 		rv64::Opcode opcode = rv64::Opcode::_invalid;

@@ -1043,7 +1043,7 @@ void rv64::Translate::fMakeCSR() {
 	*	Currently only the current operations are supported for float csrs
 	*		- float-csr cannot be read (Translate::CsrReadingFloatCsr)
 	*		- float-flags cannot be read (Translate::CsrReadingFloatFlags)
-	*		- float-frm can only be set to 0 (Translate::CsrUnsupportedFRM)
+	*		- float-frm can only be set to "round to nearest, ties to even" (Translate::CsrUnsupportedFRM)
 	*/
 
 	/* fetch the properties about the csr value */
@@ -1212,134 +1212,18 @@ void rv64::Translate::fMakeCSR() {
 	gen::Add[I::Local::Tee(temp)];
 	gen::Add[I::U64::Const(frmMask << frmShift)];
 	gen::Add[I::U64::And()];
-	gen::Add[I::U64::EqualZero()];
-	wasm::IfThen _if{ gen::Sink, u8"", { wasm::Type::i32 }, {} };
+	gen::Add[I::U64::Const(frm::roundNearestTiesToEven << frmShift)];
+	gen::Add[I::U64::NotEqual()];
+
+	/* raise the exception */
+	{
+		wasm::IfThen _if{ gen::Sink, u8"", {}, {} };
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+	}
 
 	/* write the value to the float status-register */
 	gen::Add[I::Local::Get(temp)];
 	csrFulfill.now();
-
-	/* raise the exception */
-	_if.otherwise();
-	gen::Add[I::Drop()];
-	pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-}
-void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
-	/* ensure that the frm is supported */
-	if (pInst->misc != 0) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
-	}
-
-	/* check if the operation can be discarded */
-	if (pInst->dest == reg::Zero)
-		return;
-
-	/* prepare the result writeback */
-	gen::FulFill fulfill = fStoreDest();
-
-	/* fetch the source operand */
-	fLoadFSrc1(fHalf);
-
-	/* write the result of the operation to the stack */
-	switch (pInst->opcode) {
-	case rv64::Opcode::float_convert_to_word_s:
-		gen::Add[I::I32::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_word_s:
-		gen::Add[I::I32::FromF64()];
-		break;
-	case rv64::Opcode::float_convert_to_word_u:
-		gen::Add[I::U32::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_word_u:
-		gen::Add[I::U32::FromF64()];
-		break;
-	case rv64::Opcode::float_convert_to_dword_s:
-		gen::Add[I::I64::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_dword_s:
-		gen::Add[I::I64::FromF64()];
-		break;
-	case rv64::Opcode::float_convert_to_dword_u:
-		gen::Add[I::U64::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_dword_u:
-		gen::Add[I::U64::FromF64()];
-		break;
-	case rv64::Opcode::float_move_to_word:
-		gen::Add[I::F32::AsInt()];
-		break;
-	case rv64::Opcode::double_move_to_dword:
-		gen::Add[I::F64::AsInt()];
-		break;
-	default:
-		break;
-	}
-
-	/* perform the sign extension to the 64-bit (also valid for moves,
-	*	as ieee 754 also has its sign bit in the highest position) */
-	if (iHalf)
-		gen::Add[I::I32::Expand()];
-
-	/* write the result to the register */
-	fulfill.now();
-}
-void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) {
-	/* ensure that the frm is supported */
-	if (pInst->misc != 0) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
-	}
-	
-	/* prepare the result writeback */
-	gen::FulFill fulfill = fStoreFDest(fHalf);
-
-	/* fetch the source operand */
-	fLoadSrc1(true, iHalf);
-
-	/* write the result of the operation to the stack */
-	switch (pInst->opcode) {
-	case rv64::Opcode::float_convert_from_word_s:
-		gen::Add[I::I32::ToF32()];
-		break;
-	case rv64::Opcode::float_convert_from_word_u:
-		gen::Add[I::U32::ToF32()];
-		break;
-	case rv64::Opcode::float_move_from_word:
-		gen::Add[I::U32::AsFloat()];
-		break;
-	case rv64::Opcode::float_convert_from_dword_s:
-		gen::Add[I::I64::ToF32()];
-		break;
-	case rv64::Opcode::float_convert_from_dword_u:
-		gen::Add[I::U64::ToF32()];
-		break;
-	case rv64::Opcode::double_convert_from_word_s:
-		gen::Add[I::I32::ToF64()];
-		break;
-	case rv64::Opcode::double_convert_from_word_u:
-		gen::Add[I::U32::ToF64()];
-		break;
-	case rv64::Opcode::double_convert_from_dword_s:
-		gen::Add[I::I64::ToF64()];
-		break;
-	case rv64::Opcode::double_convert_from_dword_u:
-		gen::Add[I::U64::ToF64()];
-		break;
-	case rv64::Opcode::double_move_from_dword:
-		gen::Add[I::U64::AsFloat()];
-		break;
-	default:
-		break;
-	}
-
-	/* perform the float extension */
-	if (fHalf)
-		fExpandFloat(false, true);
-
-	/* write the result to the register */
-	fulfill.now();
 }
 
 void rv64::Translate::fMakeFLoad(bool multi) const {
@@ -1418,6 +1302,180 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 	fLoadFSrc2(pInst->opcode == rv64::Opcode::store_float || pInst->opcode == rv64::Opcode::multi_store_float);
 
 	/* perform the actual store of the value */
+	fulfill.now();
+}
+void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* check if the operation can be discarded */
+	if (pInst->dest == reg::Zero)
+		return;
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
+	/* fetch the source operand */
+	fLoadFSrc1(fHalf);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_convert_to_word_s:
+		gen::Add[I::I32::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_word_s:
+		gen::Add[I::I32::FromF64()];
+		break;
+	case rv64::Opcode::float_convert_to_word_u:
+		gen::Add[I::U32::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_word_u:
+		gen::Add[I::U32::FromF64()];
+		break;
+	case rv64::Opcode::float_convert_to_dword_s:
+		gen::Add[I::I64::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_dword_s:
+		gen::Add[I::I64::FromF64()];
+		break;
+	case rv64::Opcode::float_convert_to_dword_u:
+		gen::Add[I::U64::FromF32()];
+		break;
+	case rv64::Opcode::double_convert_to_dword_u:
+		gen::Add[I::U64::FromF64()];
+		break;
+	case rv64::Opcode::float_move_to_word:
+		gen::Add[I::F32::AsInt()];
+		break;
+	case rv64::Opcode::double_move_to_dword:
+		gen::Add[I::F64::AsInt()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the sign extension to the 64-bit (also valid for moves, as ieee-754
+	*	also has its sign bit in the highest position) and write the result back */
+	if (iHalf)
+		gen::Add[I::I32::Expand()];
+	fulfill.now();
+}
+void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(fHalf);
+
+	/* fetch the source operand */
+	fLoadSrc1(true, iHalf);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_convert_from_word_s:
+		gen::Add[I::I32::ToF32()];
+		break;
+	case rv64::Opcode::float_convert_from_word_u:
+		gen::Add[I::U32::ToF32()];
+		break;
+	case rv64::Opcode::float_move_from_word:
+		gen::Add[I::U32::AsFloat()];
+		break;
+	case rv64::Opcode::float_convert_from_dword_s:
+		gen::Add[I::I64::ToF32()];
+		break;
+	case rv64::Opcode::float_convert_from_dword_u:
+		gen::Add[I::U64::ToF32()];
+		break;
+	case rv64::Opcode::double_convert_from_word_s:
+		gen::Add[I::I32::ToF64()];
+		break;
+	case rv64::Opcode::double_convert_from_word_u:
+		gen::Add[I::U32::ToF64()];
+		break;
+	case rv64::Opcode::double_convert_from_dword_s:
+		gen::Add[I::I64::ToF64()];
+		break;
+	case rv64::Opcode::double_convert_from_dword_u:
+		gen::Add[I::U64::ToF64()];
+		break;
+	case rv64::Opcode::double_move_from_dword:
+		gen::Add[I::U64::AsFloat()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the float extension and write the result back */
+	if (fHalf)
+		fExpandFloat(false, true);
+	fulfill.now();
+}
+void rv64::Translate::fMakeFloatALU(bool half) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(half);
+
+	/* fetch the source operands */
+	fLoadFSrc1(half);
+	fLoadFSrc2(half);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_add:
+		gen::Add[I::F32::Add()];
+		break;
+	case rv64::Opcode::float_sub:
+		gen::Add[I::F32::Sub()];
+		break;
+	case rv64::Opcode::float_mul:
+		gen::Add[I::F32::Mul()];
+		break;
+	case rv64::Opcode::float_div:
+		gen::Add[I::F32::Div()];
+		break;
+	case rv64::Opcode::float_min:
+		gen::Add[I::F32::Min()];
+		break;
+	case rv64::Opcode::float_max:
+		gen::Add[I::F32::Max()];
+		break;
+	case rv64::Opcode::double_add:
+		gen::Add[I::F64::Add()];
+		break;
+	case rv64::Opcode::double_sub:
+		gen::Add[I::F64::Sub()];
+		break;
+	case rv64::Opcode::double_mul:
+		gen::Add[I::F64::Mul()];
+		break;
+	case rv64::Opcode::double_div:
+		gen::Add[I::F64::Div()];
+		break;
+	case rv64::Opcode::double_min:
+		gen::Add[I::F64::Min()];
+		break;
+	case rv64::Opcode::double_max:
+		gen::Add[I::F64::Max()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the float extension and write the result back */
+	if (half)
+		fExpandFloat(false, true);
 	fulfill.now();
 }
 
@@ -1654,6 +1712,23 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_move_from_dword:
 		fMakeIntToFloat(false, false);
 		break;
+	case rv64::Opcode::float_add:
+	case rv64::Opcode::float_sub:
+	case rv64::Opcode::float_mul:
+	case rv64::Opcode::float_div:
+	case rv64::Opcode::float_min:
+	case rv64::Opcode::float_max:
+		fMakeFloatALU(true);
+		break;
+	case rv64::Opcode::double_add:
+	case rv64::Opcode::double_sub:
+	case rv64::Opcode::double_mul:
+	case rv64::Opcode::double_div:
+	case rv64::Opcode::double_min:
+	case rv64::Opcode::double_max:
+		fMakeFloatALU(false);
+		break;
+
 
 	case rv64::Opcode::float_to_double:
 	case rv64::Opcode::double_to_float:
@@ -1661,16 +1736,10 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::float_mul_sub:
 	case rv64::Opcode::float_neg_mul_add:
 	case rv64::Opcode::float_neg_mul_sub:
-	case rv64::Opcode::float_add:
-	case rv64::Opcode::float_sub:
-	case rv64::Opcode::float_mul:
-	case rv64::Opcode::float_div:
 	case rv64::Opcode::float_sqrt:
 	case rv64::Opcode::float_sign_copy:
 	case rv64::Opcode::float_sign_invert:
 	case rv64::Opcode::float_sign_xor:
-	case rv64::Opcode::float_min:
-	case rv64::Opcode::float_max:
 	case rv64::Opcode::float_less_equal:
 	case rv64::Opcode::float_less_than:
 	case rv64::Opcode::float_equal:
@@ -1679,16 +1748,10 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_mul_sub:
 	case rv64::Opcode::double_neg_mul_add:
 	case rv64::Opcode::double_neg_mul_sub:
-	case rv64::Opcode::double_add:
-	case rv64::Opcode::double_sub:
-	case rv64::Opcode::double_mul:
-	case rv64::Opcode::double_div:
 	case rv64::Opcode::double_sqrt:
 	case rv64::Opcode::double_sign_copy:
 	case rv64::Opcode::double_sign_invert:
 	case rv64::Opcode::double_sign_xor:
-	case rv64::Opcode::double_min:
-	case rv64::Opcode::double_max:
 	case rv64::Opcode::double_less_equal:
 	case rv64::Opcode::double_less_than:
 	case rv64::Opcode::double_equal:
