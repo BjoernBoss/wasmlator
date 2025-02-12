@@ -265,3 +265,17 @@ int64_t sys::detail::MemoryInteract::mprotect(env::guest_t address, uint64_t len
 		return errCode::eNoMemory;
 	return errCode::eSuccess;
 }
+int64_t sys::detail::MemoryInteract::munmap(env::guest_t address, uint64_t length) {
+	/* check if nothing needs to be done */
+	if (length == 0)
+		return errCode::eSuccess;
+
+	/* validate the parameter */
+	if (fPageOffset(address) != 0)
+		return errCode::eInvalid;
+
+	/* perform the memory operation */
+	if (!env::Instance()->memory().munmap(address, fPageAlignUp(length)))
+		return errCode::eNoMemory;
+	return errCode::eSuccess;
+}

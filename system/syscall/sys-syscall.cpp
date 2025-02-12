@@ -88,6 +88,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall mprotect(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#010x", args.args[1] }, u8", ", args.args[2], u8')');
 		return pMemory.mprotect(args.args[0], args.args[1], uint32_t(args.args[2]));
 	}
+	case sys::SyscallIndex::munmap: {
+		logger.debug(u8"Syscall munmap(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#010x", args.args[1] }, u8')');
+		return pMemory.munmap(args.args[0], args.args[1]);
+	}
 	case sys::SyscallIndex::uname: {
 		logger.debug(u8"Syscall uname(", str::As{ U"#018x", args.args[0] }, u8')');
 		return fHandleUName(args.args[0]);

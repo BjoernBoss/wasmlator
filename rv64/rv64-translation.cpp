@@ -1789,8 +1789,7 @@ void rv64::Translate::fMakeFloatCompare(bool half) const {
 	}
 
 	/* perform the result extension and write the result back */
-	if (half)
-		gen::Add[I::U32::Expand()];
+	gen::Add[I::U32::Expand()];
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatUnary(bool half, bool intResult) const {
