@@ -1194,8 +1194,8 @@ void rv64::Translate::fMakeCSR() {
 
 		/* apply the necessary shifting/clipping */
 		if (shift > 0) {
-			gen::Add[I::U32::Const(5)];
-			gen::Add[I::U32::ShiftRight()];
+			gen::Add[I::U64::Const(5)];
+			gen::Add[I::U64::ShiftRight()];
 		}
 		gen::Add[I::U64::Const(mask)];
 		gen::Add[I::U64::And()];
