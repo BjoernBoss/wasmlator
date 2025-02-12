@@ -1638,6 +1638,64 @@ void rv64::Translate::fMakeFloatConvert() const {
 		fExpandFloat(false, true);
 	fulfill.now();
 }
+void rv64::Translate::fMakeFloatSign(bool half) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* check if the result will already be an integer */
+	bool toInt = (pInst->opcode == rv64::Opcode::float_sign_xor || pInst->opcode == rv64::Opcode::double_sign_xor);
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(half || toInt);
+
+	/* fetch the source operands and check if the first operand needs to be converted to an integer */
+	fLoadFSrc1(half);
+	if (toInt)
+		gen::Add[half ? I::F32::AsInt() : I::F64::AsInt()];
+	fLoadFSrc2(half);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_sign_copy:
+		gen::Add[I::F32::CopySign()];
+		break;
+	case rv64::Opcode::float_sign_invert:
+		gen::Add[I::F32::Negate()];
+		gen::Add[I::F32::CopySign()];
+		break;
+	case rv64::Opcode::float_sign_xor:
+		/* extract the sign of the second operand and xor it with the first operand */
+		gen::Add[I::F32::AsInt()];
+		gen::Add[I::U64::Const(uint64_t(1) << 31)];
+		gen::Add[I::U32::And()];
+		gen::Add[I::U32::XOr()];
+		break;
+	case rv64::Opcode::double_sign_copy:
+		gen::Add[I::F64::CopySign()];
+		break;
+	case rv64::Opcode::double_sign_invert:
+		gen::Add[I::F64::Negate()];
+		gen::Add[I::F64::CopySign()];
+		break;
+	case rv64::Opcode::double_sign_xor:
+		/* extract the sign of the second operand and xor it with the first operand */
+		gen::Add[I::F64::AsInt()];
+		gen::Add[I::U64::Const(uint64_t(1) << 63)];
+		gen::Add[I::U64::And()];
+		gen::Add[I::U64::XOr()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the float extension and write the result back */
+	if (half)
+		fExpandFloat(toInt, true);
+	fulfill.now();
+}
 
 void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
@@ -1904,19 +1962,23 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_to_float:
 		fMakeFloatConvert();
 		break;
-
-	case rv64::Opcode::float_sqrt:
 	case rv64::Opcode::float_sign_copy:
 	case rv64::Opcode::float_sign_invert:
 	case rv64::Opcode::float_sign_xor:
+		fMakeFloatSign(true);
+		break;
+	case rv64::Opcode::double_sign_copy:
+	case rv64::Opcode::double_sign_invert:
+	case rv64::Opcode::double_sign_xor:
+		fMakeFloatSign(false);
+		break;
+
+	case rv64::Opcode::float_sqrt:
 	case rv64::Opcode::float_less_equal:
 	case rv64::Opcode::float_less_than:
 	case rv64::Opcode::float_equal:
 	case rv64::Opcode::float_classify:
 	case rv64::Opcode::double_sqrt:
-	case rv64::Opcode::double_sign_copy:
-	case rv64::Opcode::double_sign_invert:
-	case rv64::Opcode::double_sign_xor:
 	case rv64::Opcode::double_less_equal:
 	case rv64::Opcode::double_less_than:
 	case rv64::Opcode::double_equal:
