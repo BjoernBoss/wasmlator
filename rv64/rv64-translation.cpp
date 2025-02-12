@@ -1475,7 +1475,7 @@ void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) const {
 		fExpandFloat(false, true);
 	fulfill.now();
 }
-void rv64::Translate::fMakeFloatALU(bool half) const {
+void rv64::Translate::fMakeFloatALUSimple(bool half) const {
 	/* ensure that the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
 		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
@@ -1526,6 +1526,84 @@ void rv64::Translate::fMakeFloatALU(bool half) const {
 		break;
 	case rv64::Opcode::double_max:
 		gen::Add[I::F64::Max()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the float extension and write the result back */
+	if (half)
+		fExpandFloat(false, true);
+	fulfill.now();
+}
+void rv64::Translate::fMakeFloatALULarge(bool half) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(half);
+
+	/* fetch the first two source operands */
+
+	/* fetch the source operands */
+	fLoadFSrc1(half);
+	fLoadFSrc2(half);
+
+	/* perform the product operation */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_mul_add:
+	case rv64::Opcode::float_mul_sub:
+	case rv64::Opcode::float_neg_mul_add:
+	case rv64::Opcode::float_neg_mul_sub:
+		gen::Add[I::F32::Mul()];
+		break;
+	case rv64::Opcode::double_mul_add:
+	case rv64::Opcode::double_mul_sub:
+	case rv64::Opcode::double_neg_mul_add:
+	case rv64::Opcode::double_neg_mul_sub:
+		gen::Add[I::F64::Mul()];
+		break;
+	default:
+		break;
+	}
+
+	/* fetch the third source operand */
+	fLoadFSrc3(half);
+
+	/* perform the addition or subtraction */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_mul_add:
+	case rv64::Opcode::float_neg_mul_add:
+		gen::Add[I::F32::Add()];
+		break;
+	case rv64::Opcode::float_mul_sub:
+	case rv64::Opcode::float_neg_mul_sub:
+		gen::Add[I::F32::Sub()];
+		break;
+	case rv64::Opcode::double_mul_add:
+	case rv64::Opcode::double_neg_mul_add:
+		gen::Add[I::F64::Add()];
+		break;
+	case rv64::Opcode::double_mul_sub:
+	case rv64::Opcode::double_neg_mul_sub:
+		gen::Add[I::F64::Sub()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the inversion */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_neg_mul_add:
+	case rv64::Opcode::float_neg_mul_sub:
+		gen::Add[I::F32::Negate()];
+		break;
+	case rv64::Opcode::double_neg_mul_add:
+	case rv64::Opcode::double_neg_mul_sub:
+		gen::Add[I::F64::Negate()];
 		break;
 	default:
 		break;
@@ -1776,7 +1854,7 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::float_div:
 	case rv64::Opcode::float_min:
 	case rv64::Opcode::float_max:
-		fMakeFloatALU(true);
+		fMakeFloatALUSimple(true);
 		break;
 	case rv64::Opcode::double_add:
 	case rv64::Opcode::double_sub:
@@ -1784,16 +1862,23 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_div:
 	case rv64::Opcode::double_min:
 	case rv64::Opcode::double_max:
-		fMakeFloatALU(false);
+		fMakeFloatALUSimple(false);
 		break;
-
-
-	case rv64::Opcode::float_to_double:
-	case rv64::Opcode::double_to_float:
 	case rv64::Opcode::float_mul_add:
 	case rv64::Opcode::float_mul_sub:
 	case rv64::Opcode::float_neg_mul_add:
 	case rv64::Opcode::float_neg_mul_sub:
+		fMakeFloatALULarge(true);
+		break;
+	case rv64::Opcode::double_mul_add:
+	case rv64::Opcode::double_mul_sub:
+	case rv64::Opcode::double_neg_mul_add:
+	case rv64::Opcode::double_neg_mul_sub:
+		fMakeFloatALULarge(false);
+		break;
+
+	case rv64::Opcode::float_to_double:
+	case rv64::Opcode::double_to_float:
 	case rv64::Opcode::float_sqrt:
 	case rv64::Opcode::float_sign_copy:
 	case rv64::Opcode::float_sign_invert:
@@ -1802,10 +1887,6 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::float_less_than:
 	case rv64::Opcode::float_equal:
 	case rv64::Opcode::float_classify:
-	case rv64::Opcode::double_mul_add:
-	case rv64::Opcode::double_mul_sub:
-	case rv64::Opcode::double_neg_mul_add:
-	case rv64::Opcode::double_neg_mul_sub:
 	case rv64::Opcode::double_sqrt:
 	case rv64::Opcode::double_sign_copy:
 	case rv64::Opcode::double_sign_invert:
