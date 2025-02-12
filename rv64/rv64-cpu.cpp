@@ -191,6 +191,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 160:
 		call.index = sys::SyscallIndex::uname;
 		break;
+	case 169:
+		call.index = sys::SyscallIndex::gettimeofday;
+		break;
 	case 174:
 		call.index = sys::SyscallIndex::getuid;
 		break;

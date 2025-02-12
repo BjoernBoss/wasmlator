@@ -15,6 +15,7 @@ void host_guest_out(const char8_t* data, uint32_t size) {
 }
 uint32_t host_random() { return 123; }
 uint64_t host_time_us() { return 0; }
+int32_t host_timezone_min() { return 0; }
 
 uint32_t glue_setup_core_map() { return 1; }
 void glue_reset_core_map() {}

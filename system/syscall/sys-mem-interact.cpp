@@ -8,6 +8,40 @@ env::guest_t sys::detail::MemoryInteract::fPageOffset(env::guest_t address) cons
 env::guest_t sys::detail::MemoryInteract::fPageAlignUp(env::guest_t address) const {
 	return ((address + pPageSize - 1) & ~(pPageSize - 1));
 }
+void sys::detail::MemoryInteract::fRemoveShared(env::guest_t address, uint64_t length) {
+	env::guest_t end = (address + length);
+
+	/* iterate over the shared ranges and remove all overlapping entries (no need to check th replace-flags, as
+	*	the shared mappings are a subset of the mmap-ranges, which would therefore already have thrown an error) */
+	auto it = pShared.upper_bound(address);
+	if (it != pShared.begin())
+		--it;
+	while (it != pShared.end()) {
+		env::guest_t tempEnd = it->first + it->second.length;
+
+		/* check if the size of the range just needs to be reduced */
+		if (it->first < address) {
+			if (tempEnd > address)
+				it->second.length = address - it->first;
+			++it;
+			continue;
+		}
+
+		/* check if the end has been reached */
+		if (it->first >= end)
+			break;
+
+		/* check if the end of the range can be kept */
+		if (tempEnd > end) {
+			pShared.erase(it);
+			pShared.insert({ end, detail::MemShared{ tempEnd - end } });
+			break;
+		}
+
+		/* remove the entire overlapped range */
+		it = pShared.erase(it);
+	}
+}
 bool sys::detail::MemoryInteract::fCheckRange(env::guest_t address, uint64_t length, bool replace) {
 	std::pair<env::guest_t, uint64_t> range = { address, 0 };
 	env::guest_t end = (address + length);
@@ -35,41 +69,9 @@ bool sys::detail::MemoryInteract::fCheckRange(env::guest_t address, uint64_t len
 			break;
 	}
 
-	/* iterate over the shared ranges and remove all overlapping entries (no need to check th replace-flags, as
-	*	the shared mappings are a subset of the mmap-ranges, which would therefore already have thrown an error) */
-	auto it = pShared.upper_bound(address);
-	if (it != pShared.begin())
-		--it;
-	while (it != pShared.end()) {
-		env::guest_t tempEnd = it->first + it->second.length;
-
-		/* check if the size of the range just needs to be reduced */
-		if (it->first < address) {
-			if (tempEnd > address) {
-				if (!replace)
-					logger.fatal(u8"Consistency check between env::Memory and shared-mapping failed");
-				it->second.length = address - it->first;
-			}
-			++it;
-			continue;
-		}
-
-		/* check if the end has been reached */
-		if (it->first >= end)
-			break;
-		if (!replace)
-			logger.fatal(u8"Consistency check between env::Memory and shared-mapping failed");
-
-		/* check if the end of the range can be kept */
-		if (tempEnd > end) {
-			pShared.erase(it);
-			pShared.insert({ end, detail::MemShared{ tempEnd - end } });
-			break;
-		}
-
-		/* remove the entire overlapped range */
-		it = pShared.erase(it);
-	}
+	/* remove the shared overlapping entries (no need to check the replace-flags, as the shared mappings
+	*	are a subset of the mmap-ranges, which would therefore already have thrown an error) */
+	fRemoveShared(address, length);
 	return true;
 }
 int64_t sys::detail::MemoryInteract::fMapRange(env::guest_t address, uint64_t length, uint32_t usage, uint32_t flags) {
@@ -277,5 +279,8 @@ int64_t sys::detail::MemoryInteract::munmap(env::guest_t address, uint64_t lengt
 	/* perform the memory operation */
 	if (!env::Instance()->memory().munmap(address, fPageAlignUp(length)))
 		return errCode::eNoMemory;
+
+	/* apply the change to the shared mapping */
+	fRemoveShared(address, fPageAlignUp(length));
 	return errCode::eSuccess;
 }

@@ -134,6 +134,14 @@ namespace sys {
 			uint64_t ctime_sec = 0;
 			uint64_t ctime_ns = 0;
 		};
+		struct TimeValue {
+			uint64_t sec = 0;
+			uint64_t usec = 0;
+		};
+		struct TimeZone {
+			int32_t minuteswest = 0;
+			int32_t dsttime = 0;
+		};
 	}
 
 	enum class ArchType : uint8_t {
@@ -168,6 +176,7 @@ namespace sys {
 		access,
 		faccessat,
 		faccessat2,
+		gettimeofday,
 		ioctl
 	};
 

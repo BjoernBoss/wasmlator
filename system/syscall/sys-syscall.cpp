@@ -57,19 +57,23 @@ int64_t sys::detail::Syscall::fDispatch() {
 	switch (args.index) {
 	case sys::SyscallIndex::getuid: {
 		logger.debug(u8"Syscall getuid()");
-		return pConfig.uid;
+		return pMisc.getuid();
 	}
 	case sys::SyscallIndex::geteuid: {
 		logger.debug(u8"Syscall geteuid()");
-		return pConfig.euid;
+		return pMisc.geteuid();
 	}
 	case sys::SyscallIndex::getgid: {
 		logger.debug(u8"Syscall getgid()");
-		return pConfig.gid;
+		return pMisc.getgid();
 	}
 	case sys::SyscallIndex::getegid: {
 		logger.debug(u8"Syscall getegid()");
-		return pConfig.egid;
+		return pMisc.getegid();
+	}
+	case sys::SyscallIndex::gettimeofday: {
+		logger.debug(u8"Syscall gettimeofday(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#018x", args.args[1] }, u8')');
+		return pMisc.gettimeofday(args.args[0], args.args[1]);
 	}
 	case sys::SyscallIndex::exit_group: {
 		logger.debug(u8"Syscall exit_group(", args.args[0], u8')');
@@ -94,7 +98,7 @@ int64_t sys::detail::Syscall::fDispatch() {
 	}
 	case sys::SyscallIndex::uname: {
 		logger.debug(u8"Syscall uname(", str::As{ U"#018x", args.args[0] }, u8')');
-		return fHandleUName(args.args[0]);
+		return pMisc.uname(args.args[0]);
 	}
 	case sys::SyscallIndex::openat: {
 		logger.debug(u8"Syscall openat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8')');
@@ -183,30 +187,12 @@ int64_t sys::detail::Syscall::fDispatch() {
 	/* should never be reached */
 	return errCode::eUnknown;
 }
-int64_t sys::detail::Syscall::fHandleUName(env::guest_t addr) const {
-	/* helper function */
-	auto write = [](char8_t(&buffer)[65], std::u8string_view str) {
-		std::memcpy(buffer, str.data(), std::min<size_t>(sizeof(buffer), str.size() + 1));
-		};
-
-	/* construct the uname-content */
-	linux::UName uname;
-	write(uname.sysName, u8"wasmlator");
-	write(uname.nodeName, pConfig.userName);
-	write(uname.release, u8"6.8.0-wasmlator");
-	write(uname.version, u8"userspace-wasmlator #version 1.0.0");
-	write(uname.machine, pMachine);
-
-	/* write the data to the guest */
-	env::Instance()->memory().mwrite(addr, &uname, sizeof(linux::UName), env::Usage::Write);
-	return errCode::eSuccess;
-}
 
 bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path, std::u8string_view machine) {
 	pUserspace = userspace;
-	pMachine = std::u8string{ machine };
 	pConfig.path = std::u8string{ path };
-	pConfig.userName = u8"some-unknown";
+	pConfig.username = u8"some-unknown";
+	pConfig.machine = std::u8string{ machine };
 
 	/* setup the file-io */
 	if (!pFileIO.setup(this))
@@ -214,6 +200,10 @@ bool sys::detail::Syscall::setup(sys::Userspace* userspace, env::guest_t endOfDa
 
 	/* setup the memory interactions */
 	if (!pMemory.setup(this, endOfData))
+		return false;
+
+	/* setup the remaining syscalls */
+	if (!pMisc.setup(this))
 		return false;
 	return true;
 }

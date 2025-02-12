@@ -4,6 +4,7 @@
 
 #include "sys-file-io.h"
 #include "sys-mem-interact.h"
+#include "sys-misc-syscalls.h"
 
 namespace sys::detail {
 	namespace fs {
@@ -22,7 +23,8 @@ namespace sys::detail {
 	}
 
 	struct ProcessConfig {
-		std::u8string userName;
+		std::u8string username;
+		std::u8string machine;
 		std::u8string path;
 		std::u8string wDirectory;
 		uint32_t uid = fs::ThisUesr;
@@ -38,6 +40,7 @@ namespace sys::detail {
 		sys::Userspace* pUserspace = 0;
 		detail::FileIO pFileIO;
 		detail::MemoryInteract pMemory;
+		detail::MiscSyscalls pMisc;
 		struct {
 			env::guest_t address = 0;
 			size_t nested = 0;
@@ -45,7 +48,6 @@ namespace sys::detail {
 			bool completed = false;
 		} pCurrent;
 		detail::ProcessConfig pConfig;
-		std::u8string pMachine;
 
 	public:
 		Syscall() = default;
@@ -56,7 +58,6 @@ namespace sys::detail {
 	private:
 		void fWrap(bool inplace, std::function<int64_t()> callback);
 		int64_t fDispatch();
-		int64_t fHandleUName(env::guest_t addr) const;
 
 	public:
 		bool setup(sys::Userspace* userspace, env::guest_t endOfData, std::u8string_view path, std::u8string_view machine);

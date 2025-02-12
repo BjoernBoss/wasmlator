@@ -259,6 +259,9 @@ setup_wasmlator = function (logPrint, cb) {
 		imports.env.host_time_us = function () {
 			return BigInt(Date.now() * 1000);
 		};
+		imports.env.host_timezone_min = function () {
+			return new Date().getTimezoneOffset();
+		};
 
 		/* fetch the main application javascript-wrapper */
 		fetch(_state.main.path, { credentials: 'same-origin' })

@@ -2,8 +2,6 @@
 
 #include "../sys-common.h"
 
-#include "sys-file-io.h"
-
 namespace sys::detail {
 	namespace consts {
 		/* used by mmap */
@@ -53,6 +51,7 @@ namespace sys::detail {
 	private:
 		env::guest_t fPageOffset(env::guest_t address) const;
 		env::guest_t fPageAlignUp(env::guest_t address) const;
+		void fRemoveShared(env::guest_t address, uint64_t length);
 		bool fCheckRange(env::guest_t address, uint64_t length, bool replace);
 		int64_t fMapRange(env::guest_t address, uint64_t length, uint32_t usage, uint32_t flags);
 

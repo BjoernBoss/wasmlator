@@ -20,6 +20,7 @@ extern "C" {
 	void host_guest_out(const char8_t* data, uint32_t size);
 	uint32_t host_random();
 	uint64_t host_time_us();
+	int32_t host_timezone_min();
 }
 
 /* environment/process/process-bridge interactions */
