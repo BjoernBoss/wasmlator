@@ -23,16 +23,28 @@ std::pair<uint32_t, uint32_t> rv64::Translate::fGetCsrPlacement(uint16_t csr) co
 
 	return { shift, mask };
 }
-wasm::Variable rv64::Translate::fTemp32(size_t index) {
+wasm::Variable rv64::Translate::fTempi32(size_t index) {
 	wasm::Variable& var = pTemp[4 + index];
 	if (!var.valid())
 		var = gen::Sink->local(wasm::Type::i32, str::u8::Build(u8"_temp_i32_", index));
 	return var;
 }
-wasm::Variable rv64::Translate::fTemp64(size_t index) {
+wasm::Variable rv64::Translate::fTempi64(size_t index) {
 	wasm::Variable& var = pTemp[index];
 	if (!var.valid())
 		var = gen::Sink->local(wasm::Type::i64, str::u8::Build(u8"_temp_i64_", index));
+	return var;
+}
+wasm::Variable rv64::Translate::fTempf32() {
+	wasm::Variable& var = pTemp[6];
+	if (!var.valid())
+		var = gen::Sink->local(wasm::Type::f32, str::u8::Build(u8"_temp_f32"));
+	return var;
+}
+wasm::Variable rv64::Translate::fTempf64() {
+	wasm::Variable& var = pTemp[7];
+	if (!var.valid())
+		var = gen::Sink->local(wasm::Type::f64, str::u8::Build(u8"_temp_f64"));
 	return var;
 }
 
@@ -150,7 +162,7 @@ void rv64::Translate::fMakeJALR() {
 		gen::Add[I::U64::Const(pNextAddress)];
 		fulfill.now();
 	}
-	wasm::Variable addr = fTemp64(0);
+	wasm::Variable addr = fTempi64(0);
 
 	/* write the target address to the stack */
 	if (fLoadSrc1(false, false)) {
@@ -621,7 +633,7 @@ void rv64::Translate::fMakeDivRem() {
 	}
 
 	/* allocate the temporary variables and write the operands to the stack */
-	wasm::Variable temp = (half ? fTemp32(0) : fTemp64(0));
+	wasm::Variable temp = (half ? fTempi32(0) : fTempi64(0));
 	fLoadSrc1(true, half);
 	fLoadSrc2(true, half);
 
@@ -721,7 +733,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	gen::MemoryType type = (half ? gen::MemoryType::i32 : gen::MemoryType::i64);
 
 	/* load the source address into the temporary */
-	wasm::Variable addr = fTemp64(0);
+	wasm::Variable addr = fTempi64(0);
 	fLoadSrc1(true, false);
 	gen::Add[I::Local::Tee(addr)];
 
@@ -735,7 +747,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	}
 
 	/* perform the reading of the original value (dont write it to the destination yet, as the destination migth also be the source) */
-	wasm::Variable value = (half ? fTemp32(0) : fTemp64(1));
+	wasm::Variable value = (half ? fTempi32(0) : fTempi64(1));
 	gen::Add[I::Local::Get(addr)];
 	gen::Make->read(pInst->src1, type, pAddress);
 	gen::Add[I::Local::Set(value)];
@@ -780,7 +792,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_min_s_w:
 	case rv64::Opcode::amo_min_s_d:
 		if (fLoadSrc2(true, half)) {
-			wasm::Variable other = (half ? fTemp32(1) : addr);
+			wasm::Variable other = (half ? fTempi32(1) : addr);
 			gen::Add[I::Local::Tee(other)];
 			gen::Add[I::Local::Get(value)];
 			gen::Add[I::Local::Get(other)];
@@ -796,7 +808,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_max_s_w:
 	case rv64::Opcode::amo_max_s_d:
 		if (fLoadSrc2(true, half)) {
-			wasm::Variable other = (half ? fTemp32(1) : addr);
+			wasm::Variable other = (half ? fTempi32(1) : addr);
 			gen::Add[I::Local::Tee(other)];
 			gen::Add[I::Local::Get(value)];
 			gen::Add[I::Local::Get(other)];
@@ -812,7 +824,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_min_u_w:
 	case rv64::Opcode::amo_min_u_d:
 		if (fLoadSrc2(true, half)) {
-			wasm::Variable other = (half ? fTemp32(1) : addr);
+			wasm::Variable other = (half ? fTempi32(1) : addr);
 			gen::Add[I::Local::Tee(other)];
 			gen::Add[I::Local::Get(value)];
 			gen::Add[I::Local::Get(other)];
@@ -824,7 +836,7 @@ void rv64::Translate::fMakeAMO(bool half) {
 	case rv64::Opcode::amo_max_u_w:
 	case rv64::Opcode::amo_max_u_d:
 		if (fLoadSrc2(false, half)) {
-			wasm::Variable other = (half ? fTemp32(1) : addr);
+			wasm::Variable other = (half ? fTempi32(1) : addr);
 			gen::Add[I::Local::Tee(other)];
 			gen::Add[I::Local::Get(value)];
 			gen::Add[I::Local::Get(other)];
@@ -863,7 +875,7 @@ void rv64::Translate::fMakeAMOLR() {
 	wasm::Variable addr;
 	fLoadSrc1(true, false);
 	if (pInst->dest != reg::Zero)
-		gen::Add[I::Local::Tee(addr = fTemp64(0))];
+		gen::Add[I::Local::Tee(addr = fTempi64(0))];
 
 	/* validate the alignment constraints of the address */
 	gen::Add[I::U64::Shrink()];
@@ -891,7 +903,7 @@ void rv64::Translate::fMakeAMOSC() {
 	bool half = (pInst->opcode == rv64::Opcode::store_conditional_w);
 
 	/* load the source address into the temporary */
-	wasm::Variable addr = fTemp64(0);
+	wasm::Variable addr = fTempi64(0);
 	fLoadSrc1(true, false);
 	gen::Add[I::Local::Tee(addr)];
 
@@ -948,7 +960,7 @@ void rv64::Translate::fMakeMul() {
 
 	/* check if at least one component is signed, in which case the full values need to be loaded before splitting
 	*	them into the separate words (b-signed implies a signed as well; the values are loaded into a1/b1) */
-	wasm::Variable a0 = fTemp64(0), a1 = fTemp64(1), b0 = fTemp64(2), b1 = fTemp64(3);
+	wasm::Variable a0 = fTempi64(0), a1 = fTempi64(1), b0 = fTempi64(2), b1 = fTempi64(3);
 	if (isSigned) {
 		/* load the two components and leave them on the stack (start with the sign-extension of a) */
 		fLoadSrc1(false, false);
@@ -1124,7 +1136,7 @@ void rv64::Translate::fMakeCSR() {
 	if (read) {
 		wasm::Variable t0;
 		if (write)
-			gen::Add[I::Local::Tee(t0 = fTemp64(0))];
+			gen::Add[I::Local::Tee(t0 = fTempi64(0))];
 
 		/* apply the necessary shifting/clipping */
 		if (shift > 0) {
@@ -1208,7 +1220,7 @@ void rv64::Translate::fMakeCSR() {
 
 	/* check if the float write operation is supported */
 	auto [frmShift, frmMask] = fGetCsrPlacement(csr::fpRoundingMode);
-	wasm::Variable temp = fTemp64((read && write) ? 1 : 0);
+	wasm::Variable temp = fTempi64((read && write) ? 1 : 0);
 	gen::Add[I::Local::Tee(temp)];
 	gen::Add[I::U64::Const(frmMask << frmShift)];
 	gen::Add[I::U64::And()];
@@ -1304,7 +1316,7 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 	/* perform the actual store of the value */
 	fulfill.now();
 }
-void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) const {
+void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
 	/* ensure that the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
 		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
@@ -1321,46 +1333,92 @@ void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) const {
 	/* fetch the source operand */
 	fLoadFSrc1(fHalf);
 
-	/* write the result of the operation to the stack */
-	switch (pInst->opcode) {
-	case rv64::Opcode::float_convert_to_word_s:
-		gen::Add[I::I32::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_word_s:
-		gen::Add[I::I32::FromF64()];
-		break;
-	case rv64::Opcode::float_convert_to_word_u:
-		gen::Add[I::U32::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_word_u:
-		gen::Add[I::U32::FromF64()];
-		break;
-	case rv64::Opcode::float_convert_to_dword_s:
-		gen::Add[I::I64::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_dword_s:
-		gen::Add[I::I64::FromF64()];
-		break;
-	case rv64::Opcode::float_convert_to_dword_u:
-		gen::Add[I::U64::FromF32()];
-		break;
-	case rv64::Opcode::double_convert_to_dword_u:
-		gen::Add[I::U64::FromF64()];
-		break;
-	case rv64::Opcode::float_move_to_word:
-		gen::Add[I::F32::AsInt()];
-		break;
-	case rv64::Opcode::double_move_to_dword:
-		gen::Add[I::F64::AsInt()];
-		break;
-	default:
-		break;
-	}
+	/* either write the maximum value for nan to the stack, or write the actual value to the stack */
+	bool isConvert = (pInst->opcode != rv64::Opcode::float_move_from_word && pInst->opcode != rv64::Opcode::double_move_from_dword);
+	{
+		wasm::IfThen _if;
+		wasm::Variable temp;
 
-	/* perform the sign extension to the 64-bit (also valid for moves, as ieee-754
-	*	also has its sign bit in the highest position) and write the result back */
-	if (iHalf)
-		gen::Add[I::I32::Expand()];
+		/* check if the value is nan (not necessary for moves) */
+		if (isConvert) {
+			temp = (fHalf ? fTempf32() : fTempf64());
+			gen::Add[I::Local::Tee(temp)];
+			gen::Add[I::Local::Get(temp)];
+			gen::Add[fHalf ? I::F32::NotEqual() : I::F64::NotEqual()];
+			_if = { gen::Sink, u8"", { wasm::Type::i32 }, {} };
+		}
+
+		/* write the maximum value out */
+		switch (pInst->opcode) {
+		case rv64::Opcode::float_convert_to_word_s:
+		case rv64::Opcode::double_convert_to_word_s:
+			gen::Add[I::U64::Const(std::numeric_limits<int32_t>::max())];
+			break;
+		case rv64::Opcode::float_convert_to_word_u:
+		case rv64::Opcode::double_convert_to_word_u:
+			gen::Add[I::U64::Const(std::numeric_limits<uint32_t>::max())];
+			break;
+		case rv64::Opcode::float_convert_to_dword_s:
+		case rv64::Opcode::double_convert_to_dword_s:
+			gen::Add[I::U64::Const(std::numeric_limits<int64_t>::max())];
+			break;
+		case rv64::Opcode::float_convert_to_dword_u:
+		case rv64::Opcode::double_convert_to_dword_u:
+			gen::Add[I::U64::Const(std::numeric_limits<uint64_t>::max())];
+			break;
+		case rv64::Opcode::float_move_to_word:
+		case rv64::Opcode::double_move_to_dword:
+		default:
+			break;
+		}
+
+		/* recover the original value */
+		if (isConvert) {
+			_if.otherwise();
+			gen::Add[I::Local::Get(temp)];
+		}
+
+		/* write the result of the operation to the stack */
+		switch (pInst->opcode) {
+		case rv64::Opcode::float_convert_to_word_s:
+			gen::Add[I::I32::FromF32(false)];
+			break;
+		case rv64::Opcode::double_convert_to_word_s:
+			gen::Add[I::I32::FromF64(false)];
+			break;
+		case rv64::Opcode::float_convert_to_word_u:
+			gen::Add[I::U32::FromF32(false)];
+			break;
+		case rv64::Opcode::double_convert_to_word_u:
+			gen::Add[I::U32::FromF64(false)];
+			break;
+		case rv64::Opcode::float_convert_to_dword_s:
+			gen::Add[I::I64::FromF32(false)];
+			break;
+		case rv64::Opcode::double_convert_to_dword_s:
+			gen::Add[I::I64::FromF64(false)];
+			break;
+		case rv64::Opcode::float_convert_to_dword_u:
+			gen::Add[I::U64::FromF32(false)];
+			break;
+		case rv64::Opcode::double_convert_to_dword_u:
+			gen::Add[I::U64::FromF64(false)];
+			break;
+		case rv64::Opcode::float_move_to_word:
+			gen::Add[I::F32::AsInt()];
+			break;
+		case rv64::Opcode::double_move_to_dword:
+			gen::Add[I::F64::AsInt()];
+			break;
+		default:
+			break;
+		}
+
+		/* perform the sign extension to the 64-bit (also valid for moves, as ieee-754
+		*	also has its sign bit in the highest position) and write the result back */
+		if (iHalf)
+			gen::Add[I::I32::Expand()];
+	}
 	fulfill.now();
 }
 void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) const {

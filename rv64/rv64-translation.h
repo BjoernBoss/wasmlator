@@ -16,7 +16,7 @@ namespace rv64 {
 		static constexpr uint64_t NotImplException = 7;
 
 	private:
-		wasm::Variable pTemp[6];
+		wasm::Variable pTemp[8];
 		sys::Writer* pWriter = 0;
 		const rv64::Instruction* pInst = 0;
 		env::guest_t pAddress = 0;
@@ -27,8 +27,10 @@ namespace rv64 {
 
 	private:
 		std::pair<uint32_t, uint32_t> fGetCsrPlacement(uint16_t csr) const;
-		wasm::Variable fTemp32(size_t index);
-		wasm::Variable fTemp64(size_t index);
+		wasm::Variable fTempi32(size_t index);
+		wasm::Variable fTempi64(size_t index);
+		wasm::Variable fTempf32();
+		wasm::Variable fTempf64();
 
 	private:
 		bool fLoadSrc1(bool forceNull, bool half) const;
@@ -62,7 +64,7 @@ namespace rv64 {
 	private:
 		void fMakeFLoad(bool multi) const;
 		void fMakeFStore(bool multi) const;
-		void fMakeFloatToInt(bool iHalf, bool fHalf) const;
+		void fMakeFloatToInt(bool iHalf, bool fHalf);
 		void fMakeIntToFloat(bool iHalf, bool fHalf) const;
 		void fMakeFloatALU(bool half) const;
 
