@@ -570,27 +570,13 @@ rv64::Instruction rv64::detail::Opcode53(uint32_t data) {
 			out.opcode = rv64::Opcode::float_convert_to_word_s;
 		else if (out.src2 == 0x01)
 			out.opcode = rv64::Opcode::float_convert_to_word_u;
+		else if (out.src2 == 0x02)
+			out.opcode = rv64::Opcode::float_convert_to_dword_s;
+		else if (out.src2 == 0x03)
+			out.opcode = rv64::Opcode::float_convert_to_dword_u;
 		out.src2 = 0;
 		break;
 	case 0x61:
-		if (out.src2 == 0x00)
-			out.opcode = rv64::Opcode::double_convert_from_word_s;
-		else if (out.src2 == 0x01)
-			out.opcode = rv64::Opcode::double_convert_from_word_u;
-		else if (out.src2 == 0x02)
-			out.opcode = rv64::Opcode::double_convert_from_dword_s;
-		else if (out.src2 == 0x03)
-			out.opcode = rv64::Opcode::double_convert_from_dword_u;
-		out.src2 = 0;
-		break;
-	case 0x68:
-		if (out.src2 == 0x00)
-			out.opcode = rv64::Opcode::float_convert_from_word_s;
-		else if (out.src2 == 0x01)
-			out.opcode = rv64::Opcode::float_convert_from_word_u;
-		out.src2 = 0;
-		break;
-	case 0x69:
 		if (out.src2 == 0x00)
 			out.opcode = rv64::Opcode::double_convert_to_word_s;
 		else if (out.src2 == 0x01)
@@ -599,6 +585,28 @@ rv64::Instruction rv64::detail::Opcode53(uint32_t data) {
 			out.opcode = rv64::Opcode::double_convert_to_dword_s;
 		else if (out.src2 == 0x03)
 			out.opcode = rv64::Opcode::double_convert_to_dword_u;
+		out.src2 = 0;
+		break;
+	case 0x68:
+		if (out.src2 == 0x00)
+			out.opcode = rv64::Opcode::float_convert_from_word_s;
+		else if (out.src2 == 0x01)
+			out.opcode = rv64::Opcode::float_convert_from_word_u;
+		else if (out.src2 == 0x02)
+			out.opcode = rv64::Opcode::float_convert_from_dword_s;
+		else if (out.src2 == 0x03)
+			out.opcode = rv64::Opcode::float_convert_from_dword_u;
+		out.src2 = 0;
+		break;
+	case 0x69:
+		if (out.src2 == 0x00)
+			out.opcode = rv64::Opcode::double_convert_from_word_s;
+		else if (out.src2 == 0x01)
+			out.opcode = rv64::Opcode::double_convert_from_word_u;
+		else if (out.src2 == 0x02)
+			out.opcode = rv64::Opcode::double_convert_from_dword_s;
+		else if (out.src2 == 0x03)
+			out.opcode = rv64::Opcode::double_convert_from_dword_u;
 		out.src2 = 0;
 		break;
 	case 0x70:
