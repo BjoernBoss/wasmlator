@@ -541,9 +541,12 @@ rv64::Instruction rv64::detail::Opcode53(uint32_t data) {
 		out.misc = 0;
 		break;
 	case 0x20:
-		if (out.src2 == 0x00)
+		if (out.src2 == 0x01)
 			out.opcode = rv64::Opcode::double_to_float;
-		else if (out.src2 == 0x01)
+		out.src2 = 0;
+		break;
+	case 0x21:
+		if (out.src2 == 0x00)
 			out.opcode = rv64::Opcode::float_to_double;
 		out.src2 = 0;
 		break;

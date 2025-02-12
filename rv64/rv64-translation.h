@@ -68,6 +68,7 @@ namespace rv64 {
 		void fMakeIntToFloat(bool iHalf, bool fHalf) const;
 		void fMakeFloatALUSimple(bool half) const;
 		void fMakeFloatALULarge(bool half) const;
+		void fMakeFloatConvert() const;
 
 	public:
 		void resetAll(sys::Writer* writer);

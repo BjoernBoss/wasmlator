@@ -1614,6 +1614,30 @@ void rv64::Translate::fMakeFloatALULarge(bool half) const {
 		fExpandFloat(false, true);
 	fulfill.now();
 }
+void rv64::Translate::fMakeFloatConvert() const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(pInst->opcode == rv64::Opcode::double_to_float);
+
+	/* write the source operand */
+	fLoadFSrc1(pInst->opcode == rv64::Opcode::float_to_double);
+
+	/* perform the operation */
+	if (pInst->opcode == rv64::Opcode::float_to_double)
+		gen::Add[I::F32::Expand()];
+	else
+		gen::Add[I::F64::Shrink()];
+
+	/* perform the float extension and write the result back */
+	if (pInst->opcode == rv64::Opcode::double_to_float)
+		fExpandFloat(false, true);
+	fulfill.now();
+}
 
 void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
@@ -1876,9 +1900,11 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_neg_mul_sub:
 		fMakeFloatALULarge(false);
 		break;
-
 	case rv64::Opcode::float_to_double:
 	case rv64::Opcode::double_to_float:
+		fMakeFloatConvert();
+		break;
+
 	case rv64::Opcode::float_sqrt:
 	case rv64::Opcode::float_sign_copy:
 	case rv64::Opcode::float_sign_invert:
