@@ -1696,6 +1696,49 @@ void rv64::Translate::fMakeFloatSign(bool half) const {
 		fExpandFloat(toInt, true);
 	fulfill.now();
 }
+void rv64::Translate::fMakeFloatCompare(bool half) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreDest();
+
+	/* fetch the source operands */
+	fLoadFSrc1(half);
+	fLoadFSrc2(half);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_equal:
+		gen::Add[I::F32::Equal()];
+		break;
+	case rv64::Opcode::float_less_equal:
+		gen::Add[I::F32::LessEqual()];
+		break;
+	case rv64::Opcode::float_less_than:
+		gen::Add[I::F32::Less()];
+		break;
+	case rv64::Opcode::double_equal:
+		gen::Add[I::F64::Equal()];
+		break;
+	case rv64::Opcode::double_less_equal:
+		gen::Add[I::F64::LessEqual()];
+		break;
+	case rv64::Opcode::double_less_than:
+		gen::Add[I::F64::Less()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the result extension and write the result back */
+	if (half)
+		gen::Add[I::U32::Expand()];
+	fulfill.now();
+}
 
 void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
@@ -1972,16 +2015,20 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_sign_xor:
 		fMakeFloatSign(false);
 		break;
-
-	case rv64::Opcode::float_sqrt:
+	case rv64::Opcode::float_equal:
 	case rv64::Opcode::float_less_equal:
 	case rv64::Opcode::float_less_than:
-	case rv64::Opcode::float_equal:
-	case rv64::Opcode::float_classify:
-	case rv64::Opcode::double_sqrt:
+		fMakeFloatCompare(true);
+		break;
+	case rv64::Opcode::double_equal:
 	case rv64::Opcode::double_less_equal:
 	case rv64::Opcode::double_less_than:
-	case rv64::Opcode::double_equal:
+		fMakeFloatCompare(false);
+		break;
+
+	case rv64::Opcode::float_sqrt:
+	case rv64::Opcode::double_sqrt:
+	case rv64::Opcode::float_classify:
 	case rv64::Opcode::double_classify:
 	case rv64::Opcode::_invalid:
 		/* raise the not-implemented exception for all remaining instructions */
