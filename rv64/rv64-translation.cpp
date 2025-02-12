@@ -1739,6 +1739,36 @@ void rv64::Translate::fMakeFloatCompare(bool half) const {
 		gen::Add[I::U32::Expand()];
 	fulfill.now();
 }
+void rv64::Translate::fMakeFloatUnary(bool half) const {
+	/* ensure that the frm is supported */
+	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
+		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		return;
+	}
+
+	/* prepare the result writeback */
+	gen::FulFill fulfill = fStoreFDest(half);
+
+	/* fetch the source operand */
+	fLoadFSrc1(half);
+
+	/* write the result of the operation to the stack */
+	switch (pInst->opcode) {
+	case rv64::Opcode::float_sqrt:
+		gen::Add[I::F32::SquareRoot()];
+		break;
+	case rv64::Opcode::double_sqrt:
+		gen::Add[I::F64::SquareRoot()];
+		break;
+	default:
+		break;
+	}
+
+	/* perform the float extension and write the result back */
+	if (half)
+		fExpandFloat(false, true);
+	fulfill.now();
+}
 
 void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
@@ -2025,9 +2055,13 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 	case rv64::Opcode::double_less_than:
 		fMakeFloatCompare(false);
 		break;
-
 	case rv64::Opcode::float_sqrt:
+		fMakeFloatUnary(true);
+		break;
 	case rv64::Opcode::double_sqrt:
+		fMakeFloatUnary(false);
+		break;
+
 	case rv64::Opcode::float_classify:
 	case rv64::Opcode::double_classify:
 	case rv64::Opcode::_invalid:

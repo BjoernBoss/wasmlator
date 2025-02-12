@@ -71,6 +71,7 @@ namespace rv64 {
 		void fMakeFloatConvert() const;
 		void fMakeFloatSign(bool half) const;
 		void fMakeFloatCompare(bool half) const;
+		void fMakeFloatUnary(bool half) const;
 
 	public:
 		void resetAll(sys::Writer* writer);
