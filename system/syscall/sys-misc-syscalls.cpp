@@ -41,8 +41,8 @@ int64_t sys::detail::MiscSyscalls::gettimeofday(env::guest_t tv, env::guest_t tz
 	if (tv != 0) {
 		uint64_t time = host::GetStampUS();
 		linux::TimeValue out;
-		out.sec = (time / 1'000'000);
-		out.usec = (time % 1'000'000);
+		out.sec = (time / 1000'000);
+		out.usec = (time % 1000'000);
 		env::Instance()->memory().mwrite(tv, &out, sizeof(linux::TimeValue), env::Usage::Write);
 	}
 

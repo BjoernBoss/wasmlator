@@ -10,10 +10,8 @@ namespace rv64 {
 		static constexpr uint64_t MisalignedException = 1;
 		static constexpr uint64_t IllegalException = 2;
 		static constexpr uint64_t CsrUnsupported = 3;
-		static constexpr uint64_t CsrReadingFloatFlags = 4;
-		static constexpr uint64_t CsrReadingFloatCsr = 5;
-		static constexpr uint64_t UnsupportedFRM = 6;
-		static constexpr uint64_t NotImplException = 7;
+		static constexpr uint64_t UnsupportedFRM = 4;
+		static constexpr uint64_t NotImplException = 5;
 
 	private:
 		wasm::Variable pTemp[8];
@@ -24,6 +22,7 @@ namespace rv64 {
 		struct {
 			uint32_t classify32Bit = 0;
 			uint32_t classify64Bit = 0;
+			uint32_t readFloatCsrWarn = 0;
 		} pRegistered;
 
 	public:

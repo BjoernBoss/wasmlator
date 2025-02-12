@@ -1107,8 +1107,8 @@ void rv64::Translate::fMakeCSR() {
 	*		=> Raise Translate::CsrUnsupported
 	*
 	*	Currently only the current operations are supported for float csrs
-	*		- float-csr cannot be read (Translate::CsrReadingFloatCsr)
-	*		- float-flags cannot be read (Translate::CsrReadingFloatFlags)
+	*		- float-csr read will only return 0
+	*		- float-flags read will only return 0 or last write
 	*		- float-frm can only be set to "round to nearest, ties to even" (Translate::CsrUnsupportedFRM)
 	*/
 
@@ -1170,14 +1170,9 @@ void rv64::Translate::fMakeCSR() {
 	/* fetch the shift and mask properties of the actual csr */
 	auto [shift, mask] = fGetCsrPlacement(pInst->misc);
 
-	/* check if the float read operation is supported */
-	if (read && pInst->misc != csr::fpRoundingMode) {
-		if (pInst->misc == csr::fpExceptionFlags)
-			pWriter->makeException(Translate::CsrReadingFloatFlags, pAddress, pNextAddress);
-		else
-			pWriter->makeException(Translate::CsrReadingFloatCsr, pAddress, pNextAddress);
-		return;
-	}
+	/* check if the float read operation is only partially or not implemented */
+	if (read && pInst->misc != csr::fpRoundingMode)
+		gen::Make->invokeVoid(pRegistered.readFloatCsrWarn);
 
 	/* prepare the result writebacks */
 	gen::FulFill csrFulfill = (write ? gen::Make->set(offsetof(rv64::Context, float_csr), gen::MemoryType::i64) : gen::FulFill{});
@@ -1833,12 +1828,15 @@ void rv64::Translate::fMakeFloatUnary(bool half, bool intResult) const {
 }
 
 bool rv64::Translate::setup() {
-	/* register the classification callbacks */
+	/* register the callbacks */
 	pRegistered.classify32Bit = env::Instance()->interact().defineCallback([](uint64_t value) -> uint64_t {
 		return fClassifyf32(std::bit_cast<float, uint32_t>(uint32_t(value)));
 		});
 	pRegistered.classify64Bit = env::Instance()->interact().defineCallback([](uint64_t value) -> uint64_t {
 		return fClassifyf64(std::bit_cast<double, uint64_t>(value));
+		});
+	pRegistered.readFloatCsrWarn = env::Instance()->interact().defineCallback([]() {
+		logger.warn(u8"Reading csr::float");
 		});
 	return true;
 }
