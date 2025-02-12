@@ -21,6 +21,10 @@ namespace rv64 {
 		const rv64::Instruction* pInst = 0;
 		env::guest_t pAddress = 0;
 		env::guest_t pNextAddress = 0;
+		struct {
+			uint32_t classify32Bit = 0;
+			uint32_t classify64Bit = 0;
+		} pRegistered;
 
 	public:
 		Translate() = default;
@@ -31,6 +35,11 @@ namespace rv64 {
 		wasm::Variable fTempi64(size_t index);
 		wasm::Variable fTempf32();
 		wasm::Variable fTempf64();
+
+	private:
+		static uint32_t fClassifyFloat(int _class, bool _sign, bool _topMantissa);
+		static uint32_t fClassifyf32(float value);
+		static uint32_t fClassifyf64(double value);
 
 	private:
 		bool fLoadSrc1(bool forceNull, bool half) const;
@@ -71,9 +80,10 @@ namespace rv64 {
 		void fMakeFloatConvert() const;
 		void fMakeFloatSign(bool half) const;
 		void fMakeFloatCompare(bool half) const;
-		void fMakeFloatUnary(bool half) const;
+		void fMakeFloatUnary(bool half, bool intResult) const;
 
 	public:
+		bool setup();
 		void resetAll(sys::Writer* writer);
 		void start(env::guest_t address);
 		void next(const rv64::Instruction& inst);

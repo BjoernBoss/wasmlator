@@ -59,7 +59,7 @@ bool rv64::Cpu::setupCpu(sys::Writer* writer) {
 	return true;
 }
 bool rv64::Cpu::setupCore(wasm::Module& mod) {
-	return true;
+	return pTranslator.setup();
 }
 bool rv64::Cpu::setupContext(env::guest_t pcAddress, env::guest_t spAddress) {
 	rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();

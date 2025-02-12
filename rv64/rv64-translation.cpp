@@ -48,6 +48,60 @@ wasm::Variable rv64::Translate::fTempf64() {
 	return var;
 }
 
+uint32_t rv64::Translate::fClassifyFloat(int _class, bool _sign, bool _topMantissa) {
+	uint32_t out = 0;
+	auto set = [&](uint32_t index, bool value) { out |= ((value ? 0x01 : 0x00) << index); };
+
+	/*
+	*	bit[0]: is -inf
+	*	bit[1]: is neg normal
+	*	bit[2]: is neg subnormal
+	*	bit[3]: is -0
+	*	bit[4]: is +0
+	*	bit[5]: is pos subnormal number
+	*	bit[6]: is pos normal number
+	*	bit[7]: is +inf
+	*	bit[8]: is signaling NaN
+	*	bit[9]: is quite NaN
+	*/
+
+	switch (_class) {
+	case FP_INFINITE:
+		set(0, _sign);
+		set(7, !_sign);
+		break;
+	case FP_NORMAL:
+		set(1, _sign);
+		set(6, !_sign);
+		break;
+	case FP_SUBNORMAL:
+		set(2, _sign);
+		set(5, !_sign);
+		break;
+	case FP_ZERO:
+		set(3, _sign);
+		set(4, !_sign);
+		break;
+	case FP_NAN:
+		set(8, !_topMantissa);
+		set(9, _topMantissa);
+		break;
+	}
+	return out;
+}
+uint32_t rv64::Translate::fClassifyf32(float value) {
+	int _class = std::fpclassify(value);
+	bool _sign = std::signbit(value);
+	bool _topMantissa = bool((std::bit_cast<uint32_t, float>(value) >> 22) & 0x01);
+	return fClassifyFloat(_class, _sign, _topMantissa);
+}
+uint32_t rv64::Translate::fClassifyf64(double value) {
+	int _class = std::fpclassify(value);
+	bool _sign = std::signbit(value);
+	bool _topMantissa = bool((std::bit_cast<uint64_t, double>(value) >> 51) & 0x01);
+	return fClassifyFloat(_class, _sign, _topMantissa);
+}
+
 bool rv64::Translate::fLoadSrc1(bool forceNull, bool half) const {
 	if (pInst->src1 != reg::Zero) {
 		gen::Make->get(offsetof(rv64::Context, iregs) + pInst->src1 * sizeof(uint64_t), half ? gen::MemoryType::i32 : gen::MemoryType::i64);
@@ -1334,7 +1388,7 @@ void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
 	fLoadFSrc1(fHalf);
 
 	/* either write the maximum value for nan to the stack, or write the actual value to the stack */
-	bool isConvert = (pInst->opcode != rv64::Opcode::float_move_from_word && pInst->opcode != rv64::Opcode::double_move_from_dword);
+	bool isConvert = (pInst->opcode != rv64::Opcode::float_move_to_word && pInst->opcode != rv64::Opcode::double_move_to_dword);
 	{
 		wasm::IfThen _if;
 		wasm::Variable temp;
@@ -1739,7 +1793,7 @@ void rv64::Translate::fMakeFloatCompare(bool half) const {
 		gen::Add[I::U32::Expand()];
 	fulfill.now();
 }
-void rv64::Translate::fMakeFloatUnary(bool half) const {
+void rv64::Translate::fMakeFloatUnary(bool half, bool intResult) const {
 	/* ensure that the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
 		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
@@ -1747,7 +1801,7 @@ void rv64::Translate::fMakeFloatUnary(bool half) const {
 	}
 
 	/* prepare the result writeback */
-	gen::FulFill fulfill = fStoreFDest(half);
+	gen::FulFill fulfill = (intResult ? fStoreDest() : fStoreFDest(half));
 
 	/* fetch the source operand */
 	fLoadFSrc1(half);
@@ -1760,16 +1814,35 @@ void rv64::Translate::fMakeFloatUnary(bool half) const {
 	case rv64::Opcode::double_sqrt:
 		gen::Add[I::F64::SquareRoot()];
 		break;
+	case rv64::Opcode::float_classify:
+		gen::Add[I::F32::AsInt()];
+		gen::Add[I::U32::Expand()];
+		gen::Make->invokeParam(pRegistered.classify32Bit);
+		break;
+	case rv64::Opcode::double_classify:
+		gen::Add[I::F64::AsInt()];
+		gen::Make->invokeParam(pRegistered.classify64Bit);
+		break;
 	default:
 		break;
 	}
 
 	/* perform the float extension and write the result back */
-	if (half)
+	if (half && !intResult)
 		fExpandFloat(false, true);
 	fulfill.now();
 }
 
+bool rv64::Translate::setup() {
+	/* register the classification callbacks */
+	pRegistered.classify32Bit = env::Instance()->interact().defineCallback([](uint64_t value) -> uint64_t {
+		return fClassifyf32(std::bit_cast<float, uint32_t>(uint32_t(value)));
+		});
+	pRegistered.classify64Bit = env::Instance()->interact().defineCallback([](uint64_t value) -> uint64_t {
+		return fClassifyf64(std::bit_cast<double, uint64_t>(value));
+		});
+	return true;
+}
 void rv64::Translate::resetAll(sys::Writer* writer) {
 	for (wasm::Variable& var : pTemp)
 		var = wasm::Variable{};
@@ -2056,14 +2129,18 @@ void rv64::Translate::next(const rv64::Instruction& inst) {
 		fMakeFloatCompare(false);
 		break;
 	case rv64::Opcode::float_sqrt:
-		fMakeFloatUnary(true);
+		fMakeFloatUnary(true, false);
 		break;
 	case rv64::Opcode::double_sqrt:
-		fMakeFloatUnary(false);
+		fMakeFloatUnary(false, false);
+		break;
+	case rv64::Opcode::float_classify:
+		fMakeFloatUnary(true, true);
+		break;
+	case rv64::Opcode::double_classify:
+		fMakeFloatUnary(false, true);
 		break;
 
-	case rv64::Opcode::float_classify:
-	case rv64::Opcode::double_classify:
 	case rv64::Opcode::_invalid:
 		/* raise the not-implemented exception for all remaining instructions */
 		pWriter->makeException(Translate::NotImplException, pAddress, pNextAddress);
