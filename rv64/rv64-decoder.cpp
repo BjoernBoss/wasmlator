@@ -486,7 +486,7 @@ rv64::Instruction rv64::detail::Opcode53(uint32_t data) {
 		out.opcode = rv64::Opcode::float_sub;
 		break;
 	case 0x05:
-		out.opcode = rv64::Opcode::double_add;
+		out.opcode = rv64::Opcode::double_sub;
 		break;
 	case 0x08:
 		out.opcode = rv64::Opcode::float_mul;
