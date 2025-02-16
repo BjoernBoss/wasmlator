@@ -27,6 +27,9 @@ let dispatchNext = function () {
 		return;
 	}
 
+	/* echo the input back */
+	host.log(LogType.output, `> ${next}\n`);
+
 	/* pass the command to the wasmlator */
 	let promise = (isExecuteMode ? wasmlator.execute(next) : wasmlator.handle(next));
 	promise.then(function () { })
@@ -38,8 +41,11 @@ let dispatchNext = function () {
 let host = new WebHost((type, msg) => postMessage({ cmd: 'log', type: type, msg: msg }), function () {
 	return new Promise(function (resolve) {
 		host.log(LogType.logInternal, 'Awaiting input...');
+
+		/* setup the input promise */
 		inputPromise = function (input) {
 			inputPromise = null;
+			host.log(LogType.output, `${input}\n`);
 			resolve(input);
 		};
 		dispatchNext();
