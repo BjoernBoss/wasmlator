@@ -102,6 +102,8 @@ window.onload = function () {
 	let inputDirty = true;
 	let lastCommitted = '';
 	htmlInput.onkeydown = function (e) {
+		this.scrollIntoView(true);
+
 		/* check if the input is considered dirty */
 		if (this.value != lastCommitted)
 			inputDirty = true;

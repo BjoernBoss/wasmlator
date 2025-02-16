@@ -115,7 +115,6 @@ static arger::Config Commands{
 	},
 };
 
-static util::Logger logger{ u8"interact" };
 static sys::Debugger* debugger = 0;
 
 static int8_t HandleDebug(const arger::Parsed& out) {
@@ -172,7 +171,7 @@ static int8_t HandleDebug(const arger::Parsed& out) {
 }
 
 void HandleCommand(std::u8string_view cmd) {
-	logger.log(u8"Input> ", cmd);
+	util::nullLogger.log(cmd);
 	arger::Parsed out;
 
 	/* parse the next command */
@@ -180,11 +179,11 @@ void HandleCommand(std::u8string_view cmd) {
 		out = arger::Menu(cmd, Commands, 160);
 	}
 	catch (const arger::PrintMessage& e) {
-		logger.info(e.what());
+		util::nullLogger.info(e.what());
 		return;
 	}
 	catch (const arger::ParsingException& e) {
-		logger.error(e.what(), u8" Use 'help' for more information.");
+		util::nullLogger.error(e.what(), u8" Use 'help' for more information.");
 		return;
 	}
 
@@ -193,7 +192,7 @@ void HandleCommand(std::u8string_view cmd) {
 	case 0:
 		break;
 	case -1:
-		logger.error(u8"No debugger attached.");
+		util::nullLogger.error(u8"No debugger attached.");
 		[[fallthrough]];
 	case 1:
 		return;
@@ -202,14 +201,14 @@ void HandleCommand(std::u8string_view cmd) {
 	/* handle the create command */
 	if (out.groupId() == L"start") {
 		if (env::Instance() != 0) {
-			logger.error(u8"Process is already loaded.");
+			util::nullLogger.error(u8"Process is already loaded.");
 			return;
 		}
 
 		/* system can currently only be 'userspace' and cpu can only be 'rv64' */
 		std::wstring cpu = out.option(L"cpu").value().str();
 		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log"), trace = out.flag(L"trace");
-		logger.log(u8"Setting up userspace with cpu: [", cpu, u8']');
+		util::nullLogger.log(u8"Setting up userspace with cpu: [", cpu, u8']');
 
 		/* collect the argument vector */
 		std::vector<std::u8string> args;
@@ -225,9 +224,9 @@ void HandleCommand(std::u8string_view cmd) {
 		/* try to setup the userspace system */
 		debugger = 0;
 		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace ? gen::TraceType::instruction : gen::TraceType::none, (debug ? &debugger : 0)))
-			logger.error(u8"Failed to create process");
+			util::nullLogger.error(u8"Failed to create process");
 		else
-			logger.log(u8"Process creation completed");
+			util::nullLogger.log(u8"Process creation completed");
 		return;
 	}
 
@@ -235,7 +234,7 @@ void HandleCommand(std::u8string_view cmd) {
 	if (out.groupId() == L"destroy") {
 		debugger = 0;
 		if (env::Instance() == 0)
-			logger.error(u8"No process is currently running.");
+			util::nullLogger.error(u8"No process is currently running.");
 		else
 			env::Instance()->shutdown();
 		return;

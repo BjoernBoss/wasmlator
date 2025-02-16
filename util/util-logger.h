@@ -22,12 +22,24 @@ namespace util {
 	void ConfigureLogging(bool enabled);
 	bool LoggingEnabled();
 
+	class Logger;
+
+	namespace detail {
+		struct LoggerAccess {
+			static util::Logger MakeNullLogger();
+		};
+	}
+
 	class Logger {
+		friend struct detail::LoggerAccess;
 	private:
 		static constexpr const char8_t LevelMap[] = { u8'F', u8'E', u8'W', u8'L', u8'I', u8'D', u8'T' };
 
 	private:
 		std::u8string pFormat;
+
+	private:
+		Logger();
 
 	public:
 		Logger(std::u8string_view self);
@@ -152,4 +164,6 @@ namespace util {
 			fFormatLevel(level, fmt, args...);
 		}
 	};
+
+	extern util::Logger nullLogger;
 }
