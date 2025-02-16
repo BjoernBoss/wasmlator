@@ -65,6 +65,14 @@ static arger::Config Commands{
 		},
 		arger::Option{ L"trace",
 			arger::Abbreviation{ L't' },
+			arger::Require{},
+			arger::Payload{L"mode", arger::Enum{
+				{ L"inst", L"Trace each executed instruction." },
+				{ L"chunk", L"Trace each entered instruction chunk." },
+				{ L"block", L"Trace each entered super-block." },
+				{ L"none", L"Do not perform any tracing." },
+			},
+			arger::Value{ L"none" } },
 			arger::Description{ L"Log the address of all blocks being entered." },
 		},
 	},
@@ -105,10 +113,12 @@ static arger::Config Commands{
 		arger::Abbreviation{ L'b' },
 		arger::Description{ L"Interact with the currently set breakpoints." },
 		arger::Group{ L"add", L"br-add",
+			arger::Abbreviation{ L'a' },
 			arger::Description{ L"Add a breakpoint to the given address." },
 			arger::Positional{ L"address", arger::Primitive::unum, L"Address of the breakpoint." },
 		},
 		arger::Group{ L"remove", L"br-remove",
+			arger::Abbreviation{ L'r' },
 			arger::Description{ L"Remove a breakpoint from the given address." },
 			arger::Positional{ L"address", arger::Primitive::unum, L"Address of the breakpoint." },
 		},
@@ -171,10 +181,13 @@ static int8_t HandleDebug(const arger::Parsed& out) {
 }
 
 void HandleCommand(std::u8string_view cmd) {
+	util::ConfigureLogging(true);
+
+	/* echo the input command back */
 	util::nullLogger.log(cmd);
-	arger::Parsed out;
 
 	/* parse the next command */
+	arger::Parsed out;
 	try {
 		out = arger::Menu(cmd, Commands, 160);
 	}
@@ -183,7 +196,7 @@ void HandleCommand(std::u8string_view cmd) {
 		return;
 	}
 	catch (const arger::ParsingException& e) {
-		util::nullLogger.error(e.what(), u8" Use 'help' for more information.");
+		util::nullLogger.error(e.what(), u8" Use 'help' or '-h' for more information.");
 		return;
 	}
 
@@ -207,7 +220,7 @@ void HandleCommand(std::u8string_view cmd) {
 
 		/* system can currently only be 'userspace' and cpu can only be 'rv64' */
 		std::wstring cpu = out.option(L"cpu").value().str();
-		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log"), trace = out.flag(L"trace");
+		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log");
 		util::nullLogger.log(u8"Setting up userspace with cpu: [", cpu, u8']');
 
 		/* collect the argument vector */
@@ -221,9 +234,19 @@ void HandleCommand(std::u8string_view cmd) {
 		for (size_t i = 0; i < envCount; ++i)
 			envs.push_back(str::u8::To(out.option(L"environment", i).value().str()));
 
+		/* extract the trace type to be used */
+		gen::TraceType trace = gen::TraceType::none;
+		arger::Value traceValue = out.option(L"trace").value();
+		if (traceValue.str() == L"inst")
+			trace = gen::TraceType::instruction;
+		else if (traceValue.str() == L"chunk")
+			trace = gen::TraceType::chunk;
+		else if (traceValue.str() == L"block")
+			trace = gen::TraceType::block;
+
 		/* try to setup the userspace system */
 		debugger = 0;
-		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace ? gen::TraceType::instruction : gen::TraceType::none, (debug ? &debugger : 0)))
+		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace, (debug ? &debugger : 0)))
 			util::nullLogger.error(u8"Failed to create process");
 		else
 			util::nullLogger.log(u8"Process creation completed");

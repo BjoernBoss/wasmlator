@@ -318,7 +318,7 @@ class WasmLator {
 		this.logSelf('Loaded successfully and ready....');
 		return true;
 	}
-	public handle(msg: string): Promise<void> {
+	public async handle(msg: string): Promise<void> {
 		let promise = this.busy.start();
 
 		/* pass the actual command to the application */
@@ -331,14 +331,14 @@ class WasmLator {
 			new Uint8Array(this.main.memory, ptr, buf.length).set(buf);
 
 			/* perform the actual execution of the command (will ensure to free it) */
-			(this.main.exports.main_user_command as (_0: number, _1: number) => void)(ptr, buf.length);
+			(this.main.exports.main_handle as (_0: number, _1: number) => void)(ptr, buf.length);
 		} catch (err) {
 			this.errSelf(`Failed to handle command: ${(err as Error).stack}`);
 		}
 		this.busy.leave();
 		return promise;
 	}
-	public execute(msg: string): Promise<void> {
+	public async execute(msg: string): Promise<void> {
 		let promise = this.busy.start();
 
 		/* pass the payload to the application */
@@ -354,6 +354,17 @@ class WasmLator {
 			(this.main.exports.main_execute as (_0: number, _1: number) => void)(ptr, buf.length);
 		} catch (err) {
 			this.errSelf(`Failed to execute: ${(err as Error).stack}`);
+		}
+		this.busy.leave();
+		await promise;
+
+		/* perform the cleanup call - separate cleanup is required, as a failed execution might
+		*	not be cleaned up properly (no payload needs to be passed to the application) */
+		promise = this.busy.start();
+		try {
+			(this.main.exports.main_cleanup as () => void)();
+		} catch (err) {
+			this.errSelf(`Failed to cleanup: ${(err as Error).stack}`);
 		}
 		this.busy.leave();
 		return promise;

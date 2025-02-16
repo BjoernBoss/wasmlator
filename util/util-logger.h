@@ -53,7 +53,7 @@ namespace util {
 			bool fatal = (level == util::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (util::LoggingEnabled())
+			if (fatal || util::LoggingEnabled())
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, args...), fatal);
 		}
 		template <class... Args>

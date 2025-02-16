@@ -62,7 +62,7 @@ $(fs_path):
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1 -fwasm-exceptions
 em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_SYMBOLS=0 -sWASM_BIGINT -sALLOW_MEMORY_GROWTH -sSTANDALONE_WASM\
- -sEXPORTED_FUNCTIONS=_main_user_command,_main_task_completed,_main_allocate,_main_terminate,_main_code_exception,_main_resolve,_main_check_lookup,_main_fast_lookup,_main_check_invalidated,_main_invoke_void,_main_invoke_param
+ -sEXPORTED_FUNCTIONS=_main_handle,_main_execute,_main_cleanup,_main_task_completed,_main_allocate,_main_terminate,_main_code_exception,_main_resolve,_main_check_lookup,_main_fast_lookup,_main_check_invalidated,_main_invoke_void,_main_invoke_param
 
 # default clang-compiler with all relevant flags
 cc := clang++ -std=c++20 -O3 -I./repos

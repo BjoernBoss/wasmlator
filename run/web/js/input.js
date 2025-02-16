@@ -1,11 +1,12 @@
 window.addEventListener('load', function () {
 	let htmlInput = document.getElementById('input');
 
-	/* add the focus-forward handler when clicking anywhere on the content */
+	/* add the focus-forward handler when clicking anywhere on the content and fetch its initial focus */
 	document.getElementById('content').onmouseup = function () {
 		if (document.activeElement !== htmlInput && document.getSelection().toString().length == 0)
 			htmlInput.focus();
 	};
+	htmlInput.focus();
 
 	/* register the handler for creating the history behavior and committing the commands */
 	let history = ['', ''];

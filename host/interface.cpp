@@ -14,7 +14,7 @@ struct Cleanup {
 	~Cleanup() { if (ptr != 0) delete[] static_cast<const uint8_t*>(ptr); }
 };
 
-void main_user_command(const char8_t* ptr, uint32_t size) {
+void main_handle(const char8_t* ptr, uint32_t size) {
 	Cleanup _cleanup{ ptr };
 
 	/* pass the command to the command-handler */
@@ -27,7 +27,36 @@ void main_user_command(const char8_t* ptr, uint32_t size) {
 	catch (const util::FatalException&) {}
 	catch (...) {
 		/* log with level to ensure no fatal-exception is thrown again */
-		logger.level(util::LogLevel::fatal, u8"Unhandled exception caught [main_command]");
+		logger.level(util::LogLevel::fatal, u8"Unhandled exception caught [main_handle]");
+	}
+}
+void main_execute(const char8_t* ptr, uint32_t size) {
+	Cleanup _cleanup{ ptr };
+
+	/* pass the command to the command-executor */
+	try {
+		ExecuteCommand(std::u8string_view{ ptr, size });
+	}
+
+	/* catch fatal exceptions and ignore them, as they will already have been
+	*	logged and otherwise log the occurrance of the unknown exception */
+	catch (const util::FatalException&) {}
+	catch (...) {
+		/* log with level to ensure no fatal-exception is thrown again */
+		logger.level(util::LogLevel::fatal, u8"Unhandled exception caught [main_execute]");
+	}
+}
+void main_cleanup() {
+	try {
+		CleanupExecute();
+	}
+
+	/* catch fatal exceptions and ignore them, as they will already have been
+	*	logged and otherwise log the occurrance of the unknown exception */
+	catch (const util::FatalException&) {}
+	catch (...) {
+		/* log with level to ensure no fatal-exception is thrown again */
+		logger.level(util::LogLevel::fatal, u8"Unhandled exception caught [main_cleanup]");
 	}
 }
 void main_task_completed(uint32_t process, const char8_t* ptr, uint32_t size) {

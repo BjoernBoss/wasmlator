@@ -3,13 +3,17 @@
 #include <cinttypes>
 #include <string>
 
-/* primary application entry point */
+/* primary application entry points */
 void HandleCommand(std::u8string_view cmd);
+void ExecuteCommand(std::u8string_view cmd);
+void CleanupExecute();
 
 /* environment/host interactions */
 extern "C" {
 	/* exports */
-	void main_user_command(const char8_t* ptr, uint32_t size);
+	void main_handle(const char8_t* ptr, uint32_t size);
+	void main_execute(const char8_t* ptr, uint32_t size);
+	void main_cleanup();
 	void main_task_completed(uint32_t process, const char8_t* ptr, uint32_t size);
 	void* main_allocate(uint32_t size);
 
