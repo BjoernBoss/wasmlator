@@ -208,7 +208,7 @@ class WasmLator {
 		else if (cmd == 'input') {
 			/* check if new data need to be fetched */
 			if (this.inputBuffer.length == 0)
-				this.inputBuffer = (await this.host.readInput()) + '\n';
+				this.inputBuffer = await this.host.readInput();
 
 			/* fetch as many data as possible from the input buffer */
 			let actual = this.inputBuffer.substring(0, parseInt(payload));

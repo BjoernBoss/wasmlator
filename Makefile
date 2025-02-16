@@ -27,22 +27,19 @@ help:
 	@echo "TARGETS:"
 	@echo "   help (print this menu; default)"
 	@echo "   clean (remove all build outputs)"
-	@echo "   server (generate the glue module and main module to server/wasm)"
-	@echo "   wat (generate example glue/core/block modules to server/wat)"
-	@echo "   wasm (generate example glue/core/block modules to server/wasm)"
+	@echo "   server (generate the all necessary files to run/generated)"
 	@echo ""
 	@echo "Note:"
 	@echo "   This makefile will create and include a generated makefile, which is generated"
 	@echo "   through inlined python. This makefile will automatically be generated for the"
-	@echo "   (server/wat/wasm) targets. Should the fundamental structure of the repository"
-	@echo "   change, simply perform a full clean and full creation to update the script."
+	@echo "   server target. Should the fundamental structure of the repository change,"
+	@echo "   simply perform a full clean and full creation to update the script."
 .PHONY: help
 
 # clean all produced output
 clean:
-	rm -rf $(wat_path)
-	rm -rf $(wasm_path)
-	rm -rf $(build_path)
+	rm -r $(build_path)
+	rm -r $(gen_path)
 .PHONY: clean
 
 # path-creating targets

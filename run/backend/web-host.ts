@@ -28,7 +28,7 @@ export class WebHost implements HostEnvironment {
 		return instantiated.instance;
 	}
 	async readInput(): Promise<string> {
-		return this.userInput();
+		return (await this.userInput()) + '\n';
 	}
 	async fsLoadStats(path: string): Promise<FileStats | null> {
 		let response = await fetch(`/stat${path}`, { credentials: 'same-origin' });
