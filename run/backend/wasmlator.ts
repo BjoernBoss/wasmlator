@@ -52,7 +52,9 @@ class WasmLator {
 		this.host.log(LogType.errInternal, msg);
 	}
 	private logGuest(msg: string): void {
-		let type = ((msg.length > 2 && msg[1] == ':') ? msg[0] : '_');
+		let type = ((msg.length >= 2 && msg[1] == ':') ? msg[0] : '_');
+		if (msg.length == 2)
+			msg += '\n';
 
 		switch (type) {
 			case 'T':

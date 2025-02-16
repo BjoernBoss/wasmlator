@@ -7,11 +7,11 @@ void ExecuteCommand(std::u8string_view cmd) {
 	util::ConfigureLogging(false);
 
 	/* echo the input command back */
-	host::PrintOut(cmd);
+	host::PrintOut(str::u8::Build(u8"> ", cmd));
 
 	/* check if an execution has already been set up and not cleaned up properly */
 	if (env::Instance() != 0) {
-		util::nullLogger.fatal(u8"Process is already loaded.");
+		host::PrintOut(u8"Process is already loaded.");
 		return;
 	}
 
@@ -27,7 +27,7 @@ void ExecuteCommand(std::u8string_view cmd) {
 
 	/* try to setup the userspace system */
 	if (!sys::Userspace::Create(rv64::Cpu::New(), binary, args, {}, false, gen::TraceType::none, 0))
-		util::nullLogger.fatal(u8"Failed to create process");
+		host::PrintOut(u8"Failed to create process");
 }
 void CleanupExecute() {
 	/* shutdown the system */

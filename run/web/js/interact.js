@@ -4,6 +4,7 @@ window.addEventListener('load', function () {
 	let htmlOutput = document.getElementById('output');
 	let htmlContent = document.getElementById('content');
 	let htmlBusy = document.getElementById('busy');
+	let htmlPrompt = this.document.getElementById('prompt');
 	let buttonState = {
 		'trace': true,
 		'debug': true,
@@ -80,10 +81,14 @@ window.addEventListener('load', function () {
 	/* register the command-handler to the worker */
 	worker.onmessage = function (e) {
 		let data = e.data;
-		if (data.cmd == 'ready')
+		if (data.cmd == 'ready') {
 			htmlBusy.style.visibility = 'hidden';
-		else if (data.cmd == 'busy')
+			htmlPrompt.style.display = 'block';
+		}
+		else if (data.cmd == 'busy') {
 			htmlBusy.style.visibility = 'visible';
+			htmlPrompt.style.display = 'none';
+		}
 		else if (data.cmd == 'log')
 			logMessage(data.type, data.msg);
 		else

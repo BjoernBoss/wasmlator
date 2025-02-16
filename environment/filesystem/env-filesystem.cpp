@@ -78,8 +78,11 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 
 void env::FileSystem::readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback) {
 	/* ensure that the path is absolute */
-	if (util::TestPath(path) != util::PathState::absolute)
-		logger.fatal(u8"Path [", path, u8"] is not a valid absolute path");
+	if (util::TestPath(path) != util::PathState::absolute) {
+		logger.error(u8"Path [", path, u8"] is not a valid absolute path");
+		callback(0);
+		return;
+	}
 
 	/* canonicalize the path */
 	std::u8string actual = util::CanonicalPath(path);

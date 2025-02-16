@@ -142,14 +142,20 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 	env::Instance()->filesystem().readStats(path, [this, path](const env::FileStats* stats) {
 		/* check if the file could be resolved */
 		if (stats == 0) {
-			logger.error(u8"Path [", path, u8"] does not exist");
+			/* this error should be displayed to the user, no matter if logging is enabled or not */
+			std::u8string msg = str::u8::Build(u8"Path [", path, u8"] does not exist");
+			if (!logger.error(msg))
+				host::PrintOut(msg);
 			env::Instance()->shutdown();
 			return;
 		}
 
 		/* check the file-type */
 		if (stats->type != env::FileType::file) {
-			logger.error(u8"Path [", path, u8"] is not a file");
+			/* this error should be displayed to the user, no matter if logging is enabled or not */
+			std::u8string msg = str::u8::Build(u8"Path [", path, u8"] is not a file");
+			if (!logger.error(msg))
+				host::PrintOut(msg);
 			env::Instance()->shutdown();
 			return;
 		}
@@ -161,7 +167,10 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 
 			/* check if the size still matches */
 			if (size != read) {
-				logger.error(read.has_value() ? u8"Unable to read entire file" : u8"Error while reading file");
+				/* this error should be displayed to the user, no matter if logging is enabled or not */
+				std::u8string_view msg = (read.has_value() ? u8"Unable to read entire file" : u8"Error while reading file");
+				if (!logger.error(msg))
+					host::PrintOut(msg);
 				env::Instance()->shutdown();
 				return;
 			}
@@ -188,14 +197,20 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		logger.debug(u8"Start of heap      : ", str::As{ U"#018x", pLoaded.endOfData });
 	}
 	catch (const elf::Exception& e) {
-		logger.error(u8"Error while loading elf: ", e.what());
+		/* this error should be displayed to the user, no matter if logging is enabled or not */
+		std::u8string msg = str::u8::Build(u8"Error while loading elf: ", e.what());
+		if (!logger.error(msg))
+			host::PrintOut(msg);
 		return false;
 	}
 
 	/* validate the word-width (necessary, as env::Memory's allocate function currently
 	*	allocates into the unreachable portion of the 32 bit address space) */
 	if (pLoaded.bitWidth != 64) {
-		logger.error(u8"Only 64 bit elf binaries are supported");
+		/* this error should be displayed to the user, no matter if logging is enabled or not */
+		std::u8string_view msg = u8"Only 64 bit elf binaries are supported";
+		if (!logger.error(msg))
+			host::PrintOut(msg);
 		return false;
 	}
 
@@ -215,7 +230,10 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 
 	/* check if the type matches */
 	if (pCpu->architecture() != arch) {
-		logger.error(u8"Cpu for architecture [", fArchType(pCpu->architecture()), u8"] cannot execute elf of type [", fArchType(arch), u8']');
+		/* this error should be displayed to the user, no matter if logging is enabled or not */
+		std::u8string msg = str::u8::Build(u8"Cpu for architecture [", fArchType(pCpu->architecture()), u8"] cannot execute elf of type [", fArchType(arch), u8']');
+		if (!logger.error(msg))
+			host::PrintOut(msg);
 		return false;
 	}
 

@@ -3,6 +3,7 @@ let handleEnteredCommand = function () { };
 window.addEventListener('load', function () {
 	let htmlOutput = document.getElementById('output');
 	let htmlContent = document.getElementById('content');
+	let htmlPrompt = this.document.getElementById('prompt');
 
 	/* register the clear button-behavior */
 	document.getElementById('clear').onclick = function () {
@@ -57,8 +58,10 @@ window.addEventListener('load', function () {
 	/* register the command-handler to the worker */
 	worker.onmessage = function (e) {
 		let data = e.data;
-		if (data.cmd == 'ready' || data.cmd == 'busy')
-			return;
+		if (data.cmd == 'ready')
+			htmlPrompt.style.display = 'block';
+		else if (data.cmd == 'busy')
+			htmlPrompt.style.display = 'none';
 		else if (data.cmd == 'log')
 			logMessage(data.type, data.msg);
 		else

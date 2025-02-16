@@ -184,7 +184,7 @@ void HandleCommand(std::u8string_view cmd) {
 	util::ConfigureLogging(true);
 
 	/* echo the input command back */
-	util::nullLogger.log(cmd);
+	util::nullLogger.log(u8"> ", cmd);
 
 	/* parse the next command */
 	arger::Parsed out;

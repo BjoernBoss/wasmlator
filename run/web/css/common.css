@@ -16,7 +16,7 @@ html {
 
 .content {
 	min-height: 10em;
-	overflow-y: auto;
+	overflow-y: scroll;
 	overflow-x: hidden;
 	flex-grow: 1;
 }
@@ -37,6 +37,12 @@ html {
 	font-weight: 600;
 	line-height: 15px;
 	color: #ffffff;
+}
+
+.input-row {
+	display: flex;
+	flex-direction: row;
+	white-space: pre-wrap;
 }
 
 .input {
