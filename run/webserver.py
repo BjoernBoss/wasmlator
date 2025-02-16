@@ -117,7 +117,8 @@ class FileSystemInteract:
 # root directory of the server
 rootPath = os.path.split(os.path.realpath(__file__))[0]
 fileSystem = FileSystemInteract(os.path.join(rootPath, './fs'))
-staticPath = os.path.join(rootPath, './static')
+staticPath = os.path.join(rootPath, './web')
+generatedPath = os.path.join(rootPath, './generated')
 
 # request handler implementation
 class SelfRequest(http.server.SimpleHTTPRequestHandler):
@@ -155,8 +156,9 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 			return None
 
 		# dispatch the path to be used
-		if self.path.startswith('/wasm/') or self.path.startswith('/wat/'):
-			return rootPath
+		if self.path.startswith('/gen/'):
+			self.path = self.path[4:]
+			return generatedPath
 		return staticPath
 	def do_GET(self):
 		self.directory = self.dispatch(True)

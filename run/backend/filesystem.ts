@@ -1,4 +1,4 @@
-import { HostEnvironment, FileStats, LogType } from './common';
+import { HostEnvironment, FileStats, LogType } from './common.js';
 
 class FileNode {
 	public children: Record<string, FileNode>;
@@ -109,13 +109,14 @@ export class FileSystem {
 		this.host.log(LogType.logInternal, `Fetching stats for [${actual}]...`);
 		try {
 			let stats = await this.host.fsLoadStats(actual);
+			this.host.log(LogType.logInternal, `Stats of [${actual}] received`);
 			if (stats != null)
 				next.setupStats(stats, FileSystem.fsDefault);
 		}
 		catch (err) {
 			this.host.log(LogType.errInternal, `Failed to fetch stats for [${actual}]: ${err}`);
 		}
-		return next;
+		return this._getNode(next, actual, path);
 	}
 	async _loadData(node: FileNode): Promise<void> {
 		/* check if the data already exist */

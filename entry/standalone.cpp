@@ -2,7 +2,7 @@
 #include "../host/interface.h"
 
 int main() {
-	util::SetLogLevel(util::LogLevel::trace);
+	util::ConfigureLogging(true);
 
 	while (true) {
 		std::string cmd;

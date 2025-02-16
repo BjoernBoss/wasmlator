@@ -18,11 +18,9 @@ namespace util {
 		constexpr FatalException() = default;
 	};
 
-	/* set the current logging level (none implies only fatal is presented) */
-	void SetLogLevel(util::LogLevel level);
-
-	/* fetch the current logging-level */
-	util::LogLevel GetLogLevel();
+	/* configure the logging behavior (fatal will always be passed through) */
+	void ConfigureLogging(bool enabled);
+	bool LoggingEnabled();
 
 	class Logger {
 	private:
@@ -43,7 +41,7 @@ namespace util {
 			bool fatal = (level == util::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (util::GetLogLevel() >= level)
+			if (util::LoggingEnabled())
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, args...), fatal);
 		}
 		template <class... Args>
@@ -51,7 +49,7 @@ namespace util {
 			bool fatal = (level == util::LogLevel::fatal);
 
 			/* only build/format the string if it will be printed */
-			if (util::GetLogLevel() >= level)
+			if (fatal || util::LoggingEnabled())
 				fLog(str::u8::Build(LevelMap[size_t(level)], u8':', pFormat, str::u8::Format(fmt, args...)), fatal);
 		}
 

@@ -13,6 +13,7 @@ int32_t host::GetTimeZoneMIN() {
 	return host_timezone_min();
 }
 
-void host::GuestOut(std::u8string_view msg) {
-	host_guest_out(msg.data(), uint32_t(msg.size()));
+void host::PrintOut(std::u8string_view msg) {
+	std::u8string actual = str::u8::Build(u8"L:", msg);
+	host_message(actual.data(), uint32_t(actual.size()));
 }

@@ -1,7 +1,7 @@
-import { HostEnvironment, LogType } from './common';
-import { FileSystem } from './filesystem';
+import { HostEnvironment, LogType } from './common.js';
+import { FileSystem } from './filesystem.js';
 
-class EmptyError extends Error { constructor(m: string) { super(m); this.name = ''; } };
+class EmptyError extends Error { constructor(m: string) { super(m); this.name = ''; } }
 
 class BusyResolver {
 	private depth: number;
@@ -28,7 +28,7 @@ class BusyResolver {
 		this.resolve = null;
 		resolve();
 	}
-};
+}
 
 class WasmLator {
 	private busy: BusyResolver;
@@ -88,11 +88,11 @@ class WasmLator {
 	}
 	private loadBuffer(ptr: number, size: number): ArrayBuffer {
 		return this.main.memory.slice(ptr, ptr + size);
-	};
+	}
 
-	private buildGlueImports(): object {
+	private buildGlueImports(): WebAssembly.Imports {
 		let _that = this;
-		let imports: any = { host: {} };
+		let imports: WebAssembly.Imports = { host: {} };
 
 		/* setup the glue imports */
 		imports.host.host_get_export = function (instance: WebAssembly.Instance, ptr: number, size: number): WebAssembly.ExportValue | null {
@@ -107,15 +107,15 @@ class WasmLator {
 				return null;
 			return obj;
 		};
-		imports.host.host_make_object = function (): object { return {}; }
+		imports.host.host_make_object = function (): object { return {}; };
 		imports.host.host_set_member = function (obj: Record<string, any>, name: number, size: number, value: any): void {
 			obj[_that.loadString(name, size, true)] = value;
-		}
+		};
 		return imports;
 	}
-	private buildMainImports(): object {
+	private buildMainImports(): WebAssembly.Imports {
 		let _that = this;
-		let imports: any = { host: {} };
+		let imports: WebAssembly.Imports = { env: {}, wasi_snapshot_preview1: {} };
 
 		/* setup the main module imports */
 		imports.env = { ...this.glue.exports };
@@ -135,7 +135,7 @@ class WasmLator {
 			_that.logGuest(new EmptyError(_that.loadString(ptr, size, true)).stack!);
 		};
 		imports.env.host_random = function (): number { return Math.floor(Math.random() * 0x1_0000_0000); };
-		imports.env.host_time_us = function (): BigInt { return BigInt(Date.now() * 1000); };
+		imports.env.host_time_us = function (): bigint { return BigInt(Date.now() * 1000); };
 		imports.env.host_timezone_min = function (): number { return new Date().getTimezoneOffset(); };
 		return imports;
 	}
@@ -254,7 +254,7 @@ class WasmLator {
 		this.busy.enter();
 
 		/* fetch the imports-object */
-		let imports: object = (this.glue.exports.get_imports as () => object)();
+		let imports: WebAssembly.Imports = (this.glue.exports.get_imports as () => WebAssembly.Imports)();
 
 		try {
 			/* load the module */
@@ -317,7 +317,7 @@ class WasmLator {
 		}
 		this.logSelf('Loaded successfully and ready....');
 		return true;
-	};
+	}
 	public handle(msg: string): Promise<void> {
 		let promise = this.busy.start();
 
@@ -358,7 +358,7 @@ class WasmLator {
 		this.busy.leave();
 		return promise;
 	}
-};
+}
 
 class Interactable {
 	private wasmlator: WasmLator;

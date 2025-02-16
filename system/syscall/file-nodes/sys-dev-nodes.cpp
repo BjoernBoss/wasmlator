@@ -18,6 +18,6 @@ int64_t sys::detail::impl::Terminal::virtualRead(uint64_t offset, std::vector<ui
 }
 int64_t sys::detail::impl::Terminal::virtualWrite(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	/* ignore any offset - as this is a character-device */
-	host::GuestOut({ reinterpret_cast<const char8_t*>(buffer.data()), buffer.size() });
+	host::PrintOut({ reinterpret_cast<const char8_t*>(buffer.data()), buffer.size() });
 	return callback(buffer.size());
 }

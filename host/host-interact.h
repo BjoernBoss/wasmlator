@@ -2,6 +2,7 @@
 
 #include <cinttypes>
 #include <string>
+#include <ustring/ustring.h>
 
 namespace host {
 	/* fetch a random 32-bit value */
@@ -13,6 +14,6 @@ namespace host {
 	/* fetch the current timezone east of utc in [min] */
 	int32_t GetTimeZoneMIN();
 
-	/* logs performed by the guest */
-	void GuestOut(std::u8string_view msg);
+	/* direct logs out without logging wrapper */
+	void PrintOut(std::u8string_view msg);
 }

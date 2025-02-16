@@ -1,7 +1,6 @@
 #include "../system.h"
 
 static util::Logger logger{ u8"sys::debugger" };
-static util::Logger outLog{ u8"" };
 
 bool sys::Debugger::fSetup(sys::Userspace* userspace) {
 	pUserspace = userspace;
@@ -76,16 +75,16 @@ void sys::Debugger::printState() const {
 	/* print all registers */
 	for (size_t i = 0; i < pRegisters.size(); ++i) {
 		uint64_t value = cpu->debugGetValue(i);
-		outLog.log(pRegisters[i], u8": ", str::As{ U"#018x", value }, u8" (", value, u8')');
+		host::PrintOut(str::u8::Build(pRegisters[i], u8": ", str::As{ U"#018x", value }, u8" (", value, u8')'));
 	}
 
 	/* print the pc */
 	env::guest_t addr = pUserspace->getPC();
-	outLog.log(u8"pc: ", str::As{ U"#018x", addr }, u8" (", addr, u8')');
+	host::PrintOut(str::u8::Build(u8"pc: ", str::As{ U"#018x", addr }, u8" (", addr, u8')'));
 }
 void sys::Debugger::printBreaks() const {
 	for (env::guest_t addr : pBreakPoints)
-		outLog.log(str::As{ U"#018x", addr });
+		host::PrintOut(str::u8::Build(str::As{ U"#018x", addr }));
 }
 void sys::Debugger::printInstructions(size_t count) const {
 	env::guest_t addr = pUserspace->getPC();
@@ -96,18 +95,18 @@ void sys::Debugger::printInstructions(size_t count) const {
 			/* decode the next instruction and check if the decoding failed */
 			auto [str, size] = cpu->debugDecode(addr);
 			if (size == 0) {
-				outLog.fmtLog(u8"[{:#018x}]: Unable to decode", addr);
+				host::PrintOut(str::u8::Format(u8"[{:#018x}]: Unable to decode", addr));
 				break;
 			}
 
 			/* print the instruction and advance the address */
-			outLog.fmtLog(u8"[{:#018x}]: {}", addr, str);
+			host::PrintOut(str::u8::Format(u8"[{:#018x}]: {}", addr, str));
 			addr += size;
 		}
 	}
 
 	/* check if a memory fault occurred */
 	catch (const env::MemoryFault&) {
-		outLog.fmtLog(u8"[{:#018x}]: Unable to read memory", addr);
+		host::PrintOut(str::u8::Format(u8"[{:#018x}]: Unable to read memory", addr));
 	}
 }

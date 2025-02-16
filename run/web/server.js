@@ -24,30 +24,39 @@ window.onload = function () {
 	}
 
 	/* logger function to write the logs to the ui */
-	let logMessage = function (m) {
+	let logMessage = function (t, m) {
 		let e = document.createElement('div');
 		htmlOutput.appendChild(e);
 
 		/* ensure that the output does not become too large */
-		while (htmlOutput.children.length > 2000)
+		while (htmlOutput.children.length > 3000)
 			htmlOutput.children[0].remove();
 
-		/* lookup the log-type */
-		let name = {
-			'T:': 'trace',
-			'D:': 'debug',
-			'L:': 'log',
-			'I:': 'info',
-			'W:': 'warn',
-			'E:': 'error',
-			'F:': 'fatal'
-		}[m.substr(0, 2)];
+		/* classify the logging type to the ui style */
+		let name = null;
+		switch (t) {
+			case 'logInternal':
+				console.log(m);
+				break;
+			case 'errInternal':
+				console.error(m);
+				name = 'fatal';
+				break;
+			case 'trace':
+			case 'debug':
+			case 'log':
+			case 'info':
+			case 'warn':
+			case 'error':
+			case 'fatal':
+				name = t;
+				break;
+			default:
+				name = 'log';
+				break;
+		}
 
-		/* update the string and patch the types and visibility */
-		if (name !== undefined)
-			m = m.substr(2);
-		else
-			name = 'log';
+		/* patch the visibility */
 		if (!buttonState[name])
 			e.style.display = 'none';
 
@@ -62,7 +71,7 @@ window.onload = function () {
 	};
 
 	/* load the web-worker, which runs the wasmlator */
-	let worker = new Worker('./worker.js');
+	let worker = new Worker('/worker.js', { type: 'module' });
 	let workerBusy = true;
 
 	/* register the command-handler to the worker */
@@ -73,9 +82,9 @@ window.onload = function () {
 			workerBusy = false;
 		}
 		else if (data.cmd == 'log')
-			logMessage(data.msg);
+			logMessage(data.type, data.msg);
 		else
-			logMessage(`F:Unknown command [${data.cmd}] received from service worker.`);
+			logMessage('errInternal', `Unknown command [${data.cmd}] received from service worker.`);
 	};
 
 	/* register the handler for creating the history behavior and committing the commands */

@@ -115,7 +115,7 @@ static arger::Config Commands{
 	},
 };
 
-static util::Logger logger{ u8"" };
+static util::Logger logger{ u8"interact" };
 static sys::Debugger* debugger = 0;
 
 static int8_t HandleDebug(const arger::Parsed& out) {

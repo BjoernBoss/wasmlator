@@ -31,17 +31,17 @@ export interface HostEnvironment {
 	log(type: LogType, msg: String): void;
 
 	/* load the glue-module */
-	loadGlue(imports: object): Promise<WebAssembly.Instance>;
+	loadGlue(imports: WebAssembly.Imports): Promise<WebAssembly.Instance>;
 
 	/* load the main-module */
-	loadMain(imports: object): Promise<WebAssembly.Instance>;
+	loadMain(imports: WebAssembly.Imports): Promise<WebAssembly.Instance>;
 
 	/* load any module */
-	loadModule(imports: object, buffer: ArrayBuffer): Promise<WebAssembly.Instance>;
+	loadModule(imports: WebAssembly.Imports, buffer: ArrayBuffer): Promise<WebAssembly.Instance>;
 
 	/* fetch the stats for the given path */
 	fsLoadStats(path: string): Promise<FileStats | null>;
 
 	/* fetch the data for the given path (of which the stats exist) */
 	fsLoadData(path: string): Promise<ArrayBuffer>;
-};
+}

@@ -16,7 +16,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 }
 
 int main(int argc, char** argv) {
-	util::SetLogLevel(util::LogLevel::fatal);
+	util::ConfigureLogging(false);
 
 	for (int i = 1; i < argc; ++i) {
 		std::string path{ argv[i] };
