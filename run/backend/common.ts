@@ -39,6 +39,9 @@ export interface HostEnvironment {
 	/* load any module */
 	loadModule(imports: WebAssembly.Imports, buffer: ArrayBuffer): Promise<WebAssembly.Instance>;
 
+	/* read user input */
+	readInput(): Promise<string>;
+
 	/* fetch the stats for the given path */
 	fsLoadStats(path: string): Promise<FileStats | null>;
 

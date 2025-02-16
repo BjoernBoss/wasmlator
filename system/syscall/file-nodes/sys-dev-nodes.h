@@ -4,8 +4,11 @@
 
 namespace sys::detail::impl {
 	class Terminal final : public detail::VirtualFileNode {
+	private:
+		detail::Syscall* pSyscall = 0;
+
 	public:
-		Terminal(env::FileAccess access);
+		Terminal(detail::Syscall* syscall, env::FileAccess access);
 
 	public:
 		int64_t open(bool truncate, std::function<int64_t(int64_t)> callback) final;

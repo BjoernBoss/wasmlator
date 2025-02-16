@@ -36,6 +36,7 @@ class WasmLator {
 	private fs: FileSystem;
 	private glue: { memory: ArrayBuffer, exports: WebAssembly.Exports };
 	private main: { memory: ArrayBuffer, exports: WebAssembly.Exports };
+	private inputBuffer: string;
 
 	public constructor(host: HostEnvironment) {
 		this.host = host;
@@ -43,6 +44,7 @@ class WasmLator {
 		this.busy = new BusyResolver();
 		this.glue = { memory: new ArrayBuffer(0), exports: {} };
 		this.main = { memory: new ArrayBuffer(0), exports: {} };
+		this.inputBuffer = '';
 	}
 
 	private logSelf(msg: string): void {
@@ -203,16 +205,26 @@ class WasmLator {
 			let [args, rest] = this.prepareTaskArgs(payload, 4);
 			this.taskCompleted(process, await this.fs.fileCreate(args[0], rest, args[1], args[2], args[3]));
 		}
+		else if (cmd == 'input') {
+			/* check if new data need to be fetched */
+			if (this.inputBuffer.length == 0)
+				this.inputBuffer = (await this.host.readInput()) + '\n';
+
+			/* fetch as many data as possible from the input buffer */
+			let actual = this.inputBuffer.substring(0, parseInt(payload));
+			this.inputBuffer = this.inputBuffer.substring(actual.length);
+			this.taskCompleted(process, actual, true);
+		}
 
 		/* default catch-handler for unknown commands */
 		else
 			this.errSelf(new EmptyError(`Received unknown task [${cmd}]`).stack!);
 	}
-	private taskCompleted(process: number, payload?: any): void {
+	private taskCompleted(process: number, payload?: any, rawString?: boolean): void {
 		/* write the result to the main application */
 		let addr = 0, size = 0;
 		if (payload != null) {
-			let buffer = new TextEncoder().encode(JSON.stringify(payload));
+			let buffer = new TextEncoder().encode(rawString ? payload : JSON.stringify(payload));
 			addr = (this.main.exports.main_allocate as (_: number) => number)(buffer.byteLength);
 			size = buffer.byteLength;
 			new Uint8Array(this.main.memory, addr, size).set(new Uint8Array(buffer));

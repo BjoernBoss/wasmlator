@@ -2,9 +2,11 @@ import { FileStats, HostEnvironment, LogType } from './common.js';
 
 export class WebHost implements HostEnvironment {
 	private logger: (type: string, msg: string) => void;
+	private userInput: () => Promise<string>;
 
-	public constructor(logger: (type: string, msg: string) => void) {
+	public constructor(logger: (type: string, msg: string) => void, userInput: () => Promise<string>) {
 		this.logger = logger;
+		this.userInput = userInput;
 	}
 
 	log(type: LogType, msg: string): void {
@@ -24,6 +26,9 @@ export class WebHost implements HostEnvironment {
 	async loadModule(imports: WebAssembly.Imports, buffer: ArrayBuffer): Promise<WebAssembly.Instance> {
 		let instantiated = await WebAssembly.instantiate(buffer, imports);
 		return instantiated.instance;
+	}
+	async readInput(): Promise<string> {
+		return this.userInput();
 	}
 	async fsLoadStats(path: string): Promise<FileStats | null> {
 		let response = await fetch(`/stat${path}`, { credentials: 'same-origin' });

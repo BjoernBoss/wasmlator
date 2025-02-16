@@ -303,3 +303,10 @@ bool env::Process::logBlocks() const {
 bool env::Process::detectWriteExecute() const {
 	return pDetectWriteExecute;
 }
+
+bool env::Process::readInput(size_t max, std::function<void(std::u8string_view)> callback) {
+	return fHandleTask(str::u8::Build(u8"input:", max), [callback](std::u8string_view resp, bool) {
+		logger.debug(u8"Read [", resp.size(), u8"] bytes from input");
+		callback(resp);
+		});
+}

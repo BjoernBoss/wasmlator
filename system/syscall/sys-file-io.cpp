@@ -442,7 +442,7 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	pMounted[u8"/dev"] = std::make_shared<impl::EmpyDirectory>(rootDirs);
 	pMounted[u8"/proc"] = std::make_shared<impl::ProcDirectory>(pSyscall, rootDirs);
 	pMounted[u8"/proc/self"] = std::make_shared<impl::LinkNode>(str::u8::Build(u8"/proc/", pSyscall->process().pid), rootAll);
-	pMounted[u8"/dev/tty"] = std::make_shared<impl::Terminal>(env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite });
+	pMounted[u8"/dev/tty"] = std::make_shared<impl::Terminal>(pSyscall, env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite });
 	pMounted[u8"/dev/stdin"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/0", rootAll);
 	pMounted[u8"/dev/stdout"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/1", rootAll);
 	pMounted[u8"/dev/stderr"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/2", rootAll);

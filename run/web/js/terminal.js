@@ -73,6 +73,7 @@ window.addEventListener('load', function () {
 
 	/* load the web-worker, which runs the wasmlator */
 	let worker = new Worker('/js/worker.js', { type: 'module' });
+	worker.postMessage('execute');
 
 	/* register the command-handler to the worker */
 	worker.onmessage = function (e) {
@@ -88,5 +89,5 @@ window.addEventListener('load', function () {
 	};
 
 	/* setup the command receiver function */
-	handleEnteredCommand = (m) => worker.postMessage({ cmd: m, execute: true });
+	handleEnteredCommand = (m) => worker.postMessage(m);
 });

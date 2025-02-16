@@ -95,5 +95,8 @@ namespace env {
 		uint32_t contextSize() const;
 		bool logBlocks() const;
 		bool detectWriteExecute() const;
+
+	public:
+		bool readInput(size_t max, std::function<void(std::u8string_view)> callback);
 	};
 }
