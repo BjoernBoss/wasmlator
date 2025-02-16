@@ -1,5 +1,6 @@
 window.onload = function () {
 	let htmlOutput = document.getElementById('output');
+	let htmlInput = document.getElementById('input');
 	let htmlBusy = document.getElementById('busy');
 	let buttonState = {
 		'trace': true,
@@ -29,19 +30,21 @@ window.onload = function () {
 			htmlOutput.children[0].remove();
 	};
 
+	/* add the focus-forward handler when clicking anywhere on the content */
+	document.getElementById('content').onmouseup = function () {
+		if (document.activeElement !== htmlInput && document.getSelection().toString().length == 0)
+			htmlInput.focus();
+	};
+
 	/* logger function to write the logs to the ui */
 	let logMessage = function (t, m) {
-		let e = document.createElement('div');
-		htmlOutput.appendChild(e);
-
 		/* classify the logging type to the ui style */
 		let name = null;
 		switch (t) {
 			case 'logInternal':
 				console.log(m);
-				break;
+				return;
 			case 'errInternal':
-				console.error(m);
 				name = 'fatal';
 				break;
 			case 'trace':
@@ -58,6 +61,14 @@ window.onload = function () {
 				break;
 		}
 
+		/* check if its a failure and log it to the console */
+		if (name == 'fatal')
+			console.error(m);
+
+		/* setup the new output entry */
+		let e = document.createElement('div');
+		htmlOutput.appendChild(e);
+
 		/* patch the visibility */
 		if (!buttonState[name])
 			e.style.display = 'none';
@@ -66,10 +77,6 @@ window.onload = function () {
 		e.classList.add(name);
 		e.innerText = m;
 		e.scrollIntoView(true);
-
-		/* check if its a failure and log it to the console */
-		if (name == 'fatal')
-			console.error(m);
 	};
 
 	/* load the web-worker, which runs the wasmlator */
@@ -93,7 +100,12 @@ window.onload = function () {
 	let history = ['', ''];
 	let historyIndex = 0;
 	let inputDirty = true;
-	document.getElementById('input').onkeydown = function (e) {
+	let lastCommitted = '';
+	htmlInput.onkeydown = function (e) {
+		/* check if the input is considered dirty */
+		if (this.value != lastCommitted)
+			inputDirty = true;
+
 		/* check if the history should be looked at */
 		if (e.code == 'ArrowUp' || e.code == 'ArrowDown') {
 			if (inputDirty) {
@@ -106,10 +118,9 @@ window.onload = function () {
 				this.value = history[--historyIndex];
 			else if (e.code == 'ArrowDown' && historyIndex < history.length - 1)
 				this.value = history[++historyIndex];
-
+			lastCommitted = this.value;
 			return false;
 		}
-		inputDirty = true;
 
 		/* check if a command has been entered, and the worker is currently not busy */
 		if (e.code != 'Enter' && e.code != 'NumpadEnter')
@@ -131,6 +142,11 @@ window.onload = function () {
 			history[history.length - 1] = m;
 			history.push('');
 		}
+
+		/* reset the input state */
+		lastCommitted = '';
+		inputDirty = false;
+		historyIndex = history.length - 1;
 
 		/* send the command to the worker and mark him as busy */
 		htmlBusy.style.visibility = 'visible';
