@@ -19,7 +19,7 @@ export class WebHost implements HostEnvironment {
 	}
 
 	async loadMain(imports: WebAssembly.Imports): Promise<WebAssembly.Instance> {
-		let response = await fetch('/gen/main.wasm', { credentials: 'same-origin' });
+		let response = await fetch('/gen/wasmlator.wasm', { credentials: 'same-origin' });
 		let instantiated = await WebAssembly.instantiateStreaming(response, imports);
 		return instantiated.instance;
 	}

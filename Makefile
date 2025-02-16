@@ -86,7 +86,7 @@ $(glue_gen_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(o
 	@ $(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # main wasm compilation
-main_path := $(gen_path)/main.wasm
+main_path := $(gen_path)/wasmlator.wasm
 $(main_path): $(obj_list_em) | $(gen_path)
 	@echo Compiling... $@
 	@ $(em_main) $(obj_list_em) -o $@
