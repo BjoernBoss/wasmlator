@@ -23,14 +23,16 @@ window.onload = function () {
 		};
 	}
 
+	/* register the clear button-behavior */
+	document.getElementById('clear').onclick = function () {
+		while (htmlOutput.children.length > 0)
+			htmlOutput.children[0].remove();
+	};
+
 	/* logger function to write the logs to the ui */
 	let logMessage = function (t, m) {
 		let e = document.createElement('div');
 		htmlOutput.appendChild(e);
-
-		/* ensure that the output does not become too large */
-		while (htmlOutput.children.length > 3000)
-			htmlOutput.children[0].remove();
 
 		/* classify the logging type to the ui style */
 		let name = null;

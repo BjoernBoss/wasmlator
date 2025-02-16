@@ -78,6 +78,18 @@ html {
 	background-color: #505050;
 }
 
+.clickable {
+	background-color: #606060;
+}
+
+.clickable:hover {
+	background-color: #707070;
+}
+
+.clickable:active {
+	background-color: #808080;
+}
+
 .active {
 	background-color: #606060;
 }
