@@ -19,6 +19,8 @@ fs_path := server/fs
 bin_path := $(build_path)/make
 cc_path := $(build_path)/make/cc
 em_path := $(build_path)/make/em
+gen_path := run/generated
+ts_path := run/backend
 
 # help-menu
 help:
@@ -129,6 +131,12 @@ main_path := $(wasm_path)/main.wasm
 $(main_path): $(obj_list_em) | $(wasm_path)
 	@echo Generating... $@
 	@ $(em_main) $(obj_list_em) -o $@
+
+# javascript generation
+wasmlator_path := $(gen_path)/wasmlator.js
+$(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
+	@echo Generating... $@
+	@ tsc -p $<
 
 # setup the wasm for the server
 server: $(main_path) $(wasm_path)/glue-module.wasm | $(fs_path)
