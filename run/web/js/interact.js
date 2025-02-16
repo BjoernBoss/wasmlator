@@ -28,13 +28,18 @@ window.addEventListener('load', function () {
 	}
 
 	/* register the clear button-behavior */
+	let lastCanAppend = false;
 	document.getElementById('clear').onclick = function () {
 		while (htmlOutput.children.length > 0)
 			htmlOutput.children[0].remove();
+		lastCanAppend = false;
 	};
 
 	/* logger function to write the logs to the ui */
 	let logMessage = function (t, m) {
+		if (m.length == 0)
+			return;
+
 		/* classify the logging type to the ui style */
 		let name = null;
 		switch (t) {
@@ -49,6 +54,9 @@ window.addEventListener('load', function () {
 			case 'error':
 				name = t;
 				break;
+			case 'output':
+				name = 'log';
+				break;
 			case 'errInternal':
 			case 'fatal':
 			default:
@@ -60,17 +68,31 @@ window.addEventListener('load', function () {
 		/* check if the child should be scolled into view */
 		let scrollIntoView = (htmlContent.scrollHeight - htmlContent.scrollTop <= htmlContent.clientHeight + 100);
 
-		/* setup the new output entry */
-		let e = document.createElement('div');
-		htmlOutput.appendChild(e);
+		/* check if the last entry and this entry are both normal outputs, in which case they can be appended */
+		let e = null;
+		if (lastCanAppend && t == 'output')
+			e = htmlOutput.lastChild;
+		else {
+			/* setup the new output entry */
+			e = document.createElement('div');
+			e.innerText = '';
+			htmlOutput.appendChild(e);
 
-		/* patch the visibility and the style */
-		if (!buttonState[name])
-			e.style.display = 'none';
-		e.classList.add(name);
+			/* patch the visibility and the style */
+			if (!buttonState[name])
+				e.style.display = 'none';
+			e.classList.add(name);
+		}
+
+		/* update the append attribute (only if the last entry was an output and did not end on a linebreak) */
+		lastCanAppend = (t == 'output');
+		if (lastCanAppend && m.endsWith('\n')) {
+			lastCanAppend = false;
+			m = m.substring(0, m.length - 1);
+		}
 
 		/* write the text out and scroll it into view */
-		e.innerText = m;
+		e.innerText += m;
 		if (scrollIntoView)
 			e.scrollIntoView(true);
 	};

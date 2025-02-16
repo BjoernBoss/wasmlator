@@ -145,7 +145,7 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 			/* this error should be displayed to the user, no matter if logging is enabled or not */
 			std::u8string msg = str::u8::Build(u8"Path [", path, u8"] does not exist");
 			if (!logger.error(msg))
-				host::PrintOut(msg);
+				host::PrintOutLn(msg);
 			env::Instance()->shutdown();
 			return;
 		}
@@ -155,7 +155,7 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 			/* this error should be displayed to the user, no matter if logging is enabled or not */
 			std::u8string msg = str::u8::Build(u8"Path [", path, u8"] is not a file");
 			if (!logger.error(msg))
-				host::PrintOut(msg);
+				host::PrintOutLn(msg);
 			env::Instance()->shutdown();
 			return;
 		}
@@ -170,7 +170,7 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 				/* this error should be displayed to the user, no matter if logging is enabled or not */
 				std::u8string_view msg = (read.has_value() ? u8"Unable to read entire file" : u8"Error while reading file");
 				if (!logger.error(msg))
-					host::PrintOut(msg);
+					host::PrintOutLn(msg);
 				env::Instance()->shutdown();
 				return;
 			}
@@ -200,7 +200,7 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		/* this error should be displayed to the user, no matter if logging is enabled or not */
 		std::u8string msg = str::u8::Build(u8"Error while loading elf: ", e.what());
 		if (!logger.error(msg))
-			host::PrintOut(msg);
+			host::PrintOutLn(msg);
 		return false;
 	}
 
@@ -210,7 +210,7 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		/* this error should be displayed to the user, no matter if logging is enabled or not */
 		std::u8string_view msg = u8"Only 64 bit elf binaries are supported";
 		if (!logger.error(msg))
-			host::PrintOut(msg);
+			host::PrintOutLn(msg);
 		return false;
 	}
 
@@ -233,7 +233,7 @@ bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
 		/* this error should be displayed to the user, no matter if logging is enabled or not */
 		std::u8string msg = str::u8::Build(u8"Cpu for architecture [", fArchType(pCpu->architecture()), u8"] cannot execute elf of type [", fArchType(arch), u8']');
 		if (!logger.error(msg))
-			host::PrintOut(msg);
+			host::PrintOutLn(msg);
 		return false;
 	}
 

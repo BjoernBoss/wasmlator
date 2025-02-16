@@ -14,6 +14,11 @@ int32_t host::GetTimeZoneMIN() {
 }
 
 void host::PrintOut(std::u8string_view msg) {
-	std::u8string actual = str::u8::Build(u8"L:", msg);
+	std::u8string actual = str::u8::Build(u8"O:", msg);
+	host_message(actual.data(), uint32_t(actual.size()));
+}
+
+void host::PrintOutLn(std::u8string_view msg) {
+	std::u8string actual = str::u8::Build(u8"O:", msg, u8'\n');
 	host_message(actual.data(), uint32_t(actual.size()));
 }

@@ -6,13 +6,18 @@ window.addEventListener('load', function () {
 	let htmlPrompt = this.document.getElementById('prompt');
 
 	/* register the clear button-behavior */
+	let lastCanAppend = false;
 	document.getElementById('clear').onclick = function () {
 		while (htmlOutput.children.length > 0)
 			htmlOutput.children[0].remove();
+		lastCanAppend = false;
 	};
 
 	/* logger function to write the logs to the ui */
 	let logMessage = function (t, m) {
+		if (m.length == 0)
+			return;
+
 		/* classify the logging type to the ui style */
 		let fatal = false;
 		switch (t) {
@@ -25,6 +30,7 @@ window.addEventListener('load', function () {
 			case 'info':
 			case 'warn':
 			case 'error':
+			case 'output':
 				fatal = false;
 				break;
 			case 'errInternal':
@@ -38,16 +44,29 @@ window.addEventListener('load', function () {
 		/* check if the child should be scolled into view */
 		let scrollIntoView = (htmlContent.scrollHeight - htmlContent.scrollTop <= htmlContent.clientHeight + 100);
 
-		/* setup the new output entry */
-		let e = document.createElement('div');
-		htmlOutput.appendChild(e);
+		/* check if the last entry and this entry are both normal outputs, in which case they can be appended */
+		let e = null;
+		if (lastCanAppend && t == 'output')
+			e = htmlOutput.lastChild;
+		else {
+			/* setup the new output entry */
+			e = document.createElement('div');
+			htmlOutput.appendChild(e);
 
-		/* patch the style */
-		if (fatal)
-			e.classList.add('fatal');
+			/* patch the style */
+			if (fatal)
+				e.classList.add('fatal');
+		}
+
+		/* update the append attribute (only if the last entry was an output and did not end on a linebreak) */
+		lastCanAppend = (t == 'output');
+		if (lastCanAppend && m.endsWith('\n')) {
+			lastCanAppend = false;
+			m = m.substring(0, m.length - 1);
+		}
 
 		/* write the text out and scroll it into view */
-		e.innerText = m;
+		e.innerText += m;
 		if (scrollIntoView)
 			e.scrollIntoView(true);
 	};

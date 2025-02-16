@@ -14,6 +14,9 @@ namespace host {
 	/* fetch the current timezone east of utc in [min] */
 	int32_t GetTimeZoneMIN();
 
-	/* direct logs out without logging wrapper */
+	/* direct logs to output without logging wrapper */
 	void PrintOut(std::u8string_view msg);
+
+	/* direct logs to output without logging wrapper */
+	void PrintOutLn(std::u8string_view msg);
 }

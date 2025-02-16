@@ -53,8 +53,6 @@ class WasmLator {
 	}
 	private logGuest(msg: string): void {
 		let type = ((msg.length >= 2 && msg[1] == ':') ? msg[0] : '_');
-		if (msg.length == 2)
-			msg += '\n';
 
 		switch (type) {
 			case 'T':
@@ -77,6 +75,9 @@ class WasmLator {
 				break;
 			case 'F':
 				this.host.log(LogType.fatal, msg.substring(2));
+				break;
+			case 'O':
+				this.host.log(LogType.output, msg.substring(2));
 				break;
 			default:
 				this.host.log(LogType.fatal, `Malformed log-message encountered: ${msg}`);
