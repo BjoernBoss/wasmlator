@@ -1,5 +1,4 @@
 build
-server/wasm/*
-server/wat/*
-server/fs/*
+run/fs/*
+run/generated
 .vscode/**

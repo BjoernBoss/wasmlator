@@ -13,14 +13,12 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 
 # relevant paths referenced throughout this script
 build_path := build
-wat_path := server/wat
-wasm_path := server/wasm
-fs_path := server/fs
+fs_path := run/fs
+gen_path := run/generated
+ts_path := run/backend
 bin_path := $(build_path)/make
 cc_path := $(build_path)/make/cc
 em_path := $(build_path)/make/em
-gen_path := run/generated
-ts_path := run/backend
 
 # help-menu
 help:
@@ -52,10 +50,8 @@ $(cc_path):
 	@ mkdir -p $(cc_path)
 $(em_path):
 	@ mkdir -p $(em_path)
-$(wat_path):
-	@ mkdir -p $(wat_path)
-$(wasm_path):
-	@ mkdir -p $(wasm_path)
+$(gen_path):
+	@ mkdir -p $(gen_path)
 $(bin_path):
 	@ mkdir -p $(bin_path)
 $(build_path):
@@ -84,53 +80,22 @@ include $(generated_path)
 endif
 
 # glue-generator compilation
-glue_path := $(bin_path)/glue.exe
-$(glue_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
+glue_gen_path := $(bin_path)/glue.exe
+$(glue_gen_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
+	@echo Compiling... $@
 	@ $(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
-# example block-generator compilation
-block_path := $(bin_path)/block.exe
-$(block_path): $(make_block_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
-	@echo Generating... $@
-	@ $(cc) entry/make-block.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
-
-# example core-generator compilation
-core_path := $(bin_path)/core.exe
-$(core_path): $(make_core_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
-	@echo Generating... $@
-	@ $(cc) entry/make-core.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
-
-# generate all wat output
-$(wat_path)/glue-module.wat: $(glue_path) | $(wat_path)
-	@echo Generating... $@
-	@ $(glue_path) $@
-$(wat_path)/core-module.wat: $(core_path) | $(wat_path)
-	@echo Generating... $@
-	@ $(core_path) $@
-$(wat_path)/block-module.wat: $(block_path) | $(wat_path)
-	@echo Generating... $@
-	@ $(block_path) $@
-wat: $(wat_path)/glue-module.wat $(wat_path)/core-module.wat $(wat_path)/block-module.wat
-.PHONY: wat
-
-# generate all wasm output
-$(wasm_path)/glue-module.wasm: $(glue_path) | $(wasm_path)
-	@echo Generating... $@
-	@ $(glue_path) $@
-$(wasm_path)/core-module.wasm: $(core_path) | $(wasm_path)
-	@echo Generating... $@
-	@ $(core_path) $@
-$(wasm_path)/block-module.wasm: $(block_path) | $(wasm_path)
-	@echo Generating... $@
-	@ $(block_path) $@
-wasm: $(wasm_path)/glue-module.wasm $(wasm_path)/core-module.wasm $(wasm_path)/block-module.wasm
-.PHONY: wasm
-
-# main application compilation
-main_path := $(wasm_path)/main.wasm
-$(main_path): $(obj_list_em) | $(wasm_path)
-	@echo Generating... $@
+# main wasm compilation
+main_path := $(gen_path)/main.wasm
+$(main_path): $(obj_list_em) | $(gen_path)
+	@echo Compiling... $@
 	@ $(em_main) $(obj_list_em) -o $@
+
+# glue wasm generation
+glue_path := $(gen_path)/glue.wasm
+$(glue_path): $(glue_gen_path) | $(gen_path)
+	@echo Generating... $@
+	@ $(glue_gen_path) $@
 
 # javascript generation
 wasmlator_path := $(gen_path)/wasmlator.js
@@ -139,5 +104,5 @@ $(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
 	@ tsc -p $<
 
 # setup the wasm for the server
-server: $(main_path) $(wasm_path)/glue-module.wasm | $(fs_path)
+server: $(main_path) $(glue_path) $(wasmlator_path) | $(fs_path)
 .PHONY: server
