@@ -1,0 +1,85 @@
+.bar {
+	flex-shrink: 0;
+	background-color: #404040;
+	padding: 10px;
+	width: calc(100% - 20px);
+	overflow: hidden;
+	display: flex;
+	user-select: none;
+}
+
+.top {
+	flex-direction: row;
+	border-style: solid;
+	border-color: #808080;
+	border-width: 0 0 2px 0;
+}
+
+.top .last {
+	margin-left: auto;
+}
+
+.sep {
+	width: 10px;
+	min-width: 10px;
+	max-width: 10px;
+}
+
+.input-busy {
+	color: #f08080;
+	visibility: visible;
+	display: flex;
+	align-items: center;
+}
+
+.trace {
+	color: #a4deff;
+}
+
+.debug {
+	color: #bfffab;
+}
+
+.log {
+	color: #ffffff;
+}
+
+.info {
+	color: #fffd78;
+}
+
+.warn {
+	color: #ffc340;
+}
+
+.error {
+	color: #ff9696;
+}
+
+.fatal {
+	color: #ff2020;
+}
+
+.htrace {
+	display: block;
+}
+
+.hdebug {
+	display: block;
+}
+
+.hlog {
+	display: block;
+}
+
+.hinfo {
+	display: block;
+}
+
+.hwarn {
+	display: block;
+}
+
+.herror {
+	display: block;
+}

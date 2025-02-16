@@ -5,9 +5,11 @@
 	<meta charset=utf-8>
 	<meta content="text/html; charset=utf-8" http-equiv=Content-Type>
 	<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
-	<link rel="stylesheet" type="text/css" href="/server.css">
-	<script src="/server.js"></script>
-	<title>WasmLator - Terminal</title>
+	<link rel="stylesheet" type="text/css" href="/css/common.css">
+	<link rel="stylesheet" type="text/css" href="/css/interact.css">
+	<script src="/js/interact.js"></script>
+	<script src="/js/input.js"></script>
+	<title>WasmLator - Interact</title>
 </head>
 
 <body>
@@ -27,7 +29,7 @@
 			<div class="sep"></div>
 			<div class="button active fatal" id="fatal">Fatal</div>
 			<div class="sep"></div>
-			<div id="busy" class="input-busy text">
+			<div id="busy" class="text input-busy">
 				Wasmlator.js is currently busy...
 			</div>
 			<div class="sep"></div>
@@ -35,7 +37,7 @@
 		</div>
 		<div id="content" class="content">
 			<div id="output" class="output text"></div>
-			<textarea id="input" class="text input log" rows="1" spellcheck="false"></textarea>
+			<textarea id="input" class="input text" rows="1" spellcheck="false"></textarea>
 		</div>
 	</div>
 </body>

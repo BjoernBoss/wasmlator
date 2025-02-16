@@ -1,0 +1,6 @@
+.float-overlay {
+	position: absolute;
+	right: 0;
+	margin: 10px;
+	opacity: 0.5;
+}
