@@ -370,18 +370,14 @@ class Interactable {
 	public handle(msg: string): Promise<void> {
 		return this.wasmlator.handle(msg);
 	}
+	public execute(msg: string): Promise<void> {
+		return this.wasmlator.execute(msg);
+	}
 }
 
-export async function SpawnInteract(host: HostEnvironment): Promise<Interactable | null> {
+export async function SetupWasmlator(host: HostEnvironment): Promise<Interactable | null> {
 	let wasmlator: WasmLator = new WasmLator(host);
 	if (!await wasmlator.prepareAndLoadMain())
 		return null;
 	return new Interactable(wasmlator);
-}
-
-export async function SpawnExecute(host: HostEnvironment, msg: string): Promise<void> {
-	let wasmlator: WasmLator = new WasmLator(host);
-	if (!await wasmlator.prepareAndLoadMain())
-		return;
-	return wasmlator.execute(msg);
 }

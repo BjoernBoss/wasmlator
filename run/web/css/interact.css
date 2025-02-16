@@ -59,27 +59,3 @@
 .fatal {
 	color: #ff2020;
 }
-
-.htrace {
-	display: block;
-}
-
-.hdebug {
-	display: block;
-}
-
-.hlog {
-	display: block;
-}
-
-.hinfo {
-	display: block;
-}
-
-.hwarn {
-	display: block;
-}
-
-.herror {
-	display: block;
-}

@@ -3,28 +3,6 @@ let handleEnteredCommand = function () { };
 window.addEventListener('load', function () {
 	let htmlOutput = document.getElementById('output');
 	let htmlContent = document.getElementById('content');
-	let htmlBusy = document.getElementById('busy');
-	let buttonState = {
-		'trace': true,
-		'debug': true,
-		'log': true,
-		'info': true,
-		'warn': true,
-		'error': true,
-		'fatal': true
-	};
-
-	/* register the button-behavior */
-	for (const key in buttonState) {
-		let html = document.getElementById(key);
-		html.onclick = function () {
-			buttonState[key] = html.classList.toggle('active');
-			let style = (buttonState[key] ? 'block' : 'none');
-			let list = htmlOutput.getElementsByClassName(key);
-			for (let i = 0; i < list.length; ++i)
-				list.item(i).style.display = style;
-		};
-	}
 
 	/* register the clear button-behavior */
 	document.getElementById('clear').onclick = function () {
@@ -35,7 +13,7 @@ window.addEventListener('load', function () {
 	/* logger function to write the logs to the ui */
 	let logMessage = function (t, m) {
 		/* classify the logging type to the ui style */
-		let name = null;
+		let fatal = false;
 		switch (t) {
 			case 'logInternal':
 				console.log(m);
@@ -46,13 +24,13 @@ window.addEventListener('load', function () {
 			case 'info':
 			case 'warn':
 			case 'error':
-				name = t;
+				fatal = false;
 				break;
 			case 'errInternal':
 			case 'fatal':
 			default:
-				name = 'fatal';
 				console.error(m);
+				fatal = true;
 				break;
 		}
 
@@ -63,10 +41,9 @@ window.addEventListener('load', function () {
 		let e = document.createElement('div');
 		htmlOutput.appendChild(e);
 
-		/* patch the visibility and the style */
-		if (!buttonState[name])
-			e.style.display = 'none';
-		e.classList.add(name);
+		/* patch the style */
+		if (fatal)
+			e.classList.add('fatal');
 
 		/* write the text out and scroll it into view */
 		e.innerText = m;
@@ -80,10 +57,8 @@ window.addEventListener('load', function () {
 	/* register the command-handler to the worker */
 	worker.onmessage = function (e) {
 		let data = e.data;
-		if (data.cmd == 'ready')
-			htmlBusy.style.visibility = 'hidden';
-		else if (data.cmd == 'busy')
-			htmlBusy.style.visibility = 'visible';
+		if (data.cmd == 'ready' || data.cmd == 'busy')
+			return;
 		else if (data.cmd == 'log')
 			logMessage(data.type, data.msg);
 		else
@@ -91,5 +66,5 @@ window.addEventListener('load', function () {
 	};
 
 	/* setup the command receiver function */
-	handleEnteredCommand = (m) => worker.postMessage({ cmd: m, execute: false });
+	handleEnteredCommand = (m) => worker.postMessage({ cmd: m, execute: true });
 });
