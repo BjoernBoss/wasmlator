@@ -6,6 +6,7 @@ export class NodeHost {
 	constructor(reader, root) {
 		this._reader = reader;
 		this._root = this._makeRealPath(root);
+		this._lastOpenLine = false;
 	}
 
 	_makeRealPath(path) {
@@ -85,11 +86,20 @@ export class NodeHost {
 	}
 
 	log(type, msg) {
-		msg = msg.substring(0, msg.length - 1);
-		if (type == LogType.output)
-			console.log(msg);
-		else if (type == LogType.fatal || type == LogType.errInternal)
+		/* check if its a normal output-log, which can simply be written to the stdout */
+		if (type == LogType.output) {
+			this._lastOpenLine = true;
+			process.stdout.write(msg);
+		}
+
+		/* ensure a clean line-break and write the error to the stderr */
+		else if (type == LogType.fatal || type == LogType.errInternal) {
+			msg = msg.substring(0, msg.length - 1);
+			if (this._lastOpenLine)
+				process.stdout.write('\n');
+			this._lastOpenLine = false;
 			console.error(msg);
+		}
 	}
 	async loadGlue(imports) {
 		return new Promise(function (resolve, reject) {
