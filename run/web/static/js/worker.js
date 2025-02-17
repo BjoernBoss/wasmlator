@@ -7,6 +7,7 @@ let inputQueue = [];
 let inputPromise = null;
 let wasmlator = null;
 let isExecuteMode = false;
+let isExecuting = false;
 
 /* dispatch next input command accordingly */
 let dispatchNext = function () {
@@ -16,6 +17,10 @@ let dispatchNext = function () {
 			postMessage({ cmd: 'ready' });
 		return;
 	}
+
+	/* check if the input just needs to stay queued */
+	if (isExecuting && inputPromise == null)
+		return;
 
 	/* extract the next entry in the queue */
 	let next = inputQueue[0];
@@ -30,11 +35,18 @@ let dispatchNext = function () {
 	/* echo the input back */
 	host.log(LogType.output, `> ${next}\n`);
 
+	/* mark the execution as active */
+	isExecuting = true;
+	postMessage({ cmd: 'busy' });
+
 	/* pass the command to the wasmlator */
 	let promise = (isExecuteMode ? wasmlator.execute(next) : wasmlator.handle(next));
 	promise.then(function () { })
 		.catch((err) => host.log(LogType.errInternal, `Unknown exception while handling command: ${err.stack}`))
-		.finally(() => dispatchNext());
+		.finally(function () {
+			isExecuting = false;
+			dispatchNext();
+		});
 };
 
 /* construct the web-host */
@@ -72,9 +84,6 @@ onmessage = function (e) {
 	/* setup the actual input receiver */
 	onmessage = function (e) {
 		inputQueue.push(e.data);
-		if (inputQueue.length == 1) {
-			postMessage({ cmd: 'busy' });
-			dispatchNext();
-		}
+		dispatchNext();
 	}
 };
