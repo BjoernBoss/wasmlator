@@ -2,15 +2,21 @@
 
 import http.server
 import os
+import sys
 import stat
 import json
 
 # file-system interaction class
 class FileSystemInteract:
 	def __init__(self, path):
-		self._root = os.path.realpath(path)
-		if self._root.startswith('\\\\?\\'):
-			self._root = self._root[4:]
+		self._root = self._makeRealPath(path)
+	def _makeRealPath(self, path):
+		path = os.path.realpath(path)
+		if sys.platform.startswith("win"):
+			if path.startswith('\\\\?\\'):
+				path = path[4:]
+			return path.lower()
+		return path
 	def _validatePath(self, path):
 		# check if its the root path
 		if path == '/':
@@ -33,14 +39,10 @@ class FileSystemInteract:
 				return None, []
 		return os.path.join(actual, parts[-1]), parts
 	def _patchLink(self, parts, link):
-		# Note: no need to follow the link further, as the next request would fail on invalid paths
-		
 		# check if the link is absolute and matches the base-path of the file-system
 		if os.path.isabs(link):
 			try:
-				link = os.path.realpath(link)
-				if link.startswith('\\\\?\\'):
-					link = link[4:]
+				link = self._makeRealPath(link)
 				if not link.startswith(self._root) or link[len(self._root)] not in '/\\':
 					return None
 				return '/' + os.path.relpath(link, self._root).replace('\\', '/')
