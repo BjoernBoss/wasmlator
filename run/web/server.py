@@ -118,9 +118,9 @@ class FileSystemInteract:
 	
 # root directory of the server
 rootPath = os.path.split(os.path.realpath(__file__))[0]
-fileSystem = FileSystemInteract(os.path.join(rootPath, './fs'))
-staticPath = os.path.join(rootPath, './web')
-generatedPath = os.path.join(rootPath, './generated')
+fileSystem = FileSystemInteract(os.path.join(rootPath, '../fs'))
+staticPath = os.path.join(rootPath, './static')
+generatedPath = os.path.join(rootPath, '../generated')
 
 # request handler implementation
 class SelfRequest(http.server.SimpleHTTPRequestHandler):
