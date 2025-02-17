@@ -1,5 +1,5 @@
 import { FileStats, LogType } from '../generated/common.js';
-import * as fs from 'fs';
+import { realpathSync, promises as fs } from 'fs';
 import * as filePath from 'path';
 
 export class NodeHost {
@@ -10,7 +10,7 @@ export class NodeHost {
 	}
 
 	_makeRealPath(path) {
-		path = fs.realpathSync(path);
+		path = realpathSync(path);
 		if (process.platform == 'win32') {
 			if (path.startsWith('\\\\?\\'))
 				path = path.substring(4);
@@ -18,7 +18,7 @@ export class NodeHost {
 		}
 		return path;
 	}
-	_validatePath(path) {
+	async _validatePath(path) {
 		/* check if its the root path */
 		if (path == '/')
 			return [this._root, []];
@@ -37,7 +37,7 @@ export class NodeHost {
 		for (let i = 0; i < parts.length - 1; ++i) {
 			actual = filePath.join(actual, parts[i]);
 			try {
-				const stats = fs.lstatSync(actual);
+				const stats = await fs.lstat(actual);
 				if (stats.isSymbolicLink() || !stats.isDirectory())
 					return [null, []];
 			}
@@ -102,34 +102,14 @@ export class NodeHost {
 		}
 	}
 	async loadGlue(imports) {
-		return new Promise(function (resolve, reject) {
-			fs.readFile('generated/glue.wasm', async function (err, data) {
-				/* check if the file content could be read */
-				if (err != null) {
-					reject(`failed to read [glue.wasm]: ${err}`);
-					return;
-				}
-
-				/* instantiate the module */
-				let instantiated = await WebAssembly.instantiate(data, imports);
-				return resolve(instantiated.instance);
-			});
-		});
+		let data = await fs.readFile('generated/glue.wasm');
+		let instantiated = await WebAssembly.instantiate(data, imports);
+		return instantiated.instance;
 	}
 	async loadMain(imports) {
-		return new Promise(function (resolve, reject) {
-			fs.readFile('generated/wasmlator.wasm', async function (err, data) {
-				/* check if the file content could be read */
-				if (err != null) {
-					reject(`failed to read [wasmlator.wasm]: ${err}`);
-					return;
-				}
-
-				/* instantiate the module */
-				let instantiated = await WebAssembly.instantiate(data, imports);
-				return resolve(instantiated.instance);
-			});
-		});
+		let data = await fs.readFile('generated/wasmlator.wasm');
+		let instantiated = await WebAssembly.instantiate(data, imports);
+		return instantiated.instance;
 	}
 	async loadModule(imports, buffer) {
 		let instantiated = await WebAssembly.instantiate(buffer, imports);
@@ -144,84 +124,62 @@ export class NodeHost {
 		});
 	}
 	async fsLoadStats(path) {
-		let _that = this;
-		return new Promise(function (resolve) {
-			/* validate the filepath */
-			var [actual, parts] = _that._validatePath(path);
-			if (actual == null) {
-				resolve(null);
-				return;
+		/* validate the filepath */
+		var [actual, parts] = await this._validatePath(path);
+		if (actual == null)
+			return null;
+
+		/* read the stats of the path */
+		let stats = null;
+		try {
+			stats = await fs.lstat(actual);
+		} catch (_) {
+			return null;
+		}
+
+		/* parse the stats into the output structure */
+		let out = new FileStats('');
+		out.atime_us = stats.atime.getTime() * 1000;
+		out.mtime_us = stats.mtime.getTime() * 1000;
+
+		/* check if the object is a symbolic link */
+		if (stats.isSymbolicLink()) {
+			out.type = 'link';
+
+			/* validate the link */
+			let link = null;
+			try {
+				link = this._patchLink(parts, await fs.readlink(actual));
 			}
+			catch (err) { }
+			if (link == null)
+				return null;
+			out.link = link;
+			out.size = new TextEncoder().encode(out.link).length;
+		}
 
-			/* read the stats of the path */
-			fs.lstat(actual, function (err, stats) {
-				/* check if the stats could be fetched */
-				if (err != null) {
-					resolve(null);
-					return;
-				}
+		/* check if the object is a regular file */
+		else if (stats.isFile()) {
+			out.type = 'file';
+			out.size = stats.size;
+		}
 
-				/* parse the stats into the output structure */
-				let out = new FileStats('');
-				out.atime_us = stats.atime.getTime() * 1000;
-				out.mtime_us = stats.mtime.getTime() * 1000;
+		/* check if the object is a directory */
+		else if (stats.isDirectory())
+			out.type = 'dir';
 
-				/* check if the object is a symbolic link */
-				if (stats.isSymbolicLink()) {
-					out.type = 'link';
-
-					/* validate the link */
-					let link = null;
-					try {
-						link = _that._patchLink(parts, fs.readlinkSync(actual));
-					}
-					catch (err) { }
-					if (link == null) {
-						resolve(null);
-						return;
-					}
-					out.link = link;
-					out.size = new TextEncoder().encode(out.link).length;
-				}
-
-				/* check if the object is a regular file */
-				else if (stats.isFile()) {
-					out.type = 'file';
-					out.size = stats.size;
-				}
-
-				/* check if the object is a directory */
-				else if (stats.isDirectory())
-					out.type = 'dir';
-
-				/* otherwise unknown type */
-				else {
-					resolve(null);
-					return;
-				}
-				resolve(out);
-			});
-		});
+		/* otherwise unknown type */
+		else
+			return null;
+		return out;
 	}
 	async fsLoadData(path) {
-		let _that = this;
-		return new Promise(function (resolve, reject) {
-			/* validate the filepath */
-			var [actual, _] = _that._validatePath(path);
-			if (actual == null) {
-				reject(`invalid path [${path}] encountered`);
-				return;
-			}
+		/* validate the filepath */
+		var [actual, _] = await this._validatePath(path);
+		if (actual == null)
+			throw new Error(`Invalid path [${path}] encountered`);
 
-			/* read the content of the file */
-			fs.readFile(actual, async function (err, data) {
-				/* check if the file content could be read */
-				if (err != null) {
-					reject(`failed to read [${path}]: ${err}`);
-					return;
-				}
-				return resolve(data);
-			});
-		});
+		/* read the content of the file */
+		return new Uint8Array(await fs.readFile(actual));
 	}
 }

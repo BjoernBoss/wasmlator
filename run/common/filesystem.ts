@@ -5,7 +5,7 @@ class FileNode {
 	public ancestor: FileNode | null;
 	public stats: FileStats | null;
 	public name: string;
-	public data: ArrayBuffer | null;
+	public data: Uint8Array | null;
 	public id: number;
 
 	public constructor(ancestor: FileNode | null, id: number, name: string) {
@@ -139,7 +139,7 @@ export class FileSystem {
 
 			/* pretend the file is empty */
 			node.stats!.size = 0;
-			node.data = new ArrayBuffer(0);
+			node.data = new Uint8Array(0);
 		}
 	}
 
@@ -173,7 +173,7 @@ export class FileSystem {
 			if (node.stats!.size != 0)
 				node.written();
 			node.stats!.size = 0;
-			node.data = new ArrayBuffer(0);
+			node.data = new Uint8Array(0);
 			return true;
 		}
 
@@ -192,8 +192,8 @@ export class FileSystem {
 
 		/* increase the size of the buffer */
 		try {
-			let buf = new ArrayBuffer(size);
-			new Uint8Array(buf).set(new Uint8Array(node.data!), 0);
+			let buf = new Uint8Array(size);
+			buf.set(node.data!, 0);
 			node.stats!.size = size;
 			node.data = buf;
 			node.written();
@@ -217,7 +217,7 @@ export class FileSystem {
 			return 0;
 
 		/* read the data to the buffer */
-		buffer.set(new Uint8Array(node.data!, offset, count));
+		buffer.set(node.data!.slice(offset, offset + count));
 		node.read();
 		return count;
 	}
@@ -235,7 +235,7 @@ export class FileSystem {
 			return 0;
 
 		/* write the data to the buffer */
-		new Uint8Array(node.data!, offset, count).set(buffer);
+		node.data!.slice(offset, offset + count).set(buffer);
 		node.written();
 		return count;
 	}
@@ -252,7 +252,7 @@ export class FileSystem {
 		/* setup the new file (including empty data to prevent loading non-existing file) */
 		next.setupStats(new FileStats('file'), { owner: owner, group: group, file: permissions });
 		node.stats!.size = 0;
-		node.data = new ArrayBuffer(0);
+		node.data = new Uint8Array(0);
 		return next.id;
 	}
 }

@@ -15,7 +15,7 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 build_path := build
 fs_path := run/fs
 gen_path := run/generated
-ts_path := run/backend
+ts_path := run/common
 bin_path := $(build_path)/make
 cc_path := $(build_path)/make/cc
 em_path := $(build_path)/make/em

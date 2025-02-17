@@ -46,5 +46,5 @@ export interface HostEnvironment {
 	fsLoadStats(path: string): Promise<FileStats | null>;
 
 	/* fetch the data for the given path (of which the stats exist) */
-	fsLoadData(path: string): Promise<ArrayBuffer>;
+	fsLoadData(path: string): Promise<Uint8Array>;
 }
