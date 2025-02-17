@@ -1,4 +1,4 @@
-import { FileStats, LogType } from '../generated/common.js';
+import { FileStats, LogType } from '../../build/gen/common.js';
 import { realpathSync, promises as fs } from 'fs';
 import * as filePath from 'path';
 
@@ -102,12 +102,12 @@ export class NodeHost {
 		}
 	}
 	async loadGlue(imports) {
-		let data = await fs.readFile('generated/glue.wasm');
+		let data = await fs.readFile('build/gen/glue.wasm');
 		let instantiated = await WebAssembly.instantiate(data, imports);
 		return instantiated.instance;
 	}
 	async loadMain(imports) {
-		let data = await fs.readFile('generated/wasmlator.wasm');
+		let data = await fs.readFile('build/gen/wasmlator.wasm');
 		let instantiated = await WebAssembly.instantiate(data, imports);
 		return instantiated.instance;
 	}

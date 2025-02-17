@@ -13,9 +13,9 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 
 # relevant paths referenced throughout this script
 build_path := build
-fs_path := run/fs
-gen_path := run/generated
+fs_path := fs
 ts_path := run/common
+gen_path := $(build_path)/gen
 bin_path := $(build_path)/make
 cc_path := $(build_path)/make/cc
 em_path := $(build_path)/make/em
@@ -27,7 +27,7 @@ help:
 	@echo "TARGETS:"
 	@echo "   help (print this menu; default)"
 	@echo "   clean (remove all build outputs)"
-	@echo "   server (generate the all necessary files to run/generated)"
+	@echo "   server (generate all necessary files to $(gen_path))"
 	@echo ""
 	@echo "Note:"
 	@echo "   This makefile will create and include a generated makefile, which is generated"
@@ -43,6 +43,8 @@ clean:
 .PHONY: clean
 
 # path-creating targets
+$(build_path):
+	@ mkdir -p $(build_path)
 $(cc_path):
 	@ mkdir -p $(cc_path)
 $(em_path):
@@ -51,8 +53,6 @@ $(gen_path):
 	@ mkdir -p $(gen_path)
 $(bin_path):
 	@ mkdir -p $(bin_path)
-$(build_path):
-	@ mkdir -p $(build_path)
 $(fs_path):
 	@ mkdir -p $(fs_path)
 

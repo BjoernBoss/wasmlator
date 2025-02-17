@@ -1,4 +1,3 @@
 build
-run/fs/*
-run/generated
+fs/**
 .vscode/**

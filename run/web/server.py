@@ -117,10 +117,9 @@ class FileSystemInteract:
 		return os.fstat(f.fileno()).st_size
 	
 # root directory of the server
-rootPath = os.path.split(os.path.realpath(__file__))[0]
-fileSystem = FileSystemInteract(os.path.join(rootPath, '../fs'))
-staticPath = os.path.join(rootPath, './static')
-generatedPath = os.path.join(rootPath, '../generated')
+fileSystem = FileSystemInteract(os.path.realpath('fs'))
+staticPath = os.path.realpath('run/web/static')
+generatedPath = os.path.realpath('build/gen')
 
 # request handler implementation
 class SelfRequest(http.server.SimpleHTTPRequestHandler):

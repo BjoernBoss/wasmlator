@@ -1,9 +1,8 @@
 import { NodeHost } from './node-host.js';
-import { SetupWasmlator } from '../generated/wasmlator.js';
+import { SetupWasmlator } from '../../build/gen/wasmlator.js';
 import { createInterface } from 'readline';
 
-/* ensure that the entire process is relative to the run directory and setup the handler to ensure killing via sig-int */
-process.chdir('run');
+/* setup the handler to ensure killing via sig-int */
 process.on('SIGINT', () => process.exit(1));
 
 /* setup the io-reader, host, and load the wasmlator */

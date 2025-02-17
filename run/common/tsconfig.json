@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"outDir": "../generated",
+		"outDir": "../../build/gen",
 		"rootDir": ".",
 		"target": "ES2020",
 		"module": "ES6",
