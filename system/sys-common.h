@@ -178,7 +178,8 @@ namespace sys {
 		faccessat,
 		faccessat2,
 		gettimeofday,
-		ioctl
+		ioctl,
+		set_tid_address
 	};
 
 	struct SyscallArgs {

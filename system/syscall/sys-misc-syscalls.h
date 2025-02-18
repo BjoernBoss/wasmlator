@@ -18,5 +18,6 @@ namespace sys::detail {
 		int64_t getegid() const;
 		int64_t uname(env::guest_t address) const;
 		int64_t gettimeofday(env::guest_t tv, env::guest_t tz) const;
+		int64_t set_tid_address(env::guest_t tidptr) const;
 	};
 }

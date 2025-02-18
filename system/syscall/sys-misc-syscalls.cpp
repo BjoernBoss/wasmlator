@@ -56,3 +56,7 @@ int64_t sys::detail::MiscSyscalls::gettimeofday(env::guest_t tv, env::guest_t tz
 	}
 	return errCode::eSuccess;
 }
+int64_t sys::detail::MiscSyscalls::set_tid_address(env::guest_t tidptr) const {
+	pSyscall->process().clear_child_tid = tidptr;
+	return pSyscall->process().tid;
+}

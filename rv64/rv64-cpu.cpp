@@ -242,6 +242,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 94:
 		call.index = sys::SyscallIndex::exit_group;
 		break;
+	case 96:
+		call.index = sys::SyscallIndex::set_tid_address;
+		break;
 	case 160:
 		call.index = sys::SyscallIndex::uname;
 		break;

@@ -27,12 +27,14 @@ namespace sys::detail {
 		std::u8string machine;
 		std::u8string path;
 		std::u8string wDirectory;
+		env::guest_t clear_child_tid = 0;
 		uint32_t uid = fs::ThisUesr;
 		uint32_t gid = fs::ThisGroup;
 		uint32_t euid = fs::ThisUesr;
 		uint32_t egid = fs::ThisGroup;
 		uint32_t pid = 1;
 		uint32_t pgid = 1;
+		uint32_t tid = 1;
 	};
 
 	class Syscall {
