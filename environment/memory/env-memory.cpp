@@ -626,9 +626,46 @@ uint64_t env::Memory::fCode(env::guest_t address, uint64_t size) const {
 	return detail::MemoryBridge::Code(address, size);
 }
 
+uint64_t env::Memory::totalAllocated() const {
+	uint64_t total = 0;
+	for (const auto& [address, phys] : pPhysical) {
+		if (phys.users > 0)
+			total += phys.size;
+	}
+	return total;
+}
+uint64_t env::Memory::totalShared() const {
+	uint64_t total = 0;
+	for (const auto& [address, phys] : pPhysical) {
+		if (phys.users > 1)
+			total += phys.size;
+	}
+	return total;
+}
+uint64_t env::Memory::maxAllocate() const {
+	return uint64_t(std::numeric_limits<uint32_t>::max()) + 1;
+}
 void env::Memory::checkXInvalidated(env::guest_t address) {
 	fCheckXInvalidated(address);
 }
+std::pair<env::guest_t, uint64_t> env::Memory::findNext(env::guest_t address) const {
+	/* lookup the entry, which contains the given address */
+	detail::MemVirtIt virt = pVirtual.upper_bound(address);
+	if (virt != pVirtual.begin())
+		--virt;
+
+	/* check if the entry contains the address */
+	if (virt == pVirtual.end())
+		return { 0, 0 };
+	if (virt->first <= address && fVirtEnd(virt) > address)
+		return { virt->first, virt->second.size };
+
+	/* return the next entry */
+	if (++virt == pVirtual.end())
+		return { 0, 0 };
+	return { virt->first, virt->second.size };
+}
+
 env::guest_t env::Memory::alloc(uint64_t size, uint32_t usage) {
 	/* check if the allocation can be serviced */
 	if (size > detail::EndOfAllocations - detail::StartOfAllocations)
@@ -915,21 +952,4 @@ void env::Memory::mclear(env::guest_t dest, uint64_t size, uint32_t usage) {
 		size -= count;
 		lookup = fFastLookup(dest, usage);
 	}
-}
-std::pair<env::guest_t, uint64_t> env::Memory::findNext(env::guest_t address) const {
-	/* lookup the entry, which contains the given address */
-	detail::MemVirtIt virt = pVirtual.upper_bound(address);
-	if (virt != pVirtual.begin())
-		--virt;
-
-	/* check if the entry contains the address */
-	if (virt == pVirtual.end())
-		return { 0, 0 };
-	if (virt->first <= address && fVirtEnd(virt) > address)
-		return { virt->first, virt->second.size };
-
-	/* return the next entry */
-	if (++virt == pVirtual.end())
-		return { 0, 0 };
-	return { virt->first, virt->second.size };
 }

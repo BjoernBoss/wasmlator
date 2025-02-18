@@ -47,6 +47,7 @@ namespace env {
 		uint32_t pContextSize = 0;
 		uint64_t pPhysicalPages = 0;
 		uint64_t pMemoryPages = 0;
+		uint64_t pStartTimeUS = 0;
 		ProcState pProcState = ProcState::none;
 		TaskState pTaskState = TaskState::none;
 		bool pBindingsClosed = false;
@@ -90,6 +91,7 @@ namespace env {
 		env::Interact& interact();
 
 	public:
+		uint64_t startTimeUS() const;
 		uint32_t pageSize() const;
 		uint32_t memoryCaches() const;
 		uint32_t contextSize() const;

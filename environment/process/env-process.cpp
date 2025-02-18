@@ -39,13 +39,14 @@ void env::ClearInstance() {
 
 
 bool env::Process::fSetup(std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks) {
-	/* apply the configuration */
+	/* apply the configuration and initialize the startup-time */
 	pSystem = std::move(system);
 	pPageSize = pageSize;
 	pMemoryCaches = memoryCaches;
 	pContextSize = contextSize;
 	pLogBlocks = logBlocks;
 	pDetectWriteExecute = detectWriteExecute;
+	pStartTimeUS = host::GetStampUS();
 
 	/* validate the configuration */
 	if (pPageSize == 0 || ((pPageSize - 1) & pPageSize) != 0) {
@@ -288,6 +289,9 @@ env::Interact& env::Process::interact() {
 	return pInteract;
 }
 
+uint64_t env::Process::startTimeUS() const {
+	return pStartTimeUS;
+}
 uint32_t env::Process::pageSize() const {
 	return pPageSize;
 }

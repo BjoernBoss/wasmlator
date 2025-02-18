@@ -117,6 +117,21 @@ namespace sys {
 			char8_t version[65] = { 0 };
 			char8_t machine[65] = { 0 };
 		};
+		struct SysInfo {
+			int64_t uptime = 0;
+			uint64_t loads[3] = { 0 };
+			uint64_t totalram = 0;
+			uint64_t freeram = 0;
+			uint64_t sharedram = 0;
+			uint64_t bufferram = 0;
+			uint64_t totalswap = 0;
+			uint64_t freeswap = 0;
+			uint16_t processes = 0;
+			uint16_t _padding = 0;
+			uint64_t totalhigh = 0;
+			uint64_t freehigh = 0;
+			uint32_t mem_unit = 0;
+		};
 		struct TimeSpec {
 			uint64_t sec = 0;
 			uint64_t nsec = 0;
@@ -167,6 +182,7 @@ namespace sys {
 		getgid,
 		getegid,
 		uname,
+		sysinfo,
 		openat,
 		open,
 		close,

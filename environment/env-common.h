@@ -19,6 +19,7 @@
 
 #include "../util/util-logger.h"
 #include "../util/util-path.h"
+#include "../host/host-interact.h"
 
 namespace env {
 	class Process;

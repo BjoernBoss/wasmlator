@@ -26,6 +26,9 @@ namespace sys::detail {
 		static constexpr uint64_t clockRealTime = 0;
 		static constexpr uint64_t clockMonotonic = 1;
 
+		/* used by sysinfo */
+		static constexpr uint64_t fullSingleCoreLoad = 65536;
+
 		static constexpr uint32_t randomMask = consts::randomNonBlock | consts::randomRandom;
 	}
 
@@ -43,6 +46,7 @@ namespace sys::detail {
 		int64_t getgid() const;
 		int64_t getegid() const;
 		int64_t uname(env::guest_t address) const;
+		int64_t sysinfo(env::guest_t info) const;
 		int64_t gettimeofday(env::guest_t tv, env::guest_t tz) const;
 		int64_t clock_gettime(uint64_t clockid, env::guest_t tp) const;
 		int64_t set_tid_address(env::guest_t tidptr) const;

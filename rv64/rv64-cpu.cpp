@@ -269,6 +269,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 177:
 		call.index = sys::SyscallIndex::getegid;
 		break;
+	case 179:
+		call.index = sys::SyscallIndex::sysinfo;
+		break;
 	case 214:
 		call.index = sys::SyscallIndex::brk;
 		break;

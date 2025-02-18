@@ -36,6 +36,34 @@ int64_t sys::detail::MiscSyscalls::uname(env::guest_t address) const {
 	env::Instance()->memory().mwrite(address, &uname, sizeof(linux::UName), env::Usage::Write);
 	return errCode::eSuccess;
 }
+int64_t sys::detail::MiscSyscalls::sysinfo(env::guest_t info) const {
+	/* populate the sys-info structure */
+	linux::SysInfo out{ 0 };
+
+	/* populate the uptime */
+	out.uptime = (host::GetStampUS() - env::Instance()->startTimeUS()) / 1000'000;
+
+	/* setup the system to be fully loaded with this single process */
+	out.loads[0] = uint64_t(consts::fullSingleCoreLoad * std::min<double>(1.0, out.uptime / (1 * 60.0)));
+	out.loads[1] = uint64_t(consts::fullSingleCoreLoad * std::min<double>(1.0, out.uptime / (5 * 60.0)));
+	out.loads[2] = uint64_t(consts::fullSingleCoreLoad * std::min<double>(1.0, out.uptime / (15 * 60.0)));
+
+	/* setup the ram parameter */
+	out.totalram = env::Instance()->memory().maxAllocate();
+	out.freeram = out.totalram - env::Instance()->memory().totalAllocated();
+	out.sharedram = env::Instance()->memory().totalShared();
+	out.bufferram = 0;
+	out.totalswap = 0;
+	out.freeswap = 0;
+	out.processes = 1;
+	out.totalhigh = 0;
+	out.freehigh = 0;
+	out.mem_unit = 1;
+
+	/* write the structure back out */
+	env::Instance()->memory().mwrite(info, &out, sizeof(linux::SysInfo), env::Usage::Write);
+	return errCode::eSuccess;
+}
 int64_t sys::detail::MiscSyscalls::gettimeofday(env::guest_t tv, env::guest_t tz) const {
 	/* check if the timevalue should be written out */
 	if (tv != 0) {
