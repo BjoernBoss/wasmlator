@@ -417,8 +417,8 @@ void env::Memory::fReducePhysical() {
 	fMovePhysical(0, shift, end - shift);
 
 	/* shift the virtual slots down */
-	for (size_t i = 0; i < pVirtual.size(); ++i)
-		pVirtual[i].physical -= shift;
+	for (auto& [address, virt] : pVirtual)
+		virt.physical -= shift;
 
 	/* move the physical memory down */
 	detail::MemPhysIt it = pPhysical.erase(pPhysical.begin());

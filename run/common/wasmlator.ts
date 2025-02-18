@@ -235,7 +235,7 @@ class WasmLator {
 			(this.main.exports.main_task_completed as (_0: number, _1: number, _2: number) => void)(process, addr, size);
 		}
 		catch (err) {
-			this.errSelf(`Failed to complete task: ${(err as Error).stack}`);
+			this.errSelf(`Failed to complete task: ${(err as Error).stack ?? err}`);
 		}
 
 		/* leave the critical section - was entered by handle-task */
@@ -327,7 +327,7 @@ class WasmLator {
 			await busy;
 		}
 		catch (err) {
-			this.errSelf(`Failed to startup main application: ${(err as Error).stack}`);
+			this.errSelf(`Failed to startup main application: ${(err as Error).stack ?? err}`);
 			return false;
 		}
 		this.logSelf('Loaded successfully and ready....');
@@ -348,7 +348,7 @@ class WasmLator {
 			/* perform the actual execution of the command (will ensure to free it) */
 			(this.main.exports.main_handle as (_0: number, _1: number) => void)(ptr, buf.length);
 		} catch (err) {
-			this.errSelf(`Failed to handle command: ${(err as Error).stack}`);
+			this.errSelf(`Failed to handle command: ${(err as Error).stack ?? err}`);
 		}
 		this.busy.leave();
 		return promise;
@@ -368,7 +368,7 @@ class WasmLator {
 			/* perform the actual execution of the command (will ensure to free it) */
 			(this.main.exports.main_execute as (_0: number, _1: number) => void)(ptr, buf.length);
 		} catch (err) {
-			this.errSelf(`Failed to execute: ${(err as Error).stack}`);
+			this.errSelf(`Failed to execute: ${(err as Error).stack ?? err}`);
 		}
 		this.busy.leave();
 		await promise;
@@ -379,7 +379,7 @@ class WasmLator {
 		try {
 			(this.main.exports.main_cleanup as () => void)();
 		} catch (err) {
-			this.errSelf(`Failed to cleanup: ${(err as Error).stack}`);
+			this.errSelf(`Failed to cleanup: ${(err as Error).stack ?? err}`);
 		}
 		this.busy.leave();
 		return promise;

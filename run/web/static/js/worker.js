@@ -42,7 +42,7 @@ let dispatchNext = function () {
 	/* pass the command to the wasmlator */
 	let promise = (isExecuteMode ? wasmlator.execute(next) : wasmlator.handle(next));
 	promise.then(function () { })
-		.catch((err) => host.log(LogType.errInternal, `Unknown exception while handling command: ${err.stack}`))
+		.catch((err) => host.log(LogType.errInternal, `Unknown exception while handling command: ${err.stack ?? err}`))
 		.finally(function () {
 			isExecuting = false;
 			dispatchNext();
@@ -70,7 +70,7 @@ SetupWasmlator(host)
 		wasmlator = v;
 		dispatchNext();
 	})
-	.catch((err) => host.log(LogType.errInternal, `Unknown exception while setting up wasmlator: ${err.stack}`))
+	.catch((err) => host.log(LogType.errInternal, `Unknown exception while setting up wasmlator: ${err.stack ?? err}`))
 
 /* setup the initial input receiver to receive the initial configuration */
 onmessage = function (e) {

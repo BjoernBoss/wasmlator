@@ -51,45 +51,48 @@ rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
 }
 
 uint64_t rv64::Cpu::fHandleHWProbe(uint64_t pairs, uint64_t pairCount, uint64_t cpuCount, uint64_t cpus, uint64_t flags) const {
-	/* Note:
-	*	- cpus and flags are ignored
-	*	- no need to catch memory-faults, as this will already be done by memory wrapper
-	*/
+	/* Note: cpus and flags are ignored */
+	try {
+		/* iterate over the pair and write the values out */
+		for (size_t i = 0; i < pairCount; i++) {
+			switch (env::Instance()->memory().read<uint64_t>(pairs + 16 * i + 0)) {
+				/* RISCV_HWPROBE_KEY_MVENDORID: 0 */
+			case 0:
+				env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0xdeadbeef);
+				break;
 
-	/* iterate over the pair and write the values out */
-	for (size_t i = 0; i < pairCount; i++) {
-		switch (env::Instance()->memory().read<uint64_t>(pairs + 16 * i + 0)) {
-			/* RISCV_HWPROBE_KEY_MVENDORID: 0 */
-		case 0:
-			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0xdeadbeef);
-			break;
+				/* RISCV_HWPROBE_KEY_MARCHID: 1*/
+			case 1:
+				env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0x5555'5555'5555'5555);
+				break;
 
-			/* RISCV_HWPROBE_KEY_MARCHID: 1*/
-		case 1:
-			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0x5555'5555'5555'5555);
-			break;
+				/* RISCV_HWPROBE_KEY_MIMPID: 2 */
+			case 2:
+				env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0xaaaa'aaaa'aaaa'aaaa);
+				break;
 
-			/* RISCV_HWPROBE_KEY_MIMPID: 2 */
-		case 2:
-			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0xaaaa'aaaa'aaaa'aaaa);
-			break;
+				/* RISCV_HWPROBE_KEY_BASE_BEHAVIOR: 3 */
+			case 3:
+				/* RISCV_HWPROBE_BASE_BEHAVIOR_IMA:1 (to indicate that Integer/Multiplication/Atomic is supported) */
+				env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 1);
+				break;
 
-			/* RISCV_HWPROBE_KEY_BASE_BEHAVIOR: 3 */
-		case 3:
-			/* RISCV_HWPROBE_BASE_BEHAVIOR_IMA:1 (to indicate that Integer/Multiplication/Atomic is supported) */
-			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 1);
-			break;
-
-			/* RISCV_HWPROBE_KEY_IMA_EXT_0: 4 */
-		case 4:
-			/* 0:Float/Double | 1:Compressed */
-			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, (1 << 0) | (1 << 1));
-			break;
-		default:
-			env::Instance()->memory().write<int64_t>(pairs + 16 * i + 0, -1);
-			env::Instance()->memory().write<int64_t>(pairs + 16 * i + 8, 0);
-			break;
+				/* RISCV_HWPROBE_KEY_IMA_EXT_0: 4 */
+			case 4:
+				/* 0:Float/Double | 1:Compressed */
+				env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, (1 << 0) | (1 << 1));
+				break;
+			default:
+				env::Instance()->memory().write<int64_t>(pairs + 16 * i + 0, -1);
+				env::Instance()->memory().write<int64_t>(pairs + 16 * i + 8, 0);
+				break;
+			}
 		}
+	}
+
+	/* catch any memory faults and simply return the fault-error */
+	catch (const env::MemoryFault&) {
+		return sys::errCode::eFault;
 	}
 	return sys::errCode::eSuccess;
 }
