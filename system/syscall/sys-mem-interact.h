@@ -3,6 +3,8 @@
 #include "../sys-common.h"
 
 namespace sys::detail {
+	static constexpr uint64_t MaxLockedMemory = 0;
+
 	namespace consts {
 		/* used by mmap */
 		static constexpr uint32_t mmProtNone = 0x00;

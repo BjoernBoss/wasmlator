@@ -60,3 +60,59 @@ int64_t sys::detail::MiscSyscalls::set_tid_address(env::guest_t tidptr) const {
 	pSyscall->process().clear_child_tid = tidptr;
 	return pSyscall->process().tid;
 }
+int64_t sys::detail::MiscSyscalls::set_robust_list(env::guest_t head, uint64_t size) const {
+	logger.warn(u8"Unsupported syscall set_robust_list executed");
+	return errCode::eNotImplemented;
+}
+int64_t sys::detail::MiscSyscalls::prlimit64(uint64_t pid, uint64_t res, env::guest_t new_rlim, env::guest_t old_rlim) const {
+	/* validate the limit-type */
+	if (res >= consts::rLimitEnd)
+		return errCode::eInvalid;
+
+	/* check if a limit is trying to be written (not allowed for any process) */
+	if (new_rlim != 0)
+		return errCode::ePermissionDenied;
+
+	/* check if a limit is being read */
+	if (old_rlim == 0)
+		return errCode::eSuccess;
+
+	/* construct the requested limit */
+	linux::ResourceLimit limit = { 0 };
+	switch (res) {
+	case consts::rLimitCpu:
+		limit = { consts::rLimitInfinity, consts::rLimitInfinity };
+		break;
+	case consts::rLimitFSize:
+		limit = { consts::rLimitInfinity, consts::rLimitInfinity };
+		break;
+	case consts::rLimitData:
+		limit = { consts::rLimitInfinity, consts::rLimitInfinity };
+		break;
+	case consts::rLimitStack:
+		limit = { detail::StackSize, detail::StackSize };
+		break;
+	case consts::rLimitCore:
+		limit = { 0, 0 };
+		break;
+	case consts::rLimitRSS:
+		limit = { consts::rLimitInfinity, consts::rLimitInfinity };
+		break;
+	case consts::rLimitNumProc:
+		limit = { detail::MaxProcessCount, detail::MaxProcessCount };
+		break;
+	case consts::rLimitNumFile:
+		limit = { detail::MaxFileDescriptors, detail::MaxFileDescriptors };
+		break;
+	case consts::rLimitMemLock:
+		limit = { detail::MaxLockedMemory, detail::MaxLockedMemory };
+		break;
+	case consts::rLimitAddressSpace:
+		limit = { consts::rLimitInfinity, consts::rLimitInfinity };
+		break;
+	}
+
+	/* write the structure back */
+	env::Instance()->memory().mwrite(old_rlim, &limit, sizeof(linux::ResourceLimit), env::Usage::Write);
+	return errCode::eSuccess;
+}

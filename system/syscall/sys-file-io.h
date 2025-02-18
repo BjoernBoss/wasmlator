@@ -5,6 +5,7 @@
 
 namespace sys::detail {
 	static constexpr size_t MaxFollowSymLinks = 16;
+	static constexpr size_t MaxFileDescriptors = 2048;
 
 	namespace consts {
 		static constexpr int fdWDirectory = -100;
@@ -46,7 +47,7 @@ namespace sys::detail {
 		bool write = false;
 		bool modify = false;
 		bool append = false;
-		env::FileType type = env::FileType::_last;
+		env::FileType type = env::FileType::_end;
 	};
 
 	class FileIO {
@@ -56,7 +57,7 @@ namespace sys::detail {
 			std::u8string path;
 			uint64_t id = 0;
 			size_t user = 0;
-			env::FileType type = env::FileType::_last;
+			env::FileType type = env::FileType::_end;
 			bool append = false;
 			bool read = false;
 			bool write = false;
@@ -76,6 +77,7 @@ namespace sys::detail {
 		std::vector<uint8_t> pBuffer;
 		std::vector<uint64_t> pCached;
 		detail::Syscall* pSyscall = 0;
+		size_t pOpened = 0;
 		struct {
 			std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback;
 			size_t linkFollow = 0;

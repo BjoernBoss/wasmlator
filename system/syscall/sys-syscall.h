@@ -34,7 +34,9 @@ namespace sys::detail {
 		uint32_t egid = fs::ThisGroup;
 		uint32_t pid = 1;
 		uint32_t pgid = 1;
-		uint32_t tid = 1;
+
+		/* must match pid, as it is the first thread */
+		uint32_t tid = 1; 
 	};
 
 	class Syscall {

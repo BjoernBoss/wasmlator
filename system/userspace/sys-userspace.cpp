@@ -35,18 +35,18 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	/* validate the stack dimensions (aligned to the corresponding boundaries) */
 	size_t totalSize = (blobSize + structSize + Userspace::StartOfStackAlignment - 1) & ~(Userspace::StartOfStackAlignment - 1);
 	size_t padding = totalSize - (blobSize + structSize);
-	if (totalSize > Userspace::StackSize) {
-		logger.error(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", Userspace::StackSize, u8']');
+	if (totalSize > detail::StackSize) {
+		logger.error(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", detail::StackSize, u8']');
 		return 0;
 	}
 
 	/* allocate the new stack */
-	env::guest_t stackBase = mem.alloc(Userspace::StackSize, env::Usage::ReadWrite);
+	env::guest_t stackBase = mem.alloc(detail::StackSize, env::Usage::ReadWrite);
 	if (stackBase == 0) {
 		logger.error(u8"Failed to allocate initial stack");
 		return 0;
 	}
-	logger.debug(u8"Stack allocated to [", str::As{ U"#018x", stackBase }, u8"] with size [", str::As{ U"#010x", Userspace::StackSize }, u8']');
+	logger.debug(u8"Stack allocated to [", str::As{ U"#018x", stackBase }, u8"] with size [", str::As{ U"#010x", detail::StackSize }, u8']');
 
 	/* initialize the content for the stack */
 	std::vector<uint8_t> content;
@@ -58,7 +58,7 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 		const uint8_t* d = reinterpret_cast<const uint8_t*>(&value);
 		content.insert(content.end(), d, d + wordWidth);
 		};
-	env::guest_t blobPtr = stackBase + Userspace::StackSize - blobSize;
+	env::guest_t blobPtr = stackBase + detail::StackSize - blobSize;
 
 	/* write the argument-count out */
 	writeWord(pArgs.size() + 1);
@@ -129,7 +129,7 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 
 	/* write the prepared content to the acutal stack and return the pointer to
 	*	the argument-count (ptr must not be zero, as this indicates failure) */
-	env::guest_t stack = stackBase + Userspace::StackSize - totalSize;
+	env::guest_t stack = stackBase + detail::StackSize - totalSize;
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 
 	/* log the stack-state */
@@ -384,9 +384,9 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string
 
 	/* register the process and translator (translator first, as it will be used for core-creation) */
 	bool detectWriteExecute = cpu->detectWriteExecute();
-	if (!gen::SetInstance(std::move(cpu), Userspace::TranslationDepth, trace, debugCheck))
+	if (!gen::SetInstance(std::move(cpu), detail::TranslationDepth, trace, debugCheck))
 		return false;
-	if (!env::SetInstance(std::move(system), Userspace::PageSize, caches, context, detectWriteExecute, logBlocks)) {
+	if (!env::SetInstance(std::move(system), detail::PageSize, caches, context, detectWriteExecute, logBlocks)) {
 		gen::ClearInstance();
 		return false;
 	}

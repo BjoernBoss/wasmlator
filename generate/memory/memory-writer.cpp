@@ -22,7 +22,7 @@ gen::detail::MemoryWriter::Access gen::detail::MemoryWriter::fGetVariables() {
 
 void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* code) {
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
-	if (type >= gen::MemoryType::_last)
+	if (type >= gen::MemoryType::_end)
 		return;
 
 	/* extract the result-type */
@@ -174,7 +174,7 @@ void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType 
 
 	/* check if the default-read cache is to be used and compute the actual cache address */
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
-	if (type >= gen::MemoryType::_last)
+	if (type >= gen::MemoryType::_end)
 		return;
 
 	/* fetch the temporary variables to be used and update the reserved-counter until the final write is performed */
@@ -229,7 +229,7 @@ void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType t
 
 	/* check if the default-write cache is to be used and compute the actual cache address */
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
-	if (type >= gen::MemoryType::_last)
+	if (type >= gen::MemoryType::_end)
 		return;
 
 	/* cache the value to be written */

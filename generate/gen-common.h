@@ -36,7 +36,7 @@ namespace gen {
 		i64,
 		f32,
 		f64,
-		_last
+		_end
 	};
 
 	enum class InstType : uint8_t {

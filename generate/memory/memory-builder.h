@@ -7,8 +7,8 @@ namespace gen::detail {
 	struct MemoryState {
 		wasm::Memory memory;
 		wasm::Memory physical;
-		wasm::Function reads[size_t(gen::MemoryType::_last)];
-		wasm::Function writes[size_t(gen::MemoryType::_last)];
+		wasm::Function reads[size_t(gen::MemoryType::_end)];
+		wasm::Function writes[size_t(gen::MemoryType::_end)];
 	};
 
 	/*

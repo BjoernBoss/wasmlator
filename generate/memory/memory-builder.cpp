@@ -493,7 +493,7 @@ void gen::detail::MemoryBuilder::setupCoreImports() {
 	pCheckXWrite = gen::Module->function(u8"main_check_invalidated", prototype, wasm::Import{ u8"main" });
 
 	/* define the bindings passed to the blocks */
-	for (size_t i = 0; i < size_t(gen::MemoryType::_last); ++i) {
+	for (size_t i = 0; i < size_t(gen::MemoryType::_end); ++i) {
 		env::detail::ProcessAccess::AddCoreBinding(u8"mem", str::u8::Build(u8"mem_lookup_read_", i));
 		env::detail::ProcessAccess::AddCoreBinding(u8"mem", str::u8::Build(u8"mem_lookup_write_", i));
 	}
@@ -509,7 +509,7 @@ void gen::detail::MemoryBuilder::setupCoreBody(const wasm::Memory& memory, const
 	wasm::Function codeLookup[4] = {};
 	{
 		/* iteratively create the lookups for all size/cache-indices combinations */
-		for (size_t i = 0; i < size_t(gen::MemoryType::_last); ++i) {
+		for (size_t i = 0; i < size_t(gen::MemoryType::_end); ++i) {
 			wasm::Type type = wasm::Type::i32;
 			uint32_t size = 0, codeIndex = 4;
 
@@ -785,7 +785,7 @@ void gen::detail::MemoryBuilder::setupBlockImports(const wasm::Memory& memory, c
 
 	/* setup the actual function imports to the lookup functions */
 	size_t caches = env::detail::MemoryAccess::CacheCount();
-	for (size_t i = 0; i < size_t(gen::MemoryType::_last); ++i) {
+	for (size_t i = 0; i < size_t(gen::MemoryType::_end); ++i) {
 		/* resolve the wasm-type */
 		wasm::Type type = wasm::Type::i32;
 		switch (static_cast<gen::MemoryType>(i)) {

@@ -188,10 +188,11 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_v
 	if (index == pOpen.size())
 		pOpen.emplace_back();
 
-	/* configure the new opened file */
+	/* configure the new opened file and update the open-counter */
 	pOpen[index].instance = instance;
 	pOpen[index].closeOnExecute = closeOnExecute;
 	pOpen[index].used = true;
+	++pOpened;
 	return int64_t(index);
 }
 sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats& stats) const {
@@ -285,6 +286,10 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	auto [actual, result] = fCheckPath(dirfd, path, false);
 	if (result != errCode::eSuccess)
 		return result;
+
+	/* validate the open count */
+	if (pOpened >= detail::MaxFileDescriptors)
+		return errCode::eMaximumFiles;
 
 	/* configure the resolve-operation to be performed */
 	pResolve.linkFollow = 0;
@@ -489,7 +494,10 @@ int64_t sys::detail::FileIO::close(int64_t fd) {
 	pInstance[pOpen[fd].instance].node->close();
 	if (--pInstance[pOpen[fd].instance].user == 0)
 		pInstance[pOpen[fd].instance].node.reset();
+
+	/* release the open-entry and update the open-counter */
 	pOpen[fd].used = false;
+	--pOpened;
 	return errCode::eSuccess;
 }
 int64_t sys::detail::FileIO::read(int64_t fd, env::guest_t address, uint64_t size) {

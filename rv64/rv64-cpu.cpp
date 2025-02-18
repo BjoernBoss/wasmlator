@@ -245,6 +245,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 96:
 		call.index = sys::SyscallIndex::set_tid_address;
 		break;
+	case 99:
+		call.index = sys::SyscallIndex::set_robust_list;
+		break;
 	case 160:
 		call.index = sys::SyscallIndex::uname;
 		break;
@@ -274,6 +277,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 		break;
 	case 226:
 		call.index = sys::SyscallIndex::mprotect;
+		break;
+	case 261:
+		call.index = sys::SyscallIndex::prlimit64;
 		break;
 	case 439:
 		call.index = sys::SyscallIndex::faccessat2;

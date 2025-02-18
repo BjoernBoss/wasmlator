@@ -9,6 +9,13 @@
 #include "../elf/sys-elf.h"
 
 namespace sys {
+	namespace detail {
+		static constexpr env::guest_t StackSize = 0x40'0000;
+		static constexpr uint32_t TranslationDepth = 3;
+		static constexpr uint32_t PageSize = 0x1000;
+		static constexpr uint32_t MaxProcessCount = 1;
+	}
+
 	/* userspace single-threaded system, which set up an environment, loads an elf
 	*	file to be executed, and passes the calls to the cpu implementation, as well as
 	*	a system-v ABI conform initial stack configuration (only 64 bit support)
@@ -17,9 +24,6 @@ namespace sys {
 	class Userspace final : public env::System {
 	private:
 		static constexpr env::guest_t StartOfStackAlignment = 128;
-		static constexpr env::guest_t StackSize = 0x40'0000;
-		static constexpr uint32_t TranslationDepth = 3;
-		static constexpr uint32_t PageSize = 0x1000;
 
 	private:
 		std::vector<std::u8string> pArgs;

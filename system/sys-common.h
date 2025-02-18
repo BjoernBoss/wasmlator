@@ -52,6 +52,7 @@ namespace sys {
 
 	namespace errCode {
 		static constexpr int64_t eSuccess = 0;
+		static constexpr int64_t ePermissionDenied = -1;
 		static constexpr int64_t eNoEntry = -2;
 		static constexpr int64_t eInterrupted = -4;
 		static constexpr int64_t eIO = -5;
@@ -64,8 +65,10 @@ namespace sys {
 		static constexpr int64_t eNotDirectory = -20;
 		static constexpr int64_t eIsDirectory = -21;
 		static constexpr int64_t eInvalid = -22;
+		static constexpr int64_t eMaximumFiles = -24;
 		static constexpr int64_t eNoTTY = -25;
 		static constexpr int64_t eReadOnly = -30;
+		static constexpr int64_t eNotImplemented = -38;
 		static constexpr int64_t eLoop = -40;
 		static constexpr int64_t eOpNotSupported = -95;
 		static constexpr int64_t eStale = -116;
@@ -142,6 +145,10 @@ namespace sys {
 			int32_t minuteswest = 0;
 			int32_t dsttime = 0;
 		};
+		struct ResourceLimit {
+			uint64_t current = 0;
+			uint64_t maximum = 0;
+		};
 	}
 
 	enum class ArchType : uint8_t {
@@ -179,7 +186,9 @@ namespace sys {
 		faccessat2,
 		gettimeofday,
 		ioctl,
-		set_tid_address
+		set_tid_address,
+		set_robust_list,
+		prlimit64
 	};
 
 	struct SyscallArgs {

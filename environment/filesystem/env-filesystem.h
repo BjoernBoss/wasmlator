@@ -10,7 +10,7 @@ namespace env {
 		link,
 		pipe,
 		tty,
-		_last
+		_end
 	};
 
 	static constexpr uint16_t fileModeMask = 0x01ff;
