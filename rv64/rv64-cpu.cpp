@@ -50,6 +50,50 @@ rv64::Instruction rv64::Cpu::fFetch(env::guest_t address) const {
 	return inst;
 }
 
+uint64_t rv64::Cpu::fHandleHWProbe(uint64_t pairs, uint64_t pairCount, uint64_t cpuCount, uint64_t cpus, uint64_t flags) const {
+	/* Note:
+	*	- cpus and flags are ignored
+	*	- no need to catch memory-faults, as this will already be done by memory wrapper
+	*/
+
+	/* iterate over the pair and write the values out */
+	for (size_t i = 0; i < pairCount; i++) {
+		switch (env::Instance()->memory().read<uint64_t>(pairs + 16 * i + 0)) {
+			/* RISCV_HWPROBE_KEY_MVENDORID: 0 */
+		case 0:
+			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0xdeadbeef);
+			break;
+
+			/* RISCV_HWPROBE_KEY_MARCHID: 1*/
+		case 1:
+			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0x5555'5555'5555'5555);
+			break;
+
+			/* RISCV_HWPROBE_KEY_MIMPID: 2 */
+		case 2:
+			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 0xaaaa'aaaa'aaaa'aaaa);
+			break;
+
+			/* RISCV_HWPROBE_KEY_BASE_BEHAVIOR: 3 */
+		case 3:
+			/* RISCV_HWPROBE_BASE_BEHAVIOR_IMA:1 (to indicate that Integer/Multiplication/Atomic is supported) */
+			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, 1);
+			break;
+
+			/* RISCV_HWPROBE_KEY_IMA_EXT_0: 4 */
+		case 4:
+			/* 0:Float/Double | 1:Compressed */
+			env::Instance()->memory().write<uint64_t>(pairs + 16 * i + 8, (1 << 0) | (1 << 1));
+			break;
+		default:
+			env::Instance()->memory().write<int64_t>(pairs + 16 * i + 0, -1);
+			env::Instance()->memory().write<int64_t>(pairs + 16 * i + 8, 0);
+			break;
+		}
+	}
+	return sys::errCode::eSuccess;
+}
+
 std::unique_ptr<sys::Cpu> rv64::Cpu::New() {
 	return std::unique_ptr<rv64::Cpu>{ new rv64::Cpu{} };
 }
@@ -143,12 +187,19 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	*	result into a0
 	*/
 	sys::SyscallArgs call;
-	const rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
+	rv64::Context& ctx = env::Instance()->context().get<rv64::Context>();
 
 	/* fetch the arguments */
 	for (size_t i = 0; i < 6; ++i)
 		call.args[i] = ctx.iregs[reg::A0 + i];
 	call.rawIndex = ctx.a7;
+
+	/* check if its the vendor specific syscall 'riscv_hwprobe' */
+	if (call.rawIndex == 258) {
+		call.args[0] = fHandleHWProbe(call.args[0], call.args[1], call.args[2], call.args[3], call.args[4]);
+		call.index = sys::SyscallIndex::completed;
+		return call;
+	}
 
 	/* map the index */
 	switch (call.rawIndex) {

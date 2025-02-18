@@ -23,6 +23,9 @@ namespace rv64 {
 		rv64::Instruction fFetchRaw(env::guest_t address) const;
 		rv64::Instruction fFetch(env::guest_t address) const;
 
+	private:
+		uint64_t fHandleHWProbe(uint64_t pairs, uint64_t pairCount, uint64_t cpuCount, uint64_t cpus, uint64_t flags) const;
+
 	public:
 		static std::unique_ptr<sys::Cpu> New();
 

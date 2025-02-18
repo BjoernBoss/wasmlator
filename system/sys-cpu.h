@@ -29,7 +29,8 @@ namespace sys {
 
 	public:
 		/* fetch the arguments for a unix syscall
-		*	Note: will only be called within code produced by sys::Writer */
+		*	Note: will only be called within code produced by sys::Writer
+		*	Note: for self implemented syscalls, set result to arg[0] and set index to completed (env::MemoryFault will be caught and errCode::eFault returned instead) */
 		virtual sys::SyscallArgs syscallGetArgs() const = 0;
 
 		/* set the result of the last syscall being performed

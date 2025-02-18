@@ -29,30 +29,6 @@ namespace sys {
 			return (value & mask) == mask;
 		}
 
-		namespace errCode {
-			static constexpr int64_t eSuccess = 0;
-			static constexpr int64_t eNoEntry = -2;
-			static constexpr int64_t eInterrupted = -4;
-			static constexpr int64_t eIO = -5;
-			static constexpr int64_t eBadFd = -9;
-			static constexpr int64_t eNoMemory = -12;
-			static constexpr int64_t eAccess = -13;
-			static constexpr int64_t eFault = -14;
-			static constexpr int64_t eExists = -17;
-			static constexpr int64_t eNoDevice = -19;
-			static constexpr int64_t eNotDirectory = -20;
-			static constexpr int64_t eIsDirectory = -21;
-			static constexpr int64_t eInvalid = -22;
-			static constexpr int64_t eNoTTY = -25;
-			static constexpr int64_t eReadOnly = -30;
-			static constexpr int64_t eLoop = -40;
-			static constexpr int64_t eOpNotSupported = -95;
-			static constexpr int64_t eStale = -116;
-
-			/* custom error (not mapped to any linux errors) */
-			static constexpr int64_t eUnknown = -0xffff;
-		}
-
 		struct CpuException {
 		public:
 			env::guest_t address = 0;
@@ -72,6 +48,30 @@ namespace sys {
 		};
 
 		struct AwaitingSyscall {};
+	}
+
+	namespace errCode {
+		static constexpr int64_t eSuccess = 0;
+		static constexpr int64_t eNoEntry = -2;
+		static constexpr int64_t eInterrupted = -4;
+		static constexpr int64_t eIO = -5;
+		static constexpr int64_t eBadFd = -9;
+		static constexpr int64_t eNoMemory = -12;
+		static constexpr int64_t eAccess = -13;
+		static constexpr int64_t eFault = -14;
+		static constexpr int64_t eExists = -17;
+		static constexpr int64_t eNoDevice = -19;
+		static constexpr int64_t eNotDirectory = -20;
+		static constexpr int64_t eIsDirectory = -21;
+		static constexpr int64_t eInvalid = -22;
+		static constexpr int64_t eNoTTY = -25;
+		static constexpr int64_t eReadOnly = -30;
+		static constexpr int64_t eLoop = -40;
+		static constexpr int64_t eOpNotSupported = -95;
+		static constexpr int64_t eStale = -116;
+
+		/* custom error (not mapped to any linux errors) */
+		static constexpr int64_t eUnknown = -0xffff;
 	}
 
 	/* assumptions about structures and enums made by the userspace-environment */
@@ -152,6 +152,7 @@ namespace sys {
 
 	enum class SyscallIndex : uint32_t {
 		unknown,
+		completed,
 		brk,
 		getuid,
 		geteuid,

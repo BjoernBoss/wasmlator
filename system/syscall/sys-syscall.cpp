@@ -176,6 +176,9 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall ioctl(", int64_t(args.args[0]), u8", ", args.args[1], u8", ", args.args[2], u8')');
 		return pFileIO.ioctl(args.args[0], args.args[1], args.args[2]);
 	}
+	case sys::SyscallIndex::completed:
+		logger.debug(u8"Syscall completed(index: ", args.rawIndex, u8')');
+		return args.args[0];
 	case sys::SyscallIndex::unknown:
 		throw detail::UnknownSyscall{ pCurrent.address, args.rawIndex };
 		break;
