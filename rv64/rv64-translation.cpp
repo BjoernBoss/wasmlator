@@ -210,14 +210,6 @@ void rv64::Translate::fMakeJALI() {
 		gen::Make->jump(address);
 }
 void rv64::Translate::fMakeJALR() {
-	/* write the next pc to the destination register */
-	if (pInst->dest != reg::Zero) {
-		gen::FulFill fulfill = fStoreDest();
-		gen::Add[I::U64::Const(pNextAddress)];
-		fulfill.now();
-	}
-	wasm::Variable addr = fTempi64(0);
-
 	/* write the target address to the stack */
 	if (fLoadSrc1(false, false)) {
 		if (pInst->imm != 0) {
@@ -228,7 +220,15 @@ void rv64::Translate::fMakeJALR() {
 	else
 		gen::Add[I::I64::Const(pInst->imm)];
 
+	/* write the next pc to the destination register */
+	if (pInst->dest != reg::Zero) {
+		gen::FulFill fulfill = fStoreDest();
+		gen::Add[I::U64::Const(pNextAddress)];
+		fulfill.now();
+	}
+
 	/* perform the alignment validation */
+	wasm::Variable addr = fTempi64(0);
 	gen::Add[I::Local::Tee(addr)];
 	gen::Add[I::U64::Shrink()];
 	gen::Add[I::U32::Const(1)];
