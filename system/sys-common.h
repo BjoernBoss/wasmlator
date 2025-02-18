@@ -117,6 +117,10 @@ namespace sys {
 			char8_t version[65] = { 0 };
 			char8_t machine[65] = { 0 };
 		};
+		struct TimeSpec {
+			uint64_t sec = 0;
+			uint64_t nsec = 0;
+		};
 		struct FileStats {
 			uint64_t dev = 0;
 			uint64_t inode = 0;
@@ -130,12 +134,9 @@ namespace sys {
 			uint32_t blockSize = 0;
 			uint32_t _unused1 = 0;
 			uint64_t blockCount = 0;
-			uint64_t atime_sec = 0;
-			uint64_t atime_ns = 0;
-			uint64_t mtime_sec = 0;
-			uint64_t mtime_ns = 0;
-			uint64_t ctime_sec = 0;
-			uint64_t ctime_ns = 0;
+			linux::TimeSpec atime;
+			linux::TimeSpec mtime;
+			linux::TimeSpec ctime;
 		};
 		struct TimeValue {
 			uint64_t sec = 0;
@@ -185,6 +186,7 @@ namespace sys {
 		faccessat,
 		faccessat2,
 		gettimeofday,
+		clock_gettime,
 		ioctl,
 		set_tid_address,
 		set_robust_list,

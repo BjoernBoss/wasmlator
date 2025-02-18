@@ -75,6 +75,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall gettimeofday(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#018x", args.args[1] }, u8')');
 		return pMisc.gettimeofday(args.args[0], args.args[1]);
 	}
+	case sys::SyscallIndex::clock_gettime: {
+		logger.debug(u8"Syscall clock_gettime(", args.args[0], u8", ", str::As{ U"#018x", args.args[1] }, u8')');
+		return pMisc.clock_gettime(args.args[0], args.args[1]);
+	}
 	case sys::SyscallIndex::exit_group: {
 		logger.debug(u8"Syscall exit_group(", args.args[0], u8')');
 		env::Instance()->context().terminate(int32_t(int64_t(args.args[0])), pCurrent.address);
@@ -185,12 +189,12 @@ int64_t sys::detail::Syscall::fDispatch() {
 		return pMisc.set_robust_list(args.args[0], args.args[1]);
 	}
 	case sys::SyscallIndex::prlimit64: {
-		logger.debug(u8"Syscall prlimit64(", args.args[0], u8", ", args.args[1], u8", ", str::As{ U"#018x", args.args[2] }, str::As{ U"#018x", args.args[3] }, u8')');
+		logger.debug(u8"Syscall prlimit64(", args.args[0], u8", ", args.args[1], u8", ", str::As{ U"#018x", args.args[2] }, u8", ", str::As{ U"#018x", args.args[3] }, u8')');
 		return pMisc.prlimit64(args.args[0], args.args[1], args.args[2], args.args[3]);
 	}
 	case sys::SyscallIndex::getrandom: {
 		logger.debug(u8"Syscall getrandom(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8", ", args.args[2], u8')');
-		return pMisc.getrandom(args.args[0], args.args[1], args.args[2]);
+		return pMisc.getrandom(args.args[0], args.args[1], uint32_t(args.args[2]));
 	}
 	case sys::SyscallIndex::completed: {
 		logger.debug(u8"Syscall completed(index: ", args.rawIndex, u8')');

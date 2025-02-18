@@ -22,6 +22,10 @@ namespace sys::detail {
 		static constexpr uint32_t randomNonBlock = 0x01;
 		static constexpr uint32_t randomRandom = 0x02;
 
+		/* used by clock_gettime */
+		static constexpr uint64_t clockRealTime = 0;
+		static constexpr uint64_t clockMonotonic = 1;
+
 		static constexpr uint32_t randomMask = consts::randomNonBlock | consts::randomRandom;
 	}
 
@@ -40,6 +44,7 @@ namespace sys::detail {
 		int64_t getegid() const;
 		int64_t uname(env::guest_t address) const;
 		int64_t gettimeofday(env::guest_t tv, env::guest_t tz) const;
+		int64_t clock_gettime(uint64_t clockid, env::guest_t tp) const;
 		int64_t set_tid_address(env::guest_t tidptr) const;
 		int64_t set_robust_list(env::guest_t head, uint64_t size) const;
 		int64_t prlimit64(uint64_t pid, uint64_t res, env::guest_t new_rlim, env::guest_t old_rlim) const;

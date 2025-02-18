@@ -56,6 +56,21 @@ int64_t sys::detail::MiscSyscalls::gettimeofday(env::guest_t tv, env::guest_t tz
 	}
 	return errCode::eSuccess;
 }
+int64_t sys::detail::MiscSyscalls::clock_gettime(uint64_t clockid, env::guest_t tp) const {
+	/* validate the clockid */
+	if (clockid != consts::clockRealTime && clockid != consts::clockMonotonic)
+		return errCode::eInvalid;
+
+	/* fetch the time and setup the output structure */
+	linux::TimeSpec time = { 0 };
+	uint64_t stamp = host::GetStampUS();
+	time.sec = stamp / 1000'000;
+	time.nsec = (stamp % 1000'000) * 1000;
+
+	/* write the time back */
+	env::Instance()->memory().mwrite(tp, &time, sizeof(linux::TimeSpec), env::Usage::Write);
+	return errCode::eSuccess;
+}
 int64_t sys::detail::MiscSyscalls::set_tid_address(env::guest_t tidptr) const {
 	pSyscall->process().clear_child_tid = tidptr;
 	return pSyscall->process().tid;

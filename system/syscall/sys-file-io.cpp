@@ -215,12 +215,12 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	out.size = stats.size;
 	out.blockSize = 512;
 	out.blockCount = (out.size + out.blockSize - 1) / out.blockSize;
-	out.atime_sec = (stats.timeAccessedUS / 1000'000);
-	out.atime_ns = (stats.timeAccessedUS * 1000) % 1000'000'000;
-	out.mtime_sec = (stats.timeModifiedUS / 1000'000);
-	out.mtime_ns = (stats.timeModifiedUS * 1000) % 1000'000'000;
-	out.ctime_sec = (ctime / 1000'000);
-	out.ctime_ns = (ctime * 1000) % 1000'000'000;
+	out.atime.sec = (stats.timeAccessedUS / 1000'000);
+	out.atime.nsec = (stats.timeAccessedUS % 1000'000) * 1000;
+	out.mtime.sec = (stats.timeModifiedUS / 1000'000);
+	out.mtime.nsec = (stats.timeModifiedUS % 1000'000) * 1000;
+	out.ctime.sec = (ctime / 1000'000);
+	out.ctime.nsec = (ctime % 1000'000) * 1000;
 
 	/* write the type to the mode */
 	switch (stats.type) {

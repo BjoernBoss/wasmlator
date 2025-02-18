@@ -248,6 +248,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 99:
 		call.index = sys::SyscallIndex::set_robust_list;
 		break;
+	case 113:
+		call.index = sys::SyscallIndex::clock_gettime;
+		break;
 	case 160:
 		call.index = sys::SyscallIndex::uname;
 		break;
