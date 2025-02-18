@@ -116,3 +116,19 @@ int64_t sys::detail::MiscSyscalls::prlimit64(uint64_t pid, uint64_t res, env::gu
 	env::Instance()->memory().mwrite(old_rlim, &limit, sizeof(linux::ResourceLimit), env::Usage::Write);
 	return errCode::eSuccess;
 }
+int64_t sys::detail::MiscSyscalls::getrandom(env::guest_t buf, uint64_t buflen, uint32_t flags) const {
+	/* check if all flags are supported */
+	if ((flags & ~consts::randomMask) != 0)
+		return errCode::eInvalid;
+
+	/* check if true random data are requested */
+	if (detail::IsSet(flags, consts::randomRandom))
+		logger.fatal(u8"true random data not supported by getrandom");
+
+	/* fill the buffer with random data */
+	for (size_t i = 0; i < buflen; i += 4) {
+		uint32_t val = host::Random();
+		env::Instance()->memory().mwrite(buf + i, &val, (i + 4 < buflen ? 4 : buflen - i), env::Usage::Write);
+	}
+	return errCode::eSuccess;
+}

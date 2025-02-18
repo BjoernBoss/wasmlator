@@ -188,6 +188,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall prlimit64(", args.args[0], u8", ", args.args[1], u8", ", str::As{ U"#018x", args.args[2] }, str::As{ U"#018x", args.args[3] }, u8')');
 		return pMisc.prlimit64(args.args[0], args.args[1], args.args[2], args.args[3]);
 	}
+	case sys::SyscallIndex::getrandom: {
+		logger.debug(u8"Syscall getrandom(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8", ", args.args[2], u8')');
+		return pMisc.getrandom(args.args[0], args.args[1], args.args[2]);
+	}
 	case sys::SyscallIndex::completed: {
 		logger.debug(u8"Syscall completed(index: ", args.rawIndex, u8')');
 		return args.args[0];

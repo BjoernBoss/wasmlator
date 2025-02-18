@@ -70,7 +70,7 @@ class WasmLator {
 				this.host.log(LogType.info, msg.substring(2));
 				break;
 			case 'W':
-				this.host.log(LogType.warning, msg.substring(2));
+				this.host.log(LogType.warn, msg.substring(2));
 				break;
 			case 'E':
 				this.host.log(LogType.error, msg.substring(2));

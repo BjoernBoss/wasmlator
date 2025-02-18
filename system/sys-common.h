@@ -188,7 +188,8 @@ namespace sys {
 		ioctl,
 		set_tid_address,
 		set_robust_list,
-		prlimit64
+		prlimit64,
+		getrandom
 	};
 
 	struct SyscallArgs {

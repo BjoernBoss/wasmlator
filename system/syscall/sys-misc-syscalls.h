@@ -17,6 +17,12 @@ namespace sys::detail {
 		static constexpr uint32_t rLimitAddressSpace = 9;
 		static constexpr uint32_t rLimitEnd = 10;
 		static constexpr uint64_t rLimitInfinity = uint64_t(-1);
+
+		/* used by getrandom */
+		static constexpr uint32_t randomNonBlock = 0x01;
+		static constexpr uint32_t randomRandom = 0x02;
+
+		static constexpr uint32_t randomMask = consts::randomNonBlock | consts::randomRandom;
 	}
 
 	class MiscSyscalls {
@@ -37,5 +43,6 @@ namespace sys::detail {
 		int64_t set_tid_address(env::guest_t tidptr) const;
 		int64_t set_robust_list(env::guest_t head, uint64_t size) const;
 		int64_t prlimit64(uint64_t pid, uint64_t res, env::guest_t new_rlim, env::guest_t old_rlim) const;
+		int64_t getrandom(env::guest_t buf, uint64_t buflen, uint32_t flags) const;
 	};
 }

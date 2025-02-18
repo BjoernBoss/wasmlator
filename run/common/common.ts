@@ -1,5 +1,5 @@
 export enum LogType {
-	errInternal, logInternal, trace, debug, log, info, warning, error, fatal, output
+	errInternal, logInternal, trace, debug, log, info, warn, error, fatal, output
 };
 
 export class FileStats {

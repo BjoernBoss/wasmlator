@@ -281,6 +281,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 261:
 		call.index = sys::SyscallIndex::prlimit64;
 		break;
+	case 278:
+		call.index = sys::SyscallIndex::getrandom;
+		break;
 	case 439:
 		call.index = sys::SyscallIndex::faccessat2;
 		break;
