@@ -90,7 +90,7 @@ namespace sys::detail {
 		struct Instance {
 			detail::SharedNode node;
 			std::u8string path;
-			uint64_t id = 0;
+			uint64_t offset = 0;
 			size_t user = 0;
 			env::FileType type = env::FileType::_end;
 			InstanceConfig config;
@@ -122,6 +122,8 @@ namespace sys::detail {
 		FileIO() = default;
 
 	private:
+		const FileIO::Instance& fInstance(int64_t fd) const;
+		FileIO::Instance& fInstance(int64_t fd);
 		bool fCheckFd(int64_t fd) const;
 		int64_t fCheckRead(int64_t fd) const;
 		int64_t fCheckWrite(int64_t fd) const;
@@ -137,8 +139,9 @@ namespace sys::detail {
 		int64_t fLookupNextFd(uint64_t start, bool canFail);
 		int64_t fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, const FileIO::InstanceConfig& config, bool closeOnExecute);
 		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
-		int64_t fRead(size_t instance, uint64_t offset, std::function<int64_t(int64_t)> callback);
-		int64_t fWrite(size_t instance, uint64_t offset) const;
+		int64_t fLoadStats(uint64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const;
+		int64_t fRead(uint64_t fd, std::optional<uint64_t> offset, std::function<int64_t(int64_t)> callback);
+		int64_t fWrite(uint64_t fd, std::optional<uint64_t> offset);
 
 	private:
 		int64_t fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode);

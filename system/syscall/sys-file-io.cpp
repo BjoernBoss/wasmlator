@@ -2,21 +2,27 @@
 
 static util::Logger logger{ u8"sys::syscall" };
 
+const sys::detail::FileIO::Instance& sys::detail::FileIO::fInstance(int64_t fd) const {
+	return pInstance[pOpen[fd].instance];
+}
+sys::detail::FileIO::Instance& sys::detail::FileIO::fInstance(int64_t fd) {
+	return pInstance[pOpen[fd].instance];
+}
 bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
 	/* instance can never be larger than pInstance, as instances are never reduced in size */
-	if (fd < 0 || fd >= int64_t(pOpen.size()) || pInstance[pOpen[fd].instance].node.get() == 0)
+	if (fd < 0 || fd >= int64_t(pOpen.size()) || fInstance(fd).node.get() == 0)
 		return false;
 	return true;
 }
 int64_t sys::detail::FileIO::fCheckRead(int64_t fd) const {
-	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].config.read)
+	if (!fCheckFd(fd) || !fInstance(fd).config.read)
 		return errCode::eBadFd;
-	if (pInstance[pOpen[fd].instance].type == env::FileType::directory)
+	if (fInstance(fd).type == env::FileType::directory)
 		return errCode::eIsDirectory;
 	return 0;
 }
 int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
-	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].config.write)
+	if (!fCheckFd(fd) || !fInstance(fd).config.write)
 		return errCode::eBadFd;
 	return 0;
 }
@@ -61,7 +67,7 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 			return { pSyscall->process().workingDirectory, errCode::eSuccess };
 		else if (!fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
-		return { pInstance[pOpen[dirfd].instance].path, errCode::eSuccess };
+		return { fInstance(dirfd).path, errCode::eSuccess };
 	}
 
 	/* validate the path */
@@ -74,7 +80,7 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 	if (state == util::PathState::relative && dirfd != consts::fdWDirectory) {
 		if (!fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
-		instance = &pInstance[pOpen[dirfd].instance];
+		instance = &fInstance(dirfd);
 		if (instance->type != env::FileType::directory)
 			return { u8"", errCode::eNotDirectory };
 	}
@@ -247,9 +253,6 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	case env::FileType::link:
 		out.mode |= uint32_t(linux::FileMode::link);
 		break;
-	case env::FileType::pipe:
-		out.mode |= uint32_t(linux::FileMode::fifoPipe);
-		break;
 	case env::FileType::tty:
 		out.mode |= uint32_t(linux::FileMode::charDevice);
 		break;
@@ -258,13 +261,67 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	}
 	return out;
 }
-int64_t sys::detail::FileIO::fRead(size_t instance, uint64_t offset, std::function<int64_t(int64_t)> callback) {
-	return pInstance[instance].node->read(offset, pBuffer, callback);
+int64_t sys::detail::FileIO::fLoadStats(uint64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const {
+	/* read the stats and check if an unexpected error occurred */
+	return fInstance(fd).node->stats([fd, callback](const env::FileStats* stats) -> int64_t {
+		/* check if the stats failed */
+		if (stats == 0) {
+			logger.error(u8"Failed to fetch stats for an open file [", fd, u8']');
+			return callback(errCode::eStale, 0);
+		}
+
+		/* check if an unexpected change of the underlying object occurred */
+		if (stats->type != env::FileType::file) {
+			logger.error(u8"Type of opened file-descriptor has changed [", fd, u8']');
+			return callback(errCode::eStale, 0);
+		}
+		return callback(errCode::eSuccess, stats);
+		});
 }
-int64_t sys::detail::FileIO::fWrite(size_t instance, uint64_t offset) const {
-	if (pInstance[instance].config.append)
-		logger.fatal(u8"Appending to file currently not supported");
-	return pInstance[instance].node->write(offset, pBuffer, [](int64_t result) -> int64_t { return result; });
+int64_t sys::detail::FileIO::fRead(uint64_t fd, std::optional<uint64_t> offset, std::function<int64_t(int64_t)> callback) {
+	FileIO::Instance& instance = fInstance(fd);
+
+	/* fetch the offset to be used */
+	bool fileOffset = (!offset.has_value() && instance.type == env::FileType::file);
+	uint64_t _offset = (fileOffset ? instance.offset : offset.value_or(0));
+
+	/* perform the actual read of the data */
+	return instance.node->read(_offset, pBuffer, [&instance, fileOffset, callback](int64_t result) -> int64_t {
+		if (result >= 0 && fileOffset)
+			instance.offset += result;
+		return result;
+		});
+}
+int64_t sys::detail::FileIO::fWrite(uint64_t fd, std::optional<uint64_t> offset) {
+	FileIO::Instance& instance = fInstance(fd);
+
+	/* setup the final write-function to be used */
+	std::function<int64_t()> callback = [this, &instance, offset]() -> int64_t {
+		/* fetch the offset to be used */
+		bool fileOffset = (!offset.has_value() && instance.type == env::FileType::file);
+		uint64_t _offset = (fileOffset ? instance.offset : offset.value_or(0));
+
+		/* perform the actual write of the data */
+		return instance.node->write(_offset, pBuffer, [&instance, fileOffset](int64_t result) -> int64_t {
+			if (result >= 0 && fileOffset)
+				instance.offset += result;
+			return result;
+			});
+		};
+
+	/* check if the write can just be executed or if the file-end needs to be fetched */
+	if (!instance.config.append || instance.type != env::FileType::file || offset.has_value())
+		return callback();
+
+	/* fetch the current file-size to be able to update the file-end */
+	return fLoadStats(fd, [&instance, callback](int64_t result, const env::FileStats* stats) -> int64_t {
+		if (result != errCode::eSuccess)
+			return result;
+
+		/* update the file-offset and perform the write */
+		instance.offset = stats->size;
+		return callback();
+		});
 }
 
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
@@ -515,9 +572,9 @@ int64_t sys::detail::FileIO::close(int64_t fd) {
 		return errCode::eBadFd;
 
 	/* close the underlying file object and remove the reference to it */
-	pInstance[pOpen[fd].instance].node->close();
-	if (--pInstance[pOpen[fd].instance].user == 0)
-		pInstance[pOpen[fd].instance].node.reset();
+	fInstance(fd).node->close();
+	if (--fInstance(fd).user == 0)
+		fInstance(fd).node.reset();
 
 	/* release the open-entry and update the open-counter */
 	pOpen[fd].used = false;
@@ -532,7 +589,7 @@ int64_t sys::detail::FileIO::read(int64_t fd, env::guest_t address, uint64_t siz
 
 	/* fetch the data to be read */
 	pBuffer.resize(size);
-	return fRead(pOpen[fd].instance, 0, [this, address](int64_t read) -> int64_t {
+	return fRead(fd, std::nullopt, [this, address](int64_t read) -> int64_t {
 		if (read <= 0)
 			return read;
 
@@ -561,7 +618,7 @@ int64_t sys::detail::FileIO::readv(int64_t fd, env::guest_t vec, uint64_t count)
 	}
 
 	/* fetch the data to be read */
-	return fRead(pOpen[fd].instance, 0, [this](int64_t read) -> int64_t {
+	return fRead(fd, std::nullopt, [this](int64_t read) -> int64_t {
 		if (read <= 0)
 			return read;
 
@@ -590,7 +647,7 @@ int64_t sys::detail::FileIO::write(int64_t fd, env::guest_t address, uint64_t si
 	env::Instance()->memory().mread(pBuffer.data(), address, size, env::Usage::Read);
 
 	/* write the data out */
-	return fWrite(pOpen[fd].instance, 0);
+	return fWrite(fd, std::nullopt);
 }
 int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count) {
 	/* validate the fd and access */
@@ -615,7 +672,7 @@ int64_t sys::detail::FileIO::writev(int64_t fd, env::guest_t vec, uint64_t count
 	}
 
 	/* write the data out */
-	return fWrite(pOpen[fd].instance, 0);
+	return fWrite(fd, std::nullopt);
 }
 int64_t sys::detail::FileIO::readlinkat(int64_t dirfd, std::u8string_view path, env::guest_t address, uint64_t size) {
 	return fReadLinkAt(dirfd, path, address, size);
@@ -629,18 +686,9 @@ int64_t sys::detail::FileIO::fstat(int64_t fd, env::guest_t address) {
 		return errCode::eBadFd;
 
 	/* request the stats from the object */
-	return pInstance[pOpen[fd].instance].node->stats([this, address, fd](const env::FileStats* stats) -> int64_t {
-		/* check if the stats failed */
-		if (stats == 0) {
-			logger.error(u8"Failed to fetch stats for an open file [", fd, u8']');
-			return errCode::eStale;
-		}
-
-		/* check if an unexpected change of the underlying object occurred */
-		if (stats->type != pInstance[pOpen[fd].instance].type) {
-			logger.error(u8"Type of opened file-descriptor has changed [", fd, u8']');
-			return errCode::eStale;
-		}
+	return fLoadStats(fd, [this, address](int64_t result, const env::FileStats* stats) -> int64_t {
+		if (result != errCode::eSuccess)
+			return result;
 
 		/* construct the linux-stats */
 		linux::FileStats lstats = fBuildLinuxStats(*stats);
@@ -688,7 +736,7 @@ int64_t sys::detail::FileIO::ioctl(int64_t fd, uint64_t cmd, uint64_t arg) {
 	/* validate the file descriptor */
 	if (!fCheckFd(fd))
 		return errCode::eBadFd;
-	if (!pInstance[pOpen[fd].instance].config.modify)
+	if (!fInstance(fd).config.modify)
 		return errCode::eBadFd;
 
 	/* ioctl is currently not implemented for any objects */
@@ -714,7 +762,7 @@ int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
 		pOpen[index].closeOnExecute = (cmd == consts::fcntlDuplicateFdCloseExec);
 		pOpen[index].instance = pOpen[fd].instance;
 		pOpen[index].used = true;
-		++pInstance[pOpen[index].instance].user;
+		++fInstance(index).user;
 		++pOpened;
 		return index;
 	}
@@ -729,7 +777,7 @@ int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
 
 	/* check if the file-flags are to be updated */
 	else if (cmd == consts::fcntlGetFileStatusFlags) {
-		const FileIO::InstanceConfig& config = pInstance[pOpen[fd].instance].config;
+		const FileIO::InstanceConfig& config = fInstance(fd).config;
 		return (config.read ? (config.write ? consts::fsReadWrite : consts::fsReadOnly) : consts::fsWriteOnly) |
 			(config.creation.create ? consts::fsCreate : 0) | (config.creation.truncate ? consts::fsTruncate : 0) |
 			(config.creation.exclusive ? consts::fsExclusive : 0) | (config.creation.noctty ? consts::fsNoCTTY : 0) |
@@ -739,7 +787,7 @@ int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
 		/* ensure that all flags are supported */
 		if ((arg & ~consts::fsMask) != 0)
 			logger.fatal(u8"Unknown file-status flags used in fcntl");
-		pInstance[pOpen[fd].instance].config.append = detail::IsSet(arg, consts::fsAppend);
+		fInstance(fd).config.append = detail::IsSet(arg, consts::fsAppend);
 		return errCode::eSuccess;
 	}
 
@@ -758,11 +806,11 @@ sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
 
 	/* populate the meta-data of the file-descriptor */
 	state.instance = pOpen[fd].instance;
-	state.read = pInstance[pOpen[fd].instance].config.read;
-	state.write = pInstance[pOpen[fd].instance].config.write;
-	state.modify = pInstance[pOpen[fd].instance].config.modify;
-	state.append = pInstance[pOpen[fd].instance].config.append;
-	state.type = pInstance[pOpen[fd].instance].type;
+	state.read = fInstance(fd).config.read;
+	state.write = fInstance(fd).config.write;
+	state.modify = fInstance(fd).config.modify;
+	state.append = fInstance(fd).config.append;
+	state.type = fInstance(fd).type;
 	return state;
 }
 int64_t sys::detail::FileIO::fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const {
@@ -770,18 +818,9 @@ int64_t sys::detail::FileIO::fdStats(int64_t fd, std::function<int64_t(int64_t, 
 		return callback(errCode::eBadFd, 0);
 
 	/* request the stats from the object */
-	return pInstance[pOpen[fd].instance].node->stats([this, fd, callback](const env::FileStats* stats) -> int64_t {
-		/* check if the stats failed */
-		if (stats == 0) {
-			logger.error(u8"Failed to fetch stats for an open file [", fd, u8']');
-			return callback(errCode::eStale, 0);
-		}
-
-		/* check if an unexpected change of the underlying object occurred */
-		if (stats->type != pInstance[pOpen[fd].instance].type) {
-			logger.error(u8"Type of opened file-descriptor has changed [", fd, u8']');
-			return errCode::eStale;
-		}
+	return fLoadStats(fd, [this, callback](int64_t result, const env::FileStats* stats) -> int64_t {
+		if (result != errCode::eSuccess)
+			return result;
 
 		/* notify the callback about the successful stats */
 		return callback(errCode::eSuccess, stats);

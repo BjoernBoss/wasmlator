@@ -8,7 +8,6 @@ namespace env {
 		file,
 		directory,
 		link,
-		pipe,
 		tty,
 		_end
 	};
