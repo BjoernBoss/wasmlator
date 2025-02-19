@@ -224,6 +224,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 57:
 		call.index = sys::SyscallIndex::close;
 		break;
+	case 61:
+		call.index = sys::SyscallIndex::getdents;
+		break;
 	case 63:
 		call.index = sys::SyscallIndex::read;
 		break;

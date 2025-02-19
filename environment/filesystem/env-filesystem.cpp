@@ -118,6 +118,32 @@ void env::FileSystem::readPath(uint64_t id, std::function<void(std::u8string_vie
 			callback(str::u8::To(resp.str()));
 		});
 }
+void env::FileSystem::readDirectory(uint64_t id, std::function<void(const std::map<std::u8string, env::FileStats>&)> callback) {
+	logger.debug(u8"Reading directory of [", id, u8']');
+	fHandleTask(str::u8::Build(u8"list:", id), [this, callback](json::Reader<std::u8string_view> resp) {
+		if (resp.isNull()) {
+			callback({});
+			return;
+		}
+
+		/* parse all of the stats */
+		std::map<std::u8string, env::FileStats> out;
+		for (const auto& [key, value] : resp.obj()) {
+			/* skip duplicate keys */
+			std::u8string _key = str::u8::To(key);
+			if (out.contains(_key))
+				continue;
+
+			/* parse the value and add it to the output */
+			out[_key] = fParseStats(value.obj());
+		}
+
+		/* ensure that the two default entries exist */
+		if (!out.contains(u8".") && !out.contains(u8".."))
+			logger.fatal(u8"Read directory does not contain default names [.] and [..]");
+		callback(out);
+		});
+}
 void env::FileSystem::accessedObject(uint64_t id, std::function<void(bool)> callback) {
 	logger.debug(u8"Marking object [", id, u8"] as accessed");
 	fHandleTask(str::u8::Build(u8"accessed:", id), [this, callback](json::Reader<std::u8string_view> resp) {

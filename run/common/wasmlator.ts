@@ -205,6 +205,8 @@ class WasmLator {
 			let [args, rest] = this.prepareTaskArgs(payload, 4);
 			this.taskCompleted(process, await this.fs.fileCreate(args[0], rest, args[1], args[2], args[3]));
 		}
+		else if (cmd == 'list')
+			this.taskCompleted(process, await this.fs.directoryRead(parseInt(payload)));
 		else if (cmd == 'input') {
 			/* check if new data need to be fetched */
 			if (this.inputBuffer.length == 0)

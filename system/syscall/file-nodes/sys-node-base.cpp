@@ -11,6 +11,9 @@ int64_t sys::detail::FileNode::lookup(std::u8string_view name, const std::u8stri
 int64_t sys::detail::FileNode::create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
 	return callback(errCode::eReadOnly, {});
 }
+int64_t sys::detail::FileNode::listDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+	return callback(errCode::eIO, {});
+}
 int64_t sys::detail::FileNode::open(bool truncate, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
 }
@@ -51,6 +54,9 @@ int64_t sys::detail::VirtualFileNode::virtualLookup(std::u8string_view name, std
 }
 int64_t sys::detail::VirtualFileNode::virtualCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::VirtualFileNode>)> callback) {
 	return callback(errCode::eReadOnly, {});
+}
+int64_t sys::detail::VirtualFileNode::virtualListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+	return callback(errCode::eIO, {});
 }
 int64_t sys::detail::VirtualFileNode::virtualRead(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);
@@ -116,6 +122,17 @@ int64_t sys::detail::VirtualFileNode::create(std::u8string_view name, const std:
 		/* add the node to the cache and return it */
 		pCache[_name] = node;
 		return callback(errCode::eSuccess, node);
+		});
+}
+int64_t sys::detail::VirtualFileNode::listDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+	/* create the new node and check if it could be created */
+	return virtualListDir([this, callback](int64_t result, const std::vector<detail::DirEntry>& list) -> int64_t {
+		if (result != errCode::eSuccess)
+			return callback(result, {});
+
+		/* update the current read-time as the directory has been read */
+		pLastRead = host::GetStampUS();
+		return callback(errCode::eSuccess, list);
 		});
 }
 int64_t sys::detail::VirtualFileNode::read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {

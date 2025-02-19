@@ -795,6 +795,17 @@ int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
 	logger.warn(u8"Unsupported fcntl command encountered [", cmd, u8']');
 	return errCode::eInvalid;
 }
+int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t count) {
+	/* validate the file descriptor */
+	if (!fCheckFd(fd) || !fInstance(fd).config.read)
+		return errCode::eBadFd;
+	if (fInstance(fd).type != env::FileType::directory)
+		return errCode::eNotDirectory;
+
+	/* check if the new list of children should be fetched */
+	logger.fatal(u8"Not yet implemented");
+	return errCode::eUnknown;
+}
 
 sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
 	detail::FdState state;

@@ -47,4 +47,7 @@ export interface HostEnvironment {
 
 	/* fetch the data for the given path (of which the stats exist) */
 	fsLoadData(path: string): Promise<Uint8Array>;
+
+	/* fetch all children for the given path */
+	fsLoadChildren(path: string): Promise<string[]>;
 }

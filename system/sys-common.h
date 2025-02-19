@@ -207,6 +207,7 @@ namespace sys {
 		clock_gettime,
 		ioctl,
 		fcntl,
+		getdents,
 		set_tid_address,
 		set_robust_list,
 		prlimit64,

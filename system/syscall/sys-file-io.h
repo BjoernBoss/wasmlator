@@ -88,6 +88,7 @@ namespace sys::detail {
 			} creation;
 		};
 		struct Instance {
+			std::vector<detail::DirEntry> list;
 			detail::SharedNode node;
 			std::u8string path;
 			uint64_t offset = 0;
@@ -168,6 +169,7 @@ namespace sys::detail {
 		int64_t faccessat2(int64_t dirfd, std::u8string_view path, int64_t mode, int64_t flags);
 		int64_t ioctl(int64_t fd, uint64_t cmd, uint64_t arg);
 		int64_t fcntl(int64_t fd, uint64_t cmd, uint64_t arg);
+		int64_t getdents(int64_t fd, env::guest_t dirent, uint64_t count);
 
 	public:
 		detail::FdState fdCheck(int64_t fd) const;

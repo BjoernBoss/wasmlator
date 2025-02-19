@@ -7,6 +7,7 @@ class FileNode {
 	public name: string;
 	public data: Uint8Array | null;
 	public id: number;
+	public childrenFetched: boolean;
 
 	public constructor(ancestor: FileNode | null, id: number, name: string) {
 		this.children = {};
@@ -15,6 +16,7 @@ class FileNode {
 		this.name = name;
 		this.data = null;
 		this.id = id;
+		this.childrenFetched = false;
 	}
 
 	public setupStats(stats: FileStats, access: Record<string, number>) {
@@ -90,7 +92,11 @@ export class FileSystem {
 			name = path.substring(0, index);
 			path = path.substring(index);
 		}
-		let actual = `${current}/${name}`;
+		let actual = (current.endsWith('/') ? current + name : `${current}/${name}`);
+
+		/* validate the name components */
+		if (name in ['', '.', '..'] || name.includes('\\'))
+			return null;
 
 		/* lookup the name in the parent */
 		if (name in node.children)
@@ -135,12 +141,34 @@ export class FileSystem {
 			node.stats!.size = node.data.byteLength;
 		}
 		catch (err) {
-			this.host.log(LogType.errInternal, `Failed to read data of [${path}]: ${err}`);
-
 			/* pretend the file is empty */
+			this.host.log(LogType.errInternal, `Failed to read data of [${path}]: ${err}`);
 			node.stats!.size = 0;
 			node.data = new Uint8Array(0);
 		}
+	}
+	async _loadChildren(node: FileNode): Promise<void> {
+		/* check if the children have already been fetched */
+		if (node.childrenFetched)
+			return;
+		let path = this._getNodePath(node);
+
+		/* query the children */
+		this.host.log(LogType.logInternal, `Reading directory [${path}]...`);
+		try {
+			let list = await this.host.fsLoadChildren(path);
+			this.host.log(LogType.logInternal, `Children of [${path}] received`);
+
+			/* iterate over the children and fetch their stats (will automatically
+			*	add the existing children with valid names to the list) */
+			for (const name of list)
+				this._getNode(node, path, name);
+		}
+		catch (err) {
+			/* pretend the directory does not have any children (at least no further than the already existing children) */
+			this.host.log(LogType.errInternal, `Failed to read children of [${path}]: ${err}`);
+		}
+		node.childrenFetched = true;
 	}
 
 	async getNode(path: string): Promise<FileStats | null> {
@@ -254,5 +282,26 @@ export class FileSystem {
 		node.stats!.size = 0;
 		node.data = new Uint8Array(0);
 		return next.id;
+	}
+	async directoryRead(id: number): Promise<Record<string, FileStats> | null> {
+		let node = this._getValid(id);
+		if (node == null || node.stats!.type != 'dir')
+			return null;
+
+		/* fetch all of the children of the directory */
+		await this._loadChildren(node);
+
+		/* construct the output map */
+		let out: Record<string, FileStats> = {};
+		for (const key in node.children) {
+			if (node.children[key].stats != null)
+				out[key] = node.children[key].stats;
+		}
+
+		/* add the loop-back and ancestor nodes and mark the directory as read */
+		out['.'] = node.stats!;
+		out['..'] = (node.ancestor?.stats ?? node.stats!);
+		node.read();
+		return null;
 	}
 }
