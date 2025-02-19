@@ -19,7 +19,7 @@ let dispatchNext = function () {
 	}
 
 	/* check if the input just needs to stay queued */
-	if (isExecuting && inputPromise == null)
+	if (wasmlator == null || (isExecuting && inputPromise == null))
 		return;
 
 	/* extract the next entry in the queue */

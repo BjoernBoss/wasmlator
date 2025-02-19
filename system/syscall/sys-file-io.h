@@ -10,12 +10,13 @@ namespace sys::detail {
 	namespace consts {
 		static constexpr int fdWDirectory = -100;
 
-		/* used by openat */
+		/* used by openat (opNoCTTY can be ignored) */
 		static constexpr uint32_t opReadOnly = 0x000000;
 		static constexpr uint32_t opWriteOnly = 0x000001;
 		static constexpr uint32_t opReadWrite = 0x000002;
 		static constexpr uint32_t opCreate = 0x000040;
 		static constexpr uint32_t opExclusive = 0x000080;
+		static constexpr uint32_t opNoCTTY = 0x000100;
 		static constexpr uint32_t opTruncate = 0x000200;
 		static constexpr uint32_t opDirectory = 0x010000;
 		static constexpr uint32_t opNoFollow = 0x020000;
@@ -28,7 +29,7 @@ namespace sys::detail {
 		static constexpr uint32_t openFlagMask = consts::opReadOnly | consts::opWriteOnly |
 			consts::opReadWrite | consts::opCreate | consts::opExclusive | consts::opTruncate |
 			consts::opDirectory | consts::opNoFollow | consts::opCloseOnExecute |
-			consts::opOpenOnly;
+			consts::opOpenOnly | consts::opNoCTTY;
 
 		/* used by faccessat */
 		static constexpr uint64_t accFOk = 0x00;
