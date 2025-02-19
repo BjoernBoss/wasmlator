@@ -150,6 +150,8 @@ int64_t sys::detail::FileIO::fResolveNext(const std::u8string& path, std::u8stri
 		});
 }
 int64_t sys::detail::FileIO::fResolveLookup(detail::SharedNode node, const std::u8string& name, const std::u8string& path, const std::u8string& remainder, const env::FileStats& stats) {
+	/* Important: ensure node is captured by the lambda, in order to prevent it from going out of scope and being removed before the internal
+	*	deferred callback can be invoked, as the internal callback might only capture 'this', but not the reference-counted node itself */
 	return node->lookup(name, path, [this, path, remainder, node, stats](detail::SharedNode cnode, const env::FileStats& cstats) -> int64_t {
 		/* check if the node was found */
 		if (cnode.get() != 0)
@@ -316,8 +318,10 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			access.owner = pSyscall->process().euid;
 			access.group = pSyscall->process().egid;
 
-			/* try to create the file */
-			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, append, closeOnExecute, path](int64_t result, detail::SharedNode cnode) -> int64_t {
+			/* try to create the file
+			*	Important: ensure node is captured by the lambda, in order to prevent it from going out of scope and being removed before the internal
+			*	deferred callback can be invoked, as the internal callback might only capture 'this', but not the reference-counted node itself */
+			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, append, closeOnExecute, path, node](int64_t result, detail::SharedNode cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
 				return fSetupFile(cnode, path, env::FileType::file, read, write, !openOnly, append, closeOnExecute);
@@ -364,7 +368,9 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		if (stats.type == env::FileType::link || stats.type == env::FileType::directory)
 			return fSetupFile(node, path, stats.type, read, write, !openOnly, append, closeOnExecute);
 
-		/* perform the open-call on the file-node */
+		/* perform the open-call on the file-node
+		*	Important: ensure node is captured by the lambda, in order to prevent it from going out of scope and being removed before the internal
+		*	deferred callback can be invoked, as the internal callback might only capture 'this', but not the reference-counted node itself */
 		return node->open(truncate, [this, node, path, read, write, openOnly, append, closeOnExecute, type = stats.type](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
 				return result;
