@@ -85,7 +85,7 @@ void env::FileSystem::readStats(std::u8string_view path, std::function<void(cons
 	}
 
 	/* canonicalize the path */
-	std::u8string actual = util::CanonicalPath(path);
+	std::u8string actual = util::AbsolutePath(path);
 	logger.debug(u8"Reading stats of [", actual, u8']');
 
 	/* queue the task */
@@ -98,9 +98,9 @@ void env::FileSystem::readStats(std::u8string_view path, std::function<void(cons
 		}
 		});
 }
-void env::FileSystem::readStats(uint64_t id, std::function<void(const env::FileStats*)> callback) {
-	logger.debug(u8"Reading stats of [", id, u8']');
-	fHandleTask(str::u8::Build(u8"stats:", id), [this, callback](json::Reader<std::u8string_view> resp) {
+void env::FileSystem::readStats(uint64_t id, std::u8string_view name, std::function<void(const env::FileStats*)> callback) {
+	logger.debug(u8"Reading stats of [", id, u8':', name, u8"]");
+	fHandleTask(str::u8::Build(u8"stats:", id, u8':', name), [this, callback](json::Reader<std::u8string_view> resp) {
 		if (resp.isNull())
 			callback(0);
 		else {
@@ -118,11 +118,11 @@ void env::FileSystem::readPath(uint64_t id, std::function<void(std::u8string_vie
 			callback(str::u8::To(resp.str()));
 		});
 }
-void env::FileSystem::readDirectory(uint64_t id, std::function<void(const std::map<std::u8string, env::FileStats>&)> callback) {
+void env::FileSystem::readDirectory(uint64_t id, std::function<void(const std::map<std::u8string, env::FileStats>*)> callback) {
 	logger.debug(u8"Reading directory of [", id, u8']');
 	fHandleTask(str::u8::Build(u8"list:", id), [this, callback](json::Reader<std::u8string_view> resp) {
 		if (resp.isNull()) {
-			callback({});
+			callback(0);
 			return;
 		}
 
@@ -137,11 +137,7 @@ void env::FileSystem::readDirectory(uint64_t id, std::function<void(const std::m
 			/* parse the value and add it to the output */
 			out[_key] = fParseStats(value.obj());
 		}
-
-		/* ensure that the two default entries exist */
-		if (!out.contains(u8".") && !out.contains(u8".."))
-			logger.fatal(u8"Read directory does not contain default names [.] and [..]");
-		callback(out);
+		callback(&out);
 		});
 }
 void env::FileSystem::accessedObject(uint64_t id, std::function<void(bool)> callback) {

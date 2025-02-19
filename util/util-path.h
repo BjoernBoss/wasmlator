@@ -15,12 +15,18 @@ namespace util {
 	/* check if the path is well-formed and absolute or relative */
 	util::PathState TestPath(std::u8string_view path);
 
-	/* append the relative path to the absolute path and return the new absolute canonicalized path
-	*	Note: if [rel] is absolute itself, it will simply be returned */
-	std::u8string MergePaths(std::u8string_view abs, std::u8string_view rel);
+	/* append path a to path b and return the canonicalized path
+	*	Note: if [a] is absolute, it will consume all [..], if [b] is absolute, only it will be returned */
+	std::u8string MergePaths(std::u8string_view a, std::u8string_view b);
 
-	/* create a canonicalized version of the path (equivalent to MergePaths(path, "") */
+	/* create a canonicalized version of the path (equivalent to MergePaths(path, u8"")) */
 	std::u8string CanonicalPath(std::u8string_view path);
+
+	/* create a canonicalized absolute version of the path (equivalent to MergePaths(u8"/", path)) */
+	std::u8string AbsolutePath(std::u8string_view path);
+
+	/* create a canonicalized version of the path but leaving '..' in the path (useful when every path-components still needs to be visited) */
+	std::u8string CleanPath(std::u8string_view path);
 
 	/* return the path and last name component
 	*	Note: the name will not contain any slashes

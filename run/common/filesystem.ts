@@ -175,9 +175,16 @@ export class FileSystem {
 		let node = await this._getNode(this.root, '', path);
 		return (node == null ? null : node.stats);
 	}
-	async getStats(id: number): Promise<FileStats | null> {
+	async getStats(id: number, name: string): Promise<FileStats | null> {
 		let node = this._getValid(id);
-		return (node == null ? null : node.stats);
+		if (node == null || node.stats == null)
+			return null;
+
+		/* resolve the stats of the child */
+		if (name.length == 0)
+			return node.stats;
+		let child = await this._getNode(node, this._getNodePath(node), name);
+		return (child == null ? null : child.stats);
 	}
 	async getPath(id: number): Promise<string | null> {
 		let node = this._getValid(id);
@@ -291,16 +298,12 @@ export class FileSystem {
 		/* fetch all of the children of the directory */
 		await this._loadChildren(node);
 
-		/* construct the output map */
+		/* construct the output map and mark the directory as read */
 		let out: Record<string, FileStats> = {};
 		for (const key in node.children) {
 			if (node.children[key].stats != null)
 				out[key] = node.children[key].stats;
 		}
-
-		/* add the loop-back and ancestor nodes and mark the directory as read */
-		out['.'] = node.stats!;
-		out['..'] = (node.ancestor?.stats ?? node.stats!);
 		node.read();
 		return null;
 	}

@@ -78,14 +78,14 @@ namespace env {
 		/* fetch stats for path (null if does not exist) */
 		void readStats(std::u8string_view path, std::function<void(const env::FileStats*)> callback);
 
-		/* fetch stats for id (null if does not exist) */
-		void readStats(uint64_t id, std::function<void(const env::FileStats*)> callback);
+		/* fetch stats for child of id (if name is empty, fetch own stats, returns null if does not exist) */
+		void readStats(uint64_t id, std::u8string_view name, std::function<void(const env::FileStats*)> callback);
 
 		/* fetch path for it (empty if does not exist) */
 		void readPath(uint64_t id, std::function<void(std::u8string_view)> callback);
 
-		/* fetch all children of the directory (empty if does not exist, otherwise contains at least [.] and [..]) */
-		void readDirectory(uint64_t id, std::function<void(const std::map<std::u8string, env::FileStats>&)> callback);
+		/* fetch all children of the directory (null if does not exist) */
+		void readDirectory(uint64_t id, std::function<void(const std::map<std::u8string, env::FileStats>*)> callback);
 
 		/* mark object as read (false if does not exist) */
 		void accessedObject(uint64_t id, std::function<void(bool)> callback);

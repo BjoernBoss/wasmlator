@@ -181,8 +181,10 @@ class WasmLator {
 		/* handle the file-system commands */
 		else if (cmd.startsWith('resolve'))
 			this.taskCompleted(process, await this.fs.getNode(payload));
-		else if (cmd == 'stats')
-			this.taskCompleted(process, await this.fs.getStats(parseInt(payload)));
+		else if (cmd == 'stats') {
+			let [args, name] = this.prepareTaskArgs(payload, 1);
+			this.taskCompleted(process, await this.fs.getStats(args[0], name));
+		}
 		else if (cmd.startsWith('path'))
 			this.taskCompleted(process, await this.fs.getPath(parseInt(payload)));
 		else if (cmd == 'accessed')

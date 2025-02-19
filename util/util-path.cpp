@@ -12,18 +12,18 @@ util::PathState util::TestPath(std::u8string_view path) {
 	return ((path[0] == u8'/' || path[0] == u8'\\') ? util::PathState::absolute : util::PathState::relative);
 }
 
-std::u8string util::MergePaths(std::u8string_view abs, std::u8string_view rel) {
-	/* starting the output with a slash ensures that even a relative 'abs' results in an absolute path */
-	std::u8string out{ u8"/" };
+std::u8string util::MergePaths(std::u8string_view a, std::u8string_view b) {
+	std::u8string out;
+	size_t lastComponent = 0;
 
 	/* check if the seconds path is actually absolute, in which case the first path can be ignored */
 	size_t s = 0;
-	if (!rel.empty() && (rel[0] == u8'/' || rel[0] == u8'\\'))
+	if (!b.empty() && (b[0] == u8'/' || b[0] == u8'\\'))
 		s = 1;
 
 	/* iterate over the two strings and add them to the output */
 	for (; s < 2; ++s) {
-		std::u8string_view str = (s == 0 ? abs : rel);
+		std::u8string_view str = (s == 0 ? a : b);
 
 		/* add each character and remove relative path modifiers (i == size is an implicit slash) */
 		for (size_t i = 0; i <= str.size(); ++i) {
@@ -36,40 +36,77 @@ std::u8string util::MergePaths(std::u8string_view abs, std::u8string_view rel) {
 			/* check if this is a chain of slashes, and skip the last slash */
 			if (out.ends_with(u8"/"))
 				continue;
+			std::u8string_view last = std::u8string_view{ out }.substr(lastComponent);
 
 			/* check if the last component was itself */
-			if (out.ends_with(u8"/.")) {
+			if (last == u8".") {
 				out.pop_back();
 				continue;
 			}
 
-			/* check if the last component was a back-traversal */
-			if (!out.ends_with(u8"/..")) {
+			/* check if the last component was either a normal name or is a root back-traversal */
+			if (last != u8".." || lastComponent == 0) {
 				out.push_back(u8'/');
+				lastComponent = out.size();
 				continue;
 			}
 
-			/* check if the path is back at the root */
-			if (out.size() == 3) {
-				out.erase(out.end() - 2, out.end());
-				continue;
-			}
+			/* find the start of the previous component */
+			size_t prevComponent = lastComponent - 1;
+			while (prevComponent > 0 && out[prevComponent - 1] != u8'/')
+				--prevComponent;
 
-			/* pop the last path component */
-			out.erase(out.end() - 3, out.end());
-			while (out.back() != u8'/')
-				out.pop_back();
+			/* check if the previous component is a back-traversal or if its the root or if it can be removed */
+			std::u8string_view prev = std::u8string_view{ out }.substr(prevComponent, lastComponent - prevComponent - 1);
+			if (prev == u8"..")
+				out.push_back(u8'/');
+			else if (prev == u8"")
+				out.resize(lastComponent);
+			else
+				out.resize(prevComponent);
+			lastComponent = out.size();
 		}
 	}
 
 	/* check if the path ends on a slash and remove it */
 	if (out.back() == u8'/' && out.size() > 1)
 		out.pop_back();
+
+	/* check if the path is empty and replace it with a current-directory */
+	else if (out.empty())
+		out.push_back(u8'.');
 	return out;
 }
 
 std::u8string util::CanonicalPath(std::u8string_view path) {
 	return util::MergePaths(path, u8"");
+}
+
+std::u8string util::AbsolutePath(std::u8string_view path) {
+	return util::MergePaths(u8"/", path);
+}
+
+std::u8string util::CleanPath(std::u8string_view path) {
+	std::u8string out;
+
+	for (size_t i = 0; i < path.size(); ++i) {
+		/* check if its any component */
+		if (path[i] != u8'/' && path[i] != u8'\\') {
+			out.push_back(path[i]);
+			continue;
+		}
+
+		/* check if its a double-slash */
+		if (out.ends_with(u8"/"))
+			continue;
+
+		/* check if its just self */
+		else if (out.ends_with(u8"/.") || out == u8".")
+			out.pop_back();
+		else
+			out.push_back(u8'/');
+	}
+	return out;
 }
 
 std::pair<std::u8string_view, std::u8string_view> util::SplitName(std::u8string_view path) {
