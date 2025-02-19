@@ -17,7 +17,7 @@ bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
 int64_t sys::detail::FileIO::fCheckRead(int64_t fd) const {
 	if (!fCheckFd(fd) || !fInstance(fd).config.read)
 		return errCode::eBadFd;
-	if (fInstance(fd).type == env::FileType::directory)
+	if (fInstance(fd).node->type() == env::FileType::directory)
 		return errCode::eIsDirectory;
 	return 0;
 }
@@ -81,7 +81,7 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 		if (!fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
 		instance = &fInstance(dirfd);
-		if (instance->type != env::FileType::directory)
+		if (instance->node->type() != env::FileType::directory)
 			return { u8"", errCode::eNotDirectory };
 	}
 
@@ -202,7 +202,6 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_v
 	pInstance[instance].node = node;
 	pInstance[instance].path = std::u8string{ path };
 	pInstance[instance].user = 1;
-	pInstance[instance].type = type;
 	pInstance[instance].config = config;
 	pInstance[instance].dirCache.clear();
 	pInstance[instance].offset = 0;
@@ -256,7 +255,7 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats
 	case env::FileType::link:
 		out.mode |= uint32_t(linux::FileMode::link);
 		break;
-	case env::FileType::tty:
+	case env::FileType::character:
 		out.mode |= uint32_t(linux::FileMode::charDevice);
 		break;
 	default:
@@ -285,7 +284,7 @@ int64_t sys::detail::FileIO::fRead(uint64_t fd, std::optional<uint64_t> offset, 
 	FileIO::Instance& instance = fInstance(fd);
 
 	/* fetch the offset to be used */
-	bool fileOffset = (!offset.has_value() && instance.type == env::FileType::file);
+	bool fileOffset = (!offset.has_value() && instance.node->type() == env::FileType::file);
 	uint64_t _offset = (fileOffset ? instance.offset : offset.value_or(0));
 
 	/* perform the actual read of the data */
@@ -301,7 +300,7 @@ int64_t sys::detail::FileIO::fWrite(uint64_t fd, std::optional<uint64_t> offset)
 	/* setup the final write-function to be used */
 	std::function<int64_t()> callback = [this, &instance, offset]() -> int64_t {
 		/* fetch the offset to be used */
-		bool fileOffset = (!offset.has_value() && instance.type == env::FileType::file);
+		bool fileOffset = (!offset.has_value() && instance.node->type() == env::FileType::file);
 		uint64_t _offset = (fileOffset ? instance.offset : offset.value_or(0));
 
 		/* perform the actual write of the data */
@@ -313,7 +312,7 @@ int64_t sys::detail::FileIO::fWrite(uint64_t fd, std::optional<uint64_t> offset)
 		};
 
 	/* check if the write can just be executed or if the file-end needs to be fetched */
-	if (!instance.config.append || instance.type != env::FileType::file || offset.has_value())
+	if (!instance.config.append || instance.node->type() != env::FileType::file || offset.has_value())
 		return callback();
 
 	/* fetch the current file-size to be able to update the file-end */
@@ -805,7 +804,7 @@ int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t 
 	if (!fCheckFd(fd) || !fInstance(fd).config.read)
 		return errCode::eBadFd;
 	FileIO::Instance& instance = fInstance(fd);
-	if (instance.type != env::FileType::directory)
+	if (instance.node->type() != env::FileType::directory)
 		return errCode::eNotDirectory;
 
 	/* setup the callback to write the result out */
@@ -854,11 +853,10 @@ int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t 
 			case env::FileType::link:
 				entry->name[entry->length - 1] = consts::dEntLink;
 				break;
-			case env::FileType::tty:
+			case env::FileType::character:
 				entry->name[entry->length - 1] = consts::dEntCharacter;
 				break;
 			case env::FileType::_end:
-			case env::FileType::none:
 				entry->name[entry->length - 1] = consts::dEntUnknown;
 				break;
 			}
@@ -904,7 +902,7 @@ sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
 	state.write = fInstance(fd).config.write;
 	state.modify = fInstance(fd).config.modify;
 	state.append = fInstance(fd).config.append;
-	state.type = fInstance(fd).type;
+	state.type = fInstance(fd).node->type();
 	return state;
 }
 int64_t sys::detail::FileIO::fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const {

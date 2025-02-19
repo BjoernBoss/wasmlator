@@ -1,13 +1,11 @@
 #include "../../system.h"
 
-sys::detail::impl::RootFileNode::RootFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : FileNode{ ancestor }, pSyscall{ syscall }, pAccess{ access } {
-	pUniqueId = util::UniqueId();
-}
+sys::detail::impl::RootFileNode::RootFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : FileNode{ ancestor, util::UniqueId(), env::FileType::directory }, pSyscall{ syscall }, pAccess{ access } {}
 
 void sys::detail::impl::RootFileNode::fPatchStats(env::FileStats& stats) const {
 	stats.type = env::FileType::directory;
 	stats.access = pAccess;
-	stats.id = pUniqueId;
+	stats.id = FileNode::id();
 	stats.virtualized = true;
 }
 int64_t sys::detail::impl::RootFileNode::fNullStats(std::function<int64_t(const env::FileStats*)> callback) const {
@@ -23,7 +21,7 @@ int64_t sys::detail::impl::RootFileNode::fWithNative(std::function<int64_t()> ca
 	env::Instance()->filesystem().readStats(u8"/", [this, callback](const env::FileStats* stats) {
 		pSyscall->callContinue([this, callback, stats]() -> int64_t {
 			if (stats != 0)
-				pNative = std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), pSyscall, stats->id);
+				pNative = std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), stats->type, pSyscall, stats->id);
 			return callback();
 			});
 		});

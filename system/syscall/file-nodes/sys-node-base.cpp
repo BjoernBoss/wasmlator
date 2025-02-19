@@ -2,10 +2,20 @@
 
 static util::Logger logger{ u8"sys::syscall" };
 
-sys::detail::FileNode::FileNode(const detail::SharedNode& ancestor) : pAncestor{ ancestor } {}
+sys::detail::FileNode::FileNode(const detail::SharedNode& ancestor, uint64_t id, env::FileType type) : pAncestor{ ancestor }, pId{ id }, pType{ type } {
+	if (pType == env::FileType::_end)
+		logger.fatal(u8"Invalid file-type assigned to node");
+}
 const sys::detail::SharedNode& sys::detail::FileNode::ancestor() const {
 	return pAncestor;
 }
+uint64_t sys::detail::FileNode::id() const {
+	return pId;
+}
+env::FileType sys::detail::FileNode::type() const {
+	return pType;
+}
+
 int64_t sys::detail::FileNode::linkRead(std::function<int64_t(bool)> callback) {
 	return callback(false);
 }
@@ -30,10 +40,9 @@ int64_t sys::detail::FileNode::write(uint64_t offset, const std::vector<uint8_t>
 void sys::detail::FileNode::close() {}
 
 
-sys::detail::VirtualFileNode::VirtualFileNode(const detail::SharedNode& ancestor, env::FileAccess access) : FileNode{ ancestor } {
+sys::detail::VirtualFileNode::VirtualFileNode(const detail::SharedNode& ancestor, env::FileType type, env::FileAccess access) : FileNode{ ancestor, util::UniqueId(), type } {
 	pLastRead = host::GetStampUS();
 	pLastWrite = pLastRead;
-	pUniqueId = util::UniqueId();
 	pAccess = access;
 }
 int64_t sys::detail::VirtualFileNode::fLookupNew(const std::u8string& name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
@@ -81,7 +90,7 @@ int64_t sys::detail::VirtualFileNode::stats(std::function<int64_t(const env::Fil
 		out.timeModifiedUS = pLastWrite;
 		out.access = pAccess;
 		out.virtualized = true;
-		out.id = pUniqueId;
+		out.id = FileNode::id();
 		return callback(&out);
 		});
 }
@@ -155,7 +164,7 @@ int64_t sys::detail::VirtualFileNode::write(uint64_t offset, const std::vector<u
 }
 
 
-sys::detail::impl::LinkNode::LinkNode(const detail::SharedNode& ancestor, std::u8string_view link, env::FileAccess access) : VirtualFileNode{ ancestor, access }, pLink{ link } {}
+sys::detail::impl::LinkNode::LinkNode(const detail::SharedNode& ancestor, std::u8string_view link, env::FileAccess access) : VirtualFileNode{ ancestor, env::FileType::link, access }, pLink{ link } {}
 int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.link = pLink;
@@ -165,7 +174,7 @@ int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const en
 }
 
 
-sys::detail::impl::EmpyDirectory::EmpyDirectory(const detail::SharedNode& ancestor, env::FileAccess access) : VirtualFileNode{ ancestor, access } {}
+sys::detail::impl::EmpyDirectory::EmpyDirectory(const detail::SharedNode& ancestor, env::FileAccess access) : VirtualFileNode{ ancestor, env::FileType::directory, access } {}
 int64_t sys::detail::impl::EmpyDirectory::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::directory;

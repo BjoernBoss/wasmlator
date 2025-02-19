@@ -1,6 +1,6 @@
 #include "../../system.h"
 
-sys::detail::impl::ProcDirectory::ProcDirectory(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : VirtualFileNode{ ancestor, access }, pSyscall{ syscall } {}
+sys::detail::impl::ProcDirectory::ProcDirectory(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : VirtualFileNode{ ancestor, env::FileType::directory, access }, pSyscall{ syscall } {}
 int64_t sys::detail::impl::ProcDirectory::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::directory;
@@ -14,7 +14,7 @@ int64_t sys::detail::impl::ProcDirectory::virtualLookup(std::u8string_view name,
 	return callback({});
 }
 
-sys::detail::impl::ProcId::ProcId(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access, uint32_t id) : VirtualFileNode{ ancestor, access }, pSyscall{ syscall }, pId{ id } {}
+sys::detail::impl::ProcId::ProcId(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access, uint32_t id) : VirtualFileNode{ ancestor, env::FileType::directory, access }, pSyscall{ syscall }, pId{ id } {}
 int64_t sys::detail::impl::ProcId::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::directory;

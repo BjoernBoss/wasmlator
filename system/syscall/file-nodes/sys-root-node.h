@@ -12,7 +12,6 @@ namespace sys::detail::impl {
 		mutable detail::SharedNode pNative;
 		env::FileAccess pAccess;
 		detail::Syscall* pSyscall = 0;
-		uint64_t pUniqueId = 0;
 		bool pEnabled = false;
 
 	public:

@@ -16,15 +16,19 @@ namespace sys::detail {
 	class FileNode {
 	private:
 		detail::SharedNode pAncestor;
+		uint64_t pId = 0;
+		env::FileType pType = env::FileType::_end;
 
 	protected:
-		FileNode(const detail::SharedNode& ancestor);
+		FileNode(const detail::SharedNode& ancestor, uint64_t id, env::FileType type);
 
 	public:
 		virtual ~FileNode() = default;
 
 	public:
 		const detail::SharedNode& ancestor() const;
+		uint64_t id() const;
+		env::FileType type() const;
 
 	public:
 		/* generic-interactions */
@@ -51,11 +55,10 @@ namespace sys::detail {
 		std::map<std::u8string, std::shared_ptr<detail::VirtualFileNode>> pCache;
 		uint64_t pLastRead = 0;
 		uint64_t pLastWrite = 0;
-		uint64_t pUniqueId = 0;
 		env::FileAccess pAccess;
 
 	protected:
-		VirtualFileNode(const detail::SharedNode& ancestor, env::FileAccess access);
+		VirtualFileNode(const detail::SharedNode& ancestor, env::FileType type, env::FileAccess access);
 
 	private:
 		int64_t fLookupNew(const std::u8string& name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback);

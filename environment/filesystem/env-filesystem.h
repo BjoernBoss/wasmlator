@@ -4,11 +4,10 @@
 
 namespace env {
 	enum class FileType : uint8_t {
-		none,
 		file,
 		directory,
 		link,
-		tty,
+		character,
 		_end
 	};
 
@@ -43,7 +42,7 @@ namespace env {
 		uint64_t timeAccessedUS = 0;
 		uint64_t size = 0;
 		uint64_t id = 0;
-		env::FileType type = env::FileType::none;
+		env::FileType type = env::FileType::_end;
 		env::FileAccess access;
 		bool virtualized = false;
 	};

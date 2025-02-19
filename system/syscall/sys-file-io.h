@@ -100,7 +100,6 @@ namespace sys::detail {
 			std::u8string path;
 			uint64_t offset = 0;
 			size_t user = 0;
-			env::FileType type = env::FileType::_end;
 			InstanceConfig config;
 			bool outdated = false;
 		};

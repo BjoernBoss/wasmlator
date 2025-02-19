@@ -1,6 +1,6 @@
 #include "../../system.h"
 
-sys::detail::impl::NativeFileNode::NativeFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, uint64_t fileId) : FileNode{ ancestor }, pSyscall{ syscall }, pFileId{ fileId } {}
+sys::detail::impl::NativeFileNode::NativeFileNode(const detail::SharedNode& ancestor, env::FileType type, detail::Syscall* syscall, uint64_t fileId) : FileNode{ ancestor, fileId, type }, pSyscall{ syscall }, pFileId{ fileId } {}
 
 int64_t sys::detail::impl::NativeFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
 	/* query the actual stats */
@@ -29,7 +29,7 @@ int64_t sys::detail::impl::NativeFileNode::lookup(std::u8string_view name, const
 				return callback({}, {});
 
 			/* spawn the native node */
-			return callback(std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), pSyscall, stats->id), *stats);
+			return callback(std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), stats->type, pSyscall, stats->id), *stats);
 			});
 		});
 
@@ -45,7 +45,7 @@ int64_t sys::detail::impl::NativeFileNode::create(std::u8string_view name, const
 				return callback(errCode::eInterrupted, {});
 
 			/* spawn the native node */
-			return callback(errCode::eSuccess, std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), pSyscall, fileId.value()));
+			return callback(errCode::eSuccess, std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), env::FileType::file, pSyscall, fileId.value()));
 			});
 		});
 
