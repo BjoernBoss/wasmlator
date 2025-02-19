@@ -1266,29 +1266,31 @@ void rv64::Translate::fMakeCSR() {
 		break;
 	}
 
-	/* check if the float write operation is supported */
-	auto [frmShift, frmMask] = fGetCsrPlacement(csr::fpRoundingMode);
+	/* cache the current resulting value (twice on the stack to ensure temp can be
+	*	overwritten again and the original value still resides on the stack) */
 	wasm::Variable temp = fTempi64((read && write) ? 1 : 0);
 	gen::Add[I::Local::Tee(temp)];
 	gen::Add[I::Local::Get(temp)];
+
+	/* extract the rounding mode from the value to be written and cache it to temp */
+	auto [frmShift, frmMask] = fGetCsrPlacement(csr::fpRoundingMode);
 	gen::Add[I::U64::Const(frmShift)];
 	gen::Add[I::U64::ShiftRight()];
 	gen::Add[I::U64::Const(frmMask)];
 	gen::Add[I::U64::And()];
 	gen::Add[I::Local::Tee(temp)];
+
+	/* check if the mode is equal to the supported mode and otherwise warn about the unsupported mode */
 	gen::Add[I::U64::Const(frm::roundNearestTiesToEven)];
 	gen::Add[I::U64::NotEqual()];
-
-	/* warn about the bad mode */
 	{
-		wasm::IfThen _if{ gen::Sink, u8"", {}, {} };
+		wasm::IfThen _if{ gen::Sink };
 		gen::Add[I::Local::Get(temp)];
 		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
 		gen::Add[I::Drop()];
 	}
 
 	/* write the value to the float status-register */
-	gen::Add[I::Local::Get(temp)];
 	csrFulfill.now();
 }
 
