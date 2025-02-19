@@ -312,8 +312,6 @@ std::u8string rv64::Cpu::getExceptionText(uint64_t id) const {
 		return u8"illegal instruction";
 	case rv64::Translate::CsrUnsupported:
 		return u8"unsupported csr register";
-	case rv64::Translate::UnsupportedFRM:
-		return u8"unsupported float rounding mode";
 	case rv64::Translate::NotImplException:
 		return u8"not-implemented";
 	default:

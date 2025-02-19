@@ -1107,9 +1107,8 @@ void rv64::Translate::fMakeCSR() {
 	*		=> Raise Translate::CsrUnsupported
 	*
 	*	Currently only the current operations are supported for float csrs
-	*		- float-csr read will only return 0
+	*		- float-csr will return last set value but only "round to nearest, ties to even" is implemented
 	*		- float-flags read will only return 0 or last write
-	*		- float-frm can only be set to "round to nearest, ties to even" (Translate::CsrUnsupportedFRM)
 	*/
 
 	/* fetch the properties about the csr value */
@@ -1271,15 +1270,21 @@ void rv64::Translate::fMakeCSR() {
 	auto [frmShift, frmMask] = fGetCsrPlacement(csr::fpRoundingMode);
 	wasm::Variable temp = fTempi64((read && write) ? 1 : 0);
 	gen::Add[I::Local::Tee(temp)];
-	gen::Add[I::U64::Const(frmMask << frmShift)];
+	gen::Add[I::Local::Get(temp)];
+	gen::Add[I::U64::Const(frmShift)];
+	gen::Add[I::U64::ShiftRight()];
+	gen::Add[I::U64::Const(frmMask)];
 	gen::Add[I::U64::And()];
-	gen::Add[I::U64::Const(frm::roundNearestTiesToEven << frmShift)];
+	gen::Add[I::Local::Tee(temp)];
+	gen::Add[I::U64::Const(frm::roundNearestTiesToEven)];
 	gen::Add[I::U64::NotEqual()];
 
-	/* raise the exception */
+	/* warn about the bad mode */
 	{
 		wasm::IfThen _if{ gen::Sink, u8"", {}, {} };
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
+		gen::Add[I::Local::Get(temp)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* write the value to the float status-register */
@@ -1366,10 +1371,11 @@ void rv64::Translate::fMakeFStore(bool multi) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* check if the operation can be discarded */
@@ -1394,7 +1400,7 @@ void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
 			gen::Add[I::Local::Tee(temp)];
 			gen::Add[I::Local::Get(temp)];
 			gen::Add[fHalf ? I::F32::NotEqual() : I::F64::NotEqual()];
-			_if = { gen::Sink, u8"", { wasm::Type::i32 }, {} };
+			_if = { gen::Sink, u8"", {}, { wasm::Type::i64 } };
 		}
 
 		/* write the maximum value out */
@@ -1471,10 +1477,11 @@ void rv64::Translate::fMakeFloatToInt(bool iHalf, bool fHalf) {
 	fulfill.now();
 }
 void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* prepare the result writeback */
@@ -1525,10 +1532,11 @@ void rv64::Translate::fMakeIntToFloat(bool iHalf, bool fHalf) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatALUSimple(bool half) const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* prepare the result writeback */
@@ -1586,10 +1594,11 @@ void rv64::Translate::fMakeFloatALUSimple(bool half) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatALULarge(bool half) const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* prepare the result writeback */
@@ -1664,10 +1673,11 @@ void rv64::Translate::fMakeFloatALULarge(bool half) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatConvert() const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* prepare the result writeback */
@@ -1688,10 +1698,11 @@ void rv64::Translate::fMakeFloatConvert() const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatSign(bool half) const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* check if the result will already be an integer */
@@ -1746,10 +1757,11 @@ void rv64::Translate::fMakeFloatSign(bool half) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatCompare(bool half) const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* prepare the result writeback */
@@ -1788,10 +1800,11 @@ void rv64::Translate::fMakeFloatCompare(bool half) const {
 	fulfill.now();
 }
 void rv64::Translate::fMakeFloatUnary(bool half, bool intResult) const {
-	/* ensure that the frm is supported */
+	/* check if the frm is supported */
 	if (pInst->misc != frm::roundNearestTiesToEven && pInst->misc != frm::dynamicRounding) {
-		pWriter->makeException(Translate::UnsupportedFRM, pAddress, pNextAddress);
-		return;
+		gen::Add[I::I64::Const(-pInst->misc)];
+		gen::Make->invokeParam(pRegistered.frmFloatCsrWarn);
+		gen::Add[I::Drop()];
 	}
 
 	/* prepare the result writeback */
@@ -1837,6 +1850,13 @@ bool rv64::Translate::setup() {
 		});
 	pRegistered.readFloatCsrWarn = env::Instance()->interact().defineCallback([]() {
 		logger.warn(u8"Reading csr::float");
+		});
+	pRegistered.frmFloatCsrWarn = env::Instance()->interact().defineCallback([](int64_t value) -> uint64_t {
+		if (value < 0)
+			logger.warn(u8"Unsupported frm used in float instruction [", str::As{ U"03b", -value }, u8']');
+		else
+			logger.warn(u8"Setting csr::float::frm to unsupported [", str::As{ U"03b", value }, u8']');
+		return 0;
 		});
 	return true;
 }
