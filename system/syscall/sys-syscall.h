@@ -26,7 +26,7 @@ namespace sys::detail {
 		std::u8string username;
 		std::u8string machine;
 		std::u8string path;
-		std::u8string wDirectory;
+		std::u8string workingDirectory;
 		env::guest_t clear_child_tid = 0;
 		uint32_t uid = fs::ThisUesr;
 		uint32_t gid = fs::ThisGroup;

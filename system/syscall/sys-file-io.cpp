@@ -58,7 +58,7 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 	if (allowEmpty && path.empty()) {
 		/* extract the path of the file-descriptor */
 		if (dirfd == consts::fdWDirectory)
-			return { pSyscall->process().wDirectory, errCode::eSuccess };
+			return { pSyscall->process().workingDirectory, errCode::eSuccess };
 		else if (!fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
 		return { pInstance[pOpen[dirfd].instance].path, errCode::eSuccess };
@@ -71,8 +71,8 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 
 	/* validate the directory-descriptor */
 	Instance* instance = 0;
-	if (state == util::PathState::relative) {
-		if (dirfd != consts::fdWDirectory && !fCheckFd(dirfd))
+	if (state == util::PathState::relative && dirfd != consts::fdWDirectory) {
+		if (!fCheckFd(dirfd))
 			return { u8"", errCode::eBadFd };
 		instance = &pInstance[pOpen[dirfd].instance];
 		if (instance->type != env::FileType::directory)
@@ -80,7 +80,7 @@ std::pair<std::u8string, int64_t> sys::detail::FileIO::fCheckPath(int64_t dirfd,
 	}
 
 	/* construct the actual path */
-	return { util::MergePaths(instance != 0 ? instance->path : pSyscall->process().wDirectory, path), errCode::eSuccess };
+	return { util::MergePaths(instance != 0 ? instance->path : pSyscall->process().workingDirectory, path), errCode::eSuccess };
 }
 
 int64_t sys::detail::FileIO::fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback) {
@@ -467,13 +467,13 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	}
 
 	/* validate the current path */
-	std::u8string_view wDirectory = util::SplitName(pSyscall->process().path).first;
-	if (util::TestPath(wDirectory) != util::PathState::absolute) {
-		logger.error(u8"Current directory [", wDirectory, u8"] must be a valid absolute path");
+	std::u8string_view workingDirectory = util::SplitName(pSyscall->process().path).first;
+	if (util::TestPath(workingDirectory) != util::PathState::absolute) {
+		logger.error(u8"Current directory [", workingDirectory, u8"] must be a valid absolute path");
 		return false;
 	}
-	pSyscall->process().wDirectory = util::CanonicalPath(wDirectory);
-	logger.info(u8"Configured with current working directory [", pSyscall->process().wDirectory, u8']');
+	pSyscall->process().workingDirectory = util::CanonicalPath(workingDirectory);
+	logger.info(u8"Configured with current working directory [", pSyscall->process().workingDirectory, u8']');
 
 	/* enable the root node to ensure any upcoming calls are performed on the actual filesystem */
 	pRoot->enable();

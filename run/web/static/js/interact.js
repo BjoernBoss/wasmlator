@@ -30,8 +30,7 @@ window.addEventListener('load', function () {
 	/* register the clear button-behavior */
 	let lastCanAppend = false;
 	document.getElementById('clear').onclick = function () {
-		while (htmlOutput.children.length > 0)
-			htmlOutput.children[0].remove();
+		htmlOutput.replaceChildren();
 		lastCanAppend = false;
 	};
 

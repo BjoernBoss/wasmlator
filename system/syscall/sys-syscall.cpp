@@ -108,6 +108,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall sysinfo(", str::As{ U"#018x", args.args[0] }, u8')');
 		return pMisc.sysinfo(args.args[0]);
 	}
+	case sys::SyscallIndex::getcwd: {
+		logger.debug(u8"Syscall getcwd(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8')');
+		return pMisc.getcwd(args.args[0], args.args[1]);
+	}
 	case sys::SyscallIndex::openat: {
 		logger.debug(u8"Syscall openat(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8", ", args.args[3], u8')');
 		std::u8string path = fReadString(args.args[1]);

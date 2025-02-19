@@ -47,6 +47,7 @@ namespace sys::detail {
 		int64_t getegid() const;
 		int64_t uname(env::guest_t address) const;
 		int64_t sysinfo(env::guest_t info) const;
+		int64_t getcwd(env::guest_t buf, uint64_t size) const;
 		int64_t gettimeofday(env::guest_t tv, env::guest_t tz) const;
 		int64_t clock_gettime(uint64_t clockid, env::guest_t tp) const;
 		int64_t set_tid_address(env::guest_t tidptr) const;

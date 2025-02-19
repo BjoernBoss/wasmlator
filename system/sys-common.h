@@ -68,6 +68,7 @@ namespace sys {
 		static constexpr int64_t eMaximumFiles = -24;
 		static constexpr int64_t eNoTTY = -25;
 		static constexpr int64_t eReadOnly = -30;
+		static constexpr int64_t eRange = -34;
 		static constexpr int64_t eNotImplemented = -38;
 		static constexpr int64_t eLoop = -40;
 		static constexpr int64_t eOpNotSupported = -95;
@@ -183,6 +184,7 @@ namespace sys {
 		getegid,
 		uname,
 		sysinfo,
+		getcwd,
 		openat,
 		open,
 		close,

@@ -64,6 +64,19 @@ int64_t sys::detail::MiscSyscalls::sysinfo(env::guest_t info) const {
 	env::Instance()->memory().mwrite(info, &out, sizeof(linux::SysInfo), env::Usage::Write);
 	return errCode::eSuccess;
 }
+int64_t sys::detail::MiscSyscalls::getcwd(env::guest_t buf, uint64_t size) const {
+	const std::u8string& path = pSyscall->process().workingDirectory;
+
+	/* validate the paramter */
+	if (size != 0 && buf == 0)
+		return errCode::eInvalid;
+	if (size < path.size() + 1)
+		return errCode::eRange;
+
+	/* write the path to memory */
+	env::Instance()->memory().mwrite(buf, path.data(), path.size() + 1, env::Usage::Write);
+	return errCode::eSuccess;
+}
 int64_t sys::detail::MiscSyscalls::gettimeofday(env::guest_t tv, env::guest_t tz) const {
 	/* check if the timevalue should be written out */
 	if (tv != 0) {
