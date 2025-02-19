@@ -11,7 +11,10 @@ namespace sys::detail {
 		static constexpr uint32_t mmProtRead = 0x01;
 		static constexpr uint32_t mmProtWrite = 0x02;
 		static constexpr uint32_t mmProtExec = 0x04;
+		static constexpr uint32_t mmProtMask = consts::mmProtNone | consts::mmProtRead |
+			consts::mmProtWrite | consts::mmProtExec;
 
+		/* used by mmap (deny-write/exeuctable are ignored) */
 		static constexpr uint32_t mmFlagShared = 0x000001;
 		static constexpr uint32_t mmFlagPrivate = 0x000002;
 		static constexpr uint32_t mmFlagSharedValidate = 0x000003;
@@ -19,13 +22,8 @@ namespace sys::detail {
 		static constexpr uint32_t mmFlagAnonymous = 0x000020;
 		static constexpr uint32_t mmFlagSync = 0x080000;
 		static constexpr uint32_t mmFlagFixedNoReplace = 0x100000;
-
-		/* the following are fully ignored */
 		static constexpr uint32_t mmFlagDenyWrite = 0x000800;
 		static constexpr uint32_t mmFlagExecutable = 0x001000;
-
-		static constexpr uint32_t mmProtMask = consts::mmProtNone | consts::mmProtRead |
-			consts::mmProtWrite | consts::mmProtExec;
 		static constexpr uint32_t mmFlagMask = consts::mmFlagShared | consts::mmFlagPrivate |
 			consts::mmFlagSharedValidate | consts::mmFlagFixed | consts::mmFlagAnonymous |
 			consts::mmFlagShared | consts::mmFlagSync | consts::mmFlagFixedNoReplace |

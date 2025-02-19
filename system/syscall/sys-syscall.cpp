@@ -188,6 +188,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall ioctl(", int64_t(args.args[0]), u8", ", args.args[1], u8", ", args.args[2], u8')');
 		return pFileIO.ioctl(args.args[0], args.args[1], args.args[2]);
 	}
+	case sys::SyscallIndex::fcntl: {
+		logger.debug(u8"Syscall fcntl(", int64_t(args.args[0]), u8", ", args.args[1], u8", ", args.args[2], u8')');
+		return pFileIO.fcntl(args.args[0], args.args[1], args.args[2]);
+	}
 	case sys::SyscallIndex::set_tid_address: {
 		logger.debug(u8"Syscall set_tid_address(", str::As{ U"#018x", args.args[0] }, u8')');
 		return pMisc.set_tid_address(args.args[0]);

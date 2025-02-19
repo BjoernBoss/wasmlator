@@ -21,6 +21,7 @@ namespace sys::detail {
 		/* used by getrandom */
 		static constexpr uint32_t randomNonBlock = 0x01;
 		static constexpr uint32_t randomRandom = 0x02;
+		static constexpr uint32_t randomMask = consts::randomNonBlock | consts::randomRandom;
 
 		/* used by clock_gettime */
 		static constexpr uint64_t clockRealTime = 0;
@@ -28,8 +29,6 @@ namespace sys::detail {
 
 		/* used by sysinfo */
 		static constexpr uint64_t fullSingleCoreLoad = 65536;
-
-		static constexpr uint32_t randomMask = consts::randomNonBlock | consts::randomRandom;
 	}
 
 	class MiscSyscalls {

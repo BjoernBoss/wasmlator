@@ -27,7 +27,7 @@ help:
 	@echo "TARGETS:"
 	@echo "   help (print this menu; default)"
 	@echo "   clean (remove all build outputs)"
-	@echo "   server (generate all necessary files to $(gen_path))"
+	@echo "   all (generate all necessary files to $(gen_path))"
 	@echo ""
 	@echo "Note:"
 	@echo "   This makefile will create and include a generated makefile, which is generated"
@@ -100,6 +100,6 @@ $(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
 	@echo Generating... $@
 	@ tsc -p $<
 
-# setup the wasm for the server
-server: $(main_path) $(glue_path) $(wasmlator_path) | $(fs_path)
-.PHONY: server
+# setup the wasm and js components necessary
+all: $(main_path) $(glue_path) $(wasmlator_path) | $(fs_path)
+.PHONY: all

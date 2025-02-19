@@ -9,14 +9,14 @@ bool sys::detail::FileIO::fCheckFd(int64_t fd) const {
 	return true;
 }
 int64_t sys::detail::FileIO::fCheckRead(int64_t fd) const {
-	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].read)
+	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].config.read)
 		return errCode::eBadFd;
 	if (pInstance[pOpen[fd].instance].type == env::FileType::directory)
 		return errCode::eIsDirectory;
 	return 0;
 }
 int64_t sys::detail::FileIO::fCheckWrite(int64_t fd) const {
-	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].write)
+	if (!fCheckFd(fd) || !pInstance[pOpen[fd].instance].config.write)
 		return errCode::eBadFd;
 	return 0;
 }
@@ -165,7 +165,26 @@ int64_t sys::detail::FileIO::fResolveLookup(detail::SharedNode node, const std::
 		});
 }
 
-int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, bool read, bool write, bool modify, bool append, bool closeOnExecute) {
+int64_t sys::detail::FileIO::fLookupNextFd(uint64_t start, bool canFail) {
+	/* check if the index lies above all current indices */
+	if (start >= pOpen.size()) {
+		pOpen.insert(pOpen.end(), (start + 1 - pOpen.size()), {});
+		return start;
+	}
+
+	/* lookup the new open entry for the node */
+	while (start < pOpen.size() && pOpen[start].used)
+		++start;
+
+	/* check if a new entry needs to be appended */
+	if (start == pOpen.size()) {
+		if (canFail && pOpen.size() >= detail::MaxFileDescriptors)
+			return -1;
+		pOpen.emplace_back();
+	}
+	return start;
+}
+int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, const FileIO::InstanceConfig& config, bool closeOnExecute) {
 	/* lookup the new instance for the node */
 	size_t instance = 0;
 	while (instance < pInstance.size() && pInstance[instance].node.get() != 0)
@@ -178,24 +197,17 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_v
 	pInstance[instance].path = std::u8string{ path };
 	pInstance[instance].user = 1;
 	pInstance[instance].type = type;
-	pInstance[instance].append = append;
-	pInstance[instance].read = read;
-	pInstance[instance].write = write;
-	pInstance[instance].modify = modify;
+	pInstance[instance].config = config;
 
 	/* lookup the new open entry for the node */
-	size_t index = 0;
-	while (index < pOpen.size() && pOpen[index].used)
-		++index;
-	if (index == pOpen.size())
-		pOpen.emplace_back();
+	int64_t index = fLookupNextFd(0, false);
 
 	/* configure the new opened file and update the open-counter */
 	pOpen[index].instance = instance;
 	pOpen[index].closeOnExecute = closeOnExecute;
 	pOpen[index].used = true;
 	++pOpened;
-	return int64_t(index);
+	return index;
 }
 sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const env::FileStats& stats) const {
 	linux::FileStats out;
@@ -250,6 +262,8 @@ int64_t sys::detail::FileIO::fRead(size_t instance, uint64_t offset, std::functi
 	return pInstance[instance].node->read(offset, pBuffer, callback);
 }
 int64_t sys::detail::FileIO::fWrite(size_t instance, uint64_t offset) const {
+	if (pInstance[instance].config.append)
+		logger.fatal(u8"Appending to file currently not supported");
 	return pInstance[instance].node->write(offset, pBuffer, [](int64_t result) -> int64_t { return result; });
 }
 
@@ -264,24 +278,28 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	if (detail::IsSet(flags, consts::opReadWrite) && detail::IsSet(flags, consts::opWriteOnly))
 		return errCode::eInvalid;
 
+	/* setup the instance-config */
+	FileIO::InstanceConfig config;
+
 	/* extract all of the flag bits */
-	bool read = detail::IsSet(flags, consts::opReadWrite) || !detail::IsSet(flags, consts::opWriteOnly);
-	bool write = detail::IsSet(flags, consts::opReadWrite) || detail::IsSet(flags, consts::opWriteOnly);
+	config.read = detail::IsSet(flags, consts::opReadWrite) || !detail::IsSet(flags, consts::opWriteOnly);
+	config.write = detail::IsSet(flags, consts::opReadWrite) || detail::IsSet(flags, consts::opWriteOnly);
+	config.modify = !detail::IsSet(flags, consts::opOpenOnly);
+	config.append = detail::IsSet(flags, consts::opAppend);
+	config.creation.noctty = detail::IsSet(flags, consts::opNoCTTY);
+	config.creation.create = detail::IsSet(flags, consts::opCreate);
+	config.creation.exclusive = detail::IsSet(flags, consts::opExclusive);
+	config.creation.truncate = detail::IsSet(flags, consts::opTruncate);
 	bool follow = !detail::IsSet(flags, consts::opNoFollow);
 	bool directory = detail::IsSet(flags, consts::opDirectory);
-	bool openOnly = detail::IsSet(flags, consts::opOpenOnly);
-	bool create = detail::IsSet(flags, consts::opCreate);
-	bool exclusive = detail::IsSet(flags, consts::opExclusive);
-	bool truncate = detail::IsSet(flags, consts::opTruncate);
-	bool append = false;// detail::IsSet(flags, consts::opAppend);
 	bool closeOnExecute = detail::IsSet(flags, consts::opCloseOnExecute);
-	if (openOnly)
-		read = (write = false);
-	if (create && exclusive)
+	if (!config.modify)
+		config.read = (config.write = false);
+	if (config.creation.create && config.creation.exclusive)
 		follow = false;
-	if (!write)
-		append = false;
-	if (directory && (create || exclusive || truncate))
+	if (!config.write)
+		config.append = false;
+	if (directory && (config.creation.create || config.creation.exclusive || config.creation.truncate))
 		return errCode::eInvalid;
 
 	/* validate and construct the final path */
@@ -296,11 +314,11 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	/* configure the resolve-operation to be performed */
 	pResolve.linkFollow = 0;
 	pResolve.follow = follow;
-	pResolve.findExisting = !create;
+	pResolve.findExisting = !config.creation.create;
 	pResolve.effectiveIds = true;
 
 	/* lookup the file-node to the file (ensure that it cannot fail anymore once the file has been created) */
-	return fResolveNode(actual, [this, mode, truncate, append, exclusive, read, write, openOnly, closeOnExecute, directory](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool found) -> int64_t {
+	return fResolveNode(actual, [this, mode, config, closeOnExecute, directory](int64_t result, const std::u8string& path, detail::SharedNode node, const env::FileStats& stats, bool found) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -321,26 +339,26 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			/* try to create the file
 			*	Important: ensure node is captured by the lambda, in order to prevent it from going out of scope and being removed before the internal
 			*	deferred callback can be invoked, as the internal callback might only capture 'this', but not the reference-counted node itself */
-			return node->create(util::SplitName(path).second, path, access, [this, read, write, openOnly, append, closeOnExecute, path, node](int64_t result, detail::SharedNode cnode) -> int64_t {
+			return node->create(util::SplitName(path).second, path, access, [this, config, closeOnExecute, path, node](int64_t result, detail::SharedNode cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
-				return fSetupFile(cnode, path, env::FileType::file, read, write, !openOnly, append, closeOnExecute);
+				return fSetupFile(cnode, path, env::FileType::file, config, closeOnExecute);
 				});
 		}
 
 		/* check if the file was expected to be created */
-		if (exclusive) {
+		if (config.creation.exclusive) {
 			logger.error(u8"Path [", path, u8"] already exists");
 			return errCode::eExists;
 		}
 
 		/* check if a symbolic link is being opened */
 		if (stats.type == env::FileType::link) {
-			if (!openOnly) {
+			if (config.modify) {
 				logger.error(u8"Path [", path, u8"] is a symbolic link");
 				return errCode::eLoop;
 			}
-			if (write) {
+			if (config.write) {
 				logger.error(u8"Symbolic link [", path, u8"] cannot be written to");
 				return errCode::eInvalid;
 			}
@@ -348,7 +366,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 
 		/* check if its a directory and it is being written to or a directory was expected */
 		if (stats.type == env::FileType::directory) {
-			if (write) {
+			if (config.write) {
 				logger.error(u8"Path [", path, u8"] is a directory");
 				return errCode::eIsDirectory;
 			}
@@ -359,22 +377,22 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		}
 
 		/* check if the required permissions are granted */
-		if (!fCheckAccess(stats, read, write, false, true)) {
+		if (!fCheckAccess(stats, config.read, config.write, false, true)) {
 			logger.error(u8"Access to [", path, u8"] denied");
 			return errCode::eAccess;
 		}
 
 		/* check if the node is a link or directory and mark them as open (do not require explicit opening) */
 		if (stats.type == env::FileType::link || stats.type == env::FileType::directory)
-			return fSetupFile(node, path, stats.type, read, write, !openOnly, append, closeOnExecute);
+			return fSetupFile(node, path, stats.type, config, closeOnExecute);
 
 		/* perform the open-call on the file-node
 		*	Important: ensure node is captured by the lambda, in order to prevent it from going out of scope and being removed before the internal
 		*	deferred callback can be invoked, as the internal callback might only capture 'this', but not the reference-counted node itself */
-		return node->open(truncate, [this, node, path, read, write, openOnly, append, closeOnExecute, type = stats.type](int64_t result) -> int64_t {
+		return node->open(config.creation.truncate, [this, node, path, config, closeOnExecute, type = stats.type](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
 				return result;
-			return fSetupFile(node, path, type, read, write, !openOnly, append, closeOnExecute);
+			return fSetupFile(node, path, type, config, closeOnExecute);
 			});
 		});
 }
@@ -670,7 +688,64 @@ int64_t sys::detail::FileIO::ioctl(int64_t fd, uint64_t cmd, uint64_t arg) {
 	/* validate the file descriptor */
 	if (!fCheckFd(fd))
 		return errCode::eBadFd;
+	if (!pInstance[pOpen[fd].instance].config.modify)
+		return errCode::eBadFd;
+
+	/* ioctl is currently not implemented for any objects */
+	logger.warn(u8"Executing unsupported ioctl syscall");
 	return errCode::eNoTTY;
+}
+int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
+	/* validate the file descriptor */
+	if (!fCheckFd(fd))
+		return errCode::eBadFd;
+
+	/* check if its the duplication commands */
+	if (cmd == consts::fcntlDuplicateFd || cmd == consts::fcntlDuplicateFdCloseExec) {
+		if (arg >= detail::MaxFileDescriptors)
+			return errCode::eInvalid;
+
+		/* lookup the new fd to be used */
+		int64_t index = fLookupNextFd(arg, true);
+		if (index < 0)
+			return errCode::eMaximumFiles;
+
+		/* duplicate the entry */
+		pOpen[index].closeOnExecute = (cmd == consts::fcntlDuplicateFdCloseExec);
+		pOpen[index].instance = pOpen[fd].instance;
+		pOpen[index].used = true;
+		++pInstance[pOpen[index].instance].user;
+		++pOpened;
+		return index;
+	}
+
+	/* check if the fd-flags are to be updated */
+	else if (cmd == consts::fcntlGetFdFlags)
+		return (pOpen[fd].closeOnExecute ? consts::fdFlagCloseExec : 0);
+	else if (cmd == consts::fcntlSetFdFlags) {
+		pOpen[fd].closeOnExecute = detail::IsSet(arg, consts::fdFlagCloseExec);
+		return errCode::eSuccess;
+	}
+
+	/* check if the file-flags are to be updated */
+	else if (cmd == consts::fcntlGetFileStatusFlags) {
+		const FileIO::InstanceConfig& config = pInstance[pOpen[fd].instance].config;
+		return (config.read ? (config.write ? consts::fsReadWrite : consts::fsReadOnly) : consts::fsWriteOnly) |
+			(config.creation.create ? consts::fsCreate : 0) | (config.creation.truncate ? consts::fsTruncate : 0) |
+			(config.creation.exclusive ? consts::fsExclusive : 0) | (config.creation.noctty ? consts::fsNoCTTY : 0) |
+			(config.append ? consts::fsAppend : 0) | (config.modify ? 0 : consts::fsOpenOnly);
+	}
+	else if (cmd == consts::fcntlSetFileStatusFlags) {
+		/* ensure that all flags are supported */
+		if ((arg & ~consts::fsMask) != 0)
+			logger.fatal(u8"Unknown file-status flags used in fcntl");
+		pInstance[pOpen[fd].instance].config.append = detail::IsSet(arg, consts::fsAppend);
+		return errCode::eSuccess;
+	}
+
+	/* unsupported cmd */
+	logger.warn(u8"Unsupported fcntl command encountered [", cmd, u8']');
+	return errCode::eInvalid;
 }
 
 sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
@@ -683,10 +758,10 @@ sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
 
 	/* populate the meta-data of the file-descriptor */
 	state.instance = pOpen[fd].instance;
-	state.read = pInstance[pOpen[fd].instance].read;
-	state.write = pInstance[pOpen[fd].instance].write;
-	state.modify = pInstance[pOpen[fd].instance].modify;
-	state.append = pInstance[pOpen[fd].instance].append;
+	state.read = pInstance[pOpen[fd].instance].config.read;
+	state.write = pInstance[pOpen[fd].instance].config.write;
+	state.modify = pInstance[pOpen[fd].instance].config.modify;
+	state.append = pInstance[pOpen[fd].instance].config.append;
 	state.type = pInstance[pOpen[fd].instance].type;
 	return state;
 }

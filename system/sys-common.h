@@ -206,6 +206,7 @@ namespace sys {
 		gettimeofday,
 		clock_gettime,
 		ioctl,
+		fcntl,
 		set_tid_address,
 		set_robust_list,
 		prlimit64,

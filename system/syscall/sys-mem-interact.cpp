@@ -192,6 +192,8 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 	detail::FdState state = pSyscall->files().fdCheck(fd);
 	if (!state.valid)
 		return errCode::eBadFd;
+	if (!state.modify)
+		return errCode::eBadFd;
 	if (state.type != env::FileType::file || !state.read)
 		return errCode::eAccess;
 	if (detail::IsSet(protect, consts::mmProtWrite)) {
