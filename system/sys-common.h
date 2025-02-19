@@ -166,6 +166,12 @@ namespace sys {
 			uint64_t current = 0;
 			uint64_t maximum = 0;
 		};
+		struct DirectoryEntry {
+			uint64_t inode = 0;
+			uint64_t offset = 0;
+			uint16_t length = 0;
+			uint8_t name[1] = { 0 };
+		};
 	}
 
 	enum class ArchType : uint8_t {

@@ -14,7 +14,7 @@ namespace sys::detail::impl {
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		NativeFileNode(detail::Syscall* syscall, uint64_t fileId);
+		NativeFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, uint64_t fileId);
 
 	public:
 		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const;

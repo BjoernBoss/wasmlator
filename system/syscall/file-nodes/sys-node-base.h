@@ -3,19 +3,28 @@
 #include "../../sys-common.h"
 
 namespace sys::detail {
+	class FileNode;
+
 	struct DirEntry {
 		std::u8string name;
 		uint64_t id = 0;
 		env::FileType type = env::FileType::_end;
 	};
+	using SharedNode = std::shared_ptr<detail::FileNode>;
 
 	/* Note: operations must at most throw syscall-await exception, but always call the callback */
 	class FileNode {
+	private:
+		detail::SharedNode pAncestor;
+
 	protected:
-		FileNode() = default;
+		FileNode(const detail::SharedNode& ancestor);
 
 	public:
 		virtual ~FileNode() = default;
+
+	public:
+		const detail::SharedNode& ancestor() const;
 
 	public:
 		/* generic-interactions */
@@ -35,7 +44,6 @@ namespace sys::detail {
 		virtual int64_t write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual void close();
 	};
-	using SharedNode = std::shared_ptr<detail::FileNode>;
 
 	/* virtual file-node, which auto-applies access-times to stats, and caches already created nodes */
 	class VirtualFileNode : public detail::FileNode {
@@ -47,7 +55,7 @@ namespace sys::detail {
 		env::FileAccess pAccess;
 
 	protected:
-		VirtualFileNode(env::FileAccess access);
+		VirtualFileNode(const detail::SharedNode& ancestor, env::FileAccess access);
 
 	private:
 		int64_t fLookupNew(const std::u8string& name, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback);
@@ -77,7 +85,7 @@ namespace sys::detail {
 			std::u8string pLink;
 
 		public:
-			LinkNode(std::u8string_view link, env::FileAccess access);
+			LinkNode(const detail::SharedNode& ancestor, std::u8string_view link, env::FileAccess access);
 
 		public:
 			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;
@@ -86,7 +94,7 @@ namespace sys::detail {
 		/* file-node, which provides an empty directory */
 		class EmpyDirectory final : public detail::VirtualFileNode {
 		public:
-			EmpyDirectory(env::FileAccess access);
+			EmpyDirectory(const detail::SharedNode& ancestor, env::FileAccess access);
 
 		public:
 			int64_t virtualStats(std::function<int64_t(const env::FileStats*)> callback) const final;

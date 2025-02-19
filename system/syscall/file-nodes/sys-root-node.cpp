@@ -1,6 +1,6 @@
 #include "../../system.h"
 
-sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall, env::FileAccess access) : pSyscall{ syscall }, pAccess{ access } {
+sys::detail::impl::RootFileNode::RootFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : FileNode{ ancestor }, pSyscall{ syscall }, pAccess{ access } {
 	pUniqueId = util::UniqueId();
 }
 
@@ -23,7 +23,7 @@ int64_t sys::detail::impl::RootFileNode::fWithNative(std::function<int64_t()> ca
 	env::Instance()->filesystem().readStats(u8"/", [this, callback](const env::FileStats* stats) {
 		pSyscall->callContinue([this, callback, stats]() -> int64_t {
 			if (stats != 0)
-				pNative = std::make_shared<impl::NativeFileNode>(pSyscall, stats->id);
+				pNative = std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), pSyscall, stats->id);
 			return callback();
 			});
 		});

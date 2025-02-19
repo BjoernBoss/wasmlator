@@ -2,6 +2,10 @@
 
 static util::Logger logger{ u8"sys::syscall" };
 
+sys::detail::FileNode::FileNode(const detail::SharedNode& ancestor) : pAncestor{ ancestor } {}
+const sys::detail::SharedNode& sys::detail::FileNode::ancestor() const {
+	return pAncestor;
+}
 int64_t sys::detail::FileNode::linkRead(std::function<int64_t(bool)> callback) {
 	return callback(false);
 }
@@ -26,7 +30,7 @@ int64_t sys::detail::FileNode::write(uint64_t offset, const std::vector<uint8_t>
 void sys::detail::FileNode::close() {}
 
 
-sys::detail::VirtualFileNode::VirtualFileNode(env::FileAccess access) {
+sys::detail::VirtualFileNode::VirtualFileNode(const detail::SharedNode& ancestor, env::FileAccess access) : FileNode{ ancestor } {
 	pLastRead = host::GetStampUS();
 	pLastWrite = pLastRead;
 	pUniqueId = util::UniqueId();
@@ -151,7 +155,7 @@ int64_t sys::detail::VirtualFileNode::write(uint64_t offset, const std::vector<u
 }
 
 
-sys::detail::impl::LinkNode::LinkNode(std::u8string_view link, env::FileAccess access) : VirtualFileNode{ access }, pLink{ link } {}
+sys::detail::impl::LinkNode::LinkNode(const detail::SharedNode& ancestor, std::u8string_view link, env::FileAccess access) : VirtualFileNode{ ancestor, access }, pLink{ link } {}
 int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.link = pLink;
@@ -161,7 +165,7 @@ int64_t sys::detail::impl::LinkNode::virtualStats(std::function<int64_t(const en
 }
 
 
-sys::detail::impl::EmpyDirectory::EmpyDirectory(env::FileAccess access) : VirtualFileNode{ access } {}
+sys::detail::impl::EmpyDirectory::EmpyDirectory(const detail::SharedNode& ancestor, env::FileAccess access) : VirtualFileNode{ ancestor, access } {}
 int64_t sys::detail::impl::EmpyDirectory::virtualStats(std::function<int64_t(const env::FileStats*)> callback) const {
 	env::FileStats stats;
 	stats.type = env::FileType::directory;

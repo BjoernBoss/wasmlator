@@ -16,7 +16,7 @@ namespace sys::detail::impl {
 		bool pEnabled = false;
 
 	public:
-		RootFileNode(detail::Syscall* syscall, env::FileAccess access);
+		RootFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access);
 
 	private:
 		void fPatchStats(env::FileStats& stats) const;

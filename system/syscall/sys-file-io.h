@@ -61,6 +61,13 @@ namespace sys::detail {
 		static constexpr uint64_t fsMask = consts::fsReadOnly | consts::fsWriteOnly |
 			consts::fsReadWrite | consts::fsCreate | consts::fsExclusive | consts::fsNoCTTY |
 			consts::fsTruncate | consts::fsAppend | consts::fsOpenOnly;
+
+		/* used by getdents */
+		static constexpr uint8_t dEntUnknown = 0;
+		static constexpr uint8_t dEntCharacter = 2;
+		static constexpr uint8_t dEntDirectory = 4;
+		static constexpr uint8_t dEntFile = 8;
+		static constexpr uint8_t dEntLink = 10;
 	}
 
 	struct FdState {
@@ -88,13 +95,14 @@ namespace sys::detail {
 			} creation;
 		};
 		struct Instance {
-			std::vector<detail::DirEntry> list;
+			std::vector<detail::DirEntry> dirCache;
 			detail::SharedNode node;
 			std::u8string path;
 			uint64_t offset = 0;
 			size_t user = 0;
 			env::FileType type = env::FileType::_end;
 			InstanceConfig config;
+			bool outdated = false;
 		};
 		struct Open {
 			size_t instance = 0;

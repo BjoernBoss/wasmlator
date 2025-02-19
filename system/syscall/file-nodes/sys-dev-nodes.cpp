@@ -2,7 +2,7 @@
 
 static util::Logger logger{ u8"sys::syscall" };
 
-sys::detail::impl::Terminal::Terminal(detail::Syscall* syscall, env::FileAccess access) : VirtualFileNode{ access }, pSyscall{ syscall } {}
+sys::detail::impl::Terminal::Terminal(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : VirtualFileNode{ ancestor, access }, pSyscall{ syscall } {}
 int64_t sys::detail::impl::Terminal::open(bool truncate, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eSuccess);
 }

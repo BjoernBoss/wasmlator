@@ -8,7 +8,7 @@ namespace sys::detail::impl {
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		Terminal(detail::Syscall* syscall, env::FileAccess access);
+		Terminal(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access);
 
 	public:
 		int64_t open(bool truncate, std::function<int64_t(int64_t)> callback) final;

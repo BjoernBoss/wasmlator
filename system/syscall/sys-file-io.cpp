@@ -204,6 +204,9 @@ int64_t sys::detail::FileIO::fSetupFile(detail::SharedNode node, std::u8string_v
 	pInstance[instance].user = 1;
 	pInstance[instance].type = type;
 	pInstance[instance].config = config;
+	pInstance[instance].dirCache.clear();
+	pInstance[instance].offset = 0;
+	pInstance[instance].outdated = false;
 
 	/* lookup the new open entry for the node */
 	int64_t index = fLookupNextFd(0, false);
@@ -524,14 +527,14 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 
 	/* setup the initial root node and auto-mounted components (mount stats can never fail) */
 	env::FileAccess rootDirs = env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::OwnerAllElseRW }, rootAll = { fs::RootOwner, fs::RootGroup, fs::All };
-	pRoot = std::make_shared<impl::RootFileNode>(pSyscall, rootDirs);
-	pMounted[u8"/dev"] = std::make_shared<impl::EmpyDirectory>(rootDirs);
-	pMounted[u8"/proc"] = std::make_shared<impl::ProcDirectory>(pSyscall, rootDirs);
-	pMounted[u8"/proc/self"] = std::make_shared<impl::LinkNode>(str::u8::Build(u8"/proc/", pSyscall->process().pid), rootAll);
-	pMounted[u8"/dev/tty"] = std::make_shared<impl::Terminal>(pSyscall, env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite });
-	pMounted[u8"/dev/stdin"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/0", rootAll);
-	pMounted[u8"/dev/stdout"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/1", rootAll);
-	pMounted[u8"/dev/stderr"] = std::make_shared<impl::LinkNode>(u8"/proc/self/fd/2", rootAll);
+	pRoot = std::make_shared<impl::RootFileNode>(nullptr, pSyscall, rootDirs);
+	pMounted[u8"/dev"] = std::make_shared<impl::EmpyDirectory>(pRoot, rootDirs);
+	pMounted[u8"/proc"] = std::make_shared<impl::ProcDirectory>(pRoot, pSyscall, rootDirs);
+	pMounted[u8"/proc/self"] = std::make_shared<impl::LinkNode>(pMounted[u8"/proc"], str::u8::Build(u8"/proc/", pSyscall->process().pid), rootAll);
+	pMounted[u8"/dev/tty"] = std::make_shared<impl::Terminal>(pMounted[u8"/dev"], pSyscall, env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite });
+	pMounted[u8"/dev/stdin"] = std::make_shared<impl::LinkNode>(pMounted[u8"/dev"], u8"/proc/self/fd/0", rootAll);
+	pMounted[u8"/dev/stdout"] = std::make_shared<impl::LinkNode>(pMounted[u8"/dev"], u8"/proc/self/fd/1", rootAll);
+	pMounted[u8"/dev/stderr"] = std::make_shared<impl::LinkNode>(pMounted[u8"/dev"], u8"/proc/self/fd/2", rootAll);
 
 	/* setup the initial open file-entries to the terminal (stdin/stdout/stderr - terminal creation happens inplace) */
 	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::opReadOnly, 0) != 0) {
@@ -573,8 +576,10 @@ int64_t sys::detail::FileIO::close(int64_t fd) {
 
 	/* close the underlying file object and remove the reference to it */
 	fInstance(fd).node->close();
-	if (--fInstance(fd).user == 0)
+	if (--fInstance(fd).user == 0) {
+		fInstance(fd).dirCache.clear();
 		fInstance(fd).node.reset();
+	}
 
 	/* release the open-entry and update the open-counter */
 	pOpen[fd].used = false;
@@ -799,12 +804,90 @@ int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t 
 	/* validate the file descriptor */
 	if (!fCheckFd(fd) || !fInstance(fd).config.read)
 		return errCode::eBadFd;
-	if (fInstance(fd).type != env::FileType::directory)
+	FileIO::Instance& instance = fInstance(fd);
+	if (instance.type != env::FileType::directory)
 		return errCode::eNotDirectory;
 
-	/* check if the new list of children should be fetched */
-	logger.fatal(u8"Not yet implemented");
-	return errCode::eUnknown;
+	/* setup the callback to write the result out */
+	std::function<int64_t()> callback = [&instance, dirent, count]() -> int64_t {
+		if (instance.offset >= instance.dirCache.size())
+			return 0;
+
+		/* compute the length of the longest to come name (without null-termination) */
+		size_t len = 0;
+		for (size_t i = instance.offset; i < instance.dirCache.size(); ++i)
+			len = std::max<size_t>(len, instance.dirCache[i].name.size());
+
+		/* allocate the buffer for the dir-entry structure */
+		std::unique_ptr<uint8_t[]> _buffer = std::make_unique<uint8_t[]>(sizeof(linux::DirectoryEntry) + len);
+		linux::DirectoryEntry* entry = reinterpret_cast<linux::DirectoryEntry*>(_buffer.get());
+
+		/* iterate over the directories and write as many out as possible */
+		uint64_t written = 0;
+		while (instance.offset < instance.dirCache.size()) {
+			const detail::DirEntry& next = instance.dirCache[instance.offset];
+			uint64_t total = (offsetof(linux::DirectoryEntry, name) + next.name.size() + 2);
+
+			/* check if the next entry still fits into the buffer and return invalid if not a single entry was written out */
+			if (total > std::numeric_limits<uint16_t>::max()) {
+				total = count + 1;
+				logger.error(u8"Total directory entry does not fit int dentry-length");
+			}
+			if (written + total > count)
+				return (written == 0 ? errCode::eInvalid : written);
+
+			/* prepare the next entry */
+			entry->inode = next.id;
+			entry->offset = instance.offset++;
+			entry->length = uint16_t(total);
+			std::copy(next.name.begin(), next.name.end(), entry->name);
+			entry->name[entry->length - 2] = 0;
+
+			/* write the type out */
+			switch (next.type) {
+			case env::FileType::file:
+				entry->name[entry->length - 1] = consts::dEntFile;
+				break;
+			case env::FileType::directory:
+				entry->name[entry->length - 1] = consts::dEntDirectory;
+				break;
+			case env::FileType::link:
+				entry->name[entry->length - 1] = consts::dEntLink;
+				break;
+			case env::FileType::tty:
+				entry->name[entry->length - 1] = consts::dEntCharacter;
+				break;
+			case env::FileType::_end:
+			case env::FileType::none:
+				entry->name[entry->length - 1] = consts::dEntUnknown;
+				break;
+			}
+
+			/* write the entry to memory */
+			env::Instance()->memory().mwrite(dirent + written, _buffer.get(), total, env::Usage::Write);
+			written += total;
+		}
+		return written;
+		};
+
+	/* check if the current list can be continued from the cache */
+	if (instance.offset > 0 && !instance.outdated)
+		return callback();
+
+	/* fetch the new directory state */
+	return instance.node->listDir([&instance, callback, fd](int64_t result, const std::vector<detail::DirEntry>& list) -> int64_t {
+		/* check if the read failed */
+		if (result != errCode::eSuccess) {
+			instance.outdated = true;
+			logger.error(u8"Failed to list open directory [", fd, u8']');
+			return result;
+		}
+
+		/* update the cached list and write the state out */
+		instance.outdated = false;
+		instance.dirCache = list;
+		return callback();
+		});
 }
 
 sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
