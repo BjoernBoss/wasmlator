@@ -14,6 +14,21 @@ void sys::detail::FileNode::fLinkNode(const detail::SharedNode& node, const std:
 	node->pAncestor = shared_from_this();
 	node->pSelf = name;
 }
+int64_t sys::detail::FileNode::fRecExpandNames(const std::shared_ptr<FileNode::ExpandNamesState>& state) {
+	if (state->next >= state->names.size())
+		return state->callback(errCode::eSuccess, state->out);
+
+	/* lookup the next node itself */
+	return FileNode::lookup(state->names[state->next], [this, state](const detail::SharedNode& node, const detail::NodeStats&) -> int64_t {
+		/* check if the node has been found and can be added */
+		if (node.get() != 0)
+			state->out.push_back({ state->names[state->next], node->id(), node->type() });
+
+		/* perform the next recursive lookup */
+		++state->next;
+		return fRecExpandNames(state);
+		});
+}
 
 void sys::detail::FileNode::release() {
 	for (const auto& [_, node] : pMounted)
@@ -59,8 +74,21 @@ int64_t sys::detail::FileNode::makeLookup(std::u8string_view name, std::function
 int64_t sys::detail::FileNode::makeCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, const detail::SharedNode&)> callback) {
 	return callback(errCode::eReadOnly, {});
 }
-int64_t sys::detail::FileNode::makeListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+int64_t sys::detail::FileNode::makeListNames(std::function<int64_t(int64_t, const std::vector<std::u8string>&)> callback) {
 	return callback(errCode::eNotDirectory, {});
+}
+int64_t sys::detail::FileNode::makeListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+	return makeListNames([this, callback](int64_t result, const std::vector<std::u8string>& list) -> int64_t {
+		if (result != errCode::eSuccess)
+			return callback(result, {});
+
+		/* setup the shared state and lookup all additional data for the entries */
+		std::shared_ptr<FileNode::ExpandNamesState> state = std::make_shared<FileNode::ExpandNamesState>();
+		state->callback = callback;
+		state->names = list;
+		state->next = 0;
+		return fRecExpandNames(state);
+		});
 }
 
 int64_t sys::detail::FileNode::lookup(std::u8string_view name, std::function<int64_t(const detail::SharedNode&, const detail::NodeStats&)> callback) {
@@ -210,3 +238,6 @@ int64_t sys::detail::impl::LinkNode::makeStats(std::function<int64_t(const std::
 
 
 sys::detail::impl::EmpyDirectory::EmpyDirectory(env::FileAccess access) : VirtFileNode{ env::FileType::directory, access } {}
+int64_t sys::detail::impl::EmpyDirectory::makeListNames(std::function<int64_t(int64_t, const std::vector<std::u8string>&)> callback) {
+	return callback(errCode::eSuccess, {});
+}

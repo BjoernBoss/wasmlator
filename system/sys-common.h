@@ -170,7 +170,8 @@ namespace sys {
 			uint64_t inode = 0;
 			uint64_t offset = 0;
 			uint16_t length = 0;
-			uint8_t name[2] = { 0 };
+			uint8_t type = 0;
+			uint8_t name[1] = { 0 };
 		};
 	}
 
@@ -214,7 +215,7 @@ namespace sys {
 		ioctl,
 		fcntl,
 		lseek,
-		getdents,
+		getdents64,
 		set_tid_address,
 		set_robust_list,
 		prlimit64,

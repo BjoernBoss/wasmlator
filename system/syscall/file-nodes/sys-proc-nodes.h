@@ -12,6 +12,7 @@ namespace sys::detail::impl {
 
 	public:
 		int64_t makeFind(std::u8string_view name, std::function<int64_t(const detail::SharedNode&)> callback) const final;
+		int64_t makeListNames(std::function<int64_t(int64_t, const std::vector<std::u8string>&)> callback) final;
 	};
 
 	class ProcId final : public detail::VirtFileNode {
@@ -24,5 +25,6 @@ namespace sys::detail::impl {
 
 	public:
 		int64_t makeFind(std::u8string_view name, std::function<int64_t(const detail::SharedNode&)> callback) const final;
+		int64_t makeListNames(std::function<int64_t(int64_t, const std::vector<std::u8string>&)> callback) final;
 	};
 }

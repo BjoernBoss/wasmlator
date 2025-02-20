@@ -109,7 +109,7 @@ class FileSystemInteract:
 			return None
 		return out
 	def getList(self, path):
-		base = (path if path == '/' else f'${base}/')
+		base = (path if path == '/' else f'{path}/')
 		path, _ = self._validatePath(path)
 		if path is None or os.path.islink(path) or not os.path.isdir(path):
 			return None

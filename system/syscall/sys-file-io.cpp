@@ -817,7 +817,7 @@ int64_t sys::detail::FileIO::lseek(int64_t fd, int64_t offset, uint64_t whence) 
 	logger.error(u8"Unsupported seek mode encountered [", whence, u8']');
 	return errCode::eInvalid;
 }
-int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t count) {
+int64_t sys::detail::FileIO::getdents64(int64_t fd, env::guest_t dirent, uint64_t count) {
 	/* validate the file descriptor */
 	if (!fCheckFd(fd) || !fInstance(fd).config.read)
 		return errCode::eBadFd;
@@ -843,7 +843,7 @@ int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t 
 		uint64_t written = 0;
 		while (instance.offset < instance.dirCache.size()) {
 			const detail::DirEntry& next = instance.dirCache[instance.offset];
-			uint64_t total = (offsetof(linux::DirectoryEntry, name) + next.name.size() + 2);
+			uint64_t total = (offsetof(linux::DirectoryEntry, name) + next.name.size() + 1);
 
 			/* check if the next entry still fits into the buffer and return invalid if not a single entry was written out */
 			if (total > std::numeric_limits<uint16_t>::max()) {
@@ -858,24 +858,25 @@ int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t 
 			entry->offset = instance.offset++;
 			entry->length = uint16_t(total);
 			std::copy(next.name.begin(), next.name.end(), entry->name);
-			entry->name[entry->length - 2] = 0;
+			entry->name[next.name.size()] = 0;
 
 			/* write the type out */
 			switch (next.type) {
 			case env::FileType::file:
-				entry->name[entry->length - 1] = consts::dEntFile;
+				entry->type = consts::dEntFile;
 				break;
 			case env::FileType::directory:
-				entry->name[entry->length - 1] = consts::dEntDirectory;
+				entry->type = consts::dEntDirectory;
 				break;
 			case env::FileType::link:
-				entry->name[entry->length - 1] = consts::dEntLink;
+				entry->type = consts::dEntLink;
 				break;
 			case env::FileType::character:
-				entry->name[entry->length - 1] = consts::dEntCharacter;
+				entry->type = consts::dEntCharacter;
 				break;
 			case env::FileType::_end:
-				entry->name[entry->length - 1] = consts::dEntUnknown;
+			default:
+				entry->type = consts::dEntUnknown;
 				break;
 			}
 

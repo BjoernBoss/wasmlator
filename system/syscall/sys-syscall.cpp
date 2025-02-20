@@ -196,9 +196,9 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall lseek(", int64_t(args.args[0]), u8", ", int64_t(args.args[1]), u8", ", args.args[2], u8')');
 		return pFileIO.lseek(args.args[0], args.args[1], args.args[2]);
 	}
-	case sys::SyscallIndex::getdents: {
-		logger.debug(u8"Syscall getdents(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
-		return pFileIO.getdents(args.args[0], args.args[1], args.args[2]);
+	case sys::SyscallIndex::getdents64: {
+		logger.debug(u8"Syscall getdents64(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
+		return pFileIO.getdents64(args.args[0], args.args[1], args.args[2]);
 	}
 	case sys::SyscallIndex::set_tid_address: {
 		logger.debug(u8"Syscall set_tid_address(", str::As{ U"#018x", args.args[0] }, u8')');

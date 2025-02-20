@@ -24,6 +24,14 @@ namespace sys::detail {
 	/* Note: operations must at most throw syscall-await exception, but always call the callback */
 	class FileNode : public std::enable_shared_from_this<detail::FileNode> {
 	private:
+		struct ExpandNamesState {
+			std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback;
+			std::vector<std::u8string> names;
+			std::vector<detail::DirEntry> out;
+			size_t next = 0;
+		};
+
+	private:
 		std::map<std::u8string, detail::SharedNode> pMounted;
 		std::map<std::u8string, detail::SharedNode> pCache;
 		detail::SharedNode pAncestor;
@@ -40,6 +48,7 @@ namespace sys::detail {
 
 	private:
 		void fLinkNode(const detail::SharedNode& node, const std::u8string& name);
+		int64_t fRecExpandNames(const std::shared_ptr<FileNode::ExpandNamesState>& state);
 
 	public:
 		void release();
@@ -54,6 +63,7 @@ namespace sys::detail {
 		virtual int64_t makeFind(std::u8string_view name, std::function<int64_t(const detail::SharedNode&)> callback) const;
 		virtual int64_t makeLookup(std::u8string_view name, std::function<int64_t(const detail::SharedNode&, const detail::NodeStats&)> callback) const;
 		virtual int64_t makeCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, const detail::SharedNode&)> callback);
+		virtual int64_t makeListNames(std::function<int64_t(int64_t, const std::vector<std::u8string>&)> callback);
 		virtual int64_t makeListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback);
 
 	public:
@@ -118,6 +128,9 @@ namespace sys::detail {
 		class EmpyDirectory final : public detail::VirtFileNode {
 		public:
 			EmpyDirectory(env::FileAccess access);
+
+		public:
+			int64_t makeListNames(std::function<int64_t(int64_t, const std::vector<std::u8string>&)> callback) final;
 		};
 	}
 }
