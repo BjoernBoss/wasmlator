@@ -800,6 +800,40 @@ int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
 	logger.warn(u8"Unsupported fcntl command encountered [", cmd, u8']');
 	return errCode::eInvalid;
 }
+int64_t sys::detail::FileIO::lseek(int64_t fd, int64_t offset, uint64_t whence) {
+	/* validate the file descriptor */
+	if (!fCheckFd(fd))
+		return errCode::eBadFd;
+	FileIO::Instance& instance = fInstance(fd);
+
+	/* move the file-offset accordingly */
+	if (whence == consts::seekSet) {
+		if (offset < 0)
+			return errCode::eInvalid;
+		instance.offset = offset;
+		return instance.offset;
+	}
+	else if (whence == consts::seekCur) {
+		if (int64_t(instance.offset) + offset < 0)
+			return errCode::eInvalid;
+		instance.offset += offset;
+		return instance.offset;
+	}
+	else if (whence == consts::seekEnd) {
+		if (instance.node->type() != env::FileType::file)
+			return errCode::eInvalid;
+		return instance.node->stats([offset, &instance](const detail::NodeStats& stats) -> int64_t {
+			if (int64_t(instance.offset) + offset < 0)
+				return errCode::eInvalid;
+			instance.offset = stats.size + offset;
+			return instance.offset;
+			});
+	}
+
+	/* unsupported seek operation */
+	logger.error(u8"Unsupported seek mode encountered [", whence, u8']');
+	return errCode::eInvalid;
+}
 int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t count) {
 	/* validate the file descriptor */
 	if (!fCheckFd(fd) || !fInstance(fd).config.read)

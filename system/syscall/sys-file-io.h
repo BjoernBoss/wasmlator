@@ -68,6 +68,11 @@ namespace sys::detail {
 		static constexpr uint8_t dEntDirectory = 4;
 		static constexpr uint8_t dEntFile = 8;
 		static constexpr uint8_t dEntLink = 10;
+
+		/* used by lseek */
+		static constexpr uint64_t seekSet = 0;
+		static constexpr uint64_t seekCur = 1;
+		static constexpr uint64_t seekEnd = 2;
 	}
 
 	struct FdState {
@@ -174,6 +179,7 @@ namespace sys::detail {
 		int64_t faccessat2(int64_t dirfd, std::u8string_view path, int64_t mode, int64_t flags);
 		int64_t ioctl(int64_t fd, uint64_t cmd, uint64_t arg);
 		int64_t fcntl(int64_t fd, uint64_t cmd, uint64_t arg);
+		int64_t lseek(int64_t fd, int64_t offset, uint64_t whence);
 		int64_t getdents(int64_t fd, env::guest_t dirent, uint64_t count);
 
 	public:

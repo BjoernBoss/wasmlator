@@ -192,6 +192,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall fcntl(", int64_t(args.args[0]), u8", ", args.args[1], u8", ", args.args[2], u8')');
 		return pFileIO.fcntl(args.args[0], args.args[1], args.args[2]);
 	}
+	case sys::SyscallIndex::lseek: {
+		logger.debug(u8"Syscall lseek(", int64_t(args.args[0]), u8", ", int64_t(args.args[1]), u8", ", args.args[2], u8')');
+		return pFileIO.lseek(args.args[0], args.args[1], args.args[2]);
+	}
 	case sys::SyscallIndex::getdents: {
 		logger.debug(u8"Syscall getdents(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", args.args[2], u8')');
 		return pFileIO.getdents(args.args[0], args.args[1], args.args[2]);
