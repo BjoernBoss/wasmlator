@@ -112,8 +112,9 @@ export class NodeHost {
 		return instantiated.instance;
 	}
 	async loadModule(imports, buffer) {
-		let instantiated = await WebAssembly.instantiate(buffer, imports);
-		return instantiated.instance;
+		let module = await WebAssembly.compile(buffer);
+		let instance = await WebAssembly.instantiate(module, imports);
+		return instance;
 	}
 	async readInput() {
 		let _that = this;

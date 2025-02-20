@@ -37,6 +37,7 @@ class WasmLator {
 	private glue: { memory: ArrayBuffer, exports: WebAssembly.Exports };
 	private main: { memory: ArrayBuffer, exports: WebAssembly.Exports };
 	private inputBuffer: string;
+	private taskResolvable: (fn: (() => void) | null) => void;
 
 	public constructor(host: HostEnvironment) {
 		this.host = host;
@@ -45,6 +46,7 @@ class WasmLator {
 		this.glue = { memory: new ArrayBuffer(0), exports: {} };
 		this.main = { memory: new ArrayBuffer(0), exports: {} };
 		this.inputBuffer = '';
+		this.taskResolvable = function (_) { };
 	}
 
 	private logSelf(msg: string): void {
@@ -180,37 +182,37 @@ class WasmLator {
 
 		/* handle the file-system commands */
 		else if (cmd.startsWith('resolve'))
-			this.taskCompleted(process, await this.fs.getNode(payload));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.getNode(payload)));
 		else if (cmd == 'stats') {
 			let [args, name] = this.prepareTaskArgs(payload, 1);
-			this.taskCompleted(process, await this.fs.getStats(args[0], name));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.getStats(args[0], name)));
 		}
 		else if (cmd.startsWith('path'))
-			this.taskCompleted(process, await this.fs.getPath(parseInt(payload)));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.getPath(parseInt(payload))));
 		else if (cmd == 'accessed')
-			this.taskCompleted(process, await this.fs.setRead(parseInt(payload)));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.setRead(parseInt(payload))));
 		else if (cmd == 'changed')
-			this.taskCompleted(process, await this.fs.setWritten(parseInt(payload)));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.setWritten(parseInt(payload))));
 		else if (cmd == 'resize') {
 			let [args, _] = this.prepareTaskArgs(payload, 2);
-			this.taskCompleted(process, await this.fs.fileResize(args[0], args[1]));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileResize(args[0], args[1])));
 		}
 		else if (cmd == 'read') {
 			let [args, _] = this.prepareTaskArgs(payload, 4);
 			let buf = new Uint8Array(this.main.memory, args[1], args[3]);
-			this.taskCompleted(process, await this.fs.fileRead(args[0], buf, args[2]));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileRead(args[0], buf, args[2])));
 		}
 		else if (cmd == 'write') {
 			let [args, _] = this.prepareTaskArgs(payload, 4);
 			let buf = new Uint8Array(this.main.memory, args[1], args[3]);
-			this.taskCompleted(process, await this.fs.fileWrite(args[0], buf, args[2]));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileWrite(args[0], buf, args[2])));
 		}
 		else if (cmd == 'create') {
 			let [args, rest] = this.prepareTaskArgs(payload, 4);
-			this.taskCompleted(process, await this.fs.fileCreate(args[0], rest, args[1], args[2], args[3]));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileCreate(args[0], rest, args[1], args[2], args[3])));
 		}
 		else if (cmd == 'list')
-			this.taskCompleted(process, await this.fs.directoryRead(parseInt(payload)));
+			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.directoryRead(parseInt(payload))));
 		else if (cmd == 'input') {
 			/* check if new data need to be fetched */
 			if (this.inputBuffer.length == 0)
@@ -219,7 +221,7 @@ class WasmLator {
 			/* fetch as many data as possible from the input buffer */
 			let actual = this.inputBuffer.substring(0, parseInt(payload));
 			this.inputBuffer = this.inputBuffer.substring(actual.length);
-			this.taskCompleted(process, actual, true);
+			this.taskResolvable(async () => this.taskCompleted(process, actual, true));
 		}
 
 		/* default catch-handler for unknown commands */
@@ -247,6 +249,22 @@ class WasmLator {
 		/* leave the critical section - was entered by handle-task */
 		this.busy.leave();
 	}
+	private async resolveTasks() {
+		let resolve: (() => void) | null = null;
+		while (true) {
+			/* prepare the next promise */
+			let ready = new Promise<(() => void) | null>((res) => this.taskResolvable = res);
+
+			/* execute the next handler */
+			if (resolve != null)
+				resolve();
+
+			/* await for the next task to be ready and check if the end has been reached */
+			resolve = await ready;
+			if (resolve == null)
+				break;
+		}
+	}
 
 	private async loadCore(buffer: ArrayBuffer, process: number) {
 		this.busy.enter();
@@ -262,9 +280,12 @@ class WasmLator {
 
 			/* set the last-instance, invoke the handler, and then reset the last-instance
 			*	again, in order to ensure unused instances can be garbage-collected */
-			(this.glue.exports.set_last_instance as (_?: WebAssembly.Instance) => void)(instance);
-			this.taskCompleted(process);
-			(this.glue.exports.set_last_instance as (_?: WebAssembly.Instance) => void)();
+			let _that = this;
+			this.taskResolvable(function () {
+				(_that.glue.exports.set_last_instance as (_: WebAssembly.Instance | null) => void)(instance);
+				_that.taskCompleted(process);
+				(_that.glue.exports.set_last_instance as (_: WebAssembly.Instance | null) => void)(null);
+			});
 		} catch (err) {
 			this.errSelf(`Failed to load core: ${err}`);
 		}
@@ -283,9 +304,12 @@ class WasmLator {
 
 			/* set the last-instance, invoke the handler, and then reset the last-instance
 			*	again, in order to ensure unused instances can be garbage-collected */
-			(this.glue.exports.set_last_instance as (_?: WebAssembly.Instance) => void)(instance);
-			this.taskCompleted(process);
-			(this.glue.exports.set_last_instance as (_?: WebAssembly.Instance) => void)();
+			let _that = this;
+			this.taskResolvable(function () {
+				(_that.glue.exports.set_last_instance as (_: WebAssembly.Instance | null) => void)(instance);
+				_that.taskCompleted(process);
+				(_that.glue.exports.set_last_instance as (_: WebAssembly.Instance | null) => void)(null);
+			});
 		} catch (err) {
 			this.errSelf(`Failed to load block: ${err}`);
 		}
@@ -342,6 +366,10 @@ class WasmLator {
 	public async handle(msg: string): Promise<void> {
 		let promise = this.busy.start();
 
+		/* prepare the task-handler (will wait for a task to come to ensure its executed
+		*	in the call-scope of this function, not nested within the handle-task call) */
+		this.resolveTasks();
+
 		/* pass the actual command to the application */
 		try {
 			/* convert the string to a buffer */
@@ -357,10 +385,16 @@ class WasmLator {
 			this.errSelf(`Failed to handle command: ${(err as Error).stack ?? err}`);
 		}
 		this.busy.leave();
-		return promise;
+
+		/* return the handle-promise but ensure that the last task is cleaned to prevent resolve-task from waiting forever */
+		return promise.then(() => this.taskResolvable!(null));
 	}
 	public async execute(msg: string): Promise<void> {
 		let promise = this.busy.start();
+
+		/* prepare the task-handler (will wait for a task to come to ensure its executed
+		*	in the call-scope of this function, not nested within the handle-task call) */
+		this.resolveTasks();
 
 		/* pass the payload to the application */
 		try {
@@ -388,7 +422,9 @@ class WasmLator {
 			this.errSelf(`Failed to cleanup: ${(err as Error).stack ?? err}`);
 		}
 		this.busy.leave();
-		return promise;
+
+		/* return the handle-promise but ensure that the last task is cleaned to prevent resolve-task from waiting forever */
+		return promise.then(() => this.taskResolvable!(null));
 	}
 }
 
