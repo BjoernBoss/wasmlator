@@ -1731,7 +1731,7 @@ void rv64::Translate::fMakeFloatSign(bool half) const {
 	case rv64::Opcode::float_sign_xor:
 		/* extract the sign of the second operand and xor it with the first operand */
 		gen::Add[I::F32::AsInt()];
-		gen::Add[I::U64::Const(uint64_t(1) << 31)];
+		gen::Add[I::U32::Const(uint64_t(1) << 31)];
 		gen::Add[I::U32::And()];
 		gen::Add[I::U32::XOr()];
 		break;
@@ -1850,10 +1850,15 @@ bool rv64::Translate::setup() {
 	pRegistered.classify64Bit = env::Instance()->interact().defineCallback([](uint64_t value) -> uint64_t {
 		return fClassifyf64(std::bit_cast<double, uint64_t>(value));
 		});
-	pRegistered.readFloatCsrWarn = env::Instance()->interact().defineCallback([]() {
-		logger.warn(u8"Reading csr::float");
+	pRegistered.readFloatCsrWarn = env::Instance()->interact().defineCallback([this]() {
+		if (!pReadCsrShown)
+			logger.warn(u8"Reading csr::float");
+		pReadCsrShown = true;
 		});
-	pRegistered.frmFloatCsrWarn = env::Instance()->interact().defineCallback([](int64_t value) -> uint64_t {
+	pRegistered.frmFloatCsrWarn = env::Instance()->interact().defineCallback([this](int64_t value) -> uint64_t {
+		if (pFrmFloatShown)
+			return 0;
+		pFrmFloatShown = true;
 		if (value < 0)
 			logger.warn(u8"Unsupported frm used in float instruction [", str::As{ U"03b", -value }, u8']');
 		else

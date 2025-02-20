@@ -2,9 +2,6 @@ import { NodeHost } from './node-host.js';
 import { SetupWasmlator } from '../../build/gen/wasmlator.js';
 import { createInterface } from 'readline';
 
-/* setup the handler to ensure killing via sig-int */
-process.on('SIGINT', () => process.exit(1));
-
 /* setup the io-reader, host, and load the wasmlator */
 let reader = createInterface({ input: process.stdin, output: process.stdout });
 let host = new NodeHost(reader, 'fs');

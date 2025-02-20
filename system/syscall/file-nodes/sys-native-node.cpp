@@ -104,13 +104,14 @@ int64_t sys::detail::impl::NativeFileNode::open(bool truncate, std::function<int
 				});
 			});
 	}
-
-	/* simply validate the existance of the file */
-	env::Instance()->filesystem().readStats(pFileId, u8"", [this, callback](const env::FileStats* stats) {
-		pSyscall->callContinue([this, callback, stats]() -> int64_t {
-			return callback(stats != 0 ? errCode::eSuccess : errCode::eInterrupted);
+	else {
+		/* simply validate the existance of the file */
+		env::Instance()->filesystem().readStats(pFileId, u8"", [this, callback](const env::FileStats* stats) {
+			pSyscall->callContinue([this, callback, stats]() -> int64_t {
+				return callback(stats != 0 ? errCode::eSuccess : errCode::eInterrupted);
+				});
 			});
-		});
+	}
 
 	/* potentially defer the call */
 	return pSyscall->callIncomplete();

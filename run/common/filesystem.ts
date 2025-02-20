@@ -265,13 +265,26 @@ export class FileSystem {
 		/* fetch the data of the node */
 		await this._loadData(node);
 
-		/* compute the number of bytes to write */
-		let count = Math.min(buffer.byteLength, node.stats!.size - offset);
+		/* check if the file needs to be resized */
+		let count = buffer.byteLength;
+		if (offset + buffer.byteLength > node.stats!.size) {
+			try {
+				let buf = new Uint8Array(offset + buffer.byteLength);
+				buf.set(node.data!.slice(0, offset));
+				node.stats!.size = buf.byteLength;
+				node.data = buf;
+			} catch (e) {
+				this.host.log(LogType.errInternal, `Failed to allocate memory for node [${this._getNodePath(node)}]`);
+				count = Math.min(buffer.byteLength, node.stats!.size - offset);
+			}
+		}
+
+		/* check if any bytes are to be written */
 		if (count <= 0)
 			return 0;
 
 		/* write the data to the buffer */
-		node.data!.slice(offset, offset + count).set(buffer);
+		node.data!.set(buffer.slice(0, count), offset);
 		return count;
 	}
 	async fileCreate(id: number, name: string, owner: number, group: number, permissions: number): Promise<number | null> {
@@ -286,8 +299,8 @@ export class FileSystem {
 
 		/* setup the new file (including empty data to prevent loading non-existing file) */
 		next.setupStats(new FileStats('file'), { owner: owner, group: group, file: permissions });
-		node.stats!.size = 0;
-		node.data = new Uint8Array(0);
+		next.stats!.size = 0;
+		next.data = new Uint8Array(0);
 		return next.id;
 	}
 	async directoryRead(id: number): Promise<Record<string, FileStats> | null> {

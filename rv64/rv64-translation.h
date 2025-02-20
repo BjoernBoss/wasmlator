@@ -24,6 +24,8 @@ namespace rv64 {
 			uint32_t readFloatCsrWarn = 0;
 			uint32_t frmFloatCsrWarn = 0;
 		} pRegistered;
+		bool pReadCsrShown = false;
+		bool pFrmFloatShown = false;
 
 	public:
 		Translate() = default;
