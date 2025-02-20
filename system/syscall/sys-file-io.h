@@ -143,7 +143,7 @@ namespace sys::detail {
 		std::tuple<detail::SharedNode, std::u8string, int64_t> fCheckPath(int64_t dirfd, std::u8string_view path, bool allowEmpty);
 
 	private:
-		int64_t fResolveNode(const detail::SharedNode& node, const std::u8string& path, std::function<int64_t(int64_t, const detail::SharedNode&, const detail::NodeStats&, bool)> callback);
+		int64_t fResolveNode(const detail::SharedNode& node, const std::u8string& path, bool follow, bool findExisting, bool effectiveIds, std::function<int64_t(int64_t, const detail::SharedNode&, const detail::NodeStats&, bool)> callback);
 		int64_t fResolveNext(const detail::SharedNode& node, std::u8string_view lookup, const detail::NodeStats* stats);
 		int64_t fResolveNextStats(const detail::SharedNode& node, std::u8string_view name, std::u8string_view remainder, const detail::NodeStats& stats);
 

@@ -101,11 +101,17 @@ uint64_t env::Memory::fExpandPhysical(uint64_t size, uint64_t growth) const {
 
 	/* allocate a little bit more to reduce the number of growings */
 	uint64_t pages = detail::PhysPageCount(std::max<uint64_t>(detail::MinGrowthPages * pPageSize, firstAlloc));
-	if (detail::MemoryBridge::ExpandPhysical(pages))
+	if (detail::MemoryBridge::ExpandPhysical(pages)) {
+		uint64_t total = fPhysEnd(std::prev(pPhysical.end())) + pages * detail::PhysPageSize;
+		logger.info(u8"Memory expanded to: ", str::As{ U"#018x", total });
 		return pages * detail::PhysPageSize;
-	size = detail::PhysPageCount(size);
-	if (size < pages && detail::MemoryBridge::ExpandPhysical(size))
-		return (size * detail::PhysPageSize);
+	}
+	uint64_t exact = detail::PhysPageCount(size);
+	if (exact < pages && detail::MemoryBridge::ExpandPhysical(exact)) {
+		uint64_t total = fPhysEnd(std::prev(pPhysical.end())) + exact * detail::PhysPageSize;
+		logger.info(u8"Memory expanded to: ", str::As{ U"#018x", total });
+		return (exact * detail::PhysPageSize);
+	}
 	return 0;
 }
 void env::Memory::fMovePhysical(uint64_t dest, uint64_t source, uint64_t size) const {

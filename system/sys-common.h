@@ -170,7 +170,7 @@ namespace sys {
 			uint64_t inode = 0;
 			uint64_t offset = 0;
 			uint16_t length = 0;
-			uint8_t name[1] = { 0 };
+			uint8_t name[2] = { 0 };
 		};
 	}
 

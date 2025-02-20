@@ -98,8 +98,12 @@ std::tuple<sys::detail::SharedNode, std::u8string, int64_t> sys::detail::FileIO:
 	return { instance.node, util::CleanPath(path), errCode::eSuccess };
 }
 
-int64_t sys::detail::FileIO::fResolveNode(const detail::SharedNode& node, const std::u8string& path, std::function<int64_t(int64_t, const detail::SharedNode&, const detail::NodeStats&, bool)> callback) {
+int64_t sys::detail::FileIO::fResolveNode(const detail::SharedNode& node, const std::u8string& path, bool follow, bool findExisting, bool effectiveIds, std::function<int64_t(int64_t, const detail::SharedNode&, const detail::NodeStats&, bool)> callback) {
 	pResolve.callback = callback;
+	pResolve.linkFollow = 0;
+	pResolve.follow = follow;
+	pResolve.findExisting = findExisting;
+	pResolve.effectiveIds = effectiveIds;
 	return fResolveNext(node, path, 0);
 }
 int64_t sys::detail::FileIO::fResolveNext(const detail::SharedNode& node, std::u8string_view lookup, const detail::NodeStats* stats) {
@@ -364,15 +368,9 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 	if (pOpened >= detail::MaxFileDescriptors)
 		return errCode::eMaximumFiles;
 
-	/* configure the resolve-operation to be performed */
-	pResolve.linkFollow = 0;
-	pResolve.follow = follow;
-	pResolve.findExisting = !config.creation.create;
-	pResolve.effectiveIds = true;
-
 	/* lookup the file-node to the file (ensure that it cannot fail anymore once the file has been created) */
 	std::u8string _name = std::u8string{ util::SplitName(path).second };
-	return fResolveNode(start, actual, [this, mode, config, closeOnExecute, directory, _name](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool found) -> int64_t {
+	return fResolveNode(start, actual, follow, !config.creation.create, true, [this, mode, config, closeOnExecute, directory, _name](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool found) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -463,14 +461,8 @@ int64_t sys::detail::FileIO::fReadLinkAt(int64_t dirfd, std::u8string_view path,
 	if (result != errCode::eSuccess)
 		return result;
 
-	/* configure the resolve-operation to be performed */
-	pResolve.linkFollow = 0;
-	pResolve.follow = false;
-	pResolve.findExisting = true;
-	pResolve.effectiveIds = true;
-
 	/* resolve the node and perform the stat-read */
-	return fResolveNode(start, actual, [this, size, address](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
+	return fResolveNode(start, actual, false, true, true, [this, size, address](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -498,14 +490,10 @@ int64_t sys::detail::FileIO::fAccessAt(int64_t dirfd, std::u8string_view path, u
 	if (result != errCode::eSuccess)
 		return result;
 
-	/* configure the resolve-operation to be performed */
-	pResolve.linkFollow = 0;
-	pResolve.follow = !detail::IsSet(flags, consts::accNoFollow);
-	pResolve.findExisting = true;
-	pResolve.effectiveIds = detail::IsSet(flags, consts::accEIds);
-
 	/* resolve the node and perform the stat-read */
-	return fResolveNode(node, actual, [this, mode](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
+	bool follow = !detail::IsSet(flags, consts::accNoFollow);
+	bool effectiveIds = detail::IsSet(flags, consts::accEIds);
+	return fResolveNode(node, actual, follow, true, effectiveIds, [this, mode](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
@@ -709,14 +697,9 @@ int64_t sys::detail::FileIO::fstatat(int64_t dirfd, std::u8string_view path, env
 	if (result != errCode::eSuccess)
 		return result;
 
-	/* configure the resolve-operation to be performed */
-	pResolve.linkFollow = 0;
-	pResolve.follow = !detail::IsSet(flags, consts::accNoFollow);
-	pResolve.findExisting = true;
-	pResolve.effectiveIds = true;
-
 	/* resolve the node and perform the stat-read */
-	return fResolveNode(start, actual, [this, address](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
+	bool follow = !detail::IsSet(flags, consts::accNoFollow);
+	return fResolveNode(start, actual, follow, true, true, [this, address](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
 		if (result != errCode::eSuccess)
 			return result;
 
