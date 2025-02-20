@@ -109,10 +109,12 @@ class FileSystemInteract:
 			return None
 		return out
 	def getList(self, path):
+		base = (path if path == '/' else f'${base}/')
 		path, _ = self._validatePath(path)
 		if path is None or os.path.islink(path) or not os.path.isdir(path):
 			return None
-		return [x for x in os.listdir(path) if x not in ['', '.', '..']]
+		
+		return [x for x in os.listdir(path) if x not in ['', '.', '..'] and self.getStats(base + x) is not None]
 	def open(self, path):
 		path, _ = self._validatePath(path)
 		if path is None or os.path.islink(path) or not os.path.isfile(path):

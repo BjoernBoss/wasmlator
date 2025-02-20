@@ -89,7 +89,7 @@ void env::FileSystem::readStats(std::u8string_view path, std::function<void(cons
 	logger.debug(u8"Reading stats of [", actual, u8']');
 
 	/* queue the task */
-	fHandleTask(str::u8::Build(u8"resolve:", path), [this, callback](json::Reader<std::u8string_view> resp) {
+	fHandleTask(str::u8::Build(u8"resolve:", actual), [this, callback](json::Reader<std::u8string_view> resp) {
 		if (resp.isNull())
 			callback(0);
 		else {

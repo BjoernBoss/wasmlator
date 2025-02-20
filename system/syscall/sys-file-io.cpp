@@ -863,6 +863,7 @@ int64_t sys::detail::FileIO::getdents(int64_t fd, env::guest_t dirent, uint64_t 
 			}
 
 			/* write the entry to memory */
+			logger.debug(u8"Writing out: [", next.name, u8']');
 			env::Instance()->memory().mwrite(dirent + written, _buffer.get(), total, env::Usage::Write);
 			written += total;
 		}

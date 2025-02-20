@@ -186,5 +186,5 @@ int64_t sys::detail::MiscSyscalls::getrandom(env::guest_t buf, uint64_t buflen, 
 		uint32_t val = host::Random();
 		env::Instance()->memory().mwrite(buf + i, &val, (i + 4 < buflen ? 4 : buflen - i), env::Usage::Write);
 	}
-	return errCode::eSuccess;
+	return buflen;
 }

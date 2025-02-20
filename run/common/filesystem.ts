@@ -162,7 +162,7 @@ export class FileSystem {
 			/* iterate over the children and fetch their stats (will automatically
 			*	add the existing children with valid names to the list) */
 			for (const name of list)
-				this._getNode(node, path, name);
+				await this._getNode(node, path, name);
 		}
 		catch (err) {
 			/* pretend the directory does not have any children (at least no further than the already existing children) */
@@ -304,6 +304,6 @@ export class FileSystem {
 			if (node.children[key].stats != null)
 				out[key] = node.children[key].stats;
 		}
-		return null;
+		return out;
 	}
 }
