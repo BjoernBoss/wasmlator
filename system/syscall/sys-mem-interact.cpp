@@ -208,17 +208,17 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 	}
 
 	/* fetch the file-states */
-	return pSyscall->files().fdStats(fd, [this, fd, offset, length, flags, address, alignedLength, usage](int64_t result, const env::FileStats* stats) -> int64_t {
+	return pSyscall->files().fdStats(fd, [this, fd, offset, length, flags, address, alignedLength, usage](int64_t result, const env::FileStats& stats) -> int64_t {
 		/* check if an error occurred */
 		if (result != errCode::eSuccess)
 			return result;
 
 		/* compute the actual number of bytes to be mapped and the corresponding page-count */
 		uint64_t actual = length;
-		if (offset >= stats->size)
+		if (offset >= stats.size)
 			actual = 0;
-		else if (offset + length >= stats->size)
-			actual = stats->size - offset;
+		else if (offset + length >= stats.size)
+			actual = stats.size - offset;
 
 		/* map the range and check if an error occurred */
 		int64_t allocated = fMapRange(address, alignedLength, usage, flags);

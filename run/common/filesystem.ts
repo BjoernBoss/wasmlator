@@ -95,7 +95,7 @@ export class FileSystem {
 		let actual = (current.endsWith('/') ? current + name : `${current}/${name}`);
 
 		/* validate the name components */
-		if (name in ['', '.', '..'] || name.includes('\\'))
+		if (['', '.', '..'].includes(name) || name.includes('\\'))
 			return null;
 
 		/* lookup the name in the parent */
@@ -192,10 +192,16 @@ export class FileSystem {
 			return null;
 		return this._getNodePath(node);
 	}
-	async setDirty(id: number): Promise<boolean> {
+	async setRead(id: number): Promise<boolean> {
 		let node = this._getValid(id);
 		if (node != null)
 			node.read();
+		return (node != null);
+	}
+	async setWritten(id: number): Promise<boolean> {
+		let node = this._getValid(id);
+		if (node != null)
+			node.written();
 		return (node != null);
 	}
 	async fileResize(id: number, size: number): Promise<boolean> {
@@ -205,8 +211,6 @@ export class FileSystem {
 
 		/* check if the size should be set to zero */
 		if (size == 0) {
-			if (node.stats!.size != 0)
-				node.written();
 			node.stats!.size = 0;
 			node.data = new Uint8Array(0);
 			return true;
@@ -221,7 +225,6 @@ export class FileSystem {
 		if (size <= node.stats!.size) {
 			node.stats!.size = size;
 			node.data = node.data!.slice(0, size);
-			node.written();
 			return true;
 		}
 
@@ -231,7 +234,6 @@ export class FileSystem {
 			buf.set(node.data!, 0);
 			node.stats!.size = size;
 			node.data = buf;
-			node.written();
 			return true;
 		} catch (e) {
 			this.host.log(LogType.errInternal, `Failed to allocate memory for node [${this._getNodePath(node)}]`);
@@ -253,7 +255,6 @@ export class FileSystem {
 
 		/* read the data to the buffer */
 		buffer.set(node.data!.slice(offset, offset + count));
-		node.read();
 		return count;
 	}
 	async fileWrite(id: number, buffer: Uint8Array, offset: number): Promise<number | null> {
@@ -271,7 +272,6 @@ export class FileSystem {
 
 		/* write the data to the buffer */
 		node.data!.slice(offset, offset + count).set(buffer);
-		node.written();
 		return count;
 	}
 	async fileCreate(id: number, name: string, owner: number, group: number, permissions: number): Promise<number | null> {
@@ -298,13 +298,12 @@ export class FileSystem {
 		/* fetch all of the children of the directory */
 		await this._loadChildren(node);
 
-		/* construct the output map and mark the directory as read */
+		/* construct the output map */
 		let out: Record<string, FileStats> = {};
 		for (const key in node.children) {
 			if (node.children[key].stats != null)
 				out[key] = node.children[key].stats;
 		}
-		node.read();
 		return null;
 	}
 }

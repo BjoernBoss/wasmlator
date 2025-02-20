@@ -1,52 +1,95 @@
 #include "../../system.h"
 
-sys::detail::impl::NativeFileNode::NativeFileNode(const detail::SharedNode& ancestor, env::FileType type, detail::Syscall* syscall, uint64_t fileId) : FileNode{ ancestor, fileId, type }, pSyscall{ syscall }, pFileId{ fileId } {}
+static util::Logger logger{ u8"sys::syscall" };
 
-int64_t sys::detail::impl::NativeFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
-	/* query the actual stats */
-	env::Instance()->filesystem().readStats(pFileId, [this, callback](const env::FileStats* stats) {
-		pSyscall->callContinue([callback, stats]() -> int64_t { return callback(stats); });
-		});
+sys::detail::impl::NativeFileNode::NativeFileNode(env::FileType type, detail::Syscall* syscall, uint64_t fileId) : RealFileNode{ fileId, type }, pSyscall{ syscall }, pFileId{ fileId } {}
 
-	/* potentially defer the call */
-	return pSyscall->callIncomplete();
+sys::detail::NodeStats sys::detail::impl::NativeFileNode::fMakeNodeStats(const env::FileStats& stats) const {
+	return detail::NodeStats{
+		.link = stats.link,
+		.access = stats.access,
+		.timeModifiedUS = stats.timeModifiedUS,
+		.timeAccessedUS = stats.timeAccessedUS,
+		.size = stats.size
+	};
 }
-int64_t sys::detail::impl::NativeFileNode::linkRead(std::function<int64_t(bool)> callback) {
-	/* perform the access-operation */
-	env::Instance()->filesystem().accessedObject(pFileId, [this, callback](bool success) {
-		pSyscall->callContinue([callback, success]() -> int64_t { return callback(success); });
-		});
 
-	/* potentially defer the call */
-	return pSyscall->callIncomplete();
-}
-int64_t sys::detail::impl::NativeFileNode::lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
+int64_t sys::detail::impl::NativeFileNode::makeLookup(std::u8string_view name, std::function<int64_t(const detail::SharedNode&, const detail::NodeStats&)> callback) const {
 	/* query the stats of the target name */
-	env::Instance()->filesystem().readStats(path, [this, path, callback](const env::FileStats* stats) {
-		pSyscall->callContinue([this, path, callback, stats]() -> int64_t {
+	env::Instance()->filesystem().readStats(pFileId, name, [this, callback](const env::FileStats* stats) {
+		pSyscall->callContinue([this, callback, stats]() -> int64_t {
 			/* check if the object exists */
 			if (stats == 0)
 				return callback({}, {});
 
 			/* spawn the native node */
-			return callback(std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), stats->type, pSyscall, stats->id), *stats);
+			return callback(std::make_shared<impl::NativeFileNode>(stats->type, pSyscall, stats->id), fMakeNodeStats(*stats));
 			});
 		});
 
 	/* potentially defer the call */
 	return pSyscall->callIncomplete();
 }
-int64_t sys::detail::impl::NativeFileNode::create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
+int64_t sys::detail::impl::NativeFileNode::makeCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, const detail::SharedNode&)> callback) {
 	/* try to create the file-object */
 	env::Instance()->filesystem().createFile(pFileId, name, access, [this, callback](std::optional<uint64_t> fileId) {
 		pSyscall->callContinue([this, callback, fileId]() -> int64_t {
-			/* check if the open succeeded */
+			/* check if the open succeeded (interrupted, as the object must have been created between lookup and create) */
 			if (!fileId.has_value())
 				return callback(errCode::eInterrupted, {});
 
 			/* spawn the native node */
-			return callback(errCode::eSuccess, std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), env::FileType::file, pSyscall, fileId.value()));
+			return callback(errCode::eSuccess, std::make_shared<impl::NativeFileNode>(env::FileType::file, pSyscall, fileId.value()));
 			});
+		});
+
+	/* potentially defer the call */
+	return pSyscall->callIncomplete();
+}
+int64_t sys::detail::impl::NativeFileNode::makeListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+	/* perform the read-operation */
+	env::Instance()->filesystem().readDirectory(pFileId, [this, callback](const std::map<std::u8string, env::FileStats>* map) {
+		pSyscall->callContinue([callback, map]() -> int64_t {
+			if (map == 0)
+				return callback(errCode::eIO, {});
+			std::vector<detail::DirEntry> out;
+			for (const auto& [key, value] : *map)
+				out.emplace_back(detail::DirEntry{ .name = key, .id = value.id, .type = value.type });
+			return callback(errCode::eSuccess, out);
+			});
+		});
+
+	/* potentially defer the call */
+	return pSyscall->callIncomplete();
+}
+int64_t sys::detail::impl::NativeFileNode::stats(std::function<int64_t(const detail::NodeStats&)> callback) const {
+	/* query the actual stats */
+	env::Instance()->filesystem().readStats(pFileId, u8"", [this, callback](const env::FileStats* stats) {
+		if (stats == 0)
+			logger.fatal(u8"Failed to fetch stats of existing node [", pFileId, u8']');
+		else {
+			pSyscall->callContinue([this, callback, stats]() -> int64_t {
+				return callback(fMakeNodeStats(*stats));
+				});
+		}
+		});
+
+	/* potentially defer the call */
+	return pSyscall->callIncomplete();
+}
+int64_t sys::detail::impl::NativeFileNode::flagRead(std::function<int64_t()> callback) {
+	/* perform the access-operation */
+	env::Instance()->filesystem().accessedObject(pFileId, [this, callback](bool success) {
+		pSyscall->callContinue([callback]() -> int64_t { return callback(); });
+		});
+
+	/* potentially defer the call */
+	return pSyscall->callIncomplete();
+}
+int64_t sys::detail::impl::NativeFileNode::flagWritten(std::function<int64_t()> callback) {
+	/* perform the access-operation */
+	env::Instance()->filesystem().changedObject(pFileId, [this, callback](bool success) {
+		pSyscall->callContinue([callback]() -> int64_t { return callback(); });
 		});
 
 	/* potentially defer the call */
@@ -63,7 +106,7 @@ int64_t sys::detail::impl::NativeFileNode::open(bool truncate, std::function<int
 	}
 
 	/* simply validate the existance of the file */
-	env::Instance()->filesystem().readStats(pFileId, [this, callback](const env::FileStats* stats) {
+	env::Instance()->filesystem().readStats(pFileId, u8"", [this, callback](const env::FileStats* stats) {
 		pSyscall->callContinue([this, callback, stats]() -> int64_t {
 			return callback(stats != 0 ? errCode::eSuccess : errCode::eInterrupted);
 			});

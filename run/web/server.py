@@ -108,6 +108,11 @@ class FileSystemInteract:
 		else:
 			return None
 		return out
+	def getList(self, path):
+		path, _ = self._validatePath(path)
+		if path is None or os.path.islink(path) or not os.path.isdir(path):
+			return None
+		return [x for x in os.listdir(path) if x not in ['', '.', '..']]
 	def open(self, path):
 		path, _ = self._validatePath(path)
 		if path is None or os.path.islink(path) or not os.path.isfile(path):
@@ -147,6 +152,15 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 			super().copyfile(f, self.wfile)
 		finally:
 			f.close()
+	def do_list(self, body, path):
+		list = fileSystem.getList(path)
+		out = json.dumps(list).encode('utf-8')
+		super().send_response(http.HTTPStatus.OK)
+		super().send_header('Content-Length', f'{len(out)}')
+		super().send_header('Content-Type', 'application/json; charset=utf-8')
+		super().end_headers()
+		if body:
+			self.wfile.write(out)
 	def dispatch(self, body):
 		# check if the request should be handled separately
 		if self.path.startswith('/stat/'):
@@ -154,6 +168,9 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 			return None
 		elif self.path.startswith('/data/'):
 			self.do_read(body, self.path[5:])
+			return None
+		elif self.path.startswith('/list/'):
+			self.do_list(body, self.path[5:])
 			return None
 
 		# dispatch the path to be used

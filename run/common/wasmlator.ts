@@ -150,10 +150,10 @@ class WasmLator {
 		let args: number[] = [];
 		let rest: string = '';
 		for (let i = 0; i <= n; ++i) {
-			if (i == n && i < split.length)
-				rest = split.slice(n).join(':');
-			else
+			if (i < n)
 				args.push(parseInt(split[i]));
+			else if (i < split.length)
+				rest = split.slice(n).join(':');
 		}
 		return [args, rest];
 	}
@@ -188,7 +188,9 @@ class WasmLator {
 		else if (cmd.startsWith('path'))
 			this.taskCompleted(process, await this.fs.getPath(parseInt(payload)));
 		else if (cmd == 'accessed')
-			this.taskCompleted(process, await this.fs.setDirty(parseInt(payload)));
+			this.taskCompleted(process, await this.fs.setRead(parseInt(payload)));
+		else if (cmd == 'changed')
+			this.taskCompleted(process, await this.fs.setWritten(parseInt(payload)));
 		else if (cmd == 'resize') {
 			let [args, _] = this.prepareTaskArgs(payload, 2);
 			this.taskCompleted(process, await this.fs.fileResize(args[0], args[1]));

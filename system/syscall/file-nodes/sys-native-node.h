@@ -6,7 +6,7 @@
 
 namespace sys::detail::impl {
 	/* file-node, which provides access to actual native file-objects */
-	class NativeFileNode : public detail::FileNode {
+	class NativeFileNode : public detail::RealFileNode {
 	private:
 		uint64_t pFileId = 0;
 
@@ -14,13 +14,18 @@ namespace sys::detail::impl {
 		detail::Syscall* pSyscall = 0;
 
 	public:
-		NativeFileNode(const detail::SharedNode& ancestor, env::FileType type, detail::Syscall* syscall, uint64_t fileId);
+		NativeFileNode(env::FileType type, detail::Syscall* syscall, uint64_t fileId);
+
+	private:
+		detail::NodeStats fMakeNodeStats(const env::FileStats& stats) const;
 
 	public:
-		int64_t stats(std::function<int64_t(const env::FileStats*)> callback) const;
-		int64_t linkRead(std::function<int64_t(bool)> callback) final;
-		int64_t lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) final;
-		int64_t create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) final;
+		int64_t makeLookup(std::u8string_view name, std::function<int64_t(const detail::SharedNode&, const detail::NodeStats&)> callback) const final;
+		int64_t makeCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, const detail::SharedNode&)> callback) final;
+		int64_t makeListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) final;
+		int64_t stats(std::function<int64_t(const detail::NodeStats&)> callback) const final;
+		int64_t flagRead(std::function<int64_t()> callback) final;
+		int64_t flagWritten(std::function<int64_t()> callback) final;
 		int64_t open(bool truncate, std::function<int64_t(int64_t)> callback) final;
 		int64_t read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 		int64_t write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;

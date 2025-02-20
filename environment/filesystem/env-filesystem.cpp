@@ -146,6 +146,12 @@ void env::FileSystem::accessedObject(uint64_t id, std::function<void(bool)> call
 		callback(resp.boolean());
 		});
 }
+void env::FileSystem::changedObject(uint64_t id, std::function<void(bool)> callback) {
+	logger.debug(u8"Marking object [", id, u8"] as changed");
+	fHandleTask(str::u8::Build(u8"changed:", id), [this, callback](json::Reader<std::u8string_view> resp) {
+		callback(resp.boolean());
+		});
+}
 void env::FileSystem::resizeFile(uint64_t id, uint64_t size, std::function<void(bool)> callback) {
 	logger.debug(u8"Resizing file [", id, u8"] to [", size, u8']');
 	fHandleTask(str::u8::Build(u8"resize:", id, u8':', size), [this, callback](json::Reader<std::u8string_view> resp) {

@@ -90,6 +90,9 @@ namespace env {
 		/* mark object as read (false if does not exist) */
 		void accessedObject(uint64_t id, std::function<void(bool)> callback);
 
+		/* mark object as written (false if does not exist) */
+		void changedObject(uint64_t id, std::function<void(bool)> callback);
+
 		/* resize file to given size (false if does not exist or not file or no memory) */
 		void resizeFile(uint64_t id, uint64_t size, std::function<void(bool)> callback);
 

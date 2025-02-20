@@ -45,4 +45,11 @@ export class WebHost {
 		let response = await fetch(`/data${path}`, { credentials: 'same-origin' });
 		return new Uint8Array(await response.arrayBuffer());
 	}
+	async fsLoadChildren(path) {
+		let response = await fetch(`/list${path}`, { credentials: 'same-origin' });
+		let json = await response.json();
+
+		/* read the content of the file and sanitize it */
+		return json.filter((v) => !['', '.', '..'].includes(v));
+	}
 }

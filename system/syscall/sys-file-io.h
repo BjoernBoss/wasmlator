@@ -97,7 +97,6 @@ namespace sys::detail {
 		struct Instance {
 			std::vector<detail::DirEntry> dirCache;
 			detail::SharedNode node;
-			std::u8string path;
 			uint64_t offset = 0;
 			size_t user = 0;
 			InstanceConfig config;
@@ -110,7 +109,6 @@ namespace sys::detail {
 		};
 
 	private:
-		std::map<std::u8string, detail::SharedNode> pMounted;
 		std::shared_ptr<impl::RootFileNode> pRoot;
 		std::vector<Instance> pInstance;
 		std::vector<Open> pOpen;
@@ -119,7 +117,7 @@ namespace sys::detail {
 		detail::Syscall* pSyscall = 0;
 		size_t pOpened = 0;
 		struct {
-			std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback;
+			std::function<int64_t(int64_t, const detail::SharedNode&, const detail::NodeStats&, bool)> callback;
 			size_t linkFollow = 0;
 			bool follow = false;
 			bool findExisting = false;
@@ -128,6 +126,7 @@ namespace sys::detail {
 
 	public:
 		FileIO() = default;
+		~FileIO();
 
 	private:
 		const FileIO::Instance& fInstance(int64_t fd) const;
@@ -135,19 +134,18 @@ namespace sys::detail {
 		bool fCheckFd(int64_t fd) const;
 		int64_t fCheckRead(int64_t fd) const;
 		int64_t fCheckWrite(int64_t fd) const;
-		bool fCheckAccess(const env::FileStats& stats, bool read, bool write, bool execute, bool effIds) const;
-		std::pair<std::u8string, int64_t> fCheckPath(int64_t dirfd, std::u8string_view path, bool allowEmpty);
+		bool fCheckAccess(const detail::NodeStats& stats, bool read, bool write, bool execute, bool effIds) const;
+		std::tuple<detail::SharedNode, std::u8string, int64_t> fCheckPath(int64_t dirfd, std::u8string_view path, bool allowEmpty);
 
 	private:
-		int64_t fResolveNode(const std::u8string& path, std::function<int64_t(int64_t, const std::u8string&, detail::SharedNode, const env::FileStats&, bool)> callback);
-		int64_t fResolveNext(const std::u8string& path, std::u8string_view lookup, detail::SharedNode node, const env::FileStats& stats);
-		int64_t fResolveLookup(detail::SharedNode node, const std::u8string& name, const std::u8string& path, const std::u8string& remainder, const env::FileStats& stats);
+		int64_t fResolveNode(const detail::SharedNode& node, const std::u8string& path, std::function<int64_t(int64_t, const detail::SharedNode&, const detail::NodeStats&, bool)> callback);
+		int64_t fResolveNext(const detail::SharedNode& node, std::u8string_view lookup, const detail::NodeStats* stats);
+		int64_t fResolveNextStats(const detail::SharedNode& node, std::u8string_view name, std::u8string_view remainder, const detail::NodeStats& stats);
 
 	private:
 		int64_t fLookupNextFd(uint64_t start, bool canFail);
-		int64_t fSetupFile(detail::SharedNode node, std::u8string_view path, env::FileType type, const FileIO::InstanceConfig& config, bool closeOnExecute);
-		linux::FileStats fBuildLinuxStats(const env::FileStats& stats) const;
-		int64_t fLoadStats(uint64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const;
+		int64_t fSetupFile(const detail::SharedNode& node, const FileIO::InstanceConfig& config, bool closeOnExecute);
+		linux::FileStats fBuildLinuxStats(const detail::SharedNode& node, const detail::NodeStats& stats) const;
 		int64_t fRead(uint64_t fd, std::optional<uint64_t> offset, std::function<int64_t(int64_t)> callback);
 		int64_t fWrite(uint64_t fd, std::optional<uint64_t> offset);
 
@@ -180,7 +178,7 @@ namespace sys::detail {
 
 	public:
 		detail::FdState fdCheck(int64_t fd) const;
-		int64_t fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats*)> callback) const;
+		int64_t fdStats(int64_t fd, std::function<int64_t(int64_t, const env::FileStats&)> callback) const;
 		int64_t fdRead(int64_t fd, uint64_t offset, uint64_t size, std::function<int64_t(const uint8_t*, uint64_t)> callback);
 	};
 }

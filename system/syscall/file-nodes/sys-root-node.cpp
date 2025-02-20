@@ -1,18 +1,9 @@
 #include "../../system.h"
 
-sys::detail::impl::RootFileNode::RootFileNode(const detail::SharedNode& ancestor, detail::Syscall* syscall, env::FileAccess access) : FileNode{ ancestor, util::UniqueId(), env::FileType::directory }, pSyscall{ syscall }, pAccess{ access } {}
+static util::Logger logger{ u8"sys::syscall" };
 
-void sys::detail::impl::RootFileNode::fPatchStats(env::FileStats& stats) const {
-	stats.type = env::FileType::directory;
-	stats.access = pAccess;
-	stats.id = FileNode::id();
-	stats.virtualized = true;
-}
-int64_t sys::detail::impl::RootFileNode::fNullStats(std::function<int64_t(const env::FileStats*)> callback) const {
-	env::FileStats stats;
-	fPatchStats(stats);
-	return callback(&stats);
-}
+sys::detail::impl::RootFileNode::RootFileNode(detail::Syscall* syscall, env::FileAccess access) : FileNode{ util::UniqueId(), true, env::FileType::directory }, pSyscall{ syscall }, pAccess{ access } {}
+
 int64_t sys::detail::impl::RootFileNode::fWithNative(std::function<int64_t()> callback) const {
 	if (pNative.get() != 0)
 		return callback();
@@ -20,8 +11,13 @@ int64_t sys::detail::impl::RootFileNode::fWithNative(std::function<int64_t()> ca
 	/* try to create the native node */
 	env::Instance()->filesystem().readStats(u8"/", [this, callback](const env::FileStats* stats) {
 		pSyscall->callContinue([this, callback, stats]() -> int64_t {
-			if (stats != 0)
-				pNative = std::make_shared<impl::NativeFileNode>(FileNode::ancestor(), stats->type, pSyscall, stats->id);
+			if (stats == 0) {
+				logger.fatal(u8"Failed to fetch stats of root-node");
+
+				/* should never be reached */
+				return errCode::eUnknown;
+			}
+			pNative = std::make_shared<impl::NativeFileNode>(stats->type, pSyscall, stats->id);
 			return callback();
 			});
 		});
@@ -34,46 +30,52 @@ void sys::detail::impl::RootFileNode::enable() {
 	pEnabled = true;
 }
 
-int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const env::FileStats*)> callback) const {
+int64_t sys::detail::impl::RootFileNode::stats(std::function<int64_t(const detail::NodeStats&)> callback) const {
 	/* check if the node is not yet enabled, in which case the empty stats need to be provided */
 	if (!pEnabled)
-		return fNullStats(callback);
+		return callback(detail::NodeStats{ .access = pAccess });
 
 	/* perform the stats-lookup */
 	return fWithNative([this, callback]() -> int64_t {
-		/* the root must exist */
-		if (pNative.get() == 0)
-			return fNullStats(callback);
-
-		/* perform the actual stat-read (the root must exist at all times) */
-		return pNative->stats([this, callback](const env::FileStats* stats) -> int64_t {
-			if (stats == 0)
-				return fNullStats(callback);
-			env::FileStats _stats{ *stats };
-			fPatchStats(_stats);
-			return callback(&_stats);
+		return pNative->stats([this, callback](const detail::NodeStats& stats) -> int64_t {
+			detail::NodeStats _stats{ stats };
+			_stats.access = pAccess;
+			return callback(_stats);
 			});
 		});
 }
-int64_t sys::detail::impl::RootFileNode::lookup(std::u8string_view name, const std::u8string& path, std::function<int64_t(std::shared_ptr<detail::FileNode>, const env::FileStats&)> callback) {
+int64_t sys::detail::impl::RootFileNode::makeLookup(std::u8string_view name, std::function<int64_t(const detail::SharedNode&, const detail::NodeStats&)> callback) const {
 	if (!pEnabled)
 		return callback({}, {});
-
-	/* perform the actual call */
-	return fWithNative([this, name = std::u8string{ name }, path, callback]() -> int64_t {
-		if (pNative.get() == 0)
-			return callback({}, {});
-		return pNative->lookup(name, path, callback);
+	return fWithNative([this, name = std::u8string{ name }, callback]() -> int64_t {
+		return pNative->makeLookup(name, callback);
 		});
 }
-int64_t sys::detail::impl::RootFileNode::create(std::u8string_view name, const std::u8string& path, env::FileAccess access, std::function<int64_t(int64_t, std::shared_ptr<detail::FileNode>)> callback) {
+int64_t sys::detail::impl::RootFileNode::makeCreate(std::u8string_view name, env::FileAccess access, std::function<int64_t(int64_t, const detail::SharedNode&)> callback) {
 	if (!pEnabled)
-		return callback({}, {});
-
-	/* perform the actual call */
-	return fWithNative([this, name = std::u8string{ name }, path, access, callback]() -> int64_t {
-		if (pNative.get() == 0)
-			return callback({}, {});
-		return pNative->create(name, path, access, callback);
+		return callback(errCode::eReadOnly, {});
+	return fWithNative([this, name = std::u8string{ name }, access, callback]() -> int64_t {
+		return pNative->makeCreate(name, access, callback);
+		});
+}
+int64_t sys::detail::impl::RootFileNode::makeListDir(std::function<int64_t(int64_t, const std::vector<detail::DirEntry>&)> callback) {
+	if (!pEnabled)
+		return callback(errCode::eSuccess, {});
+	return fWithNative([this, callback]() -> int64_t {
+		return pNative->makeListDir(callback);
+		});
+}
+int64_t sys::detail::impl::RootFileNode::flagRead(std::function<int64_t()> callback) {
+	if (!pEnabled)
+		return callback();
+	return fWithNative([this, callback]() -> int64_t {
+		return pNative->flagRead(callback);
+		});
+}
+int64_t sys::detail::impl::RootFileNode::flagWritten(std::function<int64_t()> callback) {
+	if (!pEnabled)
+		return callback();
+	return fWithNative([this, callback]() -> int64_t {
+		return pNative->flagWritten(callback);
 		});
 }

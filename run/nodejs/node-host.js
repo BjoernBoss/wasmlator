@@ -178,8 +178,24 @@ export class NodeHost {
 		var [actual, _] = await this._validatePath(path);
 		if (actual == null)
 			throw new Error(`Invalid path [${path}] encountered`);
+		let stats = await fs.lstat(actual);
+		if (stats.isSymbolicLink() || !stats.isFile())
+			throw new Error(`Invalid file [${path}] encountered`);
 
 		/* read the content of the file */
 		return new Uint8Array(await fs.readFile(actual));
+	}
+	async fsLoadChildren(path) {
+		/* validate the filepath */
+		var [actual, _] = await this._validatePath(path);
+		if (actual == null)
+			throw new Error(`Invalid path [${path}] encountered`);
+		let stats = await fs.lstat(actual);
+		if (stats.isSymbolicLink() || !stats.isDirectory())
+			throw new Error(`Invalid directory [${path}] encountered`);
+
+		/* read the content of the file and sanitize it */
+		let list = await fs.readdir(actual);
+		return list.filter((v) => !['', '.', '..'].includes(v));
 	}
 }
