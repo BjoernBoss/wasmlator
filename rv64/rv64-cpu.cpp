@@ -290,6 +290,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 215:
 		call.index = sys::SyscallIndex::munmap;
 		break;
+	case 216:
+		call.index = sys::SyscallIndex::mremap;
+		break;
 	case 222:
 		call.index = sys::SyscallIndex::mmap;
 		break;

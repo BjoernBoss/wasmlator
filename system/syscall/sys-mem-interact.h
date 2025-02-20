@@ -28,11 +28,13 @@ namespace sys::detail {
 			consts::mmFlagSharedValidate | consts::mmFlagFixed | consts::mmFlagAnonymous |
 			consts::mmFlagShared | consts::mmFlagSync | consts::mmFlagFixedNoReplace |
 			consts::mmFlagDenyWrite | consts::mmFlagExecutable;
-	}
 
-	struct MemShared {
-		uint64_t length = 0;
-	};
+		/* used by mremap */
+		static constexpr uint64_t mmvMayMove = 0x01;
+		static constexpr uint64_t mmvFixed = 0x02;
+		static constexpr uint64_t mmvDontUnmap = 0x04;
+		static constexpr uint64_t mmvMask = consts::mmvMayMove | consts::mmvFixed | consts::mmvDontUnmap;
+	}
 
 	class MemoryInteract {
 	private:
@@ -41,7 +43,6 @@ namespace sys::detail {
 			env::guest_t current = 0;
 			env::guest_t aligned = 0;
 		} pBrk;
-		std::map<env::guest_t, detail::MemShared> pShared;
 		env::guest_t pPageSize = 0;
 		detail::Syscall* pSyscall = 0;
 
@@ -51,7 +52,6 @@ namespace sys::detail {
 	private:
 		env::guest_t fPageOffset(env::guest_t address) const;
 		env::guest_t fPageAlignUp(env::guest_t address) const;
-		void fRemoveShared(env::guest_t address, uint64_t length);
 		bool fCheckRange(env::guest_t address, uint64_t length, bool replace);
 		int64_t fMapRange(env::guest_t address, uint64_t length, uint32_t usage, uint32_t flags);
 
@@ -61,5 +61,6 @@ namespace sys::detail {
 		int64_t mmap(env::guest_t address, uint64_t length, uint32_t protect, uint32_t flags, int64_t fd, uint64_t offset);
 		int64_t mprotect(env::guest_t address, uint64_t length, uint32_t protect);
 		int64_t munmap(env::guest_t address, uint64_t length);
+		int64_t mremap(env::guest_t old_addr, uint64_t old_len, uint64_t new_len, uint32_t flags, env::guest_t new_addr);
 	};
 }

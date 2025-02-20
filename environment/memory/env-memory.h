@@ -127,6 +127,7 @@ namespace env {
 		uint64_t maxAllocate() const;
 		void checkXInvalidated(env::guest_t address);
 		std::pair<env::guest_t, uint64_t> findNext(env::guest_t address) const;
+		uint32_t getUsage(env::guest_t address) const;
 
 	public:
 		env::guest_t alloc(uint64_t size, uint32_t usage);

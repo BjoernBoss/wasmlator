@@ -671,6 +671,17 @@ std::pair<env::guest_t, uint64_t> env::Memory::findNext(env::guest_t address) co
 		return { 0, 0 };
 	return { virt->first, virt->second.size };
 }
+uint32_t env::Memory::getUsage(env::guest_t address) const {
+	/* lookup the entry, which contains the given address */
+	detail::MemVirtIt virt = pVirtual.upper_bound(address);
+	if (virt != pVirtual.begin())
+		--virt;
+
+	/* check if the entry contains the address */
+	if (virt != pVirtual.end() && virt->first <= address && fVirtEnd(virt) > address)
+		return virt->second.usage;
+	return 0;
+}
 
 env::guest_t env::Memory::alloc(uint64_t size, uint32_t usage) {
 	/* check if the allocation can be serviced */

@@ -202,6 +202,7 @@ namespace sys {
 		mmap,
 		mprotect,
 		munmap,
+		mremap,
 		readlinkat,
 		readlink,
 		fstat,

@@ -100,6 +100,10 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall munmap(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#010x", args.args[1] }, u8')');
 		return pMemory.munmap(args.args[0], args.args[1]);
 	}
+	case sys::SyscallIndex::mremap: {
+		logger.debug(u8"Syscall mremap(", str::As{ U"#018x", args.args[0] }, u8", ", str::As{ U"#010x", args.args[1] }, u8", ", str::As{ U"#010x", args.args[2] }, u8", ", args.args[3], u8", ", str::As{ U"#018x", args.args[4] }, u8')');
+		return pMemory.mremap(args.args[0], args.args[1], args.args[2], uint32_t(args.args[3]), args.args[4]);
+	}
 	case sys::SyscallIndex::uname: {
 		logger.debug(u8"Syscall uname(", str::As{ U"#018x", args.args[0] }, u8')');
 		return pMisc.uname(args.args[0]);

@@ -8,45 +8,11 @@ env::guest_t sys::detail::MemoryInteract::fPageOffset(env::guest_t address) cons
 env::guest_t sys::detail::MemoryInteract::fPageAlignUp(env::guest_t address) const {
 	return ((address + pPageSize - 1) & ~(pPageSize - 1));
 }
-void sys::detail::MemoryInteract::fRemoveShared(env::guest_t address, uint64_t length) {
-	env::guest_t end = (address + length);
-
-	/* iterate over the shared ranges and remove all overlapping entries (no need to check th replace-flags, as
-	*	the shared mappings are a subset of the mmap-ranges, which would therefore already have thrown an error) */
-	auto it = pShared.upper_bound(address);
-	if (it != pShared.begin())
-		--it;
-	while (it != pShared.end()) {
-		env::guest_t tempEnd = it->first + it->second.length;
-
-		/* check if the size of the range just needs to be reduced */
-		if (it->first < address) {
-			if (tempEnd > address)
-				it->second.length = address - it->first;
-			++it;
-			continue;
-		}
-
-		/* check if the end has been reached */
-		if (it->first >= end)
-			break;
-
-		/* check if the end of the range can be kept */
-		if (tempEnd > end) {
-			pShared.erase(it);
-			pShared.insert({ end, detail::MemShared{ tempEnd - end } });
-			break;
-		}
-
-		/* remove the entire overlapped range */
-		it = pShared.erase(it);
-	}
-}
 bool sys::detail::MemoryInteract::fCheckRange(env::guest_t address, uint64_t length, bool replace) {
 	std::pair<env::guest_t, uint64_t> range = { address, 0 };
 	env::guest_t end = (address + length);
 
-	/* iterate over all allocataions within the range */
+	/* iterate over all allocations within the range */
 	while (true) {
 		range = env::Instance()->memory().findNext(range.first + range.second);
 
@@ -68,10 +34,6 @@ bool sys::detail::MemoryInteract::fCheckRange(env::guest_t address, uint64_t len
 		if (range.first + range.second >= end)
 			break;
 	}
-
-	/* remove the shared overlapping entries (no need to check the replace-flags, as the shared mappings
-	*	are a subset of the mmap-ranges, which would therefore already have thrown an error) */
-	fRemoveShared(address, length);
 	return true;
 }
 int64_t sys::detail::MemoryInteract::fMapRange(env::guest_t address, uint64_t length, uint32_t usage, uint32_t flags) {
@@ -158,6 +120,10 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 
 	/* note shared/shared-validate and private cannot be encoded at the same time */
 	bool shared = (detail::IsSet(flags, consts::mmFlagSharedValidate) || detail::IsSet(flags, consts::mmFlagShared));
+	if (shared) {
+		logger.error(u8"Shared memory is currently not supported");
+		return errCode::eNotImplemented;
+	}
 
 	/* map the protection to usage */
 	uint32_t usage = 0;
@@ -181,10 +147,6 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 		int64_t result = fMapRange(address, alignedLength, usage, flags);
 		if (result < 0)
 			return result;
-
-		/* update the shared mappings (no chance for collisions, as the shared-mappings are a subset of the memory-mapper) */
-		if (shared)
-			pShared.insert({ address, detail::MemShared{ length } });
 		return result;
 	}
 
@@ -281,8 +243,74 @@ int64_t sys::detail::MemoryInteract::munmap(env::guest_t address, uint64_t lengt
 	/* perform the memory operation */
 	if (!env::Instance()->memory().munmap(address, fPageAlignUp(length)))
 		return errCode::eNoMemory;
-
-	/* apply the change to the shared mapping */
-	fRemoveShared(address, fPageAlignUp(length));
 	return errCode::eSuccess;
+}
+int64_t sys::detail::MemoryInteract::mremap(env::guest_t old_addr, uint64_t old_len, uint64_t new_len, uint32_t flags, env::guest_t new_addr) {
+	/* check if all flags are supported */
+	if ((flags & ~consts::mmvMask) != 0) {
+		logger.error(u8"Unknown flags used in mremap");
+		return errCode::eInvalid;
+	}
+
+	/* validate the paramter */
+	env::guest_t end = fPageAlignUp(old_addr + old_len);
+	if (fPageOffset(old_addr) != 0 || end <= old_addr || new_len == 0)
+		return errCode::eInvalid;
+
+	/* ensure that the entire source region lies in a single mapping */
+	std::pair<env::guest_t, uint64_t> range = env::Instance()->memory().findNext(old_addr);
+	if (range.first > old_addr || range.first + range.second < old_addr + old_len)
+		return errCode::eFault;
+	uint32_t usage = env::Instance()->memory().getUsage(old_addr);
+
+	/* check if the memory should be increased in-place */
+	if (!detail::IsSet(flags, consts::mmvMayMove)) {
+		if (detail::IsSet(flags, consts::mmvFixed) || detail::IsSet(flags, consts::mmvDontUnmap))
+			return errCode::eInvalid;
+
+		/* check if the allocation should be decrased in size */
+		env::guest_t nend = fPageAlignUp(old_addr + new_len);
+		if (nend == end)
+			return old_addr;
+		if (nend < end) {
+			if (!env::Instance()->memory().munmap(nend, end - nend))
+				logger.fatal(u8"Failed to unmap valid memory");
+			return old_addr;
+		}
+
+		/* try to incrase the size accordingly */
+		if (!env::Instance()->memory().mmap(end, nend - end, usage))
+			return errCode::eNoMemory;
+		return old_addr;
+	}
+
+	/* fetch the new destination address to be used */
+	if (detail::IsSet(flags, consts::mmvFixed)) {
+		if (!env::Instance()->memory().mmap(new_addr, new_len, usage))
+			return errCode::eNoMemory;
+	}
+
+	/* try to allocate a new chunk */
+	else {
+		new_addr = env::Instance()->memory().alloc(new_len, usage);
+		if (new_addr == 0)
+			return errCode::eNoMemory;
+	}
+
+	/* copy the chunk of data over (copy without usage to pretend the underlying memory is moved) */
+	uint8_t buffer[4096] = { 0 };
+	uint64_t moved = 0, total = std::min<uint64_t>(old_len, new_len);
+	while (moved < total) {
+		uint64_t count = std::min<uint64_t>(sizeof(buffer), total - moved);
+		env::Instance()->memory().mread(buffer, old_addr + moved, count, env::Usage::None);
+		env::Instance()->memory().mwrite(new_addr + moved, buffer, count, env::Usage::None);
+		moved += count;
+	}
+
+	/* release the old allocation or whipe it */
+	if (detail::IsSet(flags, consts::mmvDontUnmap))
+		env::Instance()->memory().mclear(old_addr, old_len, env::Usage::None);
+	else if (!env::Instance()->memory().munmap(old_addr, old_len))
+		logger.fatal(u8"Failed to unmap valid memory");
+	return new_addr;
 }
