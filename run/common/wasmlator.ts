@@ -34,18 +34,22 @@ class WasmLator {
 	private busy: BusyResolver;
 	private host: HostEnvironment;
 	private fs: FileSystem;
-	private glue: { memory: ArrayBuffer, exports: WebAssembly.Exports };
-	private main: { memory: ArrayBuffer, exports: WebAssembly.Exports };
+	private glue: { memory: WebAssembly.Memory, exports: WebAssembly.Exports };
+	private main: { memory: WebAssembly.Memory, exports: WebAssembly.Exports };
+	private guestMemory: WebAssembly.Memory;
 	private inputBuffer: string;
+	private profiler: Profiler;
 	private taskResolvable: (fn: (() => void) | null) => void;
 
 	public constructor(host: HostEnvironment) {
 		this.host = host;
 		this.fs = new FileSystem(host);
 		this.busy = new BusyResolver();
-		this.glue = { memory: new ArrayBuffer(0), exports: {} };
-		this.main = { memory: new ArrayBuffer(0), exports: {} };
+		this.glue = { memory: new WebAssembly.Memory({ initial: 0 }), exports: {} };
+		this.main = { memory: new WebAssembly.Memory({ initial: 0 }), exports: {} };
+		this.guestMemory = new WebAssembly.Memory({ initial: 0 });
 		this.inputBuffer = '';
+		this.profiler = new Profiler();
 		this.taskResolvable = function (_) { };
 	}
 
@@ -90,11 +94,11 @@ class WasmLator {
 	}
 
 	private loadString(ptr: number, size: number, fromMainMemory: boolean): string {
-		let view = new DataView((fromMainMemory ? this.main.memory : this.glue.memory), ptr, size);
+		let view = new DataView((fromMainMemory ? this.main.memory : this.glue.memory).buffer, ptr, size);
 		return new TextDecoder('utf-8').decode(view);
 	}
 	private loadBuffer(ptr: number, size: number): ArrayBuffer {
-		return this.main.memory.slice(ptr, ptr + size);
+		return this.main.memory.buffer.slice(ptr, ptr + size);
 	}
 
 	private buildGlueImports(): WebAssembly.Imports {
@@ -126,9 +130,7 @@ class WasmLator {
 
 		/* setup the main module imports */
 		imports.env = { ...this.glue.exports };
-		imports.env.emscripten_notify_memory_growth = function () {
-			_that.main.memory = (_that.main.exports.memory as WebAssembly.Memory).buffer;
-		};
+		imports.env.emscripten_notify_memory_growth = function () { };
 		imports.wasi_snapshot_preview1.proc_exit = function (code: number): void {
 			_that.errSelf(new EmptyError(`Main module terminated itself with exit-code [${code}] - (Unhandled exception?)`).stack!);
 		};
@@ -160,7 +162,8 @@ class WasmLator {
 		return [args, rest];
 	}
 	private async handleTask(task: String, process: number) {
-		/* enter the critical section - will be left by the task-completed callback */
+		/* stop the profiler and enter the critical section - will be left by the task-completed callback */
+		this.profiler.pause();
 		this.busy.enter();
 
 		/* extract the next command */
@@ -172,47 +175,64 @@ class WasmLator {
 
 		/* handle the core and block creation handling */
 		if (cmd == 'core') {
+			this.profiler.startLoad();
 			let [args, _] = this.prepareTaskArgs(payload, 2);
 			this.loadCore(this.loadBuffer(args[0], args[1]), process);
 		}
 		else if (cmd == 'block') {
+			this.profiler.startLoad();
 			let [args, _] = this.prepareTaskArgs(payload, 2);
 			this.loadBlock(this.loadBuffer(args[0], args[1]), process);
 		}
 
 		/* handle the file-system commands */
-		else if (cmd.startsWith('resolve'))
+		else if (cmd.startsWith('resolve')) {
+			this.profiler.startFileSystem();
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.getNode(payload)));
+		}
 		else if (cmd == 'stats') {
+			this.profiler.startFileSystem();
 			let [args, name] = this.prepareTaskArgs(payload, 1);
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.getStats(args[0], name)));
 		}
-		else if (cmd.startsWith('path'))
+		else if (cmd.startsWith('path')) {
+			this.profiler.startFileSystem();
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.getPath(parseInt(payload))));
-		else if (cmd == 'accessed')
+		}
+		else if (cmd == 'accessed') {
+			this.profiler.startFileSystem();
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.setRead(parseInt(payload))));
-		else if (cmd == 'changed')
+		}
+		else if (cmd == 'changed') {
+			this.profiler.startFileSystem();
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.setWritten(parseInt(payload))));
+		}
 		else if (cmd == 'resize') {
+			this.profiler.startFileSystem();
 			let [args, _] = this.prepareTaskArgs(payload, 2);
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileResize(args[0], args[1])));
 		}
 		else if (cmd == 'read') {
+			this.profiler.startFileSystem();
 			let [args, _] = this.prepareTaskArgs(payload, 4);
-			let buf = new Uint8Array(this.main.memory, args[1], args[3]);
+			let buf = new Uint8Array(this.main.memory.buffer, args[1], args[3]);
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileRead(args[0], buf, args[2])));
 		}
 		else if (cmd == 'write') {
+			this.profiler.startFileSystem();
 			let [args, _] = this.prepareTaskArgs(payload, 4);
-			let buf = new Uint8Array(this.main.memory, args[1], args[3]);
+			let buf = new Uint8Array(this.main.memory.buffer, args[1], args[3]);
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileWrite(args[0], buf, args[2])));
 		}
 		else if (cmd == 'create') {
+			this.profiler.startFileSystem();
 			let [args, rest] = this.prepareTaskArgs(payload, 4);
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.fileCreate(args[0], rest, args[1], args[2], args[3])));
 		}
-		else if (cmd == 'list')
+		else if (cmd == 'list') {
+			this.profiler.startFileSystem();
 			this.taskResolvable(async () => this.taskCompleted(process, await this.fs.directoryRead(parseInt(payload))));
+		}
 		else if (cmd == 'input') {
 			/* check if new data need to be fetched */
 			if (this.inputBuffer.length == 0)
@@ -229,13 +249,15 @@ class WasmLator {
 			this.errSelf(new EmptyError(`Received unknown task [${cmd}]`).stack!);
 	}
 	private taskCompleted(process: number, payload?: any, rawString?: boolean): void {
+		this.profiler.startExecute();
+
 		/* write the result to the main application */
 		let addr = 0, size = 0;
 		if (payload != null) {
 			let buffer = new TextEncoder().encode(rawString ? payload : JSON.stringify(payload));
 			addr = (this.main.exports.main_allocate as (_: number) => number)(buffer.byteLength);
 			size = buffer.byteLength;
-			new Uint8Array(this.main.memory, addr, size).set(new Uint8Array(buffer));
+			new Uint8Array(this.main.memory.buffer, addr, size).set(new Uint8Array(buffer));
 		}
 
 		/* invoke the callback and mark the critical section (opened by handle-task) as completed */
@@ -246,7 +268,7 @@ class WasmLator {
 			this.errSelf(`Failed to complete task: ${(err as Error).stack ?? err}`);
 		}
 
-		/* leave the critical section - was entered by handle-task */
+		/* stop the execution and leave the critical section - was entered by handle-task */
 		this.busy.leave();
 	}
 	private async resolveTasks() {
@@ -277,6 +299,7 @@ class WasmLator {
 		try {
 			/* load the module */
 			let instance: WebAssembly.Instance = await this.host.loadModule(imports, buffer);
+			this.guestMemory = (instance.exports.memory_physical as WebAssembly.Memory);
 
 			/* set the last-instance, invoke the handler, and then reset the last-instance
 			*	again, in order to ensure unused instances can be garbage-collected */
@@ -318,16 +341,19 @@ class WasmLator {
 	}
 
 	public async prepareAndLoadMain(): Promise<boolean> {
+		this.profiler.startStartup();
+
 		try {
 			/* load the glue module and populate the state */
 			this.logSelf('Loading glue module...');
 			let glueInstance: WebAssembly.Instance = await this.host.loadGlue(this.buildGlueImports());
 			this.logSelf('Glue module loaded');
 			this.glue.exports = glueInstance.exports;
-			this.glue.memory = (glueInstance.exports.memory as WebAssembly.Memory).buffer;
+			this.glue.memory = glueInstance.exports.memory as WebAssembly.Memory;
 		}
 		catch (err) {
 			this.errSelf(`Failed to load glue module: ${err}`);
+			this.profiler.stopProfiling();
 			return false;
 		}
 
@@ -337,15 +363,17 @@ class WasmLator {
 			let mainInstance: WebAssembly.Instance = await this.host.loadMain(this.buildMainImports());
 			this.logSelf('Main module loaded');
 			this.main.exports = mainInstance.exports;
-			this.main.memory = (mainInstance.exports.memory as WebAssembly.Memory).buffer;
+			this.main.memory = mainInstance.exports.memory as WebAssembly.Memory;
 		}
 		catch (err) {
 			this.errSelf(`Failed to main glue module: ${err}`);
+			this.profiler.stopProfiling();
 			return false;
 		}
 
 		try {
 			let busy = this.busy.start();
+			this.profiler.startExecute();
 
 			/* startup the main application (requires the internal _initialize to be invoked) */
 			this.logSelf('Starting up main module...');
@@ -358,8 +386,10 @@ class WasmLator {
 		}
 		catch (err) {
 			this.errSelf(`Failed to startup main application: ${(err as Error).stack ?? err}`);
+			this.profiler.stopProfiling();
 			return false;
 		}
+		this.profiler.pause();
 		this.logSelf('Loaded successfully and ready....');
 		return true;
 	}
@@ -372,12 +402,14 @@ class WasmLator {
 
 		/* pass the actual command to the application */
 		try {
+			this.profiler.startExecute();
+
 			/* convert the string to a buffer */
 			let buf = new TextEncoder().encode(msg);
 
 			/* allocate a buffer for the string in the main-application and write the string to it */
 			let ptr = (this.main.exports.main_allocate as (_0: number) => number)(buf.length);
-			new Uint8Array(this.main.memory, ptr, buf.length).set(buf);
+			new Uint8Array(this.main.memory.buffer, ptr, buf.length).set(buf);
 
 			/* perform the actual execution of the command (will ensure to free it) */
 			(this.main.exports.main_handle as (_0: number, _1: number) => void)(ptr, buf.length);
@@ -386,8 +418,8 @@ class WasmLator {
 		}
 		this.busy.leave();
 
-		/* return the handle-promise but ensure that the last task is cleaned to prevent resolve-task from waiting forever */
-		return promise.then(() => this.taskResolvable!(null));
+		/* return the handle-promise but ensure that the last task is cleaned to prevent resolve-task from waiting forever and stop the profiling */
+		return promise.then(() => this.taskResolvable!(null)).then(() => this.profiler.stopProfiling());
 	}
 	public async execute(msg: string): Promise<void> {
 		let promise = this.busy.start();
@@ -398,12 +430,14 @@ class WasmLator {
 
 		/* pass the payload to the application */
 		try {
+			this.profiler.startExecute();
+
 			/* convert the string to a buffer */
 			let buf = new TextEncoder().encode(msg);
 
 			/* allocate a buffer for the string in the main-application and write the string to it */
 			let ptr = (this.main.exports.main_allocate as (_0: number) => number)(buf.length);
-			new Uint8Array(this.main.memory, ptr, buf.length).set(buf);
+			new Uint8Array(this.main.memory.buffer, ptr, buf.length).set(buf);
 
 			/* perform the actual execution of the command (will ensure to free it) */
 			(this.main.exports.main_execute as (_0: number, _1: number) => void)(ptr, buf.length);
@@ -417,14 +451,147 @@ class WasmLator {
 		*	not be cleaned up properly (no payload needs to be passed to the application) */
 		promise = this.busy.start();
 		try {
+			this.profiler.startExecute();
 			(this.main.exports.main_cleanup as () => void)();
 		} catch (err) {
 			this.errSelf(`Failed to cleanup: ${(err as Error).stack ?? err}`);
 		}
 		this.busy.leave();
 
-		/* return the handle-promise but ensure that the last task is cleaned to prevent resolve-task from waiting forever */
-		return promise.then(() => this.taskResolvable!(null));
+		/* return the handle-promise but ensure that the last task is cleaned to prevent resolve-task from waiting forever and stop the profiling */
+		return promise.then(() => this.taskResolvable!(null)).then(() => this.profiler.stopProfiling());
+	}
+
+	public stats(): PerfoStats {
+		return new PerfoStats(this.fs, this.main.memory.buffer, this.glue.memory.buffer, this.guestMemory.buffer, this.profiler);
+	}
+}
+
+class Profiler {
+	public load: {
+		total: number,
+		active: boolean
+	};
+	public startup: {
+		total: number,
+		active: boolean
+	};
+	public fs: {
+		total: number,
+		active: boolean
+	};
+	public exec: {
+		total: number,
+		active: boolean
+	};
+	public total: {
+		total: number,
+		active: boolean
+	};
+	public peakMemory: number;
+	private localStart: number;
+	private totalStart: number;
+
+	private _stop() {
+		if (this.startup.active) {
+			this.startup.total += (Date.now() - this.localStart) / 1000;
+			this.startup.active = false;
+		}
+		else if (this.load.active) {
+			this.load.total += (Date.now() - this.localStart) / 1000;
+			this.load.active = false;
+		}
+		else if (this.fs.active) {
+			this.fs.total += (Date.now() - this.localStart) / 1000;
+			this.fs.active = false;
+		}
+		else if (this.exec.active) {
+			this.exec.total += (Date.now() - this.localStart) / 1000;
+			this.exec.active = false;
+		}
+	}
+	private _startLocal() {
+		/* try to fetch the current memory load */
+		try {
+			let stats: any = (globalThis as any)['process'].memoryUsage();
+			if (stats ?? false) {
+				if (typeof (stats.rss) == 'number')
+					this.peakMemory = Math.max(this.peakMemory, stats.rss);
+			}
+		} catch (e) { }
+
+
+		/* stop all previous measurements */
+		this._stop();
+
+		/* ensure the total is started */
+		if (!this.total.active)
+			this.totalStart = Date.now();
+		this.total.active = true;
+
+		/* update the start-time */
+		this.localStart = Date.now();
+	}
+
+	public constructor() {
+		this.startup = { total: 0, active: false };
+		this.load = { total: 0, active: false };
+		this.fs = { total: 0, active: false };
+		this.exec = { total: 0, active: false };
+		this.total = { total: 0, active: false };
+		this.peakMemory = 0;
+		this.localStart = 0;
+		this.totalStart = 0;
+	}
+
+	public startStartup(): void {
+		this._startLocal();
+		this.startup.active = true;
+	}
+	public startLoad(): void {
+		this._startLocal();
+		this.load.active = true;
+	}
+	public startFileSystem(): void {
+		this._startLocal();
+		this.fs.active = true;
+	}
+	public startExecute(): void {
+		this._startLocal();
+		this.exec.active = true;
+	}
+	public pause(): void {
+		this._stop();
+	}
+	public stopProfiling(): void {
+		this._stop();
+		if (this.total.active) {
+			this.total.total += (Date.now() - this.totalStart) / 1000;
+			this.total.active = false;
+		}
+	}
+}
+
+class PerfoStats {
+	public mem: { total: number; filesystem: number; wasmlator: number; guest: number };
+	public time: { total: number; startup: number, filesystem: number; executing: number; compilation: number };
+
+	public constructor(fs: FileSystem, main: ArrayBuffer, glue: ArrayBuffer, guest: ArrayBuffer, profiler: Profiler) {
+		this.time = {
+			total: profiler.total.total,
+			startup: profiler.startup.total,
+			filesystem: profiler.fs.total,
+			executing: profiler.exec.total,
+			compilation: profiler.load.total
+		};
+
+		/* setup the memory usage */
+		this.mem = {
+			total: profiler.peakMemory,
+			filesystem: fs.totalMemory(),
+			wasmlator: main.byteLength + glue.byteLength,
+			guest: guest.byteLength
+		};
 	}
 }
 
@@ -440,6 +607,9 @@ class Interactable {
 	}
 	public execute(msg: string): Promise<void> {
 		return this.wasmlator.execute(msg);
+	}
+	public stats(): PerfoStats {
+		return this.wasmlator.stats();
 	}
 }
 

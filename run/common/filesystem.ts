@@ -50,7 +50,7 @@ export class FileSystem {
 
 	private host: HostEnvironment;
 	private root: FileNode;
-	private nodes: (FileNode | null)[];
+	private nodes: FileNode[];
 
 	constructor(host: HostEnvironment) {
 		this.host = host;
@@ -318,5 +318,13 @@ export class FileSystem {
 				out[key] = node.children[key].stats;
 		}
 		return out;
+	}
+	totalMemory(): number {
+		let total: number = 0;
+
+		/* sum up the total buffered memory */
+		for (const node of this.nodes)
+			total += (node.data?.byteLength ?? 0);
+		return total;
 	}
 }
