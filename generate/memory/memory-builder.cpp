@@ -44,12 +44,12 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& 
 	sink[I::U32::Add()];
 	sink[I::Local::Tee(actual)];
 
-	/* check if the entire value can be read form the single cache (lower bound will match, assured by lookup) */
+	/* check if the entire value can be read from the single cache (lower bound will match, assured by lookup - size1 is equivalent to total size) */
 	sink[I::Local::Get(offset)];
 	sink[I::Param::Get(2)];
 	sink[I::U32::Add()];
 	sink[I::Local::Get(cacheOffset)];
-	sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, total))];
+	sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, size1))];
 	sink[I::Local::Tee(size)];
 	sink[I::U32::LessEqual()];
 
@@ -149,9 +149,9 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadWrapper(const wasm::Memory& 
 		sink[I::Param::Get(4)];
 		sink[I::Call::Direct(pFastLookup)];
 
-		/* fetch the new remaining total-counter */
+		/* fetch the new remaining total-counter (size1 is equivalent to total size) */
 		sink[I::Local::Get(cacheOffset)];
-		sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, total))];
+		sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, size1))];
 		sink[I::Local::Set(size)];
 
 		/* fetch the new actual address and leave it on the stack */
@@ -211,12 +211,12 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 	sink[I::U32::Add()];
 	sink[I::Local::Tee(actual)];
 
-	/* check if the entire value can be read form the single cache (lower bound will match, assured by lookup) */
+	/* check if the entire value can be read form the single cache (lower bound will match, assured by lookup - size1 is equivalent to total size) */
 	sink[I::Local::Get(offset)];
 	sink[I::Param::Get(2)];
 	sink[I::U32::Add()];
 	sink[I::Local::Get(cacheOffset)];
-	sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, total))];
+	sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, size1))];
 	sink[I::Local::Tee(size)];
 	sink[I::U32::LessEqual()];
 
@@ -340,9 +340,9 @@ wasm::Function gen::detail::MemoryBuilder::fMakeWriteWrapper(const wasm::Memory&
 		sink[I::Param::Get(4)];
 		sink[I::Call::Direct(pFastLookup)];
 
-		/* fetch the new remaining total-counter */
+		/* fetch the new remaining total-counter (size1 is equivalent to total size) */
 		sink[I::Local::Get(cacheOffset)];
-		sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, total))];
+		sink[I::U32::Load(memory, uint32_t(env::detail::MemoryAccess::CacheAddress()) + offsetof(env::detail::MemoryCache, size1))];
 		sink[I::Local::Set(size)];
 
 		/* fetch the new actual address and leave it on the stack */
@@ -709,35 +709,28 @@ void gen::detail::MemoryBuilder::setupCoreBody(const wasm::Memory& memory, const
 		detail::MemoryWriter _writer{ state };
 
 		sink[I::Param::Get(0)];
-		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64 }, { wasm::Type::i64 } };
-		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64 }, { wasm::Type::i64 } };
+		sink[I::Param::Get(2)];
+		wasm::Block _block8{ sink, u8"size_8", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
+		wasm::Block _block4{ sink, u8"size_4", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
+		wasm::Block _block2{ sink, u8"size_2", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
+		wasm::Block _block1{ sink, u8"size_1", { wasm::Type::i64, wasm::Type::i64 }, { wasm::Type::i64, wasm::Type::i64 } };
 		sink[I::Param::Get(1)];
 		sink[I::U32::TrailingNulls()];
 		sink[I::Branch::Table({ _block1, _block2, _block4 }, _block8)];
 		_block1.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64);
-		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
+		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u8To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 		sink[I::Return()];
 
 		_block2.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64);
-		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
+		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u16To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 		sink[I::Return()];
 
 		_block4.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64);
-		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
+		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::u32To64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 		sink[I::Return()];
 
 		_block8.close();
-		_writer.fMakeStartWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64);
-		sink[I::Param::Get(2)];
-		_writer.fMakeStopWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
+		_writer.fMakeWrite(env::detail::MemoryAccess::WriteCache(), gen::MemoryType::i64, env::detail::MainAccessAddress, env::detail::MainAccessAddress);
 
 		/* clear the sink reference */
 		gen::Instance()->setSink(0);

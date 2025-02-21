@@ -6,21 +6,27 @@ window.addEventListener('load', function () {
 	let htmlBusy = document.getElementById('busy');
 	let htmlPrompt = this.document.getElementById('prompt');
 	let buttonState = {
-		'trace': true,
-		'debug': true,
-		'log': true,
-		'info': true,
-		'warn': true,
-		'error': true,
-		'fatal': true
+		'trace': 0,
+		'debug': 0,
+		'log': 2,
+		'info': 2,
+		'warn': 2,
+		'error': 2,
+		'fatal': 2
 	};
+	let styleList = ['disabled', null, 'active'];
 
 	/* register the button-behavior */
 	for (const key in buttonState) {
 		let html = document.getElementById(key);
 		html.onclick = function () {
-			buttonState[key] = html.classList.toggle('active');
-			let style = (buttonState[key] ? 'block' : 'none');
+			if (buttonState[key] != 1)
+				html.classList.remove(styleList[buttonState[key]]);
+			buttonState[key] = (buttonState[key] == 0 ? 2 : buttonState[key] - 1);
+			if (buttonState[key] != 1)
+				html.classList.add(styleList[buttonState[key]]);
+
+			let style = (buttonState[key] == 2 ? 'block' : 'none');
 			let list = htmlOutput.getElementsByClassName(key);
 			for (let i = 0; i < list.length; ++i)
 				list.item(i).style.display = style;
@@ -64,6 +70,10 @@ window.addEventListener('load', function () {
 				break;
 		}
 
+		/* check if the message should be discarded */
+		if (buttonState[name] == 0)
+			return;
+
 		/* check if the child should be scolled into view */
 		let scrollIntoView = (htmlContent.scrollHeight - htmlContent.scrollTop <= htmlContent.clientHeight + 100);
 
@@ -78,7 +88,7 @@ window.addEventListener('load', function () {
 			htmlOutput.appendChild(e);
 
 			/* patch the visibility and the style */
-			if (!buttonState[name])
+			if (buttonState[name] != 2)
 				e.style.display = 'none';
 			e.classList.add(name);
 		}

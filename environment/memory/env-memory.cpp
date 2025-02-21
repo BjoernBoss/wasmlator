@@ -588,9 +588,8 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 			pFastCache[index].physical,
 			(pFastCache[index].size - 0),
 			(pFastCache[index].size - 1),
-			(pFastCache[index].size - 2),
-			(pFastCache[index].size - 4),
-			(pFastCache[index].size - 8)
+			(pFastCache[index].size - 3),
+			(pFastCache[index].size - 7)
 		};
 		return;
 	}
@@ -614,9 +613,8 @@ void env::Memory::fCacheLookup(env::guest_t address, env::guest_t access, uint32
 		uint32_t(lookup.physical),
 		uint32_t(lookup.size - 0),
 		uint32_t(lookup.size - 1),
-		uint32_t(lookup.size - 2),
-		uint32_t(lookup.size - 4),
-		uint32_t(lookup.size - 8)
+		uint32_t(lookup.size - 3),
+		uint32_t(lookup.size - 7)
 	};
 
 	/* write the cache entry also to the fast-cache */

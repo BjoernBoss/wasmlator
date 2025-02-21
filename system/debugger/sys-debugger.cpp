@@ -20,9 +20,9 @@ static void PrintLine(std::u8string& to, const uint8_t* data, size_t count, cons
 		/* write the cut value out */
 		size_t rest = count - i;
 		for (size_t j = rest; j < sizeof(Type); ++j)
-			to.append(u8"..");
+			to.append(u8"  ");
 		for (size_t j = rest; j > 0; --j)
-			str::FormatTo(to, U"02x", data[i + j - 1]);
+			str::CallFormat(to, data[i + j - 1], U"02x");
 	}
 
 	/* write the remaining null-entries out */
@@ -98,20 +98,19 @@ std::vector<uint8_t> sys::Debugger::fReadBytes(env::guest_t address, size_t byte
 }
 void sys::Debugger::fPrintData(env::guest_t address, size_t bytes, uint8_t width) const {
 	std::vector<uint8_t> data = fReadBytes(address, bytes);
-	logger.debug(u8"Read: ", data.size());
 
 	/* construct the value-formatter to be used and the format printer itself */
 	str::u32::Local<16> fmt = str::lu32<16>::Build(U'0', width * 2, U'x');
 	void(*fmtLine)(std::u8string&, const uint8_t*, size_t, const char32_t*, size_t) = 0;
 	switch (width) {
 	case 2:
-		fmtLine = &PrintLine<uint8_t>;
+		fmtLine = &PrintLine<uint16_t>;
 		break;
 	case 4:
-		fmtLine = &PrintLine<uint8_t>;
+		fmtLine = &PrintLine<uint32_t>;
 		break;
 	case 8:
-		fmtLine = &PrintLine<uint8_t>;
+		fmtLine = &PrintLine<uint64_t>;
 		break;
 	case 1:
 	default:

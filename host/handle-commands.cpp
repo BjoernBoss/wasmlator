@@ -203,19 +203,19 @@ static void HandleDebug(const arger::Parsed& out) {
 		return;
 	}
 	if (out.groupId() == L"in-mem8") {
-		debugger->printData8(out.positional(0).value().unum(), out.positional(1).value().unum());
+		debugger->printData8(out.positional(0).value().unum(), out.positional(1).value().unum() * 1);
 		return;
 	}
 	if (out.groupId() == L"in-mem16") {
-		debugger->printData16(out.positional(0).value().unum(), out.positional(1).value().unum());
+		debugger->printData16(out.positional(0).value().unum(), out.positional(1).value().unum() * 2);
 		return;
 	}
 	if (out.groupId() == L"in-mem32") {
-		debugger->printData32(out.positional(0).value().unum(), out.positional(1).value().unum());
+		debugger->printData32(out.positional(0).value().unum(), out.positional(1).value().unum() * 4);
 		return;
 	}
 	if (out.groupId() == L"in-mem64") {
-		debugger->printData64(out.positional(0).value().unum(), out.positional(1).value().unum());
+		debugger->printData64(out.positional(0).value().unum(), out.positional(1).value().unum() * 8);
 		return;
 	}
 }

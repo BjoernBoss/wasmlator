@@ -10,15 +10,6 @@ void gen::detail::MemoryWriter::fCheckCache(uint32_t cache) const {
 	if (cache >= caches)
 		logger.fatal(u8"Cache [", cache, u8"] out of bounds as only [", caches, u8"] caches have been defined");
 }
-gen::detail::MemoryWriter::Access gen::detail::MemoryWriter::fGetVariables() {
-	/* check if new temporary variables need to be created */
-	if (pReserved >= pAccess.size()) {
-		wasm::Variable address = gen::Sink->local(wasm::Type::i64, str::lu8<32>::Build(u8"_mem_address", pAccess.size()));
-		wasm::Variable offset = gen::Sink->local(wasm::Type::i64, str::lu8<32>::Build(u8"_mem_offset", pAccess.size()));
-		pAccess.push_back({ address, offset });
-	}
-	return pAccess[pReserved];
-}
 
 void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, env::guest_t address, const wasm::Function* code) {
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
@@ -53,17 +44,20 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 		break;
 	}
 
-	/* fetch the temporary variables to be used */
-	Access vars = fGetVariables();
+	/* setup the temporary variables to be used */
+	if (!pAddress.valid())
+		pAddress = gen::Sink->local(wasm::Type::i64, u8"_mem_address");
+	if (!pOffset.valid())
+		pOffset = gen::Sink->local(wasm::Type::i64, u8"_mem_offset");
 
 	/* cache the current address */
-	gen::Add[I::Local::Tee(vars.address)];
+	gen::Add[I::Local::Tee(pAddress)];
 
 	/* compute the offset into the current cached region */
 	gen::Add[I::U32::Const(cacheAddress)];
 	gen::Add[I::U64::Load(pState.memory, offsetof(env::detail::MemoryCache, address))];
 	gen::Add[I::U64::Sub()];
-	gen::Add[I::Local::Tee(vars.offset)];
+	gen::Add[I::Local::Tee(pOffset)];
 
 	/* check if the accessed-address lies in the range */
 	gen::Add[I::U32::Const(cacheAddress)];
@@ -93,14 +87,14 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 	default:
 		break;
 	}
-	gen::Add[I::U64::LessEqual()];
+	gen::Add[I::U64::Less()];
 
 	{
-		/* less-equal: the value lies in range */
+		/* less: the value lies in range */
 		wasm::IfThen _if{ gen::Sink, u8"", {}, { result } };
 
 		/* compute the final absolute address */
-		gen::Add[I::Local::Get(vars.offset)];
+		gen::Add[I::Local::Get(pOffset)];
 		gen::Add[I::U64::Shrink()];
 		gen::Add[I::U32::Const(cacheAddress)];
 		gen::Add[I::U32::Load(pState.memory, offsetof(env::detail::MemoryCache, physical))];
@@ -154,12 +148,12 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 			break;
 		}
 
-		/* greater: a cache lookup needs to be performed */
+		/* greater-equal: a cache lookup needs to be performed */
 		_if.otherwise();
 
 		/* write the parameter to the stack */
 		gen::Add[I::U64::Const(address)];
-		gen::Add[I::Local::Get(vars.address)];
+		gen::Add[I::Local::Get(pAddress)];
 		gen::Add[I::U32::Const(cache)];
 
 		/* perform the call to patch the cache (will leave the value on the stack) */
@@ -169,65 +163,10 @@ void gen::detail::MemoryWriter::fMakeRead(uint32_t cache, gen::MemoryType type, 
 			gen::Add[I::Call::Direct(*code)];
 	}
 }
-void gen::detail::MemoryWriter::fMakeStartWrite(uint32_t cache, gen::MemoryType type) {
-	/* perform this initial preparation of the value (to ensure that the initial i32 is on the stack) */
+void gen::detail::MemoryWriter::fMakeWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress) {
+	/* perform the full operation in-place as intermediate operations might otherwise modify or corrupt the caches */
 
-	/* check if the default-read cache is to be used and compute the actual cache address */
-	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
-	if (type >= gen::MemoryType::_end)
-		return;
-
-	/* fetch the temporary variables to be used and update the reserved-counter until the final write is performed */
-	Access vars = fGetVariables();
-	++pReserved;
-
-	/* cache the current address */
-	gen::Add[I::Local::Tee(vars.address)];
-
-	/* compute the offset into the current cached region */
-	gen::Add[I::U32::Const(cacheAddress)];
-	gen::Add[I::U64::Load(pState.memory, offsetof(env::detail::MemoryCache, address))];
-	gen::Add[I::U64::Sub()];
-	gen::Add[I::Local::Tee(vars.offset)];
-
-	/* check if the accessed-address lies in the range */
-	gen::Add[I::U32::Const(cacheAddress)];
-	switch (type) {
-	case gen::MemoryType::u8To32:
-	case gen::MemoryType::u8To64:
-	case gen::MemoryType::i8To32:
-	case gen::MemoryType::i8To64:
-		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size1))];
-		break;
-	case gen::MemoryType::u16To32:
-	case gen::MemoryType::u16To64:
-	case gen::MemoryType::i16To32:
-	case gen::MemoryType::i16To64:
-		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size2))];
-		break;
-	case gen::MemoryType::i32:
-	case gen::MemoryType::f32:
-	case gen::MemoryType::u32To64:
-	case gen::MemoryType::i32To64:
-		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size4))];
-		break;
-	case gen::MemoryType::i64:
-	case gen::MemoryType::f64:
-		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size8))];
-		break;
-	default:
-		break;
-	}
-	gen::Add[I::U64::LessEqual()];
-
-}
-void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress) {
-	/* address is already partially computed and condition lies on the stack */
-
-	/* fetch the top-most variables - which correspond to this write */
-	Access vars = pAccess[--pReserved];
-
-	/* check if the default-write cache is to be used and compute the actual cache address */
+	/* compute the actual cache address */
 	uintptr_t cacheAddress = env::detail::MemoryAccess::CacheAddress() + cache * sizeof(env::detail::MemoryCache);
 	if (type >= gen::MemoryType::_end)
 		return;
@@ -271,12 +210,57 @@ void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType t
 	}
 	gen::Add[I::Local::Set(*value)];
 
+	/* setup the temporary variables to be used */
+	if (!pAddress.valid())
+		pAddress = gen::Sink->local(wasm::Type::i64, u8"_mem_address");
+	if (!pOffset.valid())
+		pOffset = gen::Sink->local(wasm::Type::i64, u8"_mem_offset");
+
+	/* cache the current address */
+	gen::Add[I::Local::Tee(pAddress)];
+
+	/* compute the offset into the current cached region */
+	gen::Add[I::U32::Const(cacheAddress)];
+	gen::Add[I::U64::Load(pState.memory, offsetof(env::detail::MemoryCache, address))];
+	gen::Add[I::U64::Sub()];
+	gen::Add[I::Local::Tee(pOffset)];
+
+	/* check if the accessed-address lies in the range */
+	gen::Add[I::U32::Const(cacheAddress)];
+	switch (type) {
+	case gen::MemoryType::u8To32:
+	case gen::MemoryType::u8To64:
+	case gen::MemoryType::i8To32:
+	case gen::MemoryType::i8To64:
+		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size1))];
+		break;
+	case gen::MemoryType::u16To32:
+	case gen::MemoryType::u16To64:
+	case gen::MemoryType::i16To32:
+	case gen::MemoryType::i16To64:
+		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size2))];
+		break;
+	case gen::MemoryType::i32:
+	case gen::MemoryType::f32:
+	case gen::MemoryType::u32To64:
+	case gen::MemoryType::i32To64:
+		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size4))];
+		break;
+	case gen::MemoryType::i64:
+	case gen::MemoryType::f64:
+		gen::Add[I::U64::Load32(pState.memory, offsetof(env::detail::MemoryCache, size8))];
+		break;
+	default:
+		break;
+	}
+	gen::Add[I::U64::Less()];
+
 	{
-		/* less-equal: the value lies in range */
+		/* less: the value lies in range */
 		wasm::IfThen _if{ gen::Sink };
 
 		/* compute the final absolute address */
-		gen::Add[I::Local::Get(vars.offset)];
+		gen::Add[I::Local::Get(pOffset)];
 		gen::Add[I::U64::Shrink()];
 		gen::Add[I::U32::Const(cacheAddress)];
 		gen::Add[I::U32::Load(pState.memory, offsetof(env::detail::MemoryCache, physical))];
@@ -323,12 +307,12 @@ void gen::detail::MemoryWriter::fMakeStopWrite(uint32_t cache, gen::MemoryType t
 			break;
 		}
 
-		/* greater: a cache lookup needs to be performed */
+		/* greater-equal: a cache lookup needs to be performed */
 		_if.otherwise();
 
 		/* write the parameter to the stack */
 		gen::Add[I::U64::Const(address)];
-		gen::Add[I::Local::Get(vars.address)];
+		gen::Add[I::Local::Get(pAddress)];
 		gen::Add[I::U32::Const(cache)];
 		gen::Add[I::Local::Get(*value)];
 
@@ -345,10 +329,7 @@ void gen::detail::MemoryWriter::makeRead(uint32_t cacheIndex, gen::MemoryType ty
 	fCheckCache(cacheIndex);
 	fMakeRead(cacheIndex + env::detail::MemoryAccess::StartOfReadCaches(), type, address, 0);
 }
-void gen::detail::MemoryWriter::makeStartWrite(uint32_t cacheIndex, gen::MemoryType type) {
+void gen::detail::MemoryWriter::makeWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress) {
 	fCheckCache(cacheIndex);
-	fMakeStartWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type);
-}
-void gen::detail::MemoryWriter::makeEndWrite(uint32_t cacheIndex, gen::MemoryType type, env::guest_t address, env::guest_t nextAddress) {
-	fMakeStopWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type, address, nextAddress);
+	fMakeWrite(cacheIndex + env::detail::MemoryAccess::StartOfWriteCaches(), type, address, nextAddress);
 }
