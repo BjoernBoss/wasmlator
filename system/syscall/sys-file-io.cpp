@@ -231,6 +231,9 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const detail::Shared
 	linux::FileStats out;
 	uint64_t ctime = std::max<uint64_t>(stats.timeAccessedUS, stats.timeModifiedUS);
 
+	/* special handling for terminal */
+	uint64_t rdev = (node->type() == env::FileType::character ? 0x8802 : 0xabc0'0456);
+
 	/*
 	*	no support for hard-links
 	*	virtual-device: 0x0345
@@ -243,7 +246,7 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const detail::Shared
 	out.nlinks = 1;
 	out.uid = stats.access.owner;
 	out.gid = stats.access.group;
-	out.rdev = 0xabc0'0456;
+	out.rdev = rdev;
 	out.size = stats.size;
 	out.blockSize = 512;
 	out.blockCount = (out.size + out.blockSize - 1) / out.blockSize;
