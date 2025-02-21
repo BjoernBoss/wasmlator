@@ -29,6 +29,18 @@ namespace sys::detail {
 
 		/* used by sysinfo */
 		static constexpr uint64_t fullSingleCoreLoad = 65536;
+
+		/* used by futex */
+		static constexpr int64_t futexWait = 0;
+		static constexpr int64_t futexWake = 1;
+		static constexpr int64_t futexFd = 2;
+		static constexpr int64_t futexRequeue = 3;
+		static constexpr int64_t futexCmpRequeue = 4;
+		static constexpr int64_t futexWakeOp = 5;
+		static constexpr int64_t futexWaitBitSet = 9;
+		static constexpr int64_t futexWakeBitSet = 10;
+		static constexpr int64_t futexFlagPrivateFlag = 0x0080;
+		static constexpr int64_t futexFlagClockRealTime = 0x0100;
 	}
 
 	class MiscSyscalls {

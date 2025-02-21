@@ -196,6 +196,25 @@ int64_t sys::detail::MiscSyscalls::getrandom(env::guest_t buf, uint64_t buflen, 
 }
 int64_t sys::detail::MiscSyscalls::futex(env::guest_t uaddr, int64_t futex_op, uint32_t val, env::guest_t timeout, env::guest_t uaddr2, uint32_t val3) const {
 	logger.warn(u8"unsupported syscall futex used");
+
+	/* silently discard the syscall - as no threads are supported */
+	futex_op &= ~(consts::futexFlagPrivateFlag | consts::futexFlagClockRealTime);
+	if (futex_op == consts::futexWait)
+		return 0;
+	if (futex_op == consts::futexWake)
+		return 0;
+	if (futex_op == consts::futexFd)
+		return errCode::eInvalid;
+	if (futex_op == consts::futexRequeue)
+		return 0;
+	if (futex_op == consts::futexCmpRequeue)
+		return 0;
+	if (futex_op == consts::futexWakeOp)
+		return 0;
+	if (futex_op == consts::futexWaitBitSet)
+		return 0;
+	if (futex_op == consts::futexWakeBitSet)
+		return 0;
 	return errCode::eNotImplemented;
 }
 int64_t sys::detail::MiscSyscalls::rt_sigprocmask(int64_t how, env::guest_t set, env::guest_t oldset, uint64_t sigsetsize) const {
