@@ -92,6 +92,11 @@ static arger::Config Commands{
 		arger::Abbreviation{ L'r' },
 		arger::Description{ L"Continue running until a breakpoint or other exception occurs." },
 	},
+	arger::Group{ L"until", L"",
+		arger::Abbreviation{ L'u' },
+		arger::Description{ L"Continue running until a breakpoint or the given address has been reached." },
+		arger::Positional{ L"address", arger::Primitive::unum, L"Address to halt at." },
+	},
 	arger::Group{ L"inspect", L"",
 		arger::Abbreviation{ L'i' },
 		arger::Description{ L"Inspect the state of the current cpu." },
@@ -100,13 +105,38 @@ static arger::Config Commands{
 			arger::Description{ L"Print the current register bank." },
 		},
 		arger::Group{ L"breaks", L"in-breaks",
-			arger::Abbreviation{ L'b' },
 			arger::Description{ L"Print the set breakpoints." },
 		},
 		arger::Group{ L"instructions", L"in-inst",
 			arger::Abbreviation{ L'i' },
-			arger::Description{ L"Print the upcoming instructions." },
+			arger::Description{ L"Print instructions ad the address." },
+			arger::Require::AtLeast(1),
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to print.", arger::Value{ 1 } },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Instruction to start printing from (defaults to pc)." },
+		},
+		arger::Group{ L"byte", L"in-mem8",
+			arger::Abbreviation{ L'b' },
+			arger::Description{ L"Print bytes at the address." },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"count", arger::Primitive::unum, L"Number of bytes to print." },
+		},
+		arger::Group{ L"word", L"in-mem16",
+			arger::Abbreviation{ L'w' },
+			arger::Description{ L"Print words at the address." },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"count", arger::Primitive::unum, L"Number of words to print." },
+		},
+		arger::Group{ L"dword", L"in-mem32",
+			arger::Abbreviation{ L'd' },
+			arger::Description{ L"Print dwords at the address." },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"count", arger::Primitive::unum, L"Number of dwords to print." },
+		},
+		arger::Group{ L"qword", L"in-mem64",
+			arger::Abbreviation{ L'q' },
+			arger::Description{ L"Print qwords at the address." },
+			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"count", arger::Primitive::unum, L"Number of qwords to print." },
 		},
 	},
 	arger::Group{ L"break", L"",
@@ -127,57 +157,67 @@ static arger::Config Commands{
 
 static sys::Debugger* debugger = 0;
 
-static int8_t HandleDebug(const arger::Parsed& out) {
+static void HandleDebug(const arger::Parsed& out) {
 	/* check if the program should take a number of steps */
 	if (out.groupId() == L"step") {
-		if (debugger == 0)
-			return -1;
 		debugger->step(out.positional(0).value().unum());
-		return 1;
+		return;
 	}
 
 	/* check if the program should just run */
 	if (out.groupId() == L"run") {
-		if (debugger == 0)
-			return -1;
 		debugger->run();
-		return 1;
+		return;
+	}
+
+	/* check if the program should run until an address has been reached */
+	if (out.groupId() == L"until") {
+		debugger->until(out.positional(0).value().unum());
+		return;
 	}
 
 	/* check if breakpoints should be interacted with */
 	if (out.groupId() == L"br-add") {
-		if (debugger == 0)
-			return -1;
 		debugger->addBreak(out.positional(0).value().unum());
-		return 1;
+		return;
 	}
 	if (out.groupId() == L"br-remove") {
-		if (debugger == 0)
-			return -1;
 		debugger->dropBreak(out.positional(0).value().unum());
-		return 1;
+		return;
 	}
 
 	/* check if the state should be inspected */
 	if (out.groupId() == L"in-reg") {
-		if (debugger == 0)
-			return -1;
 		debugger->printState();
-		return 1;
+		return;
 	}
 	if (out.groupId() == L"in-inst") {
-		if (debugger == 0)
-			return -1;
-		debugger->printInstructions(out.positional(0).value().unum());
-		return 1;
+		if (out.positionals() == 2)
+			debugger->printInstructions(out.positional(1).value().unum(), out.positional(0).value().unum());
+		else
+			debugger->printInstructions(std::nullopt, out.positional(0).value().unum());
+		return;
 	}
 	if (out.groupId() == L"in-breaks") {
-		if (debugger == 0)
-			return -1;
 		debugger->printBreaks();
-		return 1;
+		return;
 	}
-	return 0;
+	if (out.groupId() == L"in-mem8") {
+		debugger->printData8(out.positional(0).value().unum(), out.positional(1).value().unum());
+		return;
+	}
+	if (out.groupId() == L"in-mem16") {
+		debugger->printData16(out.positional(0).value().unum(), out.positional(1).value().unum());
+		return;
+	}
+	if (out.groupId() == L"in-mem32") {
+		debugger->printData32(out.positional(0).value().unum(), out.positional(1).value().unum());
+		return;
+	}
+	if (out.groupId() == L"in-mem64") {
+		debugger->printData64(out.positional(0).value().unum(), out.positional(1).value().unum());
+		return;
+	}
 }
 
 void HandleCommand(std::u8string_view cmd) {
@@ -194,17 +234,6 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 	catch (const arger::ParsingException& e) {
 		util::nullLogger.error(e.what(), u8" Use 'help' or '-h' for more information.");
-		return;
-	}
-
-	/* handle the debug instructions */
-	switch (HandleDebug(out)) {
-	case 0:
-		break;
-	case -1:
-		util::nullLogger.error(u8"No debugger attached.");
-		[[fallthrough]];
-	case 1:
 		return;
 	}
 
@@ -259,4 +288,10 @@ void HandleCommand(std::u8string_view cmd) {
 			env::Instance()->shutdown();
 		return;
 	}
+
+	/* handle the debug instruction */
+	if (debugger != 0)
+		HandleDebug(out);
+	else
+		util::nullLogger.error(u8"No debugger attached.");
 }

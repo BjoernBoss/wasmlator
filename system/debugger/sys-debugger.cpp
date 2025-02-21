@@ -2,6 +2,41 @@
 
 static util::Logger logger{ u8"sys::debugger" };
 
+template <class Type>
+static void PrintLine(std::u8string& to, const uint8_t* data, size_t count, const char32_t* fmt, size_t lineBytes) {
+	/* write the values themselves out */
+	size_t i = 0;
+	for (; i < count; i += sizeof(Type)) {
+		/* add the spacing */
+		if (i > 0)
+			to.push_back(u8' ');
+
+		/* add the normal value, should it entirely fit */
+		if (i + sizeof(Type) <= count) {
+			str::CallFormat(to, *reinterpret_cast<const Type*>(data + i), fmt);
+			continue;
+		}
+
+		/* write the cut value out */
+		size_t rest = count - i;
+		for (size_t j = rest; j < sizeof(Type); ++j)
+			to.append(u8"..");
+		for (size_t j = rest; j > 0; --j)
+			str::FormatTo(to, U"02x", data[i + j - 1]);
+	}
+
+	/* write the remaining null-entries out */
+	for (; i < lineBytes; i += sizeof(Type))
+		to.append(1 + 2 * sizeof(Type), u8' ');
+
+	/* write the separator out */
+	to.append(u8" | ");
+
+	/* write the chars out */
+	for (i = 0; i < count; ++i)
+		to.push_back(cp::prop::IsAscii(data[i]) && !cp::prop::IsControl(data[i]) ? char8_t(data[i]) : u8'.');
+}
+
 bool sys::Debugger::fSetup(sys::Userspace* userspace) {
 	pUserspace = userspace;
 	pRegisters = pUserspace->cpu()->debugQueryNames();
@@ -11,18 +46,23 @@ bool sys::Debugger::fSetup(sys::Userspace* userspace) {
 void sys::Debugger::fCheck(env::guest_t address) {
 	if (pMode == Mode::disabled)
 		return;
+	bool _skip = pBreakSkip;
+	pBreakSkip = false;
 
 	/* check if a breakpoint has been hit */
-	if (pBreakPoints.contains(address) && !pBreakSkip) {
+	if (pBreakPoints.contains(address) && !_skip) {
 		fHalted(address);
 		return;
 	}
-	pBreakSkip = false;
 
 	/* check if the current mode is considered done */
 	switch (pMode) {
 	case Mode::step:
 		if (pCount-- > 0)
+			return;
+		break;
+	case Mode::until:
+		if (address != pUntil || _skip)
 			return;
 		break;
 	case Mode::run:
@@ -35,6 +75,64 @@ void sys::Debugger::fCheck(env::guest_t address) {
 	fHalted(address);
 }
 
+std::vector<uint8_t> sys::Debugger::fReadBytes(env::guest_t address, size_t bytes) const {
+	std::vector<uint8_t> out(bytes);
+
+	/* try to read the data in bulk */
+	try {
+		env::Instance()->memory().mread(out.data(), address, out.size(), env::Usage::None);
+		return out;
+	}
+	catch (const env::MemoryFault&) {}
+
+	/* read as many bytes as possible */
+	out.clear();
+	try {
+		for (size_t i = 0; i < bytes; ++i) {
+			uint8_t bt = env::Instance()->memory().read<uint8_t>(address + i);
+			out.push_back(bt);
+		}
+	}
+	catch (const env::MemoryFault&) {}
+	return out;
+}
+void sys::Debugger::fPrintData(env::guest_t address, size_t bytes, uint8_t width) const {
+	std::vector<uint8_t> data = fReadBytes(address, bytes);
+	logger.debug(u8"Read: ", data.size());
+
+	/* construct the value-formatter to be used and the format printer itself */
+	str::u32::Local<16> fmt = str::lu32<16>::Build(U'0', width * 2, U'x');
+	void(*fmtLine)(std::u8string&, const uint8_t*, size_t, const char32_t*, size_t) = 0;
+	switch (width) {
+	case 2:
+		fmtLine = &PrintLine<uint8_t>;
+		break;
+	case 4:
+		fmtLine = &PrintLine<uint8_t>;
+		break;
+	case 8:
+		fmtLine = &PrintLine<uint8_t>;
+		break;
+	case 1:
+	default:
+		fmtLine = &PrintLine<uint8_t>;
+		break;
+	}
+
+	/* write the data out */
+	for (size_t i = 0; i < data.size(); i += 16) {
+		size_t count = std::min<size_t>(data.size() - i, 16);
+
+		/* construct the line itself and write it out */
+		std::u8string line = str::u8::Build(str::As{ U"#018x", address + i }, u8": ");
+		fmtLine(line, data.data() + i, count, fmt.c_str(), 16);
+		util::nullLogger.log(line);
+	}
+
+	/* check if a memory fault occurred */
+	if (data.size() < bytes)
+		logger.fmtError(u8"[{:#018x}]: Unable to read memory", address + data.size());
+}
 void sys::Debugger::fHalted(env::guest_t address) {
 	/* reset the debugger */
 	pMode = Mode::none;
@@ -48,7 +146,7 @@ void sys::Debugger::fHalted(env::guest_t address) {
 }
 void sys::Debugger::fPrintCommon() const {
 	printState();
-	printInstructions(10);
+	printInstructions(std::nullopt, 10);
 }
 
 void sys::Debugger::run() {
@@ -61,6 +159,12 @@ void sys::Debugger::step(size_t count) {
 	pBreakSkip = true;
 	if ((pCount = count) > 0)
 		pUserspace->execute();
+}
+void sys::Debugger::until(env::guest_t address) {
+	pUntil = address;
+	pMode = Mode::until;
+	pBreakSkip = true;
+	pUserspace->execute();
 }
 void sys::Debugger::addBreak(env::guest_t address) {
 	pBreakPoints.insert(address);
@@ -86,8 +190,9 @@ void sys::Debugger::printBreaks() const {
 	for (env::guest_t addr : pBreakPoints)
 		util::nullLogger.log(str::As{ U"#018x", addr });
 }
-void sys::Debugger::printInstructions(size_t count) const {
-	env::guest_t addr = pUserspace->getPC();
+void sys::Debugger::printInstructions(std::optional<env::guest_t> address, size_t count) const {
+	env::guest_t pc = pUserspace->getPC();
+	env::guest_t addr = address.value_or(pc);
 	sys::Cpu* cpu = pUserspace->cpu();
 
 	try {
@@ -100,7 +205,7 @@ void sys::Debugger::printInstructions(size_t count) const {
 			}
 
 			/* print the instruction and advance the address */
-			util::nullLogger.fmtLog(u8"[{:#018x}]: {}", addr, str);
+			util::nullLogger.fmtLog(u8"  {} [{:#018x}]: {}", (addr == pc ? u8'>' : u8' '), addr, str);
 			addr += size;
 		}
 	}
@@ -109,4 +214,16 @@ void sys::Debugger::printInstructions(size_t count) const {
 	catch (const env::MemoryFault&) {
 		logger.fmtError(u8"[{:#018x}]: Unable to read memory", addr);
 	}
+}
+void sys::Debugger::printData8(env::guest_t address, size_t bytes) const {
+	fPrintData(address, bytes, 1);
+}
+void sys::Debugger::printData16(env::guest_t address, size_t bytes) const {
+	fPrintData(address, bytes, 2);
+}
+void sys::Debugger::printData32(env::guest_t address, size_t bytes) const {
+	fPrintData(address, bytes, 4);
+}
+void sys::Debugger::printData64(env::guest_t address, size_t bytes) const {
+	fPrintData(address, bytes, 8);
 }
