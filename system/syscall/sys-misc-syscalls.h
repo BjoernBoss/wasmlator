@@ -44,6 +44,8 @@ namespace sys::detail {
 		int64_t geteuid() const;
 		int64_t getgid() const;
 		int64_t getegid() const;
+		int64_t getpid() const;
+		int64_t gettid() const;
 		int64_t uname(env::guest_t address) const;
 		int64_t sysinfo(env::guest_t info) const;
 		int64_t getcwd(env::guest_t buf, uint64_t size) const;
@@ -55,5 +57,6 @@ namespace sys::detail {
 		int64_t getrandom(env::guest_t buf, uint64_t buflen, uint32_t flags) const;
 		int64_t futex(env::guest_t uaddr, int64_t futex_op, uint32_t val, env::guest_t timeout, env::guest_t uaddr2, uint32_t val3) const;
 		int64_t rt_sigprocmask(int64_t how, env::guest_t set, env::guest_t oldset, uint64_t sigsetsize) const;
+		int64_t tgkill(uint64_t tgid, uint64_t tid, int64_t sig) const;
 	};
 }

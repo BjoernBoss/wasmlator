@@ -266,6 +266,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 113:
 		call.index = sys::SyscallIndex::clock_gettime;
 		break;
+	case 131:
+		call.index = sys::SyscallIndex::tgkill;
+		break;
 	case 135:
 		call.index = sys::SyscallIndex::rt_sigprocmask;
 		break;
@@ -274,6 +277,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 		break;
 	case 169:
 		call.index = sys::SyscallIndex::gettimeofday;
+		break;
+	case 172:
+		call.index = sys::SyscallIndex::getpid;
 		break;
 	case 174:
 		call.index = sys::SyscallIndex::getuid;
@@ -286,6 +292,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 		break;
 	case 177:
 		call.index = sys::SyscallIndex::getegid;
+		break;
+	case 178:
+		call.index = sys::SyscallIndex::gettid;
 		break;
 	case 179:
 		call.index = sys::SyscallIndex::sysinfo;

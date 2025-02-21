@@ -18,6 +18,12 @@ int64_t sys::detail::MiscSyscalls::getgid() const {
 int64_t sys::detail::MiscSyscalls::getegid() const {
 	return pSyscall->process().egid;
 }
+int64_t sys::detail::MiscSyscalls::getpid() const {
+	return pSyscall->process().pid;
+}
+int64_t sys::detail::MiscSyscalls::gettid() const {
+	return pSyscall->process().tid;
+}
 int64_t sys::detail::MiscSyscalls::uname(env::guest_t address) const {
 	/* helper function */
 	auto write = [](char8_t(&buffer)[65], std::u8string_view str) {
@@ -194,5 +200,9 @@ int64_t sys::detail::MiscSyscalls::futex(env::guest_t uaddr, int64_t futex_op, u
 }
 int64_t sys::detail::MiscSyscalls::rt_sigprocmask(int64_t how, env::guest_t set, env::guest_t oldset, uint64_t sigsetsize) const {
 	logger.warn(u8"unsupported syscall rt_sigprocmask used");
+	return errCode::eNotImplemented;
+}
+int64_t sys::detail::MiscSyscalls::tgkill(uint64_t tgid, uint64_t tid, int64_t sig) const {
+	logger.warn(u8"thread killing not supported");
 	return errCode::eNotImplemented;
 }
