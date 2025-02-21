@@ -257,11 +257,17 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 96:
 		call.index = sys::SyscallIndex::set_tid_address;
 		break;
+	case 98:
+		call.index = sys::SyscallIndex::futex;
+		break;
 	case 99:
 		call.index = sys::SyscallIndex::set_robust_list;
 		break;
 	case 113:
 		call.index = sys::SyscallIndex::clock_gettime;
+		break;
+	case 135:
+		call.index = sys::SyscallIndex::rt_sigprocmask;
 		break;
 	case 160:
 		call.index = sys::SyscallIndex::uname;

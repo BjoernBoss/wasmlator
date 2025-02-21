@@ -220,6 +220,8 @@ namespace sys {
 		set_tid_address,
 		set_robust_list,
 		prlimit64,
+		futex,
+		rt_sigprocmask,
 		getrandom
 	};
 

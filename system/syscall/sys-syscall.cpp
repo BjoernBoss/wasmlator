@@ -220,6 +220,14 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall getrandom(", str::As{ U"#018x", args.args[0] }, u8", ", args.args[1], u8", ", args.args[2], u8')');
 		return pMisc.getrandom(args.args[0], args.args[1], uint32_t(args.args[2]));
 	}
+	case sys::SyscallIndex::futex: {
+		logger.debug(u8"Syscall futex(", str::As{ U"#018x", args.args[0] }, u8", ", int64_t(args.args[1]), u8", ", uint32_t(args.args[2]), u8", ", str::As{ U"#010x", args.args[3] }, u8", ", str::As{ U"#010x", args.args[4] }, u8", ", uint32_t(args.args[5]), u8')');
+		return pMisc.futex(args.args[0], int64_t(args.args[1]), uint32_t(args.args[2]), args.args[3], args.args[4], uint32_t(args.args[5]));
+	}
+	case sys::SyscallIndex::rt_sigprocmask: {
+		logger.debug(u8"Syscall rt_sigprocmask(", int64_t(args.args[0]), u8", ", str::As{ U"#018x", args.args[1] }, u8", ", str::As{ U"#010x", args.args[2] }, u8", ", args.args[3], u8')');
+		return pMisc.rt_sigprocmask(int64_t(args.args[0]), args.args[1], args.args[2], args.args[3]);
+	}
 	case sys::SyscallIndex::completed: {
 		logger.debug(u8"Syscall completed(index: ", args.rawIndex, u8')');
 		return args.args[0];
