@@ -13,7 +13,6 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 
 # relevant paths referenced throughout this script
 build_path := build
-fs_path := fs
 ts_path := run/common
 gen_path := $(build_path)/gen
 bin_path := $(build_path)/make
@@ -53,8 +52,6 @@ $(gen_path):
 	@ mkdir -p $(gen_path)
 $(bin_path):
 	@ mkdir -p $(bin_path)
-$(fs_path):
-	@ mkdir -p $(fs_path)
 
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O1 -fwasm-exceptions
@@ -101,5 +98,5 @@ $(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
 	@ tsc -p $<
 
 # setup the wasm and js components necessary
-all: $(main_path) $(glue_path) $(wasmlator_path) | $(fs_path)
+all: $(main_path) $(glue_path) $(wasmlator_path)
 .PHONY: all

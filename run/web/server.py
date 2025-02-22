@@ -122,9 +122,17 @@ class FileSystemInteract:
 		return open(path, 'rb')
 	def getSize(self, f):
 		return os.fstat(f.fileno()).st_size
-	
+
+# fetch the root directory to be used
+fsPath = open('run/fs.root', 'r').read().strip()
+fsPath = os.path.realpath(os.path.join('./run', fsPath))
+if not os.path.isdir(fsPath):
+	print(f'error: filesystem root [{fsPath}] is not a directory')
+	exit(1)
+print(f'filesystem root at [{fsPath}]')
+
 # root directory of the server
-fileSystem = FileSystemInteract(os.path.realpath('fs'))
+fileSystem = FileSystemInteract(fsPath)
 staticPath = os.path.realpath('run/web/static')
 generatedPath = os.path.realpath('build/gen')
 

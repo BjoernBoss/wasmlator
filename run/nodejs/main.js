@@ -1,6 +1,22 @@
 import { NodeHost } from './node-host.js';
 import { SetupWasmlator } from '../../build/gen/wasmlator.js';
 import { createInterface } from 'readline';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+/* fetch the root directory to be used */
+let fsPath = (await fs.readFile('run/fs.root', { encoding: 'utf-8' })).trim();
+try {
+	if (!path.isAbsolute(fsPath))
+		fsPath = await fs.realpath(path.join('./run', fsPath));
+	else
+		fsPath = await fs.realpath(fsPath);
+	if (!(await fs.lstat(fsPath)).isDirectory())
+		throw 1;
+} catch (_) {
+	console.error(`error: filesystem root [${fsPath}] is not a directory`);
+	process.exit(1);
+}
 
 /* setup the io-reader, host, and load the wasmlator */
 let reader = createInterface({ input: process.stdin, output: process.stdout });
