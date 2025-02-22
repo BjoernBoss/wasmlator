@@ -6,7 +6,7 @@
 
 namespace host {
 	/* fetch a random 32-bit value */
-	uint32_t Random();
+	uint32_t GetRandom();
 
 	/* fetch the current time in [us] */
 	uint64_t GetStampUS();

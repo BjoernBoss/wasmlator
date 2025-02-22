@@ -96,6 +96,7 @@ namespace sys {
 			euid = 12,
 			gid = 13,
 			egid = 14,
+			hardwareCapabilities = 16,
 			clockTick = 17,
 			secure = 23,
 			random = 25,

@@ -17,17 +17,17 @@ sys::elf::LoadState sys::LoadElf(const uint8_t* data, size_t size) {
 	/* check if a base-address needs to be picked (sufficiently far away from start of large allocations-address) */
 	env::guest_t baseAddress = 0, pageSize = env::Instance()->pageSize();
 	if (config.dynamic)
-		baseAddress = env::guest_t(1 + (host::Random() & 0x00ff'ffff)) * pageSize;
+		baseAddress = env::guest_t(1 + (host::GetRandom() & 0x00ff'ffff)) * pageSize;
 	logger.debug(u8"Selecting base-address as: ", str::As{ U"#018x", baseAddress });
 
 	/* load all program headers to memory */
-	env::guest_t endOfData = detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);
+	detail::LoadElfProgHeaders(baseAddress, config, reader, bitWidth);
 
 	/* setup the loaded state */
 	elf::LoadState loaded;
 	std::swap(loaded.interpreter, config.interpreter);
 	loaded.start = config.entry + baseAddress;
-	loaded.endOfData = endOfData;
+	loaded.endOfData = config.endOfData;
 	loaded.machine = config.machine;
 	loaded.bitWidth = bitWidth;
 	loaded.aux.entry = loaded.start;
@@ -67,7 +67,7 @@ void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t 
 	env::guest_t baseAddress = 0, pageSize = env::Instance()->pageSize();
 	if (config.dynamic) {
 		baseAddress = 0x0000'0400'0000'0000 + (state.endOfData & env::guest_t(pageSize - 1));
-		baseAddress += env::guest_t(host::Random() & 0x00ff'ffff) * pageSize;
+		baseAddress += env::guest_t(host::GetRandom() & 0x00ff'ffff) * pageSize;
 	}
 	logger.debug(u8"Selecting base-address for interpreter as: ", str::As{ U"#018x", baseAddress });
 

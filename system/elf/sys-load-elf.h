@@ -6,6 +6,7 @@ namespace sys::detail {
 	struct ElfConfig {
 		std::u8string interpreter;
 		env::guest_t phAddress = 0;
+		env::guest_t endOfData = 0;
 		env::guest_t entry = 0;
 		size_t phEntrySize = 0;
 		size_t phOffset = 0;
@@ -24,11 +25,11 @@ namespace sys::detail {
 	env::guest_t LoadElfSingleProgHeader(env::guest_t baseAddress, size_t index, const detail::ProgramHeader<Base>& header, const detail::Reader& reader);
 
 	template <class Base>
-	env::guest_t LoadElfProgHeadersTyped(env::guest_t baseAddress, const detail::ElfConfig& config, const detail::Reader& reader);
+	void LoadElfProgHeadersTyped(env::guest_t baseAddress, detail::ElfConfig& config, const detail::Reader& reader);
 
 	uint8_t CheckElfSignature(const detail::Reader& reader);
 
 	detail::ElfConfig ValidateElfLoad(const detail::Reader& reader, uint8_t bitWidth);
 
-	env::guest_t LoadElfProgHeaders(env::guest_t baseAddress, const detail::ElfConfig& config, const detail::Reader& reader, uint8_t bitWidth);
+	void LoadElfProgHeaders(env::guest_t baseAddress, detail::ElfConfig& config, const detail::Reader& reader, uint8_t bitWidth);
 }

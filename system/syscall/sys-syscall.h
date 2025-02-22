@@ -8,9 +8,9 @@
 
 namespace sys::detail {
 	namespace fs {
-		static constexpr uint32_t ThisUesr = 1001;
-		static constexpr uint32_t ThisGroup = 1001;
-		static constexpr uint32_t DefOwner = fs::ThisUesr;
+		static constexpr uint32_t ThisUser = 1000;
+		static constexpr uint32_t ThisGroup = 1000;
+		static constexpr uint32_t DefOwner = fs::ThisUser;
 		static constexpr uint32_t DefGroup = fs::ThisGroup;
 		static constexpr uint32_t RootOwner = 0;
 		static constexpr uint32_t RootGroup = 0;
@@ -28,15 +28,15 @@ namespace sys::detail {
 		std::u8string path;
 		std::u8string workingDirectory;
 		env::guest_t clear_child_tid = 0;
-		uint32_t uid = fs::ThisUesr;
+		uint32_t uid = fs::ThisUser;
 		uint32_t gid = fs::ThisGroup;
-		uint32_t euid = fs::ThisUesr;
+		uint32_t euid = fs::ThisUser;
 		uint32_t egid = fs::ThisGroup;
 		uint32_t pid = 1;
 		uint32_t pgid = 1;
 
 		/* must match pid, as it is the first thread */
-		uint32_t tid = 1; 
+		uint32_t tid = 1;
 	};
 
 	class Syscall {
@@ -68,6 +68,7 @@ namespace sys::detail {
 		void handle(env::guest_t address, env::guest_t nextAddress);
 
 	public:
+		const detail::ProcessConfig& process() const;
 		detail::ProcessConfig& process();
 		detail::FileIO& files();
 		int64_t callIncomplete();

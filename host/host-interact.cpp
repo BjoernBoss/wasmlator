@@ -1,7 +1,7 @@
 #include "host-interact.h"
 #include "../host/interface.h"
 
-uint32_t host::Random() {
+uint32_t host::GetRandom() {
 	return host_random();
 }
 

@@ -279,6 +279,10 @@ static void HandleDebug(const arger::Parsed& out) {
 void HandleCommand(std::u8string_view cmd) {
 	util::ConfigureLogging(true);
 
+	/* check if the process has been killed */
+	if (env::Instance() == 0)
+		debugger = 0;
+
 	/* parse the next command */
 	arger::Parsed out;
 	try {

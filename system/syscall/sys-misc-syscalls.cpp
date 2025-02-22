@@ -189,7 +189,7 @@ int64_t sys::detail::MiscSyscalls::getrandom(env::guest_t buf, uint64_t buflen, 
 
 	/* fill the buffer with random data */
 	for (size_t i = 0; i < buflen; i += 4) {
-		uint32_t val = host::Random();
+		uint32_t val = host::GetRandom();
 		env::Instance()->memory().mwrite(buf + i, &val, (i + 4 < buflen ? 4 : buflen - i), env::Usage::Write);
 	}
 	return buflen;

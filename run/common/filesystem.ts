@@ -41,8 +41,8 @@ export class FileSystem {
 		dir: 0o755
 	};
 	static readonly fsDefault: Record<string, number> = {
-		owner: 1001,
-		group: 1001,
+		owner: 1000,
+		group: 1000,
 		dir: 0o755,
 		file: 0o754,
 		link: 0o754

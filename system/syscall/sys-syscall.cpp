@@ -289,6 +289,9 @@ void sys::detail::Syscall::handle(env::guest_t address, env::guest_t nextAddress
 	fWrap(true, [this]() { return fDispatch(); });
 }
 
+const sys::detail::ProcessConfig& sys::detail::Syscall::process() const {
+	return pConfig;
+}
 sys::detail::ProcessConfig& sys::detail::Syscall::process() {
 	return pConfig;
 }

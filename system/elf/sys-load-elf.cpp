@@ -74,6 +74,16 @@ sys::detail::ElfConfig sys::detail::ValidateElfLoadTyped(const detail::Reader& r
 			config.phAddress = phList[i].vAddress;
 		}
 	}
+
+	/* check if the program header-address was not found and compute it manually */
+	if (!phFound) {
+		for (size_t i = 0; i < config.phCount; ++i) {
+			if (phList[i].offset > config.phOffset || phList[i].offset + phList[i].fileSize <= config.phOffset)
+				continue;
+			config.phAddress = phList[i].vAddress + (config.phOffset - phList[i].offset);
+			break;
+		}
+	}
 	return config;
 }
 
@@ -121,17 +131,15 @@ env::guest_t sys::detail::LoadElfSingleProgHeader(env::guest_t baseAddress, size
 }
 
 template <class Base>
-env::guest_t sys::detail::LoadElfProgHeadersTyped(env::guest_t baseAddress, const detail::ElfConfig& config, const detail::Reader& reader) {
+void sys::detail::LoadElfProgHeadersTyped(env::guest_t baseAddress, detail::ElfConfig& config, const detail::Reader& reader) {
 	/* extract the list of program-headers */
 	const detail::ProgramHeader<Base>* phList = reader.base<detail::ProgramHeader<Base>>(config.phOffset, config.phCount);
 
 	/* iterate over the headers and load them and accumulate the end-of-data address */
-	env::guest_t endOfData = 0;
 	for (size_t i = 0; i < config.phCount; ++i) {
 		if (phList[i].type == detail::ProgramType::load)
-			endOfData = std::max<env::guest_t>(endOfData, detail::LoadElfSingleProgHeader<Base>(baseAddress, i, phList[i], reader));
+			config.endOfData = std::max<env::guest_t>(config.endOfData, detail::LoadElfSingleProgHeader<Base>(baseAddress, i, phList[i], reader));
 	}
-	return endOfData;
 }
 
 uint8_t sys::detail::CheckElfSignature(const detail::Reader& reader) {
@@ -163,8 +171,9 @@ sys::detail::ElfConfig sys::detail::ValidateElfLoad(const detail::Reader& reader
 	return detail::ValidateElfLoadTyped<uint64_t>(reader);
 }
 
-env::guest_t sys::detail::LoadElfProgHeaders(env::guest_t baseAddress, const detail::ElfConfig& config, const detail::Reader& reader, uint8_t bitWidth) {
+void sys::detail::LoadElfProgHeaders(env::guest_t baseAddress, detail::ElfConfig& config, const detail::Reader& reader, uint8_t bitWidth) {
 	if (bitWidth == 32)
-		return detail::LoadElfProgHeadersTyped<uint32_t>(baseAddress, config, reader);
-	return detail::LoadElfProgHeadersTyped<uint64_t>(baseAddress, config, reader);
+		detail::LoadElfProgHeadersTyped<uint32_t>(baseAddress, config, reader);
+	else
+		detail::LoadElfProgHeadersTyped<uint64_t>(baseAddress, config, reader);
 }
