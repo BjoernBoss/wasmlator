@@ -10,24 +10,6 @@ namespace sys::detail {
 	namespace consts {
 		static constexpr int fdWDirectory = -100;
 
-		/* used by openat (opNoCTTY can be ignored) */
-		static constexpr uint32_t opReadOnly = 0x000000;
-		static constexpr uint32_t opWriteOnly = 0x000001;
-		static constexpr uint32_t opReadWrite = 0x000002;
-		static constexpr uint32_t opCreate = 0x000040;
-		static constexpr uint32_t opExclusive = 0x000080;
-		static constexpr uint32_t opNoCTTY = 0x000100;
-		static constexpr uint32_t opTruncate = 0x000200;
-		static constexpr uint32_t opDirectory = 0x010000;
-		static constexpr uint32_t opNoFollow = 0x020000;
-		static constexpr uint32_t opCloseOnExecute = 0x080000;
-		static constexpr uint32_t opOpenOnly = 0x200000;
-		static constexpr uint32_t opAppend = 0x000400;
-		static constexpr uint32_t openFlagMask = consts::opReadOnly | consts::opWriteOnly |
-			consts::opReadWrite | consts::opCreate | consts::opExclusive | consts::opTruncate |
-			consts::opDirectory | consts::opNoFollow | consts::opCloseOnExecute |
-			consts::opOpenOnly | consts::opNoCTTY | consts::opAppend;
-
 		/* used by faccessat */
 		static constexpr uint64_t accFOk = 0x00;
 		static constexpr uint64_t accROk = 0x04;
@@ -48,19 +30,24 @@ namespace sys::detail {
 		/* used by fcntl */
 		static constexpr uint64_t fdFlagCloseExec = 0x01;
 
-		/* used by fcntl */
-		static constexpr uint64_t fsReadOnly = 0x0000;
-		static constexpr uint64_t fsWriteOnly = 0x0001;
-		static constexpr uint64_t fsReadWrite = 0x0002;
-		static constexpr uint64_t fsCreate = 0x0040;
-		static constexpr uint64_t fsExclusive = 0x0080;
-		static constexpr uint64_t fsNoCTTY = 0x0100;
-		static constexpr uint64_t fsTruncate = 0x0200;
-		static constexpr uint64_t fsAppend = 0x0400;
+		/* used by openat/fcntl (NoCTTY can be ignored) */
+		static constexpr uint64_t fsReadOnly = 0x000000;
+		static constexpr uint64_t fsWriteOnly = 0x000001;
+		static constexpr uint64_t fsReadWrite = 0x000002;
+		static constexpr uint64_t fsCreate = 0x000040;
+		static constexpr uint64_t fsExclusive = 0x000080;
+		static constexpr uint64_t fsNoCTTY = 0x000100;
+		static constexpr uint64_t fsTruncate = 0x000200;
+		static constexpr uint64_t fsAppend = 0x000400;
+		static constexpr uint64_t fsNonBlock = 0x000800;
+		static constexpr uint32_t fsDirectory = 0x010000;
+		static constexpr uint32_t fsNoFollow = 0x020000;
+		static constexpr uint32_t fsCloseOnExecute = 0x080000;
 		static constexpr uint64_t fsOpenOnly = 0x200000;
 		static constexpr uint64_t fsMask = consts::fsReadOnly | consts::fsWriteOnly |
 			consts::fsReadWrite | consts::fsCreate | consts::fsExclusive | consts::fsNoCTTY |
-			consts::fsTruncate | consts::fsAppend | consts::fsOpenOnly;
+			consts::fsTruncate | consts::fsAppend | consts::fsOpenOnly | consts::fsNonBlock |
+			consts::fsDirectory | consts::fsNoFollow | consts::fsCloseOnExecute;
 
 		/* used by getdents */
 		static constexpr uint8_t dEntUnknown = 0;
@@ -89,6 +76,7 @@ namespace sys::detail {
 	private:
 		struct InstanceConfig {
 			bool append = false;
+			bool nonBlock = false;
 			bool read = false;
 			bool write = false;
 			bool modify = false;

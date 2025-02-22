@@ -329,30 +329,31 @@ int64_t sys::detail::FileIO::fWrite(uint64_t fd, std::optional<uint64_t> offset)
 
 int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uint64_t flags, uint64_t mode) {
 	/* check if all flags are supported */
-	if ((flags & ~consts::openFlagMask) != 0)
+	if ((flags & ~consts::fsMask) != 0)
 		logger.fatal(u8"Unknown file-flags used on file [", path, u8']');
 
 	/* validate the flags */
-	if (!detail::IsSet(flags, consts::opReadOnly) && !detail::IsSet(flags, consts::opWriteOnly) && !detail::IsSet(flags, consts::opReadWrite))
+	if (!detail::IsSet(flags, consts::fsReadOnly) && !detail::IsSet(flags, consts::fsWriteOnly) && !detail::IsSet(flags, consts::fsReadWrite))
 		return errCode::eInvalid;
-	if (detail::IsSet(flags, consts::opReadWrite) && detail::IsSet(flags, consts::opWriteOnly))
+	if (detail::IsSet(flags, consts::fsReadWrite) && detail::IsSet(flags, consts::fsWriteOnly))
 		return errCode::eInvalid;
 
 	/* setup the instance-config */
 	FileIO::InstanceConfig config;
 
 	/* extract all of the flag bits */
-	config.read = detail::IsSet(flags, consts::opReadWrite) || !detail::IsSet(flags, consts::opWriteOnly);
-	config.write = detail::IsSet(flags, consts::opReadWrite) || detail::IsSet(flags, consts::opWriteOnly);
-	config.modify = !detail::IsSet(flags, consts::opOpenOnly);
-	config.append = detail::IsSet(flags, consts::opAppend);
-	config.creation.noctty = detail::IsSet(flags, consts::opNoCTTY);
-	config.creation.create = detail::IsSet(flags, consts::opCreate);
-	config.creation.exclusive = detail::IsSet(flags, consts::opExclusive);
-	config.creation.truncate = detail::IsSet(flags, consts::opTruncate);
-	bool follow = !detail::IsSet(flags, consts::opNoFollow);
-	bool directory = detail::IsSet(flags, consts::opDirectory);
-	bool closeOnExecute = detail::IsSet(flags, consts::opCloseOnExecute);
+	config.read = detail::IsSet(flags, consts::fsReadWrite) || !detail::IsSet(flags, consts::fsWriteOnly);
+	config.write = detail::IsSet(flags, consts::fsReadWrite) || detail::IsSet(flags, consts::fsWriteOnly);
+	config.modify = !detail::IsSet(flags, consts::fsOpenOnly);
+	config.append = detail::IsSet(flags, consts::fsAppend);
+	config.nonBlock = detail::IsSet(flags, consts::fsNonBlock);
+	config.creation.noctty = detail::IsSet(flags, consts::fsNoCTTY);
+	config.creation.create = detail::IsSet(flags, consts::fsCreate);
+	config.creation.exclusive = detail::IsSet(flags, consts::fsExclusive);
+	config.creation.truncate = detail::IsSet(flags, consts::fsTruncate);
+	bool follow = !detail::IsSet(flags, consts::fsNoFollow);
+	bool directory = detail::IsSet(flags, consts::fsDirectory);
+	bool closeOnExecute = detail::IsSet(flags, consts::fsCloseOnExecute);
 	if (!config.modify)
 		config.read = (config.write = false);
 	if (config.creation.create && config.creation.exclusive)
@@ -442,6 +443,12 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 		if (node->type() == env::FileType::link || node->type() == env::FileType::directory)
 			return fSetupFile(node, config, closeOnExecute);
 
+		/* check if the non-blocking is requested, which is otherwise only supported for files */
+		if (config.nonBlock && node->type() != env::FileType::file) {
+			logger.error(u8"Path [", node->buildPath(), u8"] cannot be opened in non-blocking mode");
+			return errCode::eNotImplemented;
+		}
+
 		/* perform the open-call on the file-node */
 		return node->open(config.creation.truncate, [this, node, config, closeOnExecute](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
@@ -528,15 +535,15 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	_dev->mount(u8"stderr", std::make_shared<impl::LinkNode>(u8"/proc/self/fd/2", rootAll));
 
 	/* setup the initial open file-entries to the terminal (stdin/stdout/stderr - terminal creation happens inplace) */
-	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::opReadOnly, 0) != 0) {
+	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::fsReadOnly, 0) != 0) {
 		logger.error(u8"Failed to open [/dev/tty] for stdin as fd=0");
 		return false;
 	}
-	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::opWriteOnly, 0) != 1) {
+	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::fsWriteOnly, 0) != 1) {
 		logger.error(u8"Failed to open [/dev/tty] for stdout as fd=1");
 		return false;
 	}
-	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::opWriteOnly, 0) != 2) {
+	if (fOpenAt(consts::fdWDirectory, u8"/dev/tty", consts::fsWriteOnly, 0) != 2) {
 		logger.error(u8"Failed to open [/dev/tty] for stderr as fd=2");
 		return false;
 	}
@@ -772,13 +779,21 @@ int64_t sys::detail::FileIO::fcntl(int64_t fd, uint64_t cmd, uint64_t arg) {
 		return (config.read ? (config.write ? consts::fsReadWrite : consts::fsReadOnly) : consts::fsWriteOnly) |
 			(config.creation.create ? consts::fsCreate : 0) | (config.creation.truncate ? consts::fsTruncate : 0) |
 			(config.creation.exclusive ? consts::fsExclusive : 0) | (config.creation.noctty ? consts::fsNoCTTY : 0) |
-			(config.append ? consts::fsAppend : 0) | (config.modify ? 0 : consts::fsOpenOnly);
+			(config.append ? consts::fsAppend : 0) | (config.modify ? 0 : consts::fsOpenOnly) | (config.nonBlock ? consts::fsNonBlock : 0);
 	}
 	else if (cmd == consts::fcntlSetFileStatusFlags) {
 		/* ensure that all flags are supported */
 		if ((arg & ~consts::fsMask) != 0)
 			logger.fatal(u8"Unknown file-status flags used in fcntl");
+
+		/* check if blocking is supported by this component */
+		env::FileType type = fInstance(fd).node->type();
+		if (detail::IsSet(arg, consts::fsNonBlock) && type != env::FileType::directory && type != env::FileType::link && type != env::FileType::file) {
+			logger.error(u8"Path [", fInstance(fd).node->buildPath(), u8"] cannot be set to non-blocking mode");
+			return errCode::eNotImplemented;
+		}
 		fInstance(fd).config.append = detail::IsSet(arg, consts::fsAppend);
+		fInstance(fd).config.nonBlock = detail::IsSet(arg, consts::fsNonBlock);
 		return errCode::eSuccess;
 	}
 

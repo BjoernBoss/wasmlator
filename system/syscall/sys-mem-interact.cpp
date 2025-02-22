@@ -152,9 +152,7 @@ int64_t sys::detail::MemoryInteract::mmap(env::guest_t address, uint64_t length,
 
 	/* validate the validity of the file-descriptor */
 	detail::FdState state = pSyscall->files().fdCheck(fd);
-	if (!state.valid)
-		return errCode::eBadFd;
-	if (!state.modify)
+	if (!state.valid || !state.modify)
 		return errCode::eBadFd;
 	if (state.type != env::FileType::file || !state.read)
 		return errCode::eAccess;
