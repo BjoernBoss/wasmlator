@@ -16,9 +16,13 @@ window.addEventListener('load', function () {
 	};
 	let styleList = ['disabled', null, 'active'];
 
-	/* register the button-behavior */
+	/* register the button-behavior and initialize the state */
 	for (const key in buttonState) {
 		let html = document.getElementById(key);
+		if (buttonState[key] != 1)
+			html.classList.add(styleList[buttonState[key]]);
+
+		/* add the toggle behavior */
 		html.onclick = function () {
 			if (buttonState[key] != 1)
 				html.classList.remove(styleList[buttonState[key]]);
@@ -26,6 +30,7 @@ window.addEventListener('load', function () {
 			if (buttonState[key] != 1)
 				html.classList.add(styleList[buttonState[key]]);
 
+			/* show/hide all affected log entries */
 			let style = (buttonState[key] == 2 ? 'block' : 'none');
 			let list = htmlOutput.getElementsByClassName(key);
 			for (let i = 0; i < list.length; ++i)
@@ -43,7 +48,7 @@ window.addEventListener('load', function () {
 	/* logger function to write the logs to the ui */
 	let logMessage = function (t, m) {
 		if (m.length == 0)
-			return;
+			m = ' ';
 
 		/* classify the logging type to the ui style */
 		let name = null;

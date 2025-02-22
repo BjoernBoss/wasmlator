@@ -24,7 +24,7 @@ let printProfile = function (stats) {
 	console.log(`   FileSystem: ${out(stats.mem.filesystem / 1000)} Kb`);
 	console.log(`   WasmLator : ${out(stats.mem.wasmlator / 1000)} Kb`);
 	console.log(`   Guest     : ${out(stats.mem.guest / 1000)} Kb`);
-	console.log(`   Total     : ${out(stats.mem.total / 1000)} Kb`);
+	console.log(`   Peak Total: ${out(stats.mem.total / 1000)} Kb`);
 	if (stats.mem.total >= 0) {
 		let overhead = stats.mem.total - stats.mem.guest - stats.mem.wasmlator - stats.mem.filesystem
 		console.log(`     Overhead: ${out(overhead / 1000)} Kb`);
@@ -34,7 +34,7 @@ let printProfile = function (stats) {
 	console.log(`  FileSystem : ${out(stats.time.filesystem)} sec`);
 	console.log(`  Execution  : ${out(stats.time.executing)} sec`);
 	console.log(`  Compilation: ${out(stats.time.compilation)} sec`);
-	console.log(`  Peak Total : ${out(stats.time.total)} sec`);
+	console.log(`  Total      : ${out(stats.time.total)} sec`);
 	let misc = stats.time.total - stats.time.startup - stats.time.filesystem - stats.time.executing - stats.time.compilation;
 	console.log(`    Misc     : ${out(misc)} sec`);
 };

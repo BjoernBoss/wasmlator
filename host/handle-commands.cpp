@@ -5,10 +5,9 @@
 
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
-	arger::Option{ L"help",
-		arger::Abbreviation{ L'h' },
-		arger::HelpFlag{},
-		arger::Description{ L"Print this help menu." },
+	arger::Help{
+		L"Expression",
+		L"Addresses can be given as expressions of subtraction / addition of constants or registers.",
 	},
 	arger::Group{ L"start", L"",
 		arger::Description{ L"Start a translation process." },
@@ -95,63 +94,84 @@ static arger::Config Commands{
 	arger::Group{ L"until", L"",
 		arger::Abbreviation{ L'u' },
 		arger::Description{ L"Continue running until a breakpoint or the given address has been reached." },
-		arger::Positional{ L"address", arger::Primitive::unum, L"Address to halt at." },
+		arger::Positional{ L"address", arger::Primitive::any, L"Address to halt at." },
 	},
 	arger::Group{ L"inspect", L"",
 		arger::Abbreviation{ L'i' },
 		arger::Description{ L"Inspect the state of the current cpu." },
+		arger::Option{ L"bind",
+			arger::Abbreviation{ L'b' },
+			arger::Description{ L"Bind the inspection to be printed on every debug halt." },
+		},
+		arger::Group{ L"break", L"in-break",
+			arger::Description{ L"Print the set breakpoints." },
+		},
+		arger::Group{ L"print", L"in-print",
+			arger::Description{ L"Print the bound printings." },
+		},
 		arger::Group{ L"reg", L"in-reg",
 			arger::Abbreviation{ L'r' },
 			arger::Description{ L"Print the current register bank." },
 		},
-		arger::Group{ L"breaks", L"in-breaks",
-			arger::Description{ L"Print the set breakpoints." },
-		},
-		arger::Group{ L"instructions", L"in-inst",
+		arger::Group{ L"insts", L"in-inst",
 			arger::Abbreviation{ L'i' },
 			arger::Description{ L"Print instructions ad the address." },
 			arger::Require::AtLeast(1),
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to print.", arger::Value{ 1 } },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Instruction to start printing from (defaults to pc)." },
+			arger::Positional{ L"address", arger::Primitive::any, L"Instruction to start printing from (defaults to pc)." },
 		},
 		arger::Group{ L"byte", L"in-mem8",
 			arger::Abbreviation{ L'b' },
 			arger::Description{ L"Print bytes at the address." },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"address", arger::Primitive::any, L"Address to print memory from." },
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of bytes to print." },
 		},
 		arger::Group{ L"word", L"in-mem16",
 			arger::Abbreviation{ L'w' },
 			arger::Description{ L"Print words at the address." },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"address", arger::Primitive::any, L"Address to print memory from." },
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of words to print." },
 		},
 		arger::Group{ L"dword", L"in-mem32",
 			arger::Abbreviation{ L'd' },
 			arger::Description{ L"Print dwords at the address." },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"address", arger::Primitive::any, L"Address to print memory from." },
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of dwords to print." },
 		},
 		arger::Group{ L"qword", L"in-mem64",
 			arger::Abbreviation{ L'q' },
 			arger::Description{ L"Print qwords at the address." },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Address to print memory from." },
+			arger::Positional{ L"address", arger::Primitive::any, L"Address to print memory from." },
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of qwords to print." },
 		},
 	},
-	arger::Group{ L"break", L"",
+	arger::Group{ L"echo", L"",
+		arger::Abbreviation{ L'e' },
+		arger::Description{ L"Echo the given message." },
+		arger::Positional{ L"msg", arger::Primitive::any, L"Message to be echoed." },
+	},
+	arger::Group{ L"common", L"",
+		arger::Description{ L"Bind the common debug printing." },
+		arger::Require::Any(),
+		arger::Positional{ L"sp-name", arger::Primitive::any, L"Name of stack pointer register." },
+	},
+	arger::Group{ L"del", L"",
+		arger::Description{ L"Remove breakpoints or print bindings." },
+		arger::Group{ L"break", L"break-remove",
+			arger::Abbreviation{ L'b' },
+			arger::Description{ L"Remove breakpoint with the given index." },
+			arger::Positional{ L"index", arger::Primitive::unum, L"Index of the breakpoint." },
+		},
+		arger::Group{ L"print", L"print-remove",
+			arger::Abbreviation{ L'p' },
+			arger::Description{ L"Remove bound print with the given index." },
+			arger::Positional{ L"index", arger::Primitive::unum, L"Index of the binding." },
+		},
+	},
+	arger::Group{ L"break", L"break-add",
 		arger::Abbreviation{ L'b' },
-		arger::Description{ L"Interact with the currently set breakpoints." },
-		arger::Group{ L"add", L"br-add",
-			arger::Abbreviation{ L'a' },
-			arger::Description{ L"Add a breakpoint to the given address." },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Address of the breakpoint." },
-		},
-		arger::Group{ L"remove", L"br-remove",
-			arger::Abbreviation{ L'r' },
-			arger::Description{ L"Remove a breakpoint from the given address." },
-			arger::Positional{ L"address", arger::Primitive::unum, L"Address of the breakpoint." },
-		},
+		arger::Description{ L"Add a breakpoint to the given address." },
+		arger::Positional{ L"address", arger::Primitive::any, L"Address of the breakpoint." },
 	},
 };
 
@@ -172,50 +192,72 @@ static void HandleDebug(const arger::Parsed& out) {
 
 	/* check if the program should run until an address has been reached */
 	if (out.groupId() == L"until") {
-		debugger->until(out.positional(0).value().unum());
+		debugger->until(str::u8::To(out.positional(0).value().str()));
 		return;
 	}
 
-	/* check if breakpoints should be interacted with */
-	if (out.groupId() == L"br-add") {
-		debugger->addBreak(out.positional(0).value().unum());
+	/* check if breakpoints should be added */
+	if (out.groupId() == L"break-add") {
+		debugger->addBreak(str::u8::To(out.positional(0).value().str()));
 		return;
 	}
-	if (out.groupId() == L"br-remove") {
+
+	/* check if breakpoints or bindings should be removed */
+	if (out.groupId() == L"break-remove") {
 		debugger->dropBreak(out.positional(0).value().unum());
 		return;
 	}
+	if (out.groupId() == L"bind-remove") {
+		debugger->dropBinding(out.positional(0).value().unum());
+		return;
+	}
 
-	/* check if the state should be inspected */
+	/* check if the common bindings should be set up */
+	if (out.groupId() == L"common") {
+		if (out.positionals() == 0)
+			debugger->setupCommon(std::nullopt);
+		else
+			debugger->setupCommon(str::u8::To(out.positional(0).value().str()));
+		return;
+	}
+
+	/* check if the debug-state should be inspected */
+	if (out.groupId() == L"in-break") {
+		debugger->printBreaks();
+		return;
+	}
+	if (out.groupId() == L"in-print") {
+		debugger->printBindings();
+		return;
+	}
+
+	/* check if the state should be inspected and potentially bound */
+	bool bind = out.flag(L"bind");
 	if (out.groupId() == L"in-reg") {
-		debugger->printState();
+		debugger->printState(bind);
 		return;
 	}
 	if (out.groupId() == L"in-inst") {
 		if (out.positionals() == 2)
-			debugger->printInstructions(out.positional(1).value().unum(), out.positional(0).value().unum());
+			debugger->printInstructions(str::u8::To(out.positional(1).value().str()), out.positional(0).value().unum(), bind);
 		else
-			debugger->printInstructions(std::nullopt, out.positional(0).value().unum());
-		return;
-	}
-	if (out.groupId() == L"in-breaks") {
-		debugger->printBreaks();
+			debugger->printInstructions(std::nullopt, out.positional(0).value().unum(), bind);
 		return;
 	}
 	if (out.groupId() == L"in-mem8") {
-		debugger->printData8(out.positional(0).value().unum(), out.positional(1).value().unum() * 1);
+		debugger->printData8(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 1, bind);
 		return;
 	}
 	if (out.groupId() == L"in-mem16") {
-		debugger->printData16(out.positional(0).value().unum(), out.positional(1).value().unum() * 2);
+		debugger->printData16(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 2, bind);
 		return;
 	}
 	if (out.groupId() == L"in-mem32") {
-		debugger->printData32(out.positional(0).value().unum(), out.positional(1).value().unum() * 4);
+		debugger->printData32(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 4, bind);
 		return;
 	}
 	if (out.groupId() == L"in-mem64") {
-		debugger->printData64(out.positional(0).value().unum(), out.positional(1).value().unum() * 8);
+		debugger->printData64(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 8, bind);
 		return;
 	}
 }
@@ -233,7 +275,7 @@ void HandleCommand(std::u8string_view cmd) {
 		return;
 	}
 	catch (const arger::ParsingException& e) {
-		util::nullLogger.error(e.what(), u8" Use 'help' or '-h' for more information.");
+		util::nullLogger.error(e.what(), u8" Use 'help' for more information.");
 		return;
 	}
 

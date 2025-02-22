@@ -17,15 +17,47 @@ namespace sys {
 			run,
 			until
 		};
+		enum class BindType : uint8_t {
+			echo,
+			state,
+			inst,
+			data8,
+			data16,
+			data32,
+			data64,
+			_end
+		};
+		struct Operation {
+			size_t regIndex = 0;
+			uint64_t immediate = 0;
+			bool useRegister = false;
+			bool usePC = false;
+			bool subtract = false;
+		};
+		using Expression = std::vector<Operation>;
+		struct PrintBinding {
+			Expression expression;
+			std::u8string msg;
+			size_t index = 0;
+			size_t misc = 0;
+			BindType type = BindType::_end;
+		};
 
 	private:
 		sys::Userspace* pUserspace = 0;
+		sys::Cpu* pCpu = 0;
 		std::unordered_set<env::guest_t> pBreakPoints;
+		std::map<size_t, env::guest_t> pBreakIndices;
 		std::vector<std::u8string> pRegisters;
-		env::guest_t pUntil = 0;
-		size_t pCount = 0;
-		Mode pMode = Mode::disabled;
-		bool pBreakSkip = false;
+		std::vector<PrintBinding> pBindings;
+		size_t pNextBreakPoint = 0;
+		size_t pNextBound = 0;
+		struct {
+			env::guest_t until = 0;
+			size_t count = 0;
+			Mode mode = Mode::disabled;
+			bool breakSkip = false;
+		} pHalt;
 
 	private:
 		Debugger() = default;
@@ -35,27 +67,39 @@ namespace sys {
 	private:
 		bool fSetup(sys::Userspace* userspace);
 		void fCheck(env::guest_t address);
+		void fHalted(env::guest_t address);
 
 	private:
+		void fAddBinding(const PrintBinding& binding);
 		std::vector<uint8_t> fReadBytes(env::guest_t address, size_t bytes) const;
-		void fPrintData(env::guest_t address, size_t bytes, uint8_t width) const;
-		void fHalted(env::guest_t address);
-		void fPrintCommon() const;
+		bool fParseExpression(std::u8string_view exp, Expression& out) const;
+		uint64_t fEvalExpression(const Expression& ops) const;
+		std::optional<uint64_t> fParseAndEval(std::u8string_view exp) const;
+
+	private:
+		void fPrintInstructions(const Expression& address, size_t count) const;
+		void fPrintData(const Expression& address, size_t bytes, uint8_t width) const;
+		void fPrintState() const;
+		void fPrintBindings() const;
 
 	public:
 		void run();
 		void step(size_t count);
-		void until(env::guest_t address);
-		void addBreak(env::guest_t address);
-		void dropBreak(env::guest_t address);
+		void until(const std::u8string& address);
+		void addBreak(const std::u8string& address);
+		void dropBreak(size_t index);
+		void dropBinding(size_t index);
+		void setupCommon(std::optional<std::u8string> spName);
 
 	public:
-		void printState() const;
 		void printBreaks() const;
-		void printInstructions(std::optional<env::guest_t> address, size_t count) const;
-		void printData8(env::guest_t address, size_t bytes) const;
-		void printData16(env::guest_t address, size_t bytes) const;
-		void printData32(env::guest_t address, size_t bytes) const;
-		void printData64(env::guest_t address, size_t bytes) const;
+		void printBindings() const;
+		void printEcho(const std::u8string& msg, bool bind);
+		void printState(bool bind);
+		void printInstructions(std::optional<std::u8string> address, size_t count, bool bind);
+		void printData8(const std::u8string& address, size_t bytes, bool bind);
+		void printData16(const std::u8string& address, size_t bytes, bool bind);
+		void printData32(const std::u8string& address, size_t bytes, bool bind);
+		void printData64(const std::u8string& address, size_t bytes, bool bind);
 	};
 }
