@@ -13,19 +13,6 @@ void env::Mapping::fFlush() {
 	/* clear the actual reference to all blocks (to allow the garbage collection to run) */
 	detail::MappingBridge::Flush();
 }
-void env::Mapping::fCheckFlush() {
-	/* check if the maximum number of mappings has been reached */
-	if (pMapping.size() >= env::MaxMappingCount) {
-		logger.debug(u8"Performing flush as mapping maximum count has been reached [", pMapping.size(), u8" >= ", env::MaxMappingCount, u8']');
-		fFlush();
-	}
-
-	/* check if the maximum number of blocks has been reached */
-	if (pTotalBlockCount >= env::MaxBlockCount) {
-		logger.debug(u8"Performing flush as block maximum count has been reached [", pTotalBlockCount, u8" >= ", env::MaxBlockCount, u8']');
-		fFlush();
-	}
-}
 uint32_t env::Mapping::fResolve(env::guest_t address) {
 	/* fast-cache lookup, check if the address is in the cache (index will be zero, if its a miss) */
 	uint32_t index = uint32_t((address >> detail::BlockFastCacheBits) ^ address) & (detail::BlockFastCount - 1);

@@ -190,9 +190,6 @@ void env::Process::fLoadBlock() {
 		logger.fatal(u8"Cannot load a block while another load is in progress");
 	pProcState = ProcState::loadingBlock;
 
-	/* check if the blocks should be flushed */
-	detail::MappingAccess::CheckFlush();
-
 	try {
 		/* setup the writer to either produce only the binary output, or the binary and text output */
 		std::unique_ptr<wasm::TextWriter> tWriter = (pLogBlocks ? std::make_unique<wasm::TextWriter>(u8"  ") : 0);
