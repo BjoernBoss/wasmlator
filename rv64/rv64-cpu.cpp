@@ -218,6 +218,9 @@ sys::SyscallArgs rv64::Cpu::syscallGetArgs() const {
 	case 48:
 		call.index = sys::SyscallIndex::faccessat;
 		break;
+	case 49:
+		call.index = sys::SyscallIndex::chdir;
+		break;
 	case 56:
 		call.index = sys::SyscallIndex::openat;
 		break;

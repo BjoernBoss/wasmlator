@@ -129,6 +129,12 @@ int64_t sys::detail::Syscall::fDispatch() {
 		logger.debug(u8"Syscall getcwd(", str::As{ U"#018x", args[0] }, u8", ", args[1], u8')');
 		return pMisc.getcwd(args[0], args[1]);
 	}
+	case sys::SyscallIndex::chdir: {
+		logger.debug(u8"Syscall chdir(", str::As{ U"#018x", args[0] }, u8')');
+		std::u8string path = fReadString(args[0]);
+		logger.debug(u8"pathname: [", path, u8']');
+		return pFileIO.chdir(path);
+	}
 	case sys::SyscallIndex::openat: {
 		logger.debug(u8"Syscall openat(", int64_t(args[0]), u8", ", str::As{ U"#018x", args[1] }, u8", ", args[2], u8", ", args[3], u8')');
 		std::u8string path = fReadString(args[1]);

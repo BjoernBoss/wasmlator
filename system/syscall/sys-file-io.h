@@ -181,6 +181,7 @@ namespace sys::detail {
 		int64_t fcntl(int64_t fd, uint64_t cmd, uint64_t arg);
 		int64_t lseek(int64_t fd, int64_t offset, uint64_t whence);
 		int64_t getdents64(int64_t fd, env::guest_t dirent, uint64_t count);
+		int64_t chdir(std::u8string_view path);
 
 	public:
 		detail::FdState fdCheck(int64_t fd) const;

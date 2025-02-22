@@ -910,6 +910,27 @@ int64_t sys::detail::FileIO::getdents64(int64_t fd, env::guest_t dirent, uint64_
 		return callback();
 		});
 }
+int64_t sys::detail::FileIO::chdir(std::u8string_view path) {
+	/* validate and construct the final path */
+	auto [node, actual, result] = fCheckPath(consts::fdWDirectory, path, false);
+	if (result != errCode::eSuccess)
+		return result;
+
+	/* resolve the node to ensure that it exists */
+	return fResolveNode(node, actual, true, true, true, [this](int64_t result, const detail::SharedNode& node, const detail::NodeStats& stats, bool) -> int64_t {
+		if (result != errCode::eSuccess)
+			return result;
+
+		/* ensure that the component is a directory */
+		if (node->type() != env::FileType::directory)
+			return errCode::eNotDirectory;
+
+		/* build the path and set it to the new working directory */
+		pSyscall->process().workingDirectory = node->buildPath();
+		logger.info(u8"Changed current working directory to [", pSyscall->process().workingDirectory, u8']');
+		return errCode::eSuccess;
+		});
+}
 
 sys::detail::FdState sys::detail::FileIO::fdCheck(int64_t fd) const {
 	detail::FdState state;

@@ -197,6 +197,7 @@ namespace sys {
 		uname,
 		sysinfo,
 		getcwd,
+		chdir,
 		openat,
 		open,
 		close,

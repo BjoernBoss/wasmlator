@@ -81,7 +81,7 @@ int64_t sys::detail::MiscSyscalls::getcwd(env::guest_t buf, uint64_t size) const
 
 	/* write the path to memory */
 	env::Instance()->memory().mwrite(buf, path.data(), path.size() + 1, env::Usage::Write);
-	return errCode::eSuccess;
+	return buf;
 }
 int64_t sys::detail::MiscSyscalls::gettimeofday(env::guest_t tv, env::guest_t tz) const {
 	/* check if the timevalue should be written out */
