@@ -20,7 +20,7 @@ try {
 
 /* setup the io-reader, host, and load the wasmlator */
 let reader = createInterface({ input: process.stdin, output: process.stdout });
-let host = new NodeHost(reader, 'fs');
+let host = new NodeHost(reader, fsPath);
 let wasmlator = await SetupWasmlator(host);
 
 /* check if the application should be profiled */

@@ -130,7 +130,6 @@ class WasmLator {
 
 		/* setup the main module imports */
 		imports.env = { ...this.glue.exports };
-		imports.env.emscripten_notify_memory_growth = function () { };
 		imports.wasi_snapshot_preview1.proc_exit = function (code: number): void {
 			_that.errSelf(new EmptyError(`Main module terminated itself with exit-code [${code}] - (Unhandled exception?)`).stack!);
 		};
@@ -146,6 +145,7 @@ class WasmLator {
 		imports.env.host_random = function (): number { return Math.floor(Math.random() * 0x1_0000_0000); };
 		imports.env.host_time_us = function (): bigint { return BigInt(Date.now() * 1000); };
 		imports.env.host_timezone_min = function (): number { return new Date().getTimezoneOffset(); };
+		imports.env.host_check_metrics = function (): void { _that.profiler.checkMemory(); };
 		return imports;
 	}
 
@@ -492,7 +492,7 @@ class Profiler {
 	private localStart: number;
 	private totalStart: number;
 
-	private _stop() {
+	private _stop(): void {
 		if (this.startup.active) {
 			this.startup.total += (Date.now() - this.localStart) / 1000;
 			this.startup.active = false;
@@ -510,7 +510,7 @@ class Profiler {
 			this.exec.active = false;
 		}
 	}
-	private _startLocal() {
+	private _checkMemory(): void {
 		/* try to fetch the current memory load */
 		try {
 			let stats: any = (globalThis as any)['process'].memoryUsage();
@@ -519,7 +519,10 @@ class Profiler {
 					this.peakMemory = Math.max(this.peakMemory, stats.rss);
 			}
 		} catch (e) { }
-
+	}
+	private _startLocal(): void {
+		/* update the memory usage */
+		this._checkMemory();
 
 		/* stop all previous measurements */
 		this._stop();
@@ -569,6 +572,9 @@ class Profiler {
 			this.total.total += (Date.now() - this.totalStart) / 1000;
 			this.total.active = false;
 		}
+	}
+	public checkMemory(): void {
+		this._checkMemory();
 	}
 }
 

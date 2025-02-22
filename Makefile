@@ -14,6 +14,7 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 # relevant paths referenced throughout this script
 build_path := build
 ts_path := run/common
+fs_path := run/fs.root
 gen_path := $(build_path)/gen
 bin_path := $(build_path)/make
 cc_path := $(build_path)/make/cc
@@ -102,6 +103,11 @@ $(package_path): $(ts_path)/package.json
 	@ echo Generating... $@
 	@ cp $(ts_path)/package.json $@
 
+# fs.root file creation
+$(fs_path):
+	@ echo Generating... $@
+	@ [ -e $@ ] || echo "../fs" > $@
+
 # setup the wasm and js components necessary
-all: $(main_path) $(glue_path) $(wasmlator_path) $(package_path)
+all: $(main_path) $(glue_path) $(wasmlator_path) $(package_path) $(fs_path)
 .PHONY: all

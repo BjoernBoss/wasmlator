@@ -8,6 +8,11 @@ void HandleCommand(std::u8string_view cmd);
 void ExecuteCommand(std::u8string_view cmd);
 void CleanupExecute();
 
+/* emscripten overwrite - i.e. exports to self */
+extern "C" {
+	void emscripten_notify_memory_growth(uint32_t index);
+}
+
 /* environment/host interactions */
 extern "C" {
 	/* exports */
@@ -24,6 +29,7 @@ extern "C" {
 	uint32_t host_random();
 	uint64_t host_time_us();
 	int32_t host_timezone_min();
+	void host_check_metrics();
 }
 
 /* environment/process/process-bridge interactions */

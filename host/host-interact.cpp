@@ -1,6 +1,10 @@
 #include "host-interact.h"
 #include "../host/interface.h"
 
+extern "C" void emscripten_notify_memory_growth(uint32_t) {
+	host_check_metrics();
+}
+
 uint32_t host::GetRandom() {
 	return host_random();
 }
@@ -11,6 +15,10 @@ uint64_t host::GetStampUS() {
 
 int32_t host::GetTimeZoneMIN() {
 	return host_timezone_min();
+}
+
+void host::HostCheckMetrics() {
+	host_check_metrics();
 }
 
 void host::PrintOut(std::u8string_view msg) {

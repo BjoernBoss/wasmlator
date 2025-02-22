@@ -14,6 +14,9 @@ namespace host {
 	/* fetch the current timezone east of utc in [min] */
 	int32_t GetTimeZoneMIN();
 
+	/* notify the host to check the performance metrics */
+	void HostCheckMetrics();
+
 	/* direct logs to output without logging wrapper */
 	void PrintOut(std::u8string_view msg);
 
