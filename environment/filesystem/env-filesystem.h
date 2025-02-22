@@ -7,6 +7,7 @@ namespace env {
 		file,
 		directory,
 		link,
+		terminal,
 		character,
 		_end
 	};

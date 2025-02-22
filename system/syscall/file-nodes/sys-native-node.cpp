@@ -95,7 +95,7 @@ int64_t sys::detail::impl::NativeFileNode::flagWritten(std::function<int64_t()> 
 	/* potentially defer the call */
 	return pSyscall->callIncomplete();
 }
-int64_t sys::detail::impl::NativeFileNode::open(bool truncate, std::function<int64_t(int64_t)> callback) {
+int64_t sys::detail::impl::NativeFileNode::open(bool tryRead, bool tryWrite, bool truncate, std::function<int64_t(int64_t)> callback) {
 	/* check if the file should be truncated */
 	if (truncate) {
 		env::Instance()->filesystem().resizeFile(pFileId, 0, [this, callback](bool success) {

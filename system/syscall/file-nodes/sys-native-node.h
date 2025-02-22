@@ -26,7 +26,7 @@ namespace sys::detail::impl {
 		int64_t stats(std::function<int64_t(const detail::NodeStats&)> callback) const final;
 		int64_t flagRead(std::function<int64_t()> callback) final;
 		int64_t flagWritten(std::function<int64_t()> callback) final;
-		int64_t open(bool truncate, std::function<int64_t(int64_t)> callback) final;
+		int64_t open(bool tryRead, bool tryWrite, bool truncate, std::function<int64_t(int64_t)> callback) final;
 		int64_t read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 		int64_t write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) final;
 	};

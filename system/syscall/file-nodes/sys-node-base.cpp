@@ -181,8 +181,8 @@ int64_t sys::detail::FileNode::listDir(std::function<int64_t(int64_t, const std:
 		});
 
 }
-int64_t sys::detail::FileNode::open(bool truncate, std::function<int64_t(int64_t)> callback) {
-	return callback(errCode::eAccess);
+int64_t sys::detail::FileNode::open(bool tryRead, bool tryWrite, bool truncate, std::function<int64_t(int64_t)> callback) {
+	return callback(errCode::ePermissionDenied);
 }
 int64_t sys::detail::FileNode::read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback) {
 	return callback(errCode::eIO);

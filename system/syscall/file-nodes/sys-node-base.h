@@ -80,7 +80,7 @@ namespace sys::detail {
 
 	public:
 		/* file-interactions */
-		virtual int64_t open(bool truncate, std::function<int64_t(int64_t)> callback);
+		virtual int64_t open(bool tryRead, bool tryWrite, bool truncate, std::function<int64_t(int64_t)> callback);
 		virtual int64_t read(uint64_t offset, std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual int64_t write(uint64_t offset, const std::vector<uint8_t>& buffer, std::function<int64_t(int64_t)> callback);
 		virtual int64_t close(std::function<int64_t()> callback);

@@ -232,7 +232,7 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const detail::Shared
 	uint64_t ctime = std::max<uint64_t>(stats.timeAccessedUS, stats.timeModifiedUS);
 
 	/* special handling for terminal */
-	uint64_t rdev = (node->type() == env::FileType::character ? 0x8802 : 0xabc0'0456);
+	uint64_t rdev = (node->type() == env::FileType::terminal ? 0x8802 : 0xabc0'0456);
 
 	/*
 	*	no support for hard-links
@@ -269,6 +269,7 @@ sys::linux::FileStats sys::detail::FileIO::fBuildLinuxStats(const detail::Shared
 		out.mode |= uint32_t(linux::FileMode::link);
 		break;
 	case env::FileType::character:
+	case env::FileType::terminal:
 		out.mode |= uint32_t(linux::FileMode::charDevice);
 		break;
 	default:
@@ -392,7 +393,7 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			access.owner = pSyscall->process().euid;
 			access.group = pSyscall->process().egid;
 
-			/* try to create the file */
+			/* try to create the file (no need to notify whether or not is being read/written as - for now - only read/write regular files can be created) */
 			return node->create(_name, access, [this, config, closeOnExecute, node](int64_t result, const detail::SharedNode& cnode) -> int64_t {
 				if (result != errCode::eSuccess)
 					return result;
@@ -449,8 +450,8 @@ int64_t sys::detail::FileIO::fOpenAt(int64_t dirfd, std::u8string_view path, uin
 			return errCode::eNotImplemented;
 		}
 
-		/* perform the open-call on the file-node */
-		return node->open(config.creation.truncate, [this, node, config, closeOnExecute](int64_t result) -> int64_t {
+		/* perform the open-call on the file-node - also checks if the operation is permitted */
+		return node->open(config.read, config.write, config.creation.truncate, [this, node, config, closeOnExecute](int64_t result) -> int64_t {
 			if (result != errCode::eSuccess)
 				return result;
 			result = fSetupFile(node, config, closeOnExecute);
@@ -530,6 +531,8 @@ bool sys::detail::FileIO::setup(detail::Syscall* syscall) {
 	pRoot->mount(u8"dev", _dev);
 	_proc->mount(u8"self", std::make_shared<impl::LinkNode>(str::u8::Build(u8"/proc/", pSyscall->process().pid), rootAll));
 	_dev->mount(u8"tty", std::make_shared<impl::Terminal>(pSyscall, env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite }));
+	_dev->mount(u8"urandom", std::make_shared<impl::URandom>(pSyscall, env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadOnly }));
+	_dev->mount(u8"null", std::make_shared<impl::Null>(pSyscall, env::FileAccess{ fs::RootOwner, fs::RootGroup, fs::ReadWrite }));
 	_dev->mount(u8"stdin", std::make_shared<impl::LinkNode>(u8"/proc/self/fd/0", rootAll));
 	_dev->mount(u8"stdout", std::make_shared<impl::LinkNode>(u8"/proc/self/fd/1", rootAll));
 	_dev->mount(u8"stderr", std::make_shared<impl::LinkNode>(u8"/proc/self/fd/2", rootAll));
@@ -890,6 +893,7 @@ int64_t sys::detail::FileIO::getdents64(int64_t fd, env::guest_t dirent, uint64_
 				entry->type = consts::dEntLink;
 				break;
 			case env::FileType::character:
+			case env::FileType::terminal:
 				entry->type = consts::dEntCharacter;
 				break;
 			case env::FileType::_end:
