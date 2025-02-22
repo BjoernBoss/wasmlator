@@ -53,7 +53,7 @@ $(bin_path):
 	@ mkdir -p $(bin_path)
 
 # default emscripten compiler with all relevant flags
-em := em++ -std=c++20 -I./repos -O1 -fwasm-exceptions
+em := em++ -std=c++20 -I./repos -O3 -fwasm-exceptions
 em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_SYMBOLS=0 -sWASM_BIGINT -sALLOW_MEMORY_GROWTH -sSTANDALONE_WASM\
  -sEXPORTED_FUNCTIONS=_main_handle,_main_execute,_main_cleanup,_main_task_completed,_main_allocate,_main_terminate,_main_code_exception,_main_resolve,_main_check_lookup,_main_fast_lookup,_main_check_invalidated,_main_invoke_void,_main_invoke_param
 
@@ -100,7 +100,7 @@ $(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
 package_path := $(gen_path)/package.json
 $(package_path): $(ts_path)/package.json
 	@ echo Generating... $@
-	@ echo cp $(ts_path)/package.json $(package_path)
+	@ cp $(ts_path)/package.json $@
 
 # setup the wasm and js components necessary
 all: $(main_path) $(glue_path) $(wasmlator_path) $(package_path)
