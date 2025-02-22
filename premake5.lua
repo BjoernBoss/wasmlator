@@ -31,6 +31,9 @@ workspace "wasmlator"
 project "wasmlator"
 	files { "entry/standalone.cpp", "entry/null-interface.cpp", "entry/null-specification.h" }
 
+project "make-glue"
+	files { "entry/make-glue.cpp", "entry/null-interface.cpp", "entry/null-specification.h" }
+
 filter "configurations:debug"
 	symbols "On"
 	runtime "Debug"

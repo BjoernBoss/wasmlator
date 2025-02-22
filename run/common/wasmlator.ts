@@ -516,7 +516,7 @@ class Profiler {
 			let stats: any = (globalThis as any)['process'].memoryUsage();
 			if (stats ?? false) {
 				if (typeof (stats.rss) == 'number')
-					this.peakMemory = Math.max(this.peakMemory, stats.rss);
+					this.peakMemory = Math.max(this.peakMemory, stats.external + stats.arrayBuffers + stats.heapUsed);
 			}
 		} catch (e) { }
 	}
