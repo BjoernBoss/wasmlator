@@ -21,24 +21,23 @@ em_path := $(build_path)/make/em
 
 # help-menu
 help:
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "TARGETS:"
-	@echo "   help (print this menu; default)"
-	@echo "   clean (remove all build outputs)"
-	@echo "   all (generate all necessary files to $(gen_path))"
-	@echo ""
-	@echo "Note:"
-	@echo "   This makefile will create and include a generated makefile, which is generated"
-	@echo "   through inlined python. This makefile will automatically be generated for the"
-	@echo "   server target. Should the fundamental structure of the repository change,"
-	@echo "   simply perform a full clean and full creation to update the script."
+	@ echo "Usage: make [target]"
+	@ echo ""
+	@ echo "TARGETS:"
+	@ echo "   help (print this menu; default)"
+	@ echo "   clean (remove all build outputs)"
+	@ echo "   all (generate all necessary files to $(gen_path))"
+	@ echo ""
+	@ echo "Note:"
+	@ echo "   This makefile will create and include a generated makefile, which is generated"
+	@ echo "   through inlined python. This makefile will automatically be generated for the"
+	@ echo "   server target. Should the fundamental structure of the repository change,"
+	@ echo "   simply perform a full clean and full creation to update the script."
 .PHONY: help
 
 # clean all produced output
 clean:
 	rm -r $(build_path)
-	rm -r $(gen_path)
 .PHONY: clean
 
 # path-creating targets
@@ -64,7 +63,7 @@ cc := clang++ -std=c++20 -O3 -I./repos
 # execute the python-script to generate the make-file, if it does not exist yet
 generated_path := $(build_path)/generated.make
 $(generated_path): | $(build_path)
-	@echo Generating... $@
+	@ echo Generating... $@
 	@ py -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $@
 
 # include the generated build-script, which builds all separate objects
@@ -76,27 +75,33 @@ endif
 # glue-generator compilation
 glue_gen_path := $(bin_path)/glue.exe
 $(glue_gen_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
-	@echo Compiling... $@
+	@ echo Compiling... $@
 	@ $(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # main wasm compilation
 main_path := $(gen_path)/wasmlator.wasm
 $(main_path): $(obj_list_em) | $(gen_path)
-	@echo Compiling... $@
+	@ echo Compiling... $@
 	@ $(em_main) $(obj_list_em) -o $@
 
 # glue wasm generation
 glue_path := $(gen_path)/glue.wasm
 $(glue_path): $(glue_gen_path) | $(gen_path)
-	@echo Generating... $@
+	@ echo Generating... $@
 	@ $(glue_gen_path) $@
 
 # javascript generation
 wasmlator_path := $(gen_path)/wasmlator.js
 $(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
-	@echo Generating... $@
+	@ echo Generating... $@
 	@ tsc -p $<
 
+# javascript package.json file
+package_path := $(gen_path)/package.json
+$(package_path): $(ts_path)/package.json
+	@ echo Generating... $@
+	@ echo cp $(ts_path)/package.json $(package_path)
+
 # setup the wasm and js components necessary
-all: $(main_path) $(glue_path) $(wasmlator_path)
+all: $(main_path) $(glue_path) $(wasmlator_path) $(package_path)
 .PHONY: all
