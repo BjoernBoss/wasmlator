@@ -97,8 +97,8 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 		writeBytes(&tmp, 4);
 	}
 
-	/* write the binary path out and the offset back to its location */
-	changeWord(offsetOfPath, writeBytes(pBinary.data(), pBinary.size() + 1));
+	/* write the argument binary out and the offset back to its location */
+	changeWord(offsetOfPath, writeBytes(pBinaryPath.data(), pBinaryPath.size() + 1));
 
 	/* write the arguments out and the offsets back to their locations */
 	for (size_t i = 0; i < pArgs.size(); ++i)
@@ -108,8 +108,8 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	for (size_t i = 0; i < pEnvs.size(); ++i)
 		changeWord(startOfEnvs + i * wordWidth, writeBytes(pEnvs[i].data(), pEnvs[i].size() + 1));
 
-	/* write the name of the executable out and the offset back to its location */
-	changeWord(offsetOfExecutable, writeBytes(pBinary.data(), pBinary.size() + 1));
+	/* write the name of the actual executable out and the offset back to its location */
+	changeWord(offsetOfExecutable, writeBytes(pBinaryActual.data(), pBinaryActual.size() + 1));
 
 	/* append the remaining padding to fully align the stack */
 	content.insert(content.end(), Userspace::StartOfStackAlignment - (content.size() % StartOfStackAlignment), 0);
@@ -147,11 +147,22 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	return stack;
 }
 void sys::Userspace::fStartLoad(const std::u8string& path) {
+	/* setup the actual path to use */
+	std::u8string actual = util::CanonicalPath(str::u8::Build(Userspace::ResolveLocations[pResolveIndex], path));
+
 	/* load the binary */
-	env::Instance()->filesystem().readStats(path, [this, path](const env::FileStats* stats) {
+	env::Instance()->filesystem().readStats(actual, [this, path, actual](const env::FileStats* stats) {
 		/* check if the file could be resolved */
 		if (stats == 0) {
-			/* this error should be displayed to the user, no matter if logging is enabled or not */
+			/* check if another path should be resolved (only if the name is raw) */
+			if (pResolveIndex + 1 < std::size(Userspace::ResolveLocations) && path.find(u8'/') == std::u8string::npos && path.find(u8'\\') == std::u8string::npos) {
+				logger.error(str::u8::Build(u8"Path [", actual, u8"] does not exist"));
+				++pResolveIndex;
+				fStartLoad(path);
+				return;
+			}
+
+			/* fail the loading but ensure that the error is displayed to the user, no matter if loggin is enabled or not */
 			std::u8string msg = str::u8::Build(u8"Path [", path, u8"] does not exist");
 			if (!logger.error(msg))
 				host::PrintOutLn(msg);
@@ -159,10 +170,13 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 			return;
 		}
 
+		/* reset the resolve-index to allow future resolves to restart again */
+		pResolveIndex = 0;
+
 		/* check the file-type */
 		if (stats->type != env::FileType::file) {
 			/* this error should be displayed to the user, no matter if logging is enabled or not */
-			std::u8string msg = str::u8::Build(u8"Path [", path, u8"] is not a file");
+			std::u8string msg = str::u8::Build(u8"Path [", actual, u8"] is not a file");
 			if (!logger.error(msg))
 				host::PrintOutLn(msg);
 			env::Instance()->shutdown();
@@ -171,7 +185,7 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 
 		/* allocate the buffer for the file-content and read it into memory */
 		uint8_t* buffer = new uint8_t[stats->size];
-		env::Instance()->filesystem().readFile(stats->id, 0, buffer, stats->size, [this, size = stats->size, buffer](std::optional<uint64_t> read) {
+		env::Instance()->filesystem().readFile(stats->id, 0, buffer, stats->size, [this, size = stats->size, actual, buffer](std::optional<uint64_t> read) {
 			std::unique_ptr<uint8_t[]> _cleanup{ buffer };
 
 			/* check if the size still matches */
@@ -185,12 +199,20 @@ void sys::Userspace::fStartLoad(const std::u8string& path) {
 			}
 
 			/* perform the actual loading of the file */
-			if (!fBinaryLoaded(buffer, size))
+			if (!fBinaryLoaded(actual, buffer, size))
 				env::Instance()->shutdown();
 			});
 		});
 }
-bool sys::Userspace::fBinaryLoaded(const uint8_t* data, size_t size) {
+bool sys::Userspace::fBinaryLoaded(const std::u8string& actual, const uint8_t* data, size_t size) {
+	/* log the successful load and write the path back */
+	if (pLoaded.interpreter.empty()) {
+		pBinaryActual = actual;
+		logger.debug(u8"Binary loading completed with [", pBinaryPath, u8"] being at at [", pBinaryActual, u8']');
+	}
+	else
+		logger.debug(u8"Interpreter loading completed with [", pLoaded.interpreter, u8"] being at at [", actual, u8']');
+
 	/* load the elf-image and configure the startup-address */
 	try {
 		/* check if just the interpreter needs to be loaded (no need to perform architecture checks again - as it will remain unchanged) */
@@ -264,7 +286,7 @@ bool sys::Userspace::fLoadCompleted() {
 	logger.debug(u8"Stack loaded to: ", str::As{ U"#018x", spAddress });
 
 	/* initialize the syscall environment */
-	if (!pSyscall.setup(this, pLoaded.endOfData, pBinary, fArchType(pCpu->architecture()))) {
+	if (!pSyscall.setup(this, pLoaded.endOfData, pBinaryActual, fArchType(pCpu->architecture()))) {
 		logger.error(u8"Failed to setup the userspace syscalls");
 		return false;
 	}
@@ -358,7 +380,7 @@ bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string
 	std::unique_ptr<sys::Userspace> system{ new sys::Userspace() };
 	system->pArgs = args;
 	system->pEnvs = envs;
-	system->pBinary = binary;
+	system->pBinaryPath = binary;
 	system->pCpu = cpu.get();
 
 	/* check if the cpu can be set up */
@@ -424,7 +446,7 @@ bool sys::Userspace::setupCore(wasm::Module& mod) {
 	return core.close();
 }
 void sys::Userspace::coreLoaded() {
-	fStartLoad(pBinary);
+	fStartLoad(pBinaryPath);
 }
 std::vector<env::BlockExport> sys::Userspace::setupBlock(wasm::Module& mod) {
 	/* setup the translator */

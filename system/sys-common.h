@@ -12,6 +12,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <iterator>
 
 #include "../environment/environment.h"
 #include "../generate/generate.h"

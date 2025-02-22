@@ -26,15 +26,22 @@ namespace sys {
 		static constexpr env::guest_t StartOfStackAlignment = 128;
 
 	private:
+		static constexpr const char8_t* ResolveLocations[] = {
+			u8"", u8"/", u8"/bin/", u8"/lib/"
+		};
+
+	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
+		std::u8string pBinaryPath;
+		std::u8string pBinaryActual;
 		elf::LoadState pLoaded;
-		std::u8string pBinary;
 		detail::Syscall pSyscall;
 		sys::Debugger pDebugger;
 		sys::Writer pWriter;
 		sys::Cpu* pCpu = 0;
 		env::guest_t pAddress = 0;
+		size_t pResolveIndex = 0;
 
 	private:
 		Userspace() = default;
@@ -45,7 +52,7 @@ namespace sys {
 		std::u8string_view fArchType(sys::ArchType architecture) const;
 		env::guest_t fPrepareStack() const;
 		void fStartLoad(const std::u8string& path);
-		bool fBinaryLoaded(const uint8_t* data, size_t size);
+		bool fBinaryLoaded(const std::u8string& actual, const uint8_t* data, size_t size);
 		bool fLoadCompleted();
 
 	private:
