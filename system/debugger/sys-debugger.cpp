@@ -360,7 +360,7 @@ void sys::Debugger::addBreak(const std::u8string& address) {
 	/* define the new breakpoint */
 	pBreakPoints.insert(_address.value());
 	pBreakIndices[pNextBreakPoint++] = _address.value();
-	util::nullLogger.log(u8"Breakpoint ", (pNextBreakPoint - 1), u8" added at ", str::As{ U"#018x", address });
+	util::nullLogger.log(u8"Breakpoint ", (pNextBreakPoint - 1), u8" added at ", str::As{ U"#018x", _address.value() });
 }
 void sys::Debugger::dropBreak(size_t index) {
 	auto it = pBreakIndices.find(index);

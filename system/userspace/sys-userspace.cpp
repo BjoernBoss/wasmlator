@@ -16,27 +16,107 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	env::Memory& mem = env::Instance()->memory();
 	size_t wordWidth = ((pLoaded.bitWidth == 64) ? 8 : 4);
 
-	/* count the size of the blob of data at the end (16 bytes for random data) */
-	size_t blobSize = 16 + 2 * (pBinary.size() + 1);
+	/* initialize the content for the stack */
+	std::vector<uint8_t> content;
+	auto writeBytes = [&](const void* data, size_t size) -> size_t {
+		const uint8_t* d = static_cast<const uint8_t*>(data);
+		size_t offset = content.size();
+		content.insert(content.end(), d, d + size);
+		return offset;
+		};
+	auto writeWord = [&](uint64_t value) -> size_t {
+		const uint8_t* d = reinterpret_cast<const uint8_t*>(&value);
+		size_t offset = content.size();
+		content.insert(content.end(), d, d + wordWidth);
+		return offset;
+		};
+	auto changeWord = [&](size_t offset, uint64_t value) {
+		value += *reinterpret_cast<const uint64_t*>(content.data() + offset);
+		const uint8_t* d = reinterpret_cast<const uint8_t*>(&value);
+		std::copy(d, d + wordWidth, content.begin() + offset);
+		};
+
+	/* write the argument-count out */
+	writeWord(pArgs.size() + 1);
+
+	/* write the binary path out */
+	uint64_t offsetOfPath = writeWord(0x00);
+
+	/* write the argument pointers out and the trailing null-entry */
+	uint64_t startOfArgs = content.size();
 	for (size_t i = 0; i < pArgs.size(); ++i)
-		blobSize += pArgs[i].size() + 1;
+		writeWord(0x00);
+	writeWord(0);
+
+	/* write the environment pointers out and the trailing null-entry */
+	uint64_t startOfEnvs = content.size();
 	for (size_t i = 0; i < pEnvs.size(); ++i)
-		blobSize += pEnvs[i].size() + 1;
+		writeWord(0x00);
+	writeWord(0);
 
-	/* compute the size of the structured stack-data
-	*	Args: one pointer for each argument plus count plus null-entry plus self-path
-	*	Envs: one pointer for each environment plus null-entry
-	*	Auxiliary: (AT_PHDR/AT_PHNUM/AT_PHENT/AT_ENTRY/AT_RANDOM/AT_PAGESZ/AT_BASE/AT_EXECFN) one null-entry */
-	size_t structSize = 0;
-	structSize += wordWidth * (pArgs.size() + 3);
-	structSize += wordWidth * (pEnvs.size() + 1);
-	structSize += wordWidth * 16 + wordWidth;
+	/* write the auxiliary vector entries out */
+	writeWord(uint64_t(linux::AuxiliaryType::phAddress));
+	writeWord(pLoaded.aux.phAddress);
+	writeWord(uint64_t(linux::AuxiliaryType::phEntrySize));
+	writeWord(pLoaded.aux.phEntrySize);
+	writeWord(uint64_t(linux::AuxiliaryType::phCount));
+	writeWord(pLoaded.aux.phCount);
+	writeWord(uint64_t(linux::AuxiliaryType::pageSize));
+	writeWord(pLoaded.aux.pageSize);
+	writeWord(uint64_t(linux::AuxiliaryType::baseInterpreter));
+	writeWord(pLoaded.aux.base);
+	writeWord(uint64_t(linux::AuxiliaryType::flags));
+	writeWord(0);
+	writeWord(uint64_t(linux::AuxiliaryType::entry));
+	writeWord(pLoaded.aux.entry);
+	writeWord(uint64_t(linux::AuxiliaryType::uid));
+	writeWord(pSyscall.process().uid);
+	writeWord(uint64_t(linux::AuxiliaryType::euid));
+	writeWord(pSyscall.process().euid);
+	writeWord(uint64_t(linux::AuxiliaryType::gid));
+	writeWord(pSyscall.process().gid);
+	writeWord(uint64_t(linux::AuxiliaryType::egid));
+	writeWord(pSyscall.process().egid);
+	writeWord(uint64_t(linux::AuxiliaryType::random));
+	size_t offsetOfRandom = writeWord(0x00);
+	writeWord(uint64_t(linux::AuxiliaryType::secure));
+	writeWord(0);
+	writeWord(uint64_t(linux::AuxiliaryType::executableFilename));
+	size_t offsetOfExecutable = writeWord(0x00);
 
-	/* validate the stack dimensions (aligned to the corresponding boundaries) */
-	size_t totalSize = (blobSize + structSize + Userspace::StartOfStackAlignment - 1) & ~(Userspace::StartOfStackAlignment - 1);
-	size_t padding = totalSize - (blobSize + structSize);
-	if (totalSize > detail::StackSize) {
-		logger.error(u8"Cannot fit [", totalSize, u8"] bytes onto the initial stack of size [", detail::StackSize, u8']');
+	/* write the auxiliary vector null-entry out */
+	writeWord(0);
+
+	/* write the padding out to 16 bytes */
+	content.insert(content.end(), 16 - (content.size() % 16), 0);
+
+	/* write the random data out and write its offset back to its location */
+	changeWord(offsetOfRandom, content.size());
+	for (size_t i = 0; i < 4; ++i) {
+		uint32_t tmp = host::GetRandom();
+		writeBytes(&tmp, 4);
+	}
+
+	/* write the binary path out and the offset back to its location */
+	changeWord(offsetOfPath, writeBytes(pBinary.data(), pBinary.size() + 1));
+
+	/* write the arguments out and the offsets back to their locations */
+	for (size_t i = 0; i < pArgs.size(); ++i)
+		changeWord(startOfArgs + i * wordWidth, writeBytes(pArgs[i].data(), pArgs[i].size() + 1));
+
+	/* write the environments out and the offsets back to their locations */
+	for (size_t i = 0; i < pEnvs.size(); ++i)
+		changeWord(startOfEnvs + i * wordWidth, writeBytes(pEnvs[i].data(), pEnvs[i].size() + 1));
+
+	/* write the name of the executable out and the offset back to its location */
+	changeWord(offsetOfExecutable, writeBytes(pBinary.data(), pBinary.size() + 1));
+
+	/* append the remaining padding to fully align the stack */
+	content.insert(content.end(), Userspace::StartOfStackAlignment - (content.size() % StartOfStackAlignment), 0);
+
+	/* check if the content fits into the stack-buffer */
+	if (content.size() > detail::StackSize) {
+		logger.error(u8"Cannot fit [", content.size(), u8"] bytes onto the initial stack of size [", detail::StackSize, u8']');
 		return 0;
 	}
 
@@ -48,88 +128,17 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	}
 	logger.debug(u8"Stack allocated to [", str::As{ U"#018x", stackBase }, u8"] with size [", str::As{ U"#010x", detail::StackSize }, u8']');
 
-	/* initialize the content for the stack */
-	std::vector<uint8_t> content;
-	auto writeBytes = [&](const void* data, size_t size) {
-		const uint8_t* d = static_cast<const uint8_t*>(data);
-		content.insert(content.end(), d, d + size);
-		};
-	auto writeWord = [&](uint64_t value) {
-		const uint8_t* d = reinterpret_cast<const uint8_t*>(&value);
-		content.insert(content.end(), d, d + wordWidth);
-		};
-	env::guest_t blobPtr = stackBase + detail::StackSize - blobSize;
-
-	/* write the argument-count out */
-	writeWord(pArgs.size() + 1);
-
-	/* write the binary path out */
-	writeWord(blobPtr);
-	blobPtr += pBinary.size() + 1;
-
-	/* write the argument pointers out and the trailing null-entry */
-	for (size_t i = 0; i < pArgs.size(); ++i) {
-		writeWord(blobPtr);
-		blobPtr += pArgs[i].size() + 1;
-	}
-	writeWord(0);
-
-	/* write the environment pointers out and the trailing null-entry */
-	for (size_t i = 0; i < pEnvs.size(); ++i) {
-		writeWord(blobPtr);
-		blobPtr += pEnvs[i].size() + 1;
-	}
-	writeWord(0);
-
-	/* write the auxiliary vector entries out */
-	writeWord(uint64_t(linux::AuxiliaryType::phAddress));
-	writeWord(pLoaded.aux.phAddress);
-	writeWord(uint64_t(linux::AuxiliaryType::phCount));
-	writeWord(pLoaded.aux.phCount);
-	writeWord(uint64_t(linux::AuxiliaryType::phEntrySize));
-	writeWord(pLoaded.aux.phEntrySize);
-	writeWord(uint64_t(linux::AuxiliaryType::entry));
-	writeWord(pLoaded.aux.entry);
-	writeWord(uint64_t(linux::AuxiliaryType::baseInterpreter));
-	writeWord(pLoaded.aux.base);
-	writeWord(uint64_t(linux::AuxiliaryType::pageSize));
-	writeWord(pLoaded.aux.pageSize);
-	writeWord(uint64_t(linux::AuxiliaryType::executableFilename));
-	writeWord(blobPtr);
-	blobPtr += pBinary.size() + 1;
-	writeWord(uint64_t(linux::AuxiliaryType::random));
-	writeWord(blobPtr);
-	blobPtr += 16;
-
-	/* write the auxiliary vector null-entry out */
-	writeWord(0);
-
-	/* write the padding out */
-	content.insert(content.end(), padding, 0);
-
-	/* write the binary path out */
-	writeBytes(pBinary.data(), pBinary.size() + 1);
-
-	/* write the actual args to the blob */
+	/* compute the final base-address of the stack and patch the addresses */
+	env::guest_t stack = stackBase + detail::StackSize - content.size();
+	changeWord(offsetOfRandom, stack);
+	changeWord(offsetOfPath, stack);
 	for (size_t i = 0; i < pArgs.size(); ++i)
-		writeBytes(pArgs[i].data(), pArgs[i].size() + 1);
-
-	/* write the actual envs to the blob */
+		changeWord(startOfArgs + i * wordWidth, stack);
 	for (size_t i = 0; i < pEnvs.size(); ++i)
-		writeBytes(pEnvs[i].data(), pEnvs[i].size() + 1);
+		changeWord(startOfEnvs + i * wordWidth, stack);
+	changeWord(offsetOfExecutable, stack);
 
-	/* write the binary path out again (used for the auxiliary-vector) */
-	writeBytes(pBinary.data(), pBinary.size() + 1);
-
-	/* write the random bytes out */
-	for (size_t i = 0; i < 4; ++i) {
-		uint32_t tmp = host::Random();
-		writeBytes(&tmp, 4);
-	}
-
-	/* write the prepared content to the acutal stack and return the pointer to
-	*	the argument-count (ptr must not be zero, as this indicates failure) */
-	env::guest_t stack = stackBase + detail::StackSize - totalSize;
+	/* write the prepared content to the acutal stack */
 	mem.mwrite(stack, content.data(), uint32_t(content.size()), env::Usage::Write);
 
 	/* log the stack-state */

@@ -376,9 +376,9 @@ wasm::Function gen::detail::MemoryBuilder::fMakeReadLookup(uint32_t size, bool r
 	case gen::MemoryType::i64:
 		break;
 	case gen::MemoryType::i8To64:
-		sink[I::U64::Const(54)];
+		sink[I::U64::Const(56)];
 		sink[I::U64::ShiftLeft()];
-		sink[I::U64::Const(54)];
+		sink[I::U64::Const(56)];
 		sink[I::I64::ShiftRight()];
 		break;
 	case gen::MemoryType::i16To64:
