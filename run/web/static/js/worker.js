@@ -1,6 +1,6 @@
 /* import the main wasmlator system */
-import { SetupWasmlator } from "/gen/wasmlator.js";
-import { LogType } from '/gen/common.js';
+import { SetupWasmlator } from "/com/wasmlator.js";
+import { LogType } from '/com/common.js';
 import { WebHost } from '/js/web-host.js';
 
 let inputQueue = [];

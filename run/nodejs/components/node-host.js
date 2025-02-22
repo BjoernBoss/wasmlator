@@ -1,12 +1,14 @@
-import { FileStats, LogType } from '../../build/gen/common.js';
 import { realpathSync, promises as fs } from 'fs';
 import * as filePath from 'path';
 
 export class NodeHost {
-	constructor(reader, root) {
+	constructor(reader, root, wasm, impFileStats, impLogType) {
 		this._reader = reader;
 		this._root = this._makeRealPath(root);
+		this._wasm = this._makeRealPath(wasm);
 		this._lastOpenLine = false;
+		this._impFileStats = impFileStats;
+		this._impLogType = impLogType;
 	}
 
 	_makeRealPath(path) {
@@ -87,13 +89,13 @@ export class NodeHost {
 
 	log(type, msg) {
 		/* check if its a normal output-log, which can simply be written to the stdout */
-		if (type == LogType.output) {
+		if (type == this._impLogType.output) {
 			this._lastOpenLine = true;
 			process.stdout.write(msg);
 		}
 
 		/* ensure a clean line-break and write the error to the stderr */
-		else if (type == LogType.fatal || type == LogType.errInternal) {
+		else if (type == this._impLogType.fatal || type == this._impLogType.errInternal) {
 			msg = msg.substring(0, msg.length - 1);
 			if (this._lastOpenLine)
 				process.stdout.write('\n');
@@ -102,12 +104,12 @@ export class NodeHost {
 		}
 	}
 	async loadGlue(imports) {
-		let data = await fs.readFile('build/gen/glue.wasm');
+		let data = await fs.readFile(`${this._wasm}/glue.wasm`);
 		let instantiated = await WebAssembly.instantiate(data, imports);
 		return instantiated.instance;
 	}
 	async loadMain(imports) {
-		let data = await fs.readFile('build/gen/wasmlator.wasm');
+		let data = await fs.readFile(`${this._wasm}/main.wasm`);
 		let instantiated = await WebAssembly.instantiate(data, imports);
 		return instantiated.instance;
 	}
@@ -139,7 +141,7 @@ export class NodeHost {
 		}
 
 		/* parse the stats into the output structure */
-		let out = new FileStats('');
+		let out = new this._impFileStats('');
 		out.atime_us = stats.atime.getTime() * 1000;
 		out.mtime_us = stats.mtime.getTime() * 1000;
 

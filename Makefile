@@ -13,21 +13,19 @@ py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p 
 
 # relevant paths referenced throughout this script
 build_path := build
-ts_path := run/common
-fs_path := run/fs.root
-gen_path := $(build_path)/gen
-bin_path := $(build_path)/make
-cc_path := $(build_path)/make/cc
-em_path := $(build_path)/make/em
+run_src := run
+out_path := $(build_path)/exec
 
 # help-menu
 help:
 	@ echo "Usage: make [target]"
 	@ echo ""
 	@ echo "TARGETS:"
-	@ echo "   help (print this menu; default)"
-	@ echo "   clean (remove all build outputs)"
-	@ echo "   all (generate all necessary files to $(gen_path))"
+	@ echo "   help    print this menu; default"
+	@ echo "   clean   remove all build outputs"
+	@ echo "   web     generate all files to [$(out_path)] necessary to run the server [$(out_path)/server.py]"
+	@ echo "   node    generate all files to [$(out_path)] necessary to run the node runner [$(out_path)/main.js]"
+	@ echo "   all     generate all targets to [$(out_path)]"
 	@ echo ""
 	@ echo "Note:"
 	@ echo "   This makefile will create and include a generated makefile, which is generated"
@@ -41,18 +39,6 @@ clean:
 	rm -r $(build_path)
 .PHONY: clean
 
-# path-creating targets
-$(build_path):
-	@ mkdir -p $(build_path)
-$(cc_path):
-	@ mkdir -p $(cc_path)
-$(em_path):
-	@ mkdir -p $(em_path)
-$(gen_path):
-	@ mkdir -p $(gen_path)
-$(bin_path):
-	@ mkdir -p $(bin_path)
-
 # default emscripten compiler with all relevant flags
 em := em++ -std=c++20 -I./repos -O3 -fwasm-exceptions
 em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_SYMBOLS=0 -sWASM_BIGINT -sALLOW_MEMORY_GROWTH -sSTANDALONE_WASM\
@@ -62,10 +48,20 @@ em_main := $(em) --no-entry -sERROR_ON_UNDEFINED_SYMBOLS=0 -sWARN_ON_UNDEFINED_S
 cc := clang++ -std=c++20 -O3 -I./repos
 
 # execute the python-script to generate the make-file, if it does not exist yet
-generated_path := $(build_path)/generated.make
-$(generated_path): | $(build_path)
+make_path := $(build_path)/make
+generated_path := $(make_path)/generated.make
+$(generated_path):
 	@ echo Generating... $@
+	@ mkdir -p $(make_path)
 	@ py -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $@
+
+# paths used for the output of the generated make file builds
+cc_path := $(make_path)/cc
+em_path := $(make_path)/em
+$(cc_path):
+	@ mkdir -p $@
+$(em_path):
+	@ mkdir -p $@
 
 # include the generated build-script, which builds all separate objects
 # (references cc/cc_path/em/em_path and produces all *_prerequisites, as well as obj_list_cc and obj_list_em)
@@ -74,40 +70,107 @@ include $(generated_path)
 endif
 
 # glue-generator compilation
-glue_gen_path := $(bin_path)/glue.exe
+glue_gen_path := $(make_path)/glue.exe
 $(glue_gen_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(obj_list_cc)
 	@ echo Compiling... $@
+	@ mkdir -p $(make_path)
 	@ $(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
 
 # main wasm compilation
-main_path := $(gen_path)/wasmlator.wasm
-$(main_path): $(obj_list_em) | $(gen_path)
+wasm_path := $(out_path)/wasm
+main_path := $(wasm_path)/main.wasm
+$(main_path): $(obj_list_em)
 	@ echo Compiling... $@
+	@ mkdir -p $(dir $@)
 	@ $(em_main) $(obj_list_em) -o $@
 
 # glue wasm generation
-glue_path := $(gen_path)/glue.wasm
-$(glue_path): $(glue_gen_path) | $(gen_path)
+glue_path := $(wasm_path)/glue.wasm
+$(glue_path): $(glue_gen_path)
 	@ echo Generating... $@
+	@ mkdir -p $(dir $@)
 	@ $(glue_gen_path) $@
 
-# javascript generation
-wasmlator_path := $(gen_path)/wasmlator.js
-$(wasmlator_path): $(ts_path)/tsconfig.json $(ts_path)/*.ts
-	@ echo Generating... $@
-	@ tsc -p $<
+# target to generate all wasm
+build_wasm: $(main_path) $(glue_path)
+.PHONY: build_wasm
 
-# javascript package.json file
-package_path := $(gen_path)/package.json
-$(package_path): $(ts_path)/package.json
+# creation of the filesystem root indication file
+fs_indicator_path := $(out_path)/fs.root
+$(fs_indicator_path):
 	@ echo Generating... $@
-	@ cp $(ts_path)/package.json $@
+	@ mkdir -p $(out_path)
+	@ echo "../../fs" > $@
 
-# fs.root file creation
-$(fs_path):
+# common javascript generation
+common_in_path := $(run_src)/common
+common_out_path := $(out_path)/common
+common_file := $(common_out_path)/wasmlator.js
+$(common_file): $(common_in_path)/tsconfig.json $(wildcard $(common_in_path)/*.ts)
 	@ echo Generating... $@
-	@ [ -e $@ ] || echo "../fs" > $@
+	@ mkdir -p $(common_out_path)
+	@ tsc -p $< --outDir $(common_out_path)
 
-# setup the wasm and js components necessary
-all: $(main_path) $(glue_path) $(wasmlator_path) $(package_path) $(fs_path)
+# target to build the common typescript components
+build_common: $(common_file)
+.PHONY: build_common
+
+# output copy template (used to copy files directly to exec directory)
+define copy_template
+$(1): $(2)
+	@ echo Copying... $(1)
+	@ mkdir -p $(dir $(1))
+	@ cp $(2) $(1)
+endef
+
+# output copy template with placeholder replacement (used to copy files directly to exec directory but replacing necessary placeholders)
+define copy_template_placeholders
+$(1): $(2)
+	@ echo Copying... $(1)
+	@ mkdir -p $(dir $(1))
+	@ sed \
+	-e "s|{{root-indicator-path}}|$(fs_indicator_path)|g" \
+	-e "s|{{exec-path}}|$(out_path)|g" \
+	-e "s|{{wasm-path}}|$(wasm_path)|g" \
+	-e "s|{{common-path}}|$(common_out_path)|g" \
+	-e "s|{{common-exec-rel-path}}|$(subst $(out_path)/,,$(common_out_path))|g" \
+	-e "s|{{self-path}}|$(3)|g" \
+	-e "s|{{self-exec-rel-path}}|$(subst $(out_path)/,,$(3))|g" \
+	$(2) > $(1)
+endef
+
+# nodejs copy to output
+node_in_path := $(run_src)/nodejs
+node_out_path := $(out_path)/node
+node_parts := $(subst $(node_in_path)/components/,,$(wildcard $(node_in_path)/components/*.*) $(wildcard $(node_in_path)/components/*/*.*))
+$(foreach file, $(node_parts), $(eval $(call copy_template,$(node_out_path)/$(file),$(node_in_path)/components/$(file))))
+node_files := $(subst $(node_in_path)/,,$(wildcard $(node_in_path)/*.*))
+$(foreach file, $(node_files), $(eval $(call copy_template_placeholders,$(out_path)/$(file),$(node_in_path)/$(file),$(node_out_path))))
+
+# target to copy all node components over
+node_copy: $(foreach file,$(node_files),$(out_path)/$(file)) $(foreach file,$(node_parts),$(node_out_path)/$(file))
+.PHONY: node_copy
+
+# target to build everything required for the webserver
+web: web_copy build_common build_wasm $(fs_indicator_path)
+.PHONY: web
+
+# web copy to output
+web_in_path := $(run_src)/web
+web_out_path := $(out_path)/web
+web_parts := $(subst $(web_in_path)/static/,,$(wildcard $(web_in_path)/static/*.*) $(wildcard $(web_in_path)/static/*/*.*))
+$(foreach file, $(web_parts), $(eval $(call copy_template,$(web_out_path)/$(file),$(web_in_path)/static/$(file))))
+web_files := $(subst $(web_in_path)/,,$(wildcard $(web_in_path)/*.*))
+$(foreach file, $(web_files), $(eval $(call copy_template_placeholders,$(out_path)/$(file),$(web_in_path)/$(file),$(web_out_path))))
+
+# target to copy all web components over
+web_copy: $(foreach file,$(web_files),$(out_path)/$(file)) $(foreach file, $(web_parts), $(web_out_path)/$(file))
+.PHONY: web_copy
+
+# target to build everything required for the node.js runner
+node: node_copy build_common build_wasm $(fs_indicator_path)
+.PHONY: node
+
+# target to build all output types
+all: web node
 .PHONY: all

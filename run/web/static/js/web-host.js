@@ -1,4 +1,4 @@
-import { FileStats, LogType } from '/gen/common.js';
+import { FileStats, LogType } from '/com/common.js';
 
 export class WebHost {
 	constructor(logger, userInput) {
@@ -10,13 +10,13 @@ export class WebHost {
 		this._logger(LogType[type], msg);
 	}
 	async loadGlue(imports) {
-		let response = await fetch('/gen/glue.wasm', { credentials: 'same-origin' });
+		let response = await fetch('/wasm/glue.wasm', { credentials: 'same-origin' });
 		let instantiated = await WebAssembly.instantiateStreaming(response, imports);
 		return instantiated.instance;
 	}
 
 	async loadMain(imports) {
-		let response = await fetch('/gen/wasmlator.wasm', { credentials: 'same-origin' });
+		let response = await fetch('/wasm/main.wasm', { credentials: 'same-origin' });
 		let instantiated = await WebAssembly.instantiateStreaming(response, imports);
 		return instantiated.instance;
 	}

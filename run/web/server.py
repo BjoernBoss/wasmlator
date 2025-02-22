@@ -124,17 +124,18 @@ class FileSystemInteract:
 		return os.fstat(f.fileno()).st_size
 
 # fetch the root directory to be used
-fsPath = open('run/fs.root', 'r').read().strip()
-fsPath = os.path.realpath(os.path.join('./run', fsPath))
-if not os.path.isdir(fsPath):
-	print(f'error: filesystem root [{fsPath}] is not a directory')
+pathFs = open('{{root-indicator-path}}', 'r').read().strip()
+pathFs = os.path.realpath(os.path.join('{{exec-path}}', pathFs))
+if not os.path.isdir(pathFs):
+	print(f'error: filesystem root [{pathFs}] is not a directory')
 	exit(1)
-print(f'filesystem root at [{fsPath}]')
+print(f'filesystem root at [{pathFs}]')
 
 # root directory of the server
-fileSystem = FileSystemInteract(fsPath)
-staticPath = os.path.realpath('run/web/static')
-generatedPath = os.path.realpath('build/gen')
+fileSystem = FileSystemInteract(pathFs)
+pathCommon = os.path.realpath('{{common-path}}')
+pathWasm = os.path.realpath('{{wasm-path}}')
+pathWeb = os.path.realpath('{{self-path}}')
 
 # request handler implementation
 class SelfRequest(http.server.SimpleHTTPRequestHandler):
@@ -184,10 +185,13 @@ class SelfRequest(http.server.SimpleHTTPRequestHandler):
 			return None
 
 		# dispatch the path to be used
-		if self.path.startswith('/gen/'):
+		if self.path.startswith('/wasm/'):
+			self.path = self.path[5:]
+			return pathWasm
+		if self.path.startswith('/com/'):
 			self.path = self.path[4:]
-			return generatedPath
-		return staticPath
+			return pathCommon
+		return pathWeb
 	def do_GET(self):
 		self.directory = self.dispatch(True)
 		if self.directory is None:

@@ -1,14 +1,15 @@
-import { NodeHost } from './node-host.js';
-import { SetupWasmlator } from '../../build/gen/wasmlator.js';
+import { NodeHost } from './{{self-exec-rel-path}}/node-host.js';
+import { FileStats, LogType } from './{{common-exec-rel-path}}/common.js';
+import { SetupWasmlator } from './{{common-exec-rel-path}}/wasmlator.js';
 import { createInterface } from 'readline';
 import { promises as fs } from 'fs';
 import path from 'path';
 
 /* fetch the root directory to be used */
-let fsPath = (await fs.readFile('run/fs.root', { encoding: 'utf-8' })).trim();
+let fsPath = (await fs.readFile('{{root-indicator-path}}', { encoding: 'utf-8' })).trim();
 try {
 	if (!path.isAbsolute(fsPath))
-		fsPath = await fs.realpath(path.join('./run', fsPath));
+		fsPath = await fs.realpath(path.join('{{exec-path}}', fsPath));
 	else
 		fsPath = await fs.realpath(fsPath);
 	if (!(await fs.lstat(fsPath)).isDirectory())
@@ -20,7 +21,7 @@ try {
 
 /* setup the io-reader, host, and load the wasmlator */
 let reader = createInterface({ input: process.stdin, output: process.stdout });
-let host = new NodeHost(reader, fsPath);
+let host = new NodeHost(reader, fsPath, './{{wasm-path}}', FileStats, LogType);
 let wasmlator = await SetupWasmlator(host);
 
 /* check if the application should be profiled */
