@@ -274,6 +274,9 @@ void sys::Debugger::fPrintData(const Expression& address, size_t bytes, uint8_t 
 	if (data.size() < bytes)
 		logger.fmtError(u8"[{:#018x}]: Unable to read memory", _address + data.size());
 }
+void sys::Debugger::fPrintEval(const Expression& value, const std::u8string& msg, bool hex) const {
+	util::nullLogger.log(str::u8::Build(msg, str::As{ (hex ? U"#018x" : U""), fEvalExpression(value) }));
+}
 void sys::Debugger::fPrintState() const {
 	std::u8string_view whitespace = u8"    ";
 
@@ -297,6 +300,12 @@ void sys::Debugger::fPrintBindings() const {
 			break;
 		case BindType::state:
 			fPrintState();
+			break;
+		case BindType::evalDec:
+			fPrintEval(pBindings[i].expression, pBindings[i].msg, false);
+			break;
+		case BindType::evalHex:
+			fPrintEval(pBindings[i].expression, pBindings[i].msg, true);
 			break;
 		case BindType::inst:
 			fPrintInstructions(pBindings[i].expression, pBindings[i].misc);
@@ -417,6 +426,12 @@ void sys::Debugger::printBindings() const {
 		case BindType::state:
 			util::nullLogger.log(index, u8": state");
 			break;
+		case BindType::evalDec:
+			util::nullLogger.log(index, u8": eval [", _exp, u8"] as dec and msg [", msg, u8']');
+			break;
+		case BindType::evalHex:
+			util::nullLogger.log(index, u8": eval [", _exp, u8"] as hex and msg [", msg, u8']');
+			break;
 		case BindType::inst:
 			util::nullLogger.log(index, u8": [", count, u8"] instructions at [", _exp, u8']');
 			break;
@@ -442,6 +457,16 @@ void sys::Debugger::printEcho(const std::u8string& msg, bool bind) {
 		fAddBinding({ {}, msg, 0, 0, BindType::echo });
 	else
 		util::nullLogger.log(msg);
+}
+void sys::Debugger::printEval(const std::u8string& msg, const std::u8string& value, bool hex, bool bind) {
+	Expression parsed;
+	if (!fParseExpression(value, parsed))
+		return;
+
+	if (bind)
+		fAddBinding({ parsed, msg, 0, 0, (hex ? BindType::evalDec : BindType::evalHex) });
+	else
+		fPrintEval(parsed, msg, hex);
 }
 void sys::Debugger::printState(bool bind) {
 	if (bind)

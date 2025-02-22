@@ -19,6 +19,8 @@ namespace sys {
 		};
 		enum class BindType : uint8_t {
 			echo,
+			evalDec,
+			evalHex,
 			state,
 			inst,
 			data8,
@@ -79,6 +81,7 @@ namespace sys {
 	private:
 		void fPrintInstructions(const Expression& address, size_t count) const;
 		void fPrintData(const Expression& address, size_t bytes, uint8_t width) const;
+		void fPrintEval(const Expression& value, const std::u8string& msg, bool hex) const;
 		void fPrintState() const;
 		void fPrintBindings() const;
 
@@ -95,6 +98,7 @@ namespace sys {
 		void printBreaks() const;
 		void printBindings() const;
 		void printEcho(const std::u8string& msg, bool bind);
+		void printEval(const std::u8string& msg, const std::u8string& value, bool hex, bool bind);
 		void printState(bool bind);
 		void printInstructions(std::optional<std::u8string> address, size_t count, bool bind);
 		void printData8(const std::u8string& address, size_t bytes, bool bind);

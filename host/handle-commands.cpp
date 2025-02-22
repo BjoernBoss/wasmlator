@@ -144,6 +144,16 @@ static arger::Config Commands{
 			arger::Positional{ L"address", arger::Primitive::any, L"Address to print memory from." },
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of qwords to print." },
 		},
+		arger::Group{ L"eval", L"in-eval",
+			arger::Abbreviation{ L'e' },
+			arger::Description{ L"Evaluate the value and print it." },
+			arger::Positional{ L"value", arger::Primitive::any, L"Value to be evaluated." },
+			arger::Positional{ L"hex", arger::Primitive::boolean, L"Print number as hex.", arger::Value{ true } },
+			arger::Option{ L"desc",
+				arger::Payload{ L"text", arger::Primitive::any },
+				arger::Description{ L"Add a pre-printed description to the evaluation." },
+			},
+		},
 	},
 	arger::Group{ L"echo", L"",
 		arger::Abbreviation{ L'e' },
@@ -259,6 +269,10 @@ static void HandleDebug(const arger::Parsed& out) {
 	if (out.groupId() == L"in-mem64") {
 		debugger->printData64(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 8, bind);
 		return;
+	}
+	else if (out.groupId() == L"in-eval") {
+		auto msg = out.option(L"desc");
+		debugger->printEval((msg.has_value() ? str::u8::To(msg.value().str()) : u8""), str::u8::To(out.positional(0).value().str()), out.positional(1).value().boolean(), bind);
 	}
 }
 
