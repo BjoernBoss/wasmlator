@@ -49,12 +49,18 @@ void env::Mapping::fBlockExports(const std::vector<env::BlockExport>& exports) {
 
 	/* validate all indices and write them to the map */
 	for (size_t i = 0; i < exports.size(); ++i) {
+		/* resolve the mapping from the loaded block to the core function-mapping table */
 		uint32_t index = detail::MappingBridge::Define(exports[i].name.c_str(), exports[i].name.size(), exports[i].address);
 		if (index == detail::InvalidMapping)
 			logger.fatal(u8"Failed to load [", exports[i].name, u8"] from block");
+
+		/* associate the acutal function address to the given index */
 		logger.trace(u8"Associating [", exports[i].name, u8"] to [", str::As{ U"#018x", exports[i].address }, u8"] and index [", index, u8']');
 		pMapping.insert({ exports[i].address, index });
 	}
+
+	/* log the new statistics */
+	logger.info(u8"Total blocks loaded: ", pTotalBlockCount, u8" | Total super-blocks translated: ", pMapping.size());
 }
 
 void env::Mapping::execute(env::guest_t address) {

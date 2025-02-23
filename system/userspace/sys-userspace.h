@@ -9,7 +9,8 @@
 #include "../elf/sys-elf.h"
 
 namespace sys {
-	static constexpr uint32_t DefTranslationDepth = 2;
+	/* found to result in the best performance */
+	static constexpr uint32_t DefTranslationDepth = 8;
 
 	namespace detail {
 		static constexpr env::guest_t StartOfStackAlignment = 128;

@@ -352,7 +352,7 @@ void gen::detail::SuperBlock::setupRanges() {
 				++ot;
 		}
 	}
-	logger.debug(u8"Ranges: ", pRanges.size(), u8" (Reduction: ", count - pRanges.size(), u8')');
+	logger.trace(u8"Ranges: ", pRanges.size(), u8" (Reduction: ", count - pRanges.size(), u8')');
 
 	/* reset the iterator and counter */
 	pIndex = 0;

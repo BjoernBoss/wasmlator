@@ -38,13 +38,13 @@ let printProfile = function (stats) {
 	let out = (v) => v.toFixed(3).padStart(12, ' ');
 
 	console.log('\nMemory Usage:');
-	console.log(`   FileSystem: ${out(stats.mem.filesystem / 1000)} Kb`);
-	console.log(`   WasmLator : ${out(stats.mem.wasmlator / 1000)} Kb`);
-	console.log(`   Guest     : ${out(stats.mem.guest / 1000)} Kb`);
-	console.log(`   Peak Total: ${out(stats.mem.total / 1000)} Kb`);
+	console.log(`   FileSystem: ${out(stats.mem.filesystem / 1000)} KB`);
+	console.log(`   WasmLator : ${out(stats.mem.wasmlator / 1000)} KB`);
+	console.log(`   Guest     : ${out(stats.mem.guest / 1000)} KB`);
+	console.log(`   Peak Total: ${out(stats.mem.total / 1000)} KB`);
 	if (stats.mem.total >= 0) {
 		let overhead = stats.mem.total - stats.mem.guest - stats.mem.wasmlator - stats.mem.filesystem
-		console.log(`     Overhead: ${out(overhead / 1000)} Kb`);
+		console.log(`     Overhead: ${out(overhead / 1000)} KB`);
 	}
 	console.log('\nTiming:');
 	console.log(`  Startup    : ${out(stats.time.startup)} sec`);

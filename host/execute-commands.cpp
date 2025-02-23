@@ -25,6 +25,7 @@ void ExecuteCommand(std::u8string_view cmd) {
 	if (!sys::Userspace::Create(rv64::Cpu::New(), config))
 		host::PrintOutLn(u8"Failed to create process.");
 }
+
 void CleanupExecute() {
 	/* shutdown the system */
 	if (env::Instance() != 0)
