@@ -48,16 +48,6 @@ static arger::Config Commands{
 			}},
 			arger::Require::Any(),
 		},
-		arger::Option{ L"cpu",
-			arger::Abbreviation{ L'c' },
-			arger::Description{ L"Configure the cpu to be used." },
-			arger::Payload{ L"name",
-				arger::Enum{
-					{ L"rv64", L"RISC-V 64bit cpu." },
-				},
-				arger::Value{ L"rv64" }
-			},
-		},
 		arger::Option{ L"log",
 			arger::Abbreviation{ L'l' },
 			arger::Description{ L"Log all WAT blocks being generated." },
@@ -73,6 +63,10 @@ static arger::Config Commands{
 			},
 			arger::Value{ L"none" } },
 			arger::Description{ L"Log the address of all blocks being entered." },
+		},
+		arger::Option{ L"depth",
+			arger::Payload{L"count", arger::Primitive::unum, arger::Value{ uint64_t(sys::DefTranslationDepth) } },
+			arger::Description{ L"Configure the depth to which super-blocks should be crawled and translated at once." },
 		},
 	},
 	arger::Group{ L"destroy", L"",
@@ -304,38 +298,39 @@ void HandleCommand(std::u8string_view cmd) {
 			return;
 		}
 
-		/* system can currently only be 'userspace' and cpu can only be 'rv64' */
-		std::wstring cpu = out.option(L"cpu").value().str();
-		bool debug = out.flag(L"debug"), logBlocks = out.flag(L"log");
-		util::nullLogger.log(u8"Setting up userspace with cpu: [", cpu, u8']');
+		/* fetch the initial configuration */
+		bool debug = out.flag(L"debug");
+		arger::Value traceValue = out.option(L"trace").value();
+		sys::RunConfig config{
+			.binary = str::u8::To(out.positional(0).value().str()),
+			.translationDepth = uint32_t(out.option(L"depth").value().unum()),
+			.trace = gen::TraceType::none,
+			.logBlocks = out.flag(L"log")
+		};
 
 		/* collect the argument vector */
-		std::vector<std::u8string> args;
 		for (size_t i = 1; i < out.positionals(); ++i)
-			args.push_back(str::u8::To(out.positional(i).value().str()));
+			config.args.push_back(str::u8::To(out.positional(i).value().str()));
 
 		/* collect the environment vector */
-		std::vector<std::u8string> envs;
 		size_t envCount = out.options(L"environment");
 		for (size_t i = 0; i < envCount; ++i)
-			envs.push_back(str::u8::To(out.option(L"environment", i).value().str()));
+			config.envs.push_back(str::u8::To(out.option(L"environment", i).value().str()));
 
 		/* extract the trace type to be used */
-		gen::TraceType trace = gen::TraceType::none;
-		arger::Value traceValue = out.option(L"trace").value();
 		if (traceValue.str() == L"inst")
-			trace = gen::TraceType::instruction;
+			config.trace = gen::TraceType::instruction;
 		else if (traceValue.str() == L"chunk")
-			trace = gen::TraceType::chunk;
+			config.trace = gen::TraceType::chunk;
 		else if (traceValue.str() == L"block")
-			trace = gen::TraceType::block;
+			config.trace = gen::TraceType::block;
 
 		/* try to setup the userspace system */
-		debugger = 0;
-		if (!sys::Userspace::Create(rv64::Cpu::New(), str::u8::To(out.positional(0).value().str()), args, envs, logBlocks, trace, (debug ? &debugger : 0)))
-			util::nullLogger.error(u8"Failed to create process");
-		else
+		std::unique_ptr<sys::Cpu> cpu = rv64::Cpu::New();
+		if (debug ? (debugger = sys::Userspace::Debug(std::move(cpu), config)) != 0 : sys::Userspace::Create(std::move(cpu), config))
 			util::nullLogger.log(u8"Process creation completed");
+		else
+			util::nullLogger.error(u8"Failed to create process");
 		return;
 	}
 

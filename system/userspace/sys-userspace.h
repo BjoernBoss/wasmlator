@@ -9,12 +9,26 @@
 #include "../elf/sys-elf.h"
 
 namespace sys {
+	static constexpr uint32_t DefTranslationDepth = 2;
+
 	namespace detail {
+		static constexpr env::guest_t StartOfStackAlignment = 128;
 		static constexpr env::guest_t StackSize = 0x80'0000;
-		static constexpr uint32_t TranslationDepth = 3;
 		static constexpr uint32_t PageSize = 0x1000;
 		static constexpr uint32_t MaxProcessCount = 1;
+		static constexpr const char8_t* ResolveLocations[] = {
+			u8"", u8"/", u8"/bin/", u8"/lib/"
+		};
 	}
+
+	struct RunConfig {
+		std::vector<std::u8string> args;
+		std::vector<std::u8string> envs;
+		std::u8string binary;
+		uint32_t translationDepth = sys::DefTranslationDepth;
+		gen::TraceType trace = gen::TraceType::none;
+		bool logBlocks = false;
+	};
 
 	/* userspace single-threaded system, which set up an environment, loads an elf
 	*	file to be executed, and passes the calls to the cpu implementation, as well as
@@ -22,14 +36,6 @@ namespace sys {
 	*	Note: The assumption is made, that the stack grows downwards
 	*	Note: The pc is managed by the userspace object */
 	class Userspace final : public env::System {
-	private:
-		static constexpr env::guest_t StartOfStackAlignment = 128;
-
-	private:
-		static constexpr const char8_t* ResolveLocations[] = {
-			u8"", u8"/", u8"/bin/", u8"/lib/"
-		};
-
 	private:
 		std::vector<std::u8string> pArgs;
 		std::vector<std::u8string> pEnvs;
@@ -49,6 +55,7 @@ namespace sys {
 		Userspace(const sys::Userspace&) = delete;
 
 	private:
+		bool fSetup(std::unique_ptr<sys::Userspace>&& system, std::unique_ptr<sys::Cpu>&& cpu, const sys::RunConfig& config, bool debug);
 		std::u8string_view fArchType(sys::ArchType architecture) const;
 		env::guest_t fPrepareStack() const;
 		void fStartLoad(const std::u8string& path);
@@ -60,7 +67,8 @@ namespace sys {
 		void fExecute();
 
 	public:
-		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, gen::TraceType trace, sys::Debugger** debugger);
+		static bool Create(std::unique_ptr<sys::Cpu>&& cpu, const sys::RunConfig& config);
+		static sys::Debugger* Debug(std::unique_ptr<sys::Cpu>&& cpu, const sys::RunConfig& config);
 
 	public:
 		bool setupCore(wasm::Module& mod) final;

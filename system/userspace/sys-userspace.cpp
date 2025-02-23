@@ -2,6 +2,63 @@
 
 static util::Logger logger{ u8"sys::userspace" };
 
+bool sys::Userspace::fSetup(std::unique_ptr<sys::Userspace>&& system, std::unique_ptr<sys::Cpu>&& cpu, const sys::RunConfig& config, bool debug) {
+	/* configure the new userspace object */
+	pArgs = config.args;
+	pEnvs = config.envs;
+	pBinaryPath = config.binary;
+	pCpu = cpu.get();
+
+	/* log the configuration */
+	logger.info(u8"  Cpu              : [", pCpu->name(), u8']');
+	logger.info(u8"  Debug            : ", str::As{ U"S", debug });
+	logger.info(u8"  Log Blocks       : ", str::As{ U"S", config.logBlocks });
+	logger.info(u8"  Trace Blocks     : ", config.trace);
+	logger.info(u8"  Translation Depth: ", config.translationDepth);
+	logger.info(u8"  Binary           : ", pBinaryPath);
+	logger.info(u8"  Arguments        : ", pArgs.size());
+	for (size_t i = 0; i < pArgs.size(); ++i)
+		logger.info(u8"               [", str::As{ U" 2", i }, u8"]: ", pArgs[i]);
+	logger.info(u8"  Environments     : ", pEnvs.size());
+	for (size_t i = 0; i < pEnvs.size(); ++i)
+		logger.info(u8"               [", str::As{ U" 2", i }, u8"]: ", pEnvs[i]);
+
+	/* check if the cpu can be set up */
+	if (!pCpu->setupCpu(&pWriter)) {
+		logger.error(u8"Failed to setup cpu [", pCpu->name(), u8"] for userspace execution");
+		return false;
+	}
+	if (pCpu->multiThreaded())
+		logger.warn(u8"Userspace currently does not support true multiple threads");
+
+	/* validate the cpu-architecture */
+	if (pCpu->architecture() == sys::ArchType::unknown) {
+		logger.error(u8"Unsupported architecture [", fArchType(pCpu->architecture()), u8"] used by cpu");
+		return false;
+	}
+
+	/* check if the debugger could be created */
+	std::function<void(env::guest_t)> debugCheck;
+	if (debug) {
+		/* setup the debugger itself */
+		if (!pDebugger.fSetup(this)) {
+			logger.error(u8"Failed to attach debugger");
+			return false;
+		}
+		logger.info(u8"Debugger attached successfully");
+
+		/* setup the debug-check function */
+		debugCheck = [debugger = &pDebugger](env::guest_t address) { debugger->fCheck(address); };
+	}
+
+	/* register the process and translator (translator first, as it will be used for core-creation) */
+	if (!gen::SetInstance(std::move(cpu), config.translationDepth, config.trace, debugCheck))
+		return false;
+	if (env::SetInstance(std::move(system), detail::PageSize, pCpu->memoryCaches(), pCpu->contextSize(), pCpu->detectWriteExecute(), config.logBlocks))
+		return true;
+	gen::ClearInstance();
+	return false;
+}
 std::u8string_view sys::Userspace::fArchType(sys::ArchType architecture) const {
 	switch (architecture) {
 	case sys::ArchType::riscv64:
@@ -112,7 +169,7 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 	changeWord(offsetOfExecutable, writeBytes(pBinaryActual.data(), pBinaryActual.size() + 1));
 
 	/* append the remaining padding to fully align the stack */
-	content.insert(content.end(), Userspace::StartOfStackAlignment - (content.size() % StartOfStackAlignment), 0);
+	content.insert(content.end(), detail::StartOfStackAlignment - (content.size() % detail::StartOfStackAlignment), 0);
 
 	/* check if the content fits into the stack-buffer */
 	if (content.size() > detail::StackSize) {
@@ -148,14 +205,15 @@ env::guest_t sys::Userspace::fPrepareStack() const {
 }
 void sys::Userspace::fStartLoad(const std::u8string& path) {
 	/* setup the actual path to use */
-	std::u8string actual = util::CanonicalPath(str::u8::Build(Userspace::ResolveLocations[pResolveIndex], path));
+	std::u8string actual = util::CanonicalPath(str::u8::Build(detail::ResolveLocations[pResolveIndex], path));
 
 	/* load the binary */
 	env::Instance()->filesystem().readStats(actual, [this, path, actual](const env::FileStats* stats) {
 		/* check if the file could be resolved */
 		if (stats == 0) {
 			/* check if another path should be resolved (only if the name is raw) */
-			if (pResolveIndex + 1 < std::size(Userspace::ResolveLocations) && path.find(u8'/') == std::u8string::npos && path.find(u8'\\') == std::u8string::npos) {
+			bool fileOnly = (path.find(u8'/') == std::u8string::npos && path.find(u8'\\') == std::u8string::npos);
+			if (pResolveIndex + 1 < std::size(detail::ResolveLocations) && fileOnly) {
 				logger.error(str::u8::Build(u8"Path [", actual, u8"] does not exist"));
 				++pResolveIndex;
 				fStartLoad(path);
@@ -360,72 +418,21 @@ void sys::Userspace::fExecute() {
 	/* will onlybe reached through: New block being generated, DebuggerHalt, AwaitingSyscall */
 }
 
-bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const std::u8string& binary, const std::vector<std::u8string>& args, const std::vector<std::u8string>& envs, bool logBlocks, gen::TraceType trace, sys::Debugger** debugger) {
-	uint32_t caches = cpu->memoryCaches(), context = cpu->contextSize();
-
-	/* log the configuration */
-	logger.info(u8"  Cpu         : [", cpu->name(), u8']');
-	logger.info(u8"  Debug       : ", str::As{ U"S", (debugger != 0) });
-	logger.info(u8"  Log Blocks  : ", str::As{ U"S", logBlocks });
-	logger.info(u8"  Trace Blocks: ", trace);
-	logger.info(u8"  Binary      : ", binary);
-	logger.info(u8"  Arguments   : ", args.size());
-	for (size_t i = 0; i < args.size(); ++i)
-		logger.info(u8"    [", i, u8"]: ", args[i]);
-	logger.info(u8"  Environments: ", envs.size());
-	for (size_t i = 0; i < envs.size(); ++i)
-		logger.info(u8"    [", i, u8"]: ", envs[i]);
-
-	/* allocate the userspace object populate it */
+bool sys::Userspace::Create(std::unique_ptr<sys::Cpu>&& cpu, const sys::RunConfig& config) {
 	std::unique_ptr<sys::Userspace> system{ new sys::Userspace() };
-	system->pArgs = args;
-	system->pEnvs = envs;
-	system->pBinaryPath = binary;
-	system->pCpu = cpu.get();
 
-	/* check if the cpu can be set up */
-	if (!system->pCpu->setupCpu(&system->pWriter)) {
-		logger.error(u8"Failed to setup cpu [", cpu->name(), u8"] for userspace execution");
-		return false;
-	}
-	if (system->pCpu->multiThreaded())
-		logger.warn(u8"Userspace currently does not support true multiple threads");
+	/* try to setup the system */
+	sys::Userspace* _this = system.get();
+	return _this->fSetup(std::move(system), std::move(cpu), config, false);
+}
+sys::Debugger* sys::Userspace::Debug(std::unique_ptr<sys::Cpu>&& cpu, const sys::RunConfig& config) {
+	std::unique_ptr<sys::Userspace> system{ new sys::Userspace() };
 
-	/* validate the cpu-architecture */
-	if (cpu->architecture() == sys::ArchType::unknown) {
-		logger.error(u8"Unsupported architecture [", system->fArchType(cpu->architecture()), u8"] used by cpu");
-		return false;
-	}
-
-	/* check if the debugger could be created */
-	sys::Debugger* debugObject = 0;
-	std::function<void(env::guest_t)> debugCheck;
-	if (debugger != 0) {
-		/* setup the debugger itself */
-		if (!system->pDebugger.fSetup(system.get())) {
-			logger.error(u8"Failed to attach debugger");
-			return false;
-		}
-		logger.info(u8"Debugger attached successfully");
-		debugObject = &system->pDebugger;
-
-		/* setup the debug-check function */
-		debugCheck = [debugObject](env::guest_t address) { debugObject->fCheck(address); };
-	}
-
-	/* register the process and translator (translator first, as it will be used for core-creation) */
-	bool detectWriteExecute = cpu->detectWriteExecute();
-	if (!gen::SetInstance(std::move(cpu), detail::TranslationDepth, trace, debugCheck))
-		return false;
-	if (!env::SetInstance(std::move(system), detail::PageSize, caches, context, detectWriteExecute, logBlocks)) {
-		gen::ClearInstance();
-		return false;
-	}
-
-	/* check if a reference to the debugger should be returned */
-	if (debugger != 0)
-		*debugger = debugObject;
-	return true;
+	/* try to setup the system */
+	sys::Userspace* _this = system.get();
+	if (!_this->fSetup(std::move(system), std::move(cpu), config, true))
+		return 0;
+	return &_this->pDebugger;
 }
 
 bool sys::Userspace::setupCore(wasm::Module& mod) {

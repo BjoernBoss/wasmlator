@@ -15,15 +15,14 @@ void ExecuteCommand(std::u8string_view cmd) {
 	/* parse the command-line arguments (ensure that they are not empty) */
 	std::vector<std::wstring> split = arger::Prepare(cmd);
 
-	/* extract the binary and the arguments */
-	std::u8string binary;
-	std::vector<std::u8string> args;
-	binary = (split.empty() ? u8"" : str::u8::To(split[0]));
+	/* extract the binary and the arguments to setup the new userspace configuration */
+	sys::RunConfig config;
+	config.binary = (split.empty() ? u8"" : str::u8::To(split[0]));
 	for (size_t i = 1; i < split.size(); ++i)
-		args.push_back(str::u8::To(split[i]));
+		config.args.push_back(str::u8::To(split[i]));
 
 	/* try to setup the userspace system */
-	if (!sys::Userspace::Create(rv64::Cpu::New(), binary, args, {}, false, gen::TraceType::none, 0))
+	if (!sys::Userspace::Create(rv64::Cpu::New(), config))
 		host::PrintOutLn(u8"Failed to create process.");
 }
 void CleanupExecute() {
