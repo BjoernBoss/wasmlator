@@ -1202,7 +1202,7 @@ void rv64::Translate::fMakeCSR() {
 		gen::Add[I::U64::Const(mask)];
 		gen::Add[I::U64::And()];
 		if (shift > 0) {
-			gen::Add[I::U32::Const(shift)];
+			gen::Add[I::U64::Const(shift)];
 			gen::Add[I::U64::ShiftLeft()];
 		}
 		gen::Add[I::U64::Or()];
@@ -1212,7 +1212,7 @@ void rv64::Translate::fMakeCSR() {
 		gen::Add[I::U64::Const(mask)];
 		gen::Add[I::U64::And()];
 		if (shift > 0) {
-			gen::Add[I::U32::Const(shift)];
+			gen::Add[I::U64::Const(shift)];
 			gen::Add[I::U64::ShiftLeft()];
 		}
 		gen::Add[I::I64::Const(-1)];
@@ -1237,7 +1237,7 @@ void rv64::Translate::fMakeCSR() {
 			gen::Add[I::U64::Const(mask)];
 			gen::Add[I::U64::And()];
 			if (shift > 0) {
-				gen::Add[I::U32::Const(shift)];
+				gen::Add[I::U64::Const(shift)];
 				gen::Add[I::U64::ShiftLeft()];
 			}
 			gen::Add[I::U64::Or()];
