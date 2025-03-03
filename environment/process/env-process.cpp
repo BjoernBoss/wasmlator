@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "../environment.h"
 
 static util::Logger logger{ u8"env::process" };

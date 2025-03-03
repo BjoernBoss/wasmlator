@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "../generate.h"
 
 gen::detail::AddressWriter::AddressWriter(const detail::MappingState& mapping, detail::Addresses& host) : pMapping{ mapping }, pHost{ host } {}

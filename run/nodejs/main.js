@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 import { NodeHost } from './{{self-exec-rel-path}}/node-host.js';
 import { FileStats, LogType } from './{{common-exec-rel-path}}/common.js';
 import { SetupWasmlator } from './{{common-exec-rel-path}}/wasmlator.js';

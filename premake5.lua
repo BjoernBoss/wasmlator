@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: BSD-3-Clause
+-- Copyright (c) 2025 Bjoern Boss Henrichsen
 newaction {
 	trigger     = "clean",
 	description = "Remove all build artifacts",

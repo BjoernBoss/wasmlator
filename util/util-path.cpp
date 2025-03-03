@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "util-path.h"
 
 util::PathState util::TestPath(std::u8string_view path) {

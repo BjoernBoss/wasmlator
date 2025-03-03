@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 import { HostEnvironment, LogType } from './common.js';
 import { FileSystem } from './filesystem.js';
 

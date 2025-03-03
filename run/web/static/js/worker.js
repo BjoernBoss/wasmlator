@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 /* import the main wasmlator system */
 import { SetupWasmlator } from "/com/wasmlator.js";
 import { LogType } from '/com/common.js';

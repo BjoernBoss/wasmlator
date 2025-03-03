@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include <arger/arger.h>
 #include "../host/interface.h"
 #include "../system/system.h"

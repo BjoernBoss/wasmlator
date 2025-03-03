@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 Bjoern Boss Henrichsen
 # python script, which reads all of the cpp-files, recursively processes the
 # includes, and generates a make-file to create all of the corresponding object-files
 py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p in v: return\

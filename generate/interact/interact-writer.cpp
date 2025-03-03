@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "../generate.h"
 
 gen::detail::InteractWriter::InteractWriter(const detail::InteractState& state) : pState{ state } {}

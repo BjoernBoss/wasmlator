@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "rv64-pseudo.h"
 
 rv64::DetectPseudo::DetectPseudo(bool multi) : pState{ multi ? State::multi : State::none } {}

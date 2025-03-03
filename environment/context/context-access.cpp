@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "../environment.h"
 
 uintptr_t env::detail::ContextAccess::Configure() {

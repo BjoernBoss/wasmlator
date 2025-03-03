@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "sys-elf.h"
 
 static util::Logger logger{ u8"sys::elf" };

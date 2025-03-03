@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "glue-state.h"
 
 gen::detail::GlueState::GlueState(wasm::Module& mod) : pModule{ mod } {}

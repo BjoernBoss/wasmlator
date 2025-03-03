@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/* Copyright (c) 2025 Bjoern Boss Henrichsen */
 #include "../../system.h"
 
 sys::detail::impl::ProcDirectory::ProcDirectory(detail::Syscall* syscall, env::FileAccess access) : VirtFileNode{ env::FileType::directory, access }, pSyscall{ syscall } {}
