@@ -193,7 +193,7 @@ static void HandleDebug(const arger::Parsed& out) {
 	bool bind = out.flag(OptionId::bind);
 
 	/* handle all of the debug-related arguments */
-	switch (out.idAsEnum<GroupId>()) {
+	switch (out.id<GroupId>()) {
 	case GroupId::step:
 		debugger->step(out.positional(0).value().unum());
 		return;
@@ -201,10 +201,10 @@ static void HandleDebug(const arger::Parsed& out) {
 		debugger->run();
 		return;
 	case GroupId::until:
-		debugger->until(str::u8::To(out.positional(0).value().str()));
+		debugger->until(out.positional(0).value().str<char8_t>());
 		return;
 	case GroupId::addBreak:
-		debugger->addBreak(str::u8::To(out.positional(0).value().str()));
+		debugger->addBreak(out.positional(0).value().str<char8_t>());
 		return;
 	case GroupId::delBreak:
 		debugger->dropBreak(out.positional(0).value().unum());
@@ -216,7 +216,7 @@ static void HandleDebug(const arger::Parsed& out) {
 		if (out.positionals() == 0)
 			debugger->setupCommon(std::nullopt);
 		else
-			debugger->setupCommon(str::u8::To(out.positional(0).value().str()));
+			debugger->setupCommon(out.positional(0).value().str<char8_t>());
 		return;
 	case GroupId::inBreak:
 		debugger->printBreaks();
@@ -229,25 +229,24 @@ static void HandleDebug(const arger::Parsed& out) {
 		return;
 	case GroupId::inInst:
 		if (out.positionals() == 2)
-			debugger->printInstructions(str::u8::To(out.positional(1).value().str()), out.positional(0).value().unum(), bind);
+			debugger->printInstructions(out.positional(1).value().str<char8_t>(), out.positional(0).value().unum(), bind);
 		else
 			debugger->printInstructions(std::nullopt, out.positional(0).value().unum(), bind);
 		return;
 	case GroupId::inMem8:
-		debugger->printData8(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 1, bind);
+		debugger->printData8(out.positional(0).value().str<char8_t>(), out.positional(1).value().unum() * 1, bind);
 		return;
 	case GroupId::inMem16:
-		debugger->printData16(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 2, bind);
+		debugger->printData16(out.positional(0).value().str<char8_t>(), out.positional(1).value().unum() * 2, bind);
 		return;
 	case GroupId::inMem32:
-		debugger->printData32(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 4, bind);
+		debugger->printData32(out.positional(0).value().str<char8_t>(), out.positional(1).value().unum() * 4, bind);
 		return;
 	case GroupId::inMem64:
-		debugger->printData64(str::u8::To(out.positional(0).value().str()), out.positional(1).value().unum() * 8, bind);
+		debugger->printData64(out.positional(0).value().str<char8_t>(), out.positional(1).value().unum() * 8, bind);
 		return;
 	case GroupId::inEval: {
-		auto msg = out.option(OptionId::description);
-		debugger->printEval((msg.has_value() ? str::u8::To(msg.value().str()) : u8""), str::u8::To(out.positional(0).value().str()), out.positional(1).value().boolean(), bind);
+		debugger->printEval(out.option(OptionId::description).value_or(u8"").str<char8_t>(), out.positional(0).value().str<char8_t>(), out.positional(1).value().boolean(), bind);
 		return;
 	}
 	default:
@@ -277,7 +276,7 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 
 	/* handle the create command */
-	if (out.idAsEnum<GroupId>() == GroupId::start) {
+	if (out.id<GroupId>() == GroupId::start) {
 		if (env::Instance() != 0) {
 			util::nullLogger.error(u8"Process is already loaded.");
 			return;
@@ -286,20 +285,20 @@ void HandleCommand(std::u8string_view cmd) {
 		/* fetch the initial configuration */
 		bool debug = out.flag(OptionId::debug);
 		sys::RunConfig config{
-			.binary = str::u8::To(out.positional(0).value().str()),
+			.binary = out.positional(0).value().str<char8_t>(),
 			.translationDepth = uint32_t(out.option(OptionId::depth).value().unum()),
-			.trace = out.option(OptionId::trace).value().asEnum<gen::TraceType>(),
+			.trace = out.option(OptionId::trace).value().id<gen::TraceType>(),
 			.logBlocks = out.flag(OptionId::log)
 		};
 
 		/* collect the argument vector */
 		for (size_t i = 1; i < out.positionals(); ++i)
-			config.args.push_back(str::u8::To(out.positional(i).value().str()));
+			config.args.push_back(out.positional(i).value().str<char8_t>());
 
 		/* collect the environment vector */
 		size_t envCount = out.options(OptionId::environment);
 		for (size_t i = 0; i < envCount; ++i)
-			config.envs.push_back(str::u8::To(out.option(OptionId::environment, i).value().str()));
+			config.envs.push_back(out.option(OptionId::environment, i).value().str<char8_t>());
 
 		/* try to setup the userspace system */
 		std::unique_ptr<sys::Cpu> cpu = rv64::Cpu::New();
@@ -311,7 +310,7 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 
 	/* handle the destroy command */
-	if (out.idAsEnum<GroupId>() == GroupId::destroy) {
+	if (out.id<GroupId>() == GroupId::destroy) {
 		debugger = 0;
 		if (env::Instance() == 0)
 			util::nullLogger.error(u8"No process is currently running.");
