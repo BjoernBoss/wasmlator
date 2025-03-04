@@ -82,3 +82,9 @@ Due to the vast amount of logging, the page also includes toggle buttons at the 
 - Clear Button: Delete all logged information - hidden or not.
 
 Use `help` to view all of the supported commands.
+
+## Important Notes
+
+As of now, WebAssembly modules cannot be unloaded. Hence, binaries with very large code sections, or self modifying code, can result in the entire memory being consumed by loaded WebAssembly modules.
+
+Should errors occur, please create an issue for the github repository at [`https://github.com/BjoernBoss/wasmlator`](https://github.com/BjoernBoss/wasmlator).
