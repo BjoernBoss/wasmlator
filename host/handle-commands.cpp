@@ -16,7 +16,7 @@ static arger::Config Commands{
 	arger::GroupName{ L"command" },
 	arger::Help{
 		L"Expression",
-		L"Addresses can be given as expressions of subtraction / addition of constants or registers.",
+		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used.",
 	},
 	arger::HelpEntry{ L"help",
 		arger::Description{ L"Print this help menu." },
@@ -68,10 +68,10 @@ static arger::Config Commands{
 			arger::Abbreviation{ L't' },
 			arger::Require{},
 			arger::Payload{L"mode", arger::Enum{
-				{ L"inst", arger::EnumValue{ L"Trace each executed instruction.", gen::TraceType::instruction } },
-				{ L"chunk", arger::EnumValue{ L"Trace each entered instruction chunk.", gen::TraceType::chunk } },
-				{ L"block", arger::EnumValue{ L"Trace each entered super-block.", gen::TraceType::block } },
-				{ L"none", arger::EnumValue{ L"Do not perform any tracing.", gen::TraceType::none } },
+				arger::EnumEntry{ L"inst", L"Trace each executed instruction.", gen::TraceType::instruction },
+				arger::EnumEntry{ L"chunk", L"Trace each entered instruction chunk.", gen::TraceType::chunk },
+				arger::EnumEntry{ L"block", L"Trace each entered super-block.", gen::TraceType::block },
+				arger::EnumEntry{ L"none", L"Do not perform any tracing.", gen::TraceType::none },
 			},
 			arger::Value{ L"none" } },
 			arger::Description{ L"Log the address of all blocks being entered." },
@@ -117,8 +117,8 @@ static arger::Config Commands{
 		},
 		arger::Group{ L"insts", GroupId::inInst,
 			arger::Abbreviation{ L'i' },
-			arger::Description{ L"Print instructions ad the address." },
-			arger::Require::AtLeast(1),
+			arger::Description{ L"Print instructions at the address." },
+			arger::Require{ 1, 2 },
 			arger::Positional{ L"count", arger::Primitive::unum, L"Number of instructions to print.", arger::Value{ 1 } },
 			arger::Positional{ L"address", arger::Primitive::any, L"Instruction to start printing from (defaults to pc)." },
 		},
@@ -264,7 +264,7 @@ void HandleCommand(std::u8string_view cmd) {
 	/* parse the next command */
 	arger::Parsed out;
 	try {
-		out = arger::Menu(cmd, Commands, 160);
+		out = arger::Menu(cmd, Commands, 100);
 	}
 	catch (const arger::PrintMessage& e) {
 		util::nullLogger.info(e.what());

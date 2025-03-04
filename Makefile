@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Bjoern Boss Henrichsen
+
 # python script, which reads all of the cpp-files, recursively processes the
 # includes, and generates a make-file to create all of the corresponding object-files
 py_gen_make_file := "import os; import re; import sys\nv = {}\ndef c(p):\n if p in v: return\
@@ -55,7 +56,7 @@ generated_path := $(make_path)/generated.make
 $(generated_path):
 	@ echo Generating... $@
 	@ mkdir -p $(make_path)
-	@ py -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $@
+	@ python -c "$$(echo $(py_gen_make_file) | sed 's/\\\\n/\\n/g')" $@
 
 # paths used for the output of the generated make file builds
 cc_path := $(make_path)/cc
@@ -77,6 +78,7 @@ $(glue_gen_path): $(make_glue_prerequisites) $(null_interface_prerequisites) $(o
 	@ echo Compiling... $@
 	@ mkdir -p $(make_path)
 	@ $(cc) entry/make-glue.cpp entry/null-interface.cpp $(obj_list_cc) -o $@
+	@ chmod +x $@
 
 # main wasm compilation
 wasm_path := $(out_path)/wasm
