@@ -193,7 +193,7 @@ static void HandleDebug(const arger::Parsed& out) {
 	bool bind = out.flag(OptionId::bind);
 
 	/* handle all of the debug-related arguments */
-	switch (out.id<GroupId>()) {
+	switch (out.group<GroupId>()) {
 	case GroupId::step:
 		debugger->step(out.positional(0).value().unum());
 		return;
@@ -276,7 +276,7 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 
 	/* handle the create command */
-	if (out.id<GroupId>() == GroupId::start) {
+	if (out.group<GroupId>() == GroupId::start) {
 		if (env::Instance() != 0) {
 			util::nullLogger.error(u8"Process is already loaded.");
 			return;
@@ -310,7 +310,7 @@ void HandleCommand(std::u8string_view cmd) {
 	}
 
 	/* handle the destroy command */
-	if (out.id<GroupId>() == GroupId::destroy) {
+	if (out.group<GroupId>() == GroupId::destroy) {
 		debugger = 0;
 		if (env::Instance() == 0)
 			util::nullLogger.error(u8"No process is currently running.");
