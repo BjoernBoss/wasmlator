@@ -9,7 +9,7 @@ int main() {
 	while (true) {
 		std::string cmd;
 		std::getline(std::cin, cmd);
-		HandleCommand(str::u8::To(cmd));
+		HandleCommand(str::u8::Safe(cmd));
 	}
 	return 0;
 }

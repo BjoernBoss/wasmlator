@@ -48,7 +48,7 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 			required &= ~0b0000'0010'0000;
 		}
 		else if (key == L"link") {
-			out.link = str::u8::To(value.str());
+			out.link = str::u8::Safe(value.str());
 			required &= ~0b0000'0001'0000;
 		}
 		else if (key == L"owner") {
@@ -117,7 +117,7 @@ void env::FileSystem::readPath(uint64_t id, std::function<void(std::u8string_vie
 		if (resp.isNull())
 			callback(u8"");
 		else
-			callback(str::u8::To(resp.str()));
+			callback(str::u8::Safe(resp.str()));
 		});
 }
 void env::FileSystem::readDirectory(uint64_t id, std::function<void(const std::map<std::u8string, env::FileStats>*)> callback) {
@@ -132,7 +132,7 @@ void env::FileSystem::readDirectory(uint64_t id, std::function<void(const std::m
 		std::map<std::u8string, env::FileStats> out;
 		for (const auto& [key, value] : resp.obj()) {
 			/* skip duplicate keys */
-			std::u8string _key = str::u8::To(key);
+			std::u8string _key = str::u8::Safe(key);
 			if (out.contains(_key))
 				continue;
 

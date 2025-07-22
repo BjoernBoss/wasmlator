@@ -60,19 +60,19 @@ template <> struct str::Formatter<gen::TraceType> {
 			return false;
 		switch (val) {
 		case gen::TraceType::none:
-			str::TranscodeAllTo(sink, U"None");
+			str::FastcodeAllTo(sink, U"None");
 			break;
 		case gen::TraceType::block:
-			str::TranscodeAllTo(sink, U"Block");
+			str::FastcodeAllTo(sink, U"Block");
 			break;
 		case gen::TraceType::chunk:
-			str::TranscodeAllTo(sink, U"Chunk");
+			str::FastcodeAllTo(sink, U"Chunk");
 			break;
 		case gen::TraceType::instruction:
-			str::TranscodeAllTo(sink, U"Instruction");
+			str::FastcodeAllTo(sink, U"Instruction");
 			break;
 		default:
-			str::TranscodeAllTo(sink, U"%Unknown%");
+			str::FastcodeAllTo(sink, U"%Unknown%");
 			break;
 		}
 		return true;
