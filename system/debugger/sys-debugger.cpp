@@ -146,7 +146,7 @@ bool sys::Debugger::fParseExpression(std::u8string_view exp, Expression& out) co
 
 		/* check if its a number (if token starts either as decimal or with a leading 0 for the prefix) */
 		if (cp::ascii::GetRadix(exp[i]) < 10) {
-			auto [value, consumed, result] = str::ParseNum<uint64_t>(exp.substr(i), 10, str::PrefixMode::overwrite);
+			auto [value, consumed, result] = str::ParseNum<uint64_t>(exp.substr(i), { .radix = 10, .prefix = str::PrefixMode::overwrite });
 			if (result != str::NumResult::valid) {
 				logger.error(u8"Malformed number encountered");
 				return false;
@@ -417,7 +417,7 @@ void sys::Debugger::printBindings() const {
 			else if (exp[i].useRegister)
 				_exp.append(pRegisters[exp[i].regIndex]);
 			else
-				str::IntTo(_exp, exp[i].immediate, 16, str::NumStyle::lowerWithPrefix);
+				str::IntTo(_exp, exp[i].immediate, { .radix = 16, .style = str::NumStyle::lowerWithPrefix });
 		}
 
 		/* print the description */
