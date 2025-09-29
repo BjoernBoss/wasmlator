@@ -14,7 +14,7 @@ enum class OptionId : uint8_t {
 };
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
-	arger::Help{
+	arger::Information{
 		L"Expression",
 		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used.",
 	},
@@ -264,14 +264,14 @@ void HandleCommand(std::u8string_view cmd) {
 	/* parse the next command */
 	arger::Parsed out;
 	try {
-		out = arger::Menu(cmd, Commands, 100);
+		out = arger::Parse(cmd, Commands, 100);
 	}
 	catch (const arger::PrintMessage& e) {
 		util::nullLogger.info(e.what());
 		return;
 	}
 	catch (const arger::ParsingException& e) {
-		util::nullLogger.error(e.what(), u8" Use 'help' for more information.");
+		util::nullLogger.error(e.what(), L' ', arger::HelpHint(L"", Commands));
 		return;
 	}
 
