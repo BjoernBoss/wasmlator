@@ -116,12 +116,13 @@ bool sys::Debugger::fParseExpression(std::u8string_view exp, Expression& out) co
 	/* parse all values of the form [+-]? (num | reg) ([+-] (num | reg))* */
 	bool lastWasSign = false, subtract = false;
 	for (size_t i = 0; i < exp.size(); ++i) {
-		/* skip any whitespace */
-		if (!cp::prop::IsAscii(exp[i])) {
+		/* skip any whitespace (ascii maps 1-1 between utf8/utf32) */
+		char32_t c = char32_t(exp[i]);
+		if (!cp::prop::IsAscii(c)) {
 			logger.error(u8"Invalid token encountered in expression");
 			return false;
 		}
-		if (cp::prop::IsControl(exp[i]) || exp[i] == u8' ')
+		if (cp::prop::IsControl(c) || exp[i] == u8' ')
 			continue;
 
 		/* check if a subtraction or addition is to be performed */
@@ -145,7 +146,7 @@ bool sys::Debugger::fParseExpression(std::u8string_view exp, Expression& out) co
 		lastWasSign = false;
 
 		/* check if its a number (if token starts either as decimal or with a leading 0 for the prefix) */
-		if (cp::ascii::GetRadix(exp[i]) < 10) {
+		if (cp::ascii::GetRadix(c) < 10) {
 			auto [value, consumed, result] = str::ParseNum<uint64_t>(exp.substr(i), { .radix = 10, .prefix = str::PrefixMode::overwrite });
 			if (result != str::NumResult::valid) {
 				logger.error(u8"Malformed number encountered");
