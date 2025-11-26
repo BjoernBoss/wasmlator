@@ -15,10 +15,10 @@ enum class OptionId : uint8_t {
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
 	arger::Information{
-		L"Expression",
-		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used.",
+		L"Expression", true,
+		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used."
 	},
-	arger::HelpEntry{ L"help",
+	arger::HelpEntry{ L"help", false,
 		arger::Description{ L"Print this help menu." },
 	},
 	arger::Group{ L"start", GroupId::start,
