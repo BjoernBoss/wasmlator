@@ -15,11 +15,13 @@ enum class OptionId : uint8_t {
 static arger::Config Commands{
 	arger::GroupName{ L"command" },
 	arger::Information{
-		L"Expression", true, false, false,
-		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used."
+		L"Expression",
+		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used.",
+		arger::Reach{ true }
 	},
-	arger::HelpEntry{ L"help", false, false,
+	arger::HelpEntry{ L"help", false,
 		arger::Description{ L"Print this help menu." },
+		arger::Reach{ true },
 	},
 	arger::Group{ L"start", GroupId::start,
 		arger::Description{ L"Start a translation process." },
@@ -62,10 +64,10 @@ static arger::Config Commands{
 			arger::Abbreviation{ L't' },
 			arger::Require{},
 			arger::Payload{L"mode", arger::Enum{
-				arger::EnumEntry{ L"inst", L"Trace each executed instruction.", gen::TraceType::instruction },
-				arger::EnumEntry{ L"chunk", L"Trace each entered instruction chunk.", gen::TraceType::chunk },
-				arger::EnumEntry{ L"block", L"Trace each entered super-block.", gen::TraceType::block },
-				arger::EnumEntry{ L"none", L"Do not perform any tracing.", gen::TraceType::none },
+				arger::EnumEntry{ L"inst", gen::TraceType::instruction, L"Trace each executed instruction." },
+				arger::EnumEntry{ L"chunk", gen::TraceType::chunk, L"Trace each entered instruction chunk." },
+				arger::EnumEntry{ L"block", gen::TraceType::block, L"Trace each entered super-block." },
+				arger::EnumEntry{ L"none", gen::TraceType::none, L"Do not perform any tracing." },
 			}},
 			arger::Default{ L"none" },
 			arger::Description{ L"Log the address of all blocks being entered." },
