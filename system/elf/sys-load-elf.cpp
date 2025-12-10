@@ -9,15 +9,15 @@ sys::detail::ElfConfig sys::detail::ValidateElfHeader(const detail::Reader& read
 	/* validate the type of this binary */
 	const detail::ElfHeader<Base>* header = reader.get<detail::ElfHeader<Base>>(0);
 	if (header->type != elf::ElfType::executable && header->type != elf::ElfType::dynamic)
-		throw elf::Exception{ L"Elf is not executable" };
+		throw elf::Exception{ u8"Elf is not executable" };
 
 	/* validate the remaining parameter of the header */
 	if (header->version != detail::VersionType::current)
-		throw elf::Exception{ L"Invalid version" };
+		throw elf::Exception{ u8"Invalid version" };
 	if (header->entry == 0)
-		throw elf::Exception{ L"No valid entry-point found" };
+		throw elf::Exception{ u8"No valid entry-point found" };
 	if (header->phOffset == 0 || header->phCount == 0 || header->phEntrySize != sizeof(detail::ProgramHeader<Base>))
-		throw elf::Exception{ L"Issue with program-headers detected" };
+		throw elf::Exception{ u8"Issue with program-headers detected" };
 	if (header->ehsize != sizeof(detail::ElfHeader<Base>))
 		throw elf::Exception{ "Issue with executable-header detected" };
 
@@ -54,24 +54,24 @@ sys::detail::ElfConfig sys::detail::ValidateElfLoadTyped(const detail::Reader& r
 		/* check if the interpreter has been found */
 		else if (phList[i].type == detail::ProgramType::interpreter) {
 			if (loadFound)
-				throw elf::Exception{ L"Malformed program-headers with load entries before the interpreter entry" };
+				throw elf::Exception{ u8"Malformed program-headers with load entries before the interpreter entry" };
 			if (intFound)
-				throw elf::Exception{ L"Malformed program-headers with multiple interpreter entries" };
+				throw elf::Exception{ u8"Malformed program-headers with multiple interpreter entries" };
 			intFound = true;
 
 			/* validate the interpreter path (must be a null-terminated absolute path) */
 			std::u8string_view path = { reader.base<char8_t>(phList[i].offset, phList[i].fileSize), size_t(phList[i].fileSize) };
 			if (path.find(u8'\0') != path.size() - 1 || util::TestPath(path) != util::PathState::absolute)
-				throw elf::Exception{ L"Invalid interpreter path encountered" };
+				throw elf::Exception{ u8"Invalid interpreter path encountered" };
 			config.interpreter = path.substr(0, path.size() - 1);
 		}
 
 		/* check if the headers themselves have been found */
 		else if (phList[i].type == detail::ProgramType::programHeader) {
 			if (loadFound)
-				throw elf::Exception{ L"Malformed program-headers with load entries before the program-header entry" };
+				throw elf::Exception{ u8"Malformed program-headers with load entries before the program-header entry" };
 			if (phFound)
-				throw elf::Exception{ L"Malformed program-headers with multiple program-header entries" };
+				throw elf::Exception{ u8"Malformed program-headers with multiple program-header entries" };
 			phFound = true;
 			config.phAddress = phList[i].vAddress;
 		}
@@ -95,7 +95,7 @@ env::guest_t sys::detail::LoadElfSingleProgHeader(env::guest_t baseAddress, size
 
 	/* validate the alignment */
 	if (header.align > 1 && (pageSize % header.align) != 0)
-		throw elf::Exception{ L"Program-header alignment is not aligned with page alignment" };
+		throw elf::Exception{ u8"Program-header alignment is not aligned with page alignment" };
 
 	/* construct the page-usage to be used */
 	uint32_t usage = 0;
@@ -113,7 +113,7 @@ env::guest_t sys::detail::LoadElfSingleProgHeader(env::guest_t baseAddress, size
 	env::guest_t address = (virtAddress & ~(pageSize - 1));
 	uint64_t size = (((virtAddress + header.memSize + pageSize - 1) & ~(pageSize - 1)) - address);
 	if (header.fileSize > header.memSize)
-		throw elf::Exception{ L"Program-header contains larger file-size than memory-size" };
+		throw elf::Exception{ u8"Program-header contains larger file-size than memory-size" };
 
 	/* allocate the memory (start it out as writable) */
 	logger.fmtDebug(u8"Mapping program-header [{}] to [{:#018x}] with size [{:#018x}] (actual: [{:#018x}] with size [{:#018x}]) with usage [{}{}{}]",
@@ -122,7 +122,7 @@ env::guest_t sys::detail::LoadElfSingleProgHeader(env::guest_t baseAddress, size
 		(usage & env::Usage::Write ? u8'w' : u8'-'),
 		(usage & env::Usage::Execute ? u8'x' : u8'-'));
 	if (!env::Instance()->memory().mmap(address, size, usage))
-		throw elf::Exception{ L"Failed to allocate memory for program-header [", index, L']' };
+		throw elf::Exception{ u8"Failed to allocate memory for program-header [", index, u8']' };
 
 	/* write the actual data to the section (no usage to ensure it cannot fail - as the flags have already been applied) */
 	const uint8_t* data = reader.base<uint8_t>(header.offset, header.fileSize);

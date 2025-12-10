@@ -10,7 +10,7 @@ sys::elf::LoadState sys::LoadElf(const uint8_t* data, size_t size) {
 	/* validate the fundamental elf-signature */
 	uint8_t bitWidth = detail::CheckElfSignature(reader);
 	if (bitWidth == 0)
-		throw elf::Exception{ L"Data do not have a valid elf-signature" };
+		throw elf::Exception{ u8"Data do not have a valid elf-signature" };
 	logger.debug(u8"Loading ", bitWidth, u8" bit elf binary");
 
 	/* validate the initial elf header and all of the program headers */
@@ -47,11 +47,11 @@ void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t 
 	/* validate the fundamental elf-signature */
 	uint8_t bitWidth = detail::CheckElfSignature(reader);
 	if (bitWidth == 0)
-		throw elf::Exception{ L"Data do not have a valid elf-signature" };
+		throw elf::Exception{ u8"Data do not have a valid elf-signature" };
 
 	/* check if the bit-width matches */
 	if (bitWidth != state.bitWidth)
-		throw elf::Exception{ L"Interpreter does not match the word-width of the application" };
+		throw elf::Exception{ u8"Interpreter does not match the word-width of the application" };
 	logger.debug(u8"Loading ", bitWidth, u8" bit elf interpreter");
 
 	/* validate the initial elf header and all of the program headers */
@@ -59,11 +59,11 @@ void sys::LoadElfInterpreter(elf::LoadState& state, const uint8_t* data, size_t 
 
 	/* check if the machine type matches */
 	if (config.machine != state.machine)
-		throw elf::Exception{ L"Interpreter does not match the machine of the application" };
+		throw elf::Exception{ u8"Interpreter does not match the machine of the application" };
 
 	/* validate the initial configuration */
 	if (!config.interpreter.empty())
-		throw elf::Exception{ L"Interpreter expects recursive interpreter" };
+		throw elf::Exception{ u8"Interpreter expects recursive interpreter" };
 
 	/* check if a base-address needs to be picked (move it far behind the main application) */
 	env::guest_t baseAddress = 0, pageSize = env::Instance()->pageSize();

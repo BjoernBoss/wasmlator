@@ -38,9 +38,9 @@ namespace sys {
 		};
 
 		/* exception thrown for any issues regarding elf-file parsing/loading */
-		struct Exception : public str::BuildException {
+		struct Exception : public str::u8::BuildException {
 			template <class... Args>
-			constexpr Exception(const Args&... args) : str::BuildException{ args... } {}
+			constexpr Exception(const Args&... args) : str::u8::BuildException{ args... } {}
 		};
 	}
 
@@ -177,7 +177,7 @@ namespace sys {
 		private:
 			void fCheck(size_t count) const {
 				if (count > pSize)
-					throw elf::Exception{ L"Cannot read [", count, L"] bytes from elf of size [", pSize, L']' };
+					throw elf::Exception{ u8"Cannot read [", count, u8"] bytes from elf of size [", pSize, u8']' };
 			}
 
 		public:
