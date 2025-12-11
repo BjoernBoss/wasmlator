@@ -10,7 +10,8 @@ bool env::FileSystem::fHandleTask(const std::u8string& task, std::function<void(
 		if (response.empty())
 			response = u8"null";
 		try {
-			callback(json::Read(response));
+			/* move, which has no effect on the actual data, but ensures the type reads as 'Reader<std::u8string_view>' */
+			callback(json::Read(std::move(response)));
 		}
 		catch (const json::Exception& e) {
 			logger.fatal(u8"Malformed json-response encountered: ", e.what());
