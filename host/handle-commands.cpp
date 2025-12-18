@@ -12,14 +12,14 @@ enum class GroupId : uint8_t {
 enum class OptionId : uint8_t {
 	debug, environment, depth, trace, log, bind, description
 };
-static arger::Config Commands{
+static arger::Config Commands{ false,
 	arger::GroupName{ L"command" },
 	arger::Information{
 		L"Expression",
 		L"Addresses can be given as expressions of subtraction / addition of constants or registers. An example for such an expression could be \"sp - 0x40 + eax\". All commonly known register names will then be replaced with their corresponding value at evaluation time. Expressions bound to the debugger will be re-evaluated per usage, i.e. always the current register values are used.",
 		arger::Reach{ true }
 	},
-	arger::HelpEntry{ L"help", false,
+	arger::HelpEntry{ L"help",
 		arger::Description{ L"Print this help menu." },
 		arger::Reach{ true },
 	},
