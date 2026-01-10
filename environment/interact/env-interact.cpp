@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2025-2026 Bjoern Boss Henrichsen */
 #include "env-interact.h"
 
 static util::Logger logger{ u8"env::interact" };

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2025 Bjoern Boss Henrichsen
+# Copyright (c) 2025-2026 Bjoern Boss Henrichsen
 
 # python script, which reads all of the cpp-files, recursively processes the
 # includes, and generates a make-file to create all of the corresponding object-files

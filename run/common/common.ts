@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2025-2026 Bjoern Boss Henrichsen */
 export enum LogType {
 	errInternal, logInternal, trace, debug, log, info, warn, error, fatal, output
 };

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2025-2026 Bjoern Boss Henrichsen */
 #include "../environment.h"
 
 bool env::detail::ProcessAccess::Setup(env::Process& process, std::unique_ptr<env::System>&& system, uint32_t pageSize, uint32_t memoryCaches, uint32_t contextSize, bool detectWriteExecute, bool logBlocks) {

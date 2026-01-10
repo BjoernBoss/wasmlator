@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2025-2026 Bjoern Boss Henrichsen */
 #include "rv64-decoder.h"
 
 rv64::Instruction rv64::detail::Opcode03(uint32_t data) {
