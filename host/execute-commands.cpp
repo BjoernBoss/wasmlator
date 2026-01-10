@@ -15,7 +15,7 @@ void ExecuteCommand(std::u8string_view cmd) {
 	}
 
 	/* parse the command-line arguments (ensure that they are not empty) */
-	std::vector<std::wstring> split = arger::Prepare(cmd);
+	std::vector<std::string> split = arger::Prepare(cmd);
 
 	/* extract the binary and the arguments to setup the new userspace configuration */
 	sys::RunConfig config;

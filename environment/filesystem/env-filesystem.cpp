@@ -23,47 +23,47 @@ env::FileStats env::FileSystem::fParseStats(json::ObjReader<std::u8string_view> 
 
 	/* iterate over the attributes and apply them */
 	for (const auto& [key, value] : obj) {
-		if (key == L"mtime_us") {
+		if (key == "mtime_us") {
 			out.timeModifiedUS = value.unum();
 			required &= ~0b0001'0000'0000;
 		}
-		else if (key == L"atime_us") {
+		else if (key == "atime_us") {
 			out.timeAccessedUS = value.unum();
 			required &= ~0b0000'1000'0000;
 		}
-		else if (key == L"size") {
+		else if (key == "size") {
 			out.size = value.unum();
 			required &= ~0b0000'0100'0000;
 		}
-		else if (key == L"type") {
-			const std::wstring& _type = value.str();
-			if (_type == L"file")
+		else if (key == "type") {
+			const std::string& _type = value.str();
+			if (_type == "file")
 				out.type = env::FileType::file;
-			else if (_type == L"dir")
+			else if (_type == "dir")
 				out.type = env::FileType::directory;
-			else if (_type == L"link")
+			else if (_type == "link")
 				out.type = env::FileType::link;
 			else
 				logger.fatal(u8"Received invalid file-type [", _type, u8']');
 			required &= ~0b0000'0010'0000;
 		}
-		else if (key == L"link") {
+		else if (key == "link") {
 			out.link = str::u8::Safe(value.str());
 			required &= ~0b0000'0001'0000;
 		}
-		else if (key == L"owner") {
+		else if (key == "owner") {
 			out.access.owner = uint32_t(value.unum());
 			required &= ~0b0000'0000'1000;
 		}
-		else if (key == L"group") {
+		else if (key == "group") {
 			out.access.group = uint32_t(value.unum());
 			required &= ~0b0000'0000'0100;
 		}
-		else if (key == L"permissions") {
+		else if (key == "permissions") {
 			out.access.permissions.all = uint16_t(value.unum() & env::fileModeMask);
 			required &= ~0b0000'0000'0010;
 		}
-		else if (key == L"id") {
+		else if (key == "id") {
 			out.id = value.unum();
 			required &= ~0b0000'0000'0001;
 		}
