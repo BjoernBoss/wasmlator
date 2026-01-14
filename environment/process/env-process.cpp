@@ -204,7 +204,7 @@ void env::Process::fLoadBlock() {
 
 		/* check if the text-output should be logged */
 		if (pLogBlocks)
-			logger.trace(L'\n', tWriter->output());
+			logger.trace('\n', tWriter->output());
 	}
 	catch (const wasm::Exception& e) {
 		logger.fatal(u8"WASM exception occurred while creating the block module: ", e.what());

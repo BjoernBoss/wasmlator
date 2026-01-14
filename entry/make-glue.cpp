@@ -11,7 +11,7 @@ static bool SetupModule(wasm::ModuleInterface* writer) {
 		mod.close();
 	}
 	catch (const wasm::Exception& e) {
-		str::PrintWLn(L"Exception: ", e.what());
+		str::PrintLn("Exception: ", e.what());
 		return false;
 	}
 	return true;
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 			str::PrintLn(u8"Invalid usage. Expected wasm or wat file paths.");
 			return 1;
 		}
-		str::PrintLn(L"Created [", path, L']');
+		str::PrintLn("Created [", path, ']');
 	}
 	return 0;
 }

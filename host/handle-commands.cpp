@@ -40,7 +40,7 @@ static arger::Config Commands{ false,
 					std::string value = o.option(OptionId::environment, i).value().str();
 					size_t index = value.size();
 					for (size_t i = 0; i < value.size(); ++i) {
-						if (value[i] != L'=')
+						if (value[i] != '=')
 							continue;
 						if (i == 0 || i + 1 == value.size() || index != value.length()) {
 							index = value.size();
@@ -276,7 +276,7 @@ void HandleCommand(std::u8string_view cmd) {
 		return;
 	}
 	catch (const arger::ParsingException& e) {
-		util::nullLogger.error(e.what(), L' ', arger::HelpHint(L"", Commands));
+		util::nullLogger.error(e.what(), ' ', arger::HelpHint("", Commands));
 		return;
 	}
 
